@@ -1,0 +1,722 @@
+// Skema data AyoTKA — mengikuti Brief Produk v1.9 Bagian 6 "Model Data" dan
+// Bagian 6.1 (mesin skoring) & 7.1 (subscriptions/usage_counters).
+//
+// Konvensi: nama field di sini camelCase (idiomatik Prisma/TypeScript), tapi
+// setiap field & tabel di-@map/@@map ke nama snake_case PERSIS seperti di
+// brief, supaya kolom & tabel sungguhan di database tetap identik dengan
+// Bagian 6 — bisa dibandingkan baris per baris di level SQL/migration.
+//
+// Semua id pakai uuid (cocok dengan auth.users.id milik Supabase Auth, yang
+// dipakai langsung sebagai users.id — lihat Tiket 1.2).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Grup 1-4: users, schools, subjects, school_users, academic_years, classes
+// ---------------------------------------------------------------------------
+
+enum Role {
+  siswa
+  admin_sekolah
+  admin_pusat
+}
+
+enum UserStatus {
+  aktif
+  nonaktif
+}
+
+/// id = Supabase Auth user id; password & hashing dikelola Supabase Auth,
+/// tidak disimpan di sini. Akun NISN pakai email sintetis
+/// {nisn}@nisn.ayotka.id, tidak pernah ditampilkan ke user (lihat Bagian 3.1).
+model User {
+  id              String     @id @db.Uuid
+  email           String     @unique
+  username        String?    @unique
+  role            Role
+  status          UserStatus @default(aktif)
+  emailVerifiedAt DateTime?  @map("email_verified_at")
+  lastLoginAt     DateTime?  @map("last_login_at")
+
+  schoolUsers           SchoolUser[]
+  studentProfile        Student?
+  waliKelasOf           Class[]        @relation("ClassWaliKelas")
+  createdQuestions      Question[]     @relation("QuestionCreatedBy")
+  orders                Order[]        @relation("OrderCustomer")
+  ordersApproved        Order[]        @relation("OrderApprovedBy")
+  ordersExtended        Order[]        @relation("OrderExtendedBy")
+  subscriptions         Subscription[] @relation("SubscriptionCustomer")
+  subscriptionsExtended Subscription[] @relation("SubscriptionExtendedBy")
+  usageCounters         UsageCounter[]
+  loginLogs             LoginLog[]
+  auditLogs             AuditLog[]
+
+  @@map("users")
+}
+
+enum SchoolStatus {
+  pending_verifikasi
+  aktif
+  suspend
+}
+
+model School {
+  id                String       @id @default(uuid()) @db.Uuid
+  npsn              String?      @unique
+  nama              String
+  jenjang           Jenjang
+  alamat            String?
+  kodeSekolah       String       @unique @map("kode_sekolah")
+  status            SchoolStatus @default(pending_verifikasi)
+  planId            String?      @map("plan_id") @db.Uuid
+  kuotaSiswa        Int          @map("kuota_siswa")
+  langgananMulai    DateTime?    @map("langganan_mulai")
+  langgananBerakhir DateTime?    @map("langganan_berakhir")
+
+  plan              Plan?               @relation(fields: [planId], references: [id], onDelete: SetNull)
+  schoolUsers       SchoolUser[]
+  classes           Class[]
+  students          Student[]
+  packageVisibility PackageVisibility[]
+  assignments       Assignment[]
+
+  @@map("schools")
+}
+
+enum Jenjang {
+  SD
+  SMP
+}
+
+model Subject {
+  id      String  @id @default(uuid()) @db.Uuid
+  kode    String  @unique
+  nama    String
+  jenjang Jenjang
+
+  materi     Materi[]
+  blueprints Blueprint[]
+  packages   Package[]
+
+  @@map("subjects")
+}
+
+/// Admin sekolah (tidak ada sub-peran guru terpisah — lihat keputusan #11 brief).
+model SchoolUser {
+  userId   String  @map("user_id") @db.Uuid
+  schoolId String  @map("school_id") @db.Uuid
+  subRole  String? @map("sub_role")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  school School @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@id([userId, schoolId])
+  @@map("school_users")
+}
+
+model AcademicYear {
+  id       String   @id @default(uuid()) @db.Uuid
+  nama     String
+  mulai    DateTime
+  selesai  DateTime
+  isActive Boolean  @default(false) @map("is_active")
+
+  classes            Class[]
+  studentEnrollments StudentEnrollment[]
+
+  @@map("academic_years")
+}
+
+model Class {
+  id             String  @id @default(uuid()) @db.Uuid
+  schoolId       String  @map("school_id") @db.Uuid
+  academicYearId String  @map("academic_year_id") @db.Uuid
+  tingkat        Int
+  namaRombel     String  @map("nama_rombel")
+  waliKelasId    String? @map("wali_kelas_id") @db.Uuid
+
+  school             School              @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+  waliKelas          User?               @relation("ClassWaliKelas", fields: [waliKelasId], references: [id], onDelete: SetNull)
+  assignments        Assignment[]
+  studentEnrollments StudentEnrollment[]
+
+  @@map("classes")
+}
+
+// ---------------------------------------------------------------------------
+// Grup 5-7: materi -> sub_materi -> kompetensi
+// ---------------------------------------------------------------------------
+
+model Materi {
+  id        String  @id @default(uuid()) @db.Uuid
+  subjectId String  @map("subject_id") @db.Uuid
+  jenjang   Jenjang
+  tingkat   Int
+  nama      String
+  urutan    Int
+
+  subject   Subject     @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  subMateri SubMateri[]
+
+  @@map("materi")
+}
+
+model SubMateri {
+  id       String @id @default(uuid()) @db.Uuid
+  materiId String @map("materi_id") @db.Uuid
+  nama     String
+  urutan   Int
+
+  materi     Materi       @relation(fields: [materiId], references: [id], onDelete: Restrict)
+  kompetensi Kompetensi[]
+
+  @@map("sub_materi")
+}
+
+enum LevelKognitif {
+  C1
+  C2
+  C3
+  C4
+  C5
+  C6
+}
+
+model Kompetensi {
+  id            String        @id @default(uuid()) @db.Uuid
+  subMateriId   String        @map("sub_materi_id") @db.Uuid
+  kode          String
+  deskripsi     String
+  levelKognitif LevelKognitif @map("level_kognitif")
+
+  subMateri        SubMateri         @relation(fields: [subMateriId], references: [id], onDelete: Restrict)
+  blueprintItems   BlueprintItem[]
+  questions        Question[]
+  competencyScores CompetencyScore[]
+
+  @@map("kompetensi")
+}
+
+// ---------------------------------------------------------------------------
+// Grup 8: students, student_enrollments
+// ---------------------------------------------------------------------------
+
+enum Jalur {
+  A
+  B
+}
+
+enum ClaimStatus {
+  belum_klaim
+  sudah_klaim
+}
+
+enum StudentStatus {
+  pending
+  active
+  nonaktif
+}
+
+model Student {
+  id           String        @id @default(uuid()) @db.Uuid
+  userId       String?       @unique @map("user_id") @db.Uuid
+  schoolId     String?       @map("school_id") @db.Uuid
+  nisn         String?       @unique
+  nama         String
+  jenjang      Jenjang
+  tingkat      Int
+  jalur        Jalur
+  claimToken   String?       @unique @map("claim_token")
+  claimStatus  ClaimStatus   @default(belum_klaim) @map("claim_status")
+  tanggalLahir DateTime?     @map("tanggal_lahir") @db.Date
+  status       StudentStatus @default(pending)
+  /// Bagian 7.2: soal & siswa tidak boleh dihapus permanen, hanya soft delete.
+  deletedAt    DateTime?     @map("deleted_at")
+
+  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  school      School?             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  enrollments StudentEnrollment[]
+  attempts    Attempt[]
+
+  @@map("students")
+}
+
+/// Dipakai untuk kenaikan kelas: setiap tahun ajaran baru = 1 enrollment baru,
+/// riwayat enrollment tahun sebelumnya tetap tersimpan (Bagian 4 brief, tombol
+/// "Naik Kelas").
+model StudentEnrollment {
+  studentId      String @map("student_id") @db.Uuid
+  classId        String @map("class_id") @db.Uuid
+  academicYearId String @map("academic_year_id") @db.Uuid
+
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class        Class        @relation(fields: [classId], references: [id], onDelete: Restrict)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
+
+  @@id([studentId, classId, academicYearId])
+  @@unique([studentId, academicYearId])
+  @@map("student_enrollments")
+}
+
+// ---------------------------------------------------------------------------
+// Grup 9-14: blueprints, blueprint_items, packages, package_visibility,
+// questions, question_options/categories/statements
+// ---------------------------------------------------------------------------
+
+model Blueprint {
+  id        String  @id @default(uuid()) @db.Uuid
+  subjectId String  @map("subject_id") @db.Uuid
+  jenjang   Jenjang
+  tingkat   Int
+  nama      String
+  totalSoal Int     @map("total_soal")
+
+  subject  Subject         @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  items    BlueprintItem[]
+  packages Package[]
+
+  @@map("blueprints")
+}
+
+enum TingkatKesulitan {
+  mudah
+  sedang
+  sulit
+}
+
+enum QuestionFormat {
+  pg
+  pg_kompleks
+  pg_kategori
+}
+
+model BlueprintItem {
+  id               String           @id @default(uuid()) @db.Uuid
+  blueprintId      String           @map("blueprint_id") @db.Uuid
+  kompetensiId     String           @map("kompetensi_id") @db.Uuid
+  tingkatKesulitan TingkatKesulitan @map("tingkat_kesulitan")
+  formatSoal       QuestionFormat   @map("format_soal")
+  jumlahSoal       Int              @map("jumlah_soal")
+
+  blueprint  Blueprint  @relation(fields: [blueprintId], references: [id], onDelete: Cascade)
+  kompetensi Kompetensi @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
+
+  @@map("blueprint_items")
+}
+
+enum OwnerType {
+  pusat
+  sekolah
+}
+
+enum TipePaket {
+  paralel
+  bertingkat
+}
+
+enum ModePembahasan {
+  langsung
+  setelah_tutup
+}
+
+enum PackageStatus {
+  draft
+  published
+  archived
+}
+
+model Package {
+  id                String         @id @default(uuid()) @db.Uuid
+  ownerType         OwnerType      @map("owner_type")
+  ownerId           String         @map("owner_id") @db.Uuid
+  subjectId         String         @map("subject_id") @db.Uuid
+  jenjang           Jenjang
+  tingkat           Int
+  nama              String
+  durasiMenit       Int            @map("durasi_menit")
+  jumlahSoal        Int            @map("jumlah_soal")
+  acakSoal          Boolean        @default(true) @map("acak_soal")
+  acakOpsi          Boolean        @default(true) @map("acak_opsi")
+  maxAttempt        Int?           @map("max_attempt")
+  tipePaket         TipePaket      @default(paralel) @map("tipe_paket")
+  grupParalelId     String?        @map("grup_paralel_id") @db.Uuid
+  blueprintId       String?        @map("blueprint_id") @db.Uuid
+  bolehDipilihSiswa Boolean        @default(false) @map("boleh_dipilih_siswa")
+  modePembahasan    ModePembahasan @default(setelah_tutup) @map("mode_pembahasan")
+  status            PackageStatus  @default(draft)
+  publishedAt       DateTime?      @map("published_at")
+
+  subject     Subject             @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  blueprint   Blueprint?          @relation(fields: [blueprintId], references: [id], onDelete: SetNull)
+  questions   Question[]
+  visibility  PackageVisibility[]
+  assignments Assignment[]
+  attempts    Attempt[]
+
+  @@map("packages")
+}
+
+enum VisibilityTarget {
+  semua
+  sekolah
+  publik
+}
+
+/// Tidak pakai id surrogate: school_id nullable (hanya untuk target "sekolah")
+/// sehingga tidak bisa jadi bagian primary key komposit (PK harus NOT NULL).
+model PackageVisibility {
+  id         String           @id @default(uuid()) @db.Uuid
+  packageId  String           @map("package_id") @db.Uuid
+  targetType VisibilityTarget @map("target_type")
+  schoolId   String?          @map("school_id") @db.Uuid
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  school  School? @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, targetType, schoolId])
+  @@map("package_visibility")
+}
+
+model Question {
+  id               String           @id @default(uuid()) @db.Uuid
+  packageId        String           @map("package_id") @db.Uuid
+  format           QuestionFormat
+  teks             String
+  media            String?
+  bobot            Int              @default(1)
+  tingkatKesulitan TingkatKesulitan @map("tingkat_kesulitan")
+  materiId         String?          @map("materi_id") @db.Uuid
+  subMateriId      String?          @map("sub_materi_id") @db.Uuid
+  kompetensiId     String           @map("kompetensi_id") @db.Uuid
+  levelBloom       LevelKognitif    @map("level_bloom")
+  pembahasan       String?
+  createdBy        String           @map("created_by") @db.Uuid
+  /// Bagian 7.2: soal yang sudah dijawab tidak boleh diedit/dihapus permanen,
+  /// hanya diarsipkan (soft delete) — riwayat attempt tetap harus bisa dibuka.
+  deletedAt        DateTime?        @map("deleted_at")
+
+  package    Package    @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  kompetensi Kompetensi @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
+  creator    User       @relation("QuestionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  options        QuestionOption[]
+  categories     QuestionCategory[]
+  statements     QuestionStatement[]
+  attemptAnswers AttemptAnswer[]
+
+  @@map("questions")
+}
+
+/// Untuk format pg & pg_kompleks (media: gambar/rumus juga didukung per opsi).
+model QuestionOption {
+  id         String  @id @default(uuid()) @db.Uuid
+  questionId String  @map("question_id") @db.Uuid
+  label      String
+  teks       String
+  media      String?
+  isCorrect  Boolean @default(false) @map("is_correct")
+  urutan     Int
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@map("question_options")
+}
+
+/// Untuk format pg_kategori: kolom tabel, selalu Benar/Salah (maks 3
+/// baris/soal ditegakkan di lapisan aplikasi — lihat Tiket 2.6).
+model QuestionCategory {
+  id         String @id @default(uuid()) @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  label      String
+  urutan     Int
+
+  question   Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  statements QuestionStatement[]
+
+  @@map("question_categories")
+}
+
+/// Baris tabel pg_kategori.
+model QuestionStatement {
+  id                String  @id @default(uuid()) @db.Uuid
+  questionId        String  @map("question_id") @db.Uuid
+  teks              String
+  media             String?
+  correctCategoryId String  @map("correct_category_id") @db.Uuid
+  urutan            Int
+
+  question        Question                 @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  correctCategory QuestionCategory         @relation(fields: [correctCategoryId], references: [id], onDelete: Restrict)
+  answers         AttemptAnswerStatement[]
+
+  @@map("question_statements")
+}
+
+// ---------------------------------------------------------------------------
+// Grup 15-17: assignments, attempts, attempt_answers, competency_scores,
+// ai_analyses
+// ---------------------------------------------------------------------------
+
+enum MetodeDistribusi {
+  otomatis
+  manual
+}
+
+model Assignment {
+  id               String           @id @default(uuid()) @db.Uuid
+  packageId        String           @map("package_id") @db.Uuid
+  classId          String?          @map("class_id") @db.Uuid
+  schoolId         String?          @map("school_id") @db.Uuid
+  mulai            DateTime
+  selesai          DateTime
+  metodeDistribusi MetodeDistribusi @default(otomatis) @map("metode_distribusi")
+  isActive         Boolean          @default(true) @map("is_active")
+
+  package  Package   @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  class    Class?    @relation(fields: [classId], references: [id], onDelete: Restrict)
+  school   School?   @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  attempts Attempt[]
+
+  @@map("assignments")
+}
+
+enum AttemptStatus {
+  berjalan
+  paused
+  selesai
+  kedaluwarsa
+}
+
+model Attempt {
+  id           String        @id @default(uuid()) @db.Uuid
+  studentId    String        @map("student_id") @db.Uuid
+  packageId    String        @map("package_id") @db.Uuid
+  assignmentId String?       @map("assignment_id") @db.Uuid
+  mulaiAt      DateTime      @map("mulai_at")
+  selesaiAt    DateTime?     @map("selesai_at")
+  status       AttemptStatus @default(berjalan)
+  sisaDetik    Int           @map("sisa_detik")
+  skorMentah   Float?        @map("skor_mentah")
+  skorAkhir    Float?        @map("skor_akhir")
+  ip           String?
+  userAgent    String?       @map("user_agent")
+
+  student    Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  package    Package     @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  assignment Assignment? @relation(fields: [assignmentId], references: [id], onDelete: SetNull)
+
+  answers          AttemptAnswer[]
+  competencyScores CompetencyScore[]
+  aiAnalysis       AiAnalysis?
+
+  @@map("attempts")
+}
+
+model AttemptAnswer {
+  id          String    @id @default(uuid()) @db.Uuid
+  attemptId   String    @map("attempt_id") @db.Uuid
+  questionId  String    @map("question_id") @db.Uuid
+  jawabanJson Json?     @map("jawaban_json")
+  skor        Float?
+  skorMaks    Float     @map("skor_maks")
+  ragu        Boolean   @default(false)
+  answeredAt  DateTime? @map("answered_at")
+
+  attempt          Attempt                  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question         Question                 @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  statementAnswers AttemptAnswerStatement[]
+
+  @@unique([attemptId, questionId])
+  @@map("attempt_answers")
+}
+
+/// Pemetaan jawaban per baris pernyataan pg_kategori — dipisah dari
+/// jawaban_json (yang tetap jadi sumber data utama) supaya correct_category_id
+/// bisa direferensikan relasional untuk keperluan skoring/analitik.
+model AttemptAnswerStatement {
+  id              String @id @default(uuid()) @db.Uuid
+  attemptAnswerId String @map("attempt_answer_id") @db.Uuid
+  statementId     String @map("statement_id") @db.Uuid
+  categoryId      String @map("category_id") @db.Uuid
+
+  attemptAnswer AttemptAnswer     @relation(fields: [attemptAnswerId], references: [id], onDelete: Cascade)
+  statement     QuestionStatement @relation(fields: [statementId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptAnswerId, statementId])
+  @@map("attempt_answer_statements")
+}
+
+model CompetencyScore {
+  id           String @id @default(uuid()) @db.Uuid
+  attemptId    String @map("attempt_id") @db.Uuid
+  kompetensiId String @map("kompetensi_id") @db.Uuid
+  jmlBenar     Int    @map("jml_benar")
+  jmlSoal      Int    @map("jml_soal")
+  persentase   Float
+
+  attempt    Attempt    @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  kompetensi Kompetensi @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
+
+  @@unique([attemptId, kompetensiId])
+  @@map("competency_scores")
+}
+
+model AiAnalysis {
+  id          String   @id @default(uuid()) @db.Uuid
+  attemptId   String   @unique @map("attempt_id") @db.Uuid
+  versiPrompt String   @map("versi_prompt")
+  model       String
+  ringkasan   String
+  detailJson  Json     @map("detail_json")
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@map("ai_analyses")
+}
+
+// ---------------------------------------------------------------------------
+// Grup 18-20: plans, bank_accounts, orders, subscriptions, usage_counters
+// ---------------------------------------------------------------------------
+
+enum PlanTarget {
+  sekolah
+  siswa
+}
+
+model Plan {
+  id         String     @id @default(uuid()) @db.Uuid
+  nama       String
+  target     PlanTarget
+  harga      Int
+  durasiHari Int        @map("durasi_hari")
+  kuota      Int?
+
+  schools       School[]
+  orders        Order[]
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model BankAccount {
+  id            String  @id @default(uuid()) @db.Uuid
+  namaBank      String  @map("nama_bank")
+  nomorRekening String  @map("nomor_rekening")
+  atasNama      String  @map("atas_nama")
+  isActive      Boolean @default(true) @map("is_active")
+
+  @@map("bank_accounts")
+}
+
+enum OrderStatus {
+  menunggu_verifikasi
+  disetujui
+  ditolak
+  kedaluwarsa
+}
+
+/// Pembayaran manual, tanpa payment gateway (keputusan #24 brief).
+model Order {
+  id                      String      @id @default(uuid()) @db.Uuid
+  userId                  String      @map("user_id") @db.Uuid
+  planId                  String      @map("plan_id") @db.Uuid
+  jumlah                  Int
+  status                  OrderStatus @default(menunggu_verifikasi)
+  buktiTransferUrl        String?     @map("bukti_transfer_url")
+  catatanAdmin            String?     @map("catatan_admin")
+  disetujuiOlehAdminId    String?     @map("disetujui_oleh_admin_id") @db.Uuid
+  disetujuiAt             DateTime?   @map("disetujui_at")
+  diperpanjangOlehAdminId String?     @map("diperpanjang_oleh_admin_id") @db.Uuid
+  createdAt               DateTime    @default(now()) @map("created_at")
+
+  user                  User           @relation("OrderCustomer", fields: [userId], references: [id], onDelete: Restrict)
+  plan                  Plan           @relation(fields: [planId], references: [id], onDelete: Restrict)
+  disetujuiOlehAdmin    User?          @relation("OrderApprovedBy", fields: [disetujuiOlehAdminId], references: [id], onDelete: SetNull)
+  diperpanjangOlehAdmin User?          @relation("OrderExtendedBy", fields: [diperpanjangOlehAdminId], references: [id], onDelete: SetNull)
+  subscriptions         Subscription[]
+
+  @@map("orders")
+}
+
+enum SubscriptionStatus {
+  aktif
+  tenggang
+  kedaluwarsa
+  batal
+}
+
+model Subscription {
+  id                      String             @id @default(uuid()) @db.Uuid
+  userId                  String             @map("user_id") @db.Uuid
+  planId                  String             @map("plan_id") @db.Uuid
+  mulaiAt                 DateTime           @map("mulai_at")
+  berakhirAt              DateTime           @map("berakhir_at")
+  status                  SubscriptionStatus @default(aktif)
+  orderId                 String?            @map("order_id") @db.Uuid
+  diperpanjangOlehAdminId String?            @map("diperpanjang_oleh_admin_id") @db.Uuid
+  createdAt               DateTime           @default(now()) @map("created_at")
+
+  user                  User   @relation("SubscriptionCustomer", fields: [userId], references: [id], onDelete: Restrict)
+  plan                  Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  order                 Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  diperpanjangOlehAdmin User?  @relation("SubscriptionExtendedBy", fields: [diperpanjangOlehAdminId], references: [id], onDelete: SetNull)
+
+  @@map("subscriptions")
+}
+
+/// Untuk monitoring pemakaian (bukan pembatas otomatis — batas wajar/fair use
+/// sudah dihapus, lihat keputusan #13 brief).
+model UsageCounter {
+  id            String @id @default(uuid()) @db.Uuid
+  userId        String @map("user_id") @db.Uuid
+  periodeBulan  String @map("periode_bulan")
+  jmlAttempt    Int    @default(0) @map("jml_attempt")
+  jmlAnalisisAi Int    @default(0) @map("jml_analisis_ai")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodeBulan])
+  @@map("usage_counters")
+}
+
+// ---------------------------------------------------------------------------
+// Grup 21: login_logs, audit_logs
+// ---------------------------------------------------------------------------
+
+model LoginLog {
+  id       String    @id @default(uuid()) @db.Uuid
+  userId   String    @map("user_id") @db.Uuid
+  ip       String?
+  device   String?
+  loginAt  DateTime  @default(now()) @map("login_at")
+  logoutAt DateTime? @map("logout_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("login_logs")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  aksi       String
+  entitas    String
+  entitasId  String?  @map("entitas_id")
+  beforeJson Json?    @map("before_json")
+  afterJson  Json?    @map("after_json")
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
