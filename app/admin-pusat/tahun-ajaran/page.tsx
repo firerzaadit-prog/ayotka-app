@@ -15,6 +15,7 @@ export default function TahunAjaranPage() {
   const [selesai, setSelesai] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -54,14 +55,39 @@ export default function TahunAjaranPage() {
     setRefreshKey((k) => k + 1);
   }
 
+  async function handleAktivasi(id: string) {
+    setBusyId(id);
+    const res = await fetch(`/api/admin-pusat/academic-years/${id}/aktivasi`, { method: "POST" });
+    const data = await res.json().catch(() => null);
+    setBusyId(null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      alert(data?.error ?? "Gagal mengaktifkan.");
+    }
+  }
+
+  async function handleDelete(id: string, nama: string) {
+    if (!window.confirm(`Hapus tahun ajaran "${nama}"?`)) return;
+    setBusyId(id);
+    const res = await fetch(`/api/admin-pusat/academic-years/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => null);
+    setBusyId(null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      alert(data?.error ?? "Gagal menghapus tahun ajaran.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Tahun Ajaran</h1>
           <p className="text-sm text-slate-500">
-            Berlaku untuk semua sekolah. Membuat tahun ajaran baru otomatis menjadikannya aktif -
-            dipakai sebagai tujuan tombol &quot;Naik Kelas&quot; di tiap sekolah.
+            Berlaku untuk semua sekolah. Tahun ajaran baru dibuat nonaktif dulu - klik Aktifkan
+            saat siap dipakai sebagai tujuan tombol &quot;Naik Kelas&quot; di tiap sekolah.
           </p>
         </div>
         <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Buat tahun ajaran"}</Button>
@@ -100,7 +126,7 @@ export default function TahunAjaranPage() {
             />
           </div>
           <Button type="submit" disabled={submitting}>
-            {submitting ? "Menyimpan..." : "Simpan & aktifkan"}
+            {submitting ? "Menyimpan..." : "Simpan"}
           </Button>
         </form>
       )}
@@ -123,6 +149,7 @@ export default function TahunAjaranPage() {
                 <th className="px-4 py-2 font-medium">Mulai</th>
                 <th className="px-4 py-2 font-medium">Selesai</th>
                 <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -137,6 +164,26 @@ export default function TahunAjaranPage() {
                         Aktif
                       </span>
                     )}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <div className="flex items-center justify-end gap-3">
+                      {!y.isActive && (
+                        <button
+                          onClick={() => handleAktivasi(y.id)}
+                          disabled={busyId === y.id}
+                          className="text-sm font-medium text-slate-600 hover:underline"
+                        >
+                          Aktifkan
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDelete(y.id, y.nama)}
+                        disabled={busyId === y.id}
+                        className="text-sm font-medium text-red-600 hover:underline"
+                      >
+                        Hapus
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

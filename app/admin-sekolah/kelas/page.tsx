@@ -94,11 +94,11 @@ export default function KelolaKelasPage() {
     setNaikKelasBusy(true);
     setNaikKelasResult(null);
     const res = await fetch("/api/admin-sekolah/kelas/naik-kelas", { method: "POST" });
-    const data = await res.json();
+    const data = await res.json().catch(() => null);
     setNaikKelasBusy(false);
 
-    if (!res.ok) {
-      setNaikKelasResult(data.error ?? "Gagal menaikkan kelas.");
+    if (!res.ok || !data) {
+      setNaikKelasResult(data?.error ?? "Gagal menaikkan kelas. Coba muat ulang halaman lalu ulangi.");
       return;
     }
     setNaikKelasResult(
