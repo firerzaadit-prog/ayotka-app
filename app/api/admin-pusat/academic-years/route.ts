@@ -17,9 +17,10 @@ export async function GET() {
 
 /**
  * Tahun ajaran bersifat global (tidak per sekolah - lihat Bagian 6 brief,
- * academic_years tidak punya school_id). Membuat yang baru otomatis
- * menjadikannya satu-satunya yang aktif, supaya "tombol Naik Kelas" admin
- * sekolah selalu tahu tahun ajaran tujuan tanpa perlu dipilih manual.
+ * academic_years tidak punya school_id). Dibuat sebagai nonaktif dulu -
+ * admin pusat mengaktifkannya secara eksplisit lewat
+ * POST .../[id]/aktivasi setelah siap, supaya tidak ada tahun ajaran baru
+ * yang tiba-tiba "mengambil alih" jadi tujuan Naik Kelas sebelum waktunya.
  */
 export async function POST(request: Request) {
   let user;
@@ -45,9 +46,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const academicYear = await prisma.$transaction(async (tx) => {
-    await tx.academicYear.updateMany({ data: { isActive: false }, where: { isActive: true } });
-    return tx.academicYear.create({ data: { ...parsed.data, isActive: true } });
+  const academicYear = await prisma.academicYear.create({
+    data: { ...parsed.data, isActive: false },
   });
 
   await logAudit({
