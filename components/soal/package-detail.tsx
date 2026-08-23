@@ -70,6 +70,23 @@ export function PackageDetail({
     setRefreshKey((k) => k + 1);
   }
 
+  async function handleDeleteQuestion(questionId: string) {
+    if (
+      !window.confirm(
+        "Hapus soal ini? Soal hilang dari daftar, tapi riwayat jawaban siswa (kalau ada) tetap aman.",
+      )
+    ) {
+      return;
+    }
+    const res = await fetch(`/api/questions/${questionId}`, { method: "DELETE" });
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      alert(data?.error ?? "Gagal menghapus soal.");
+    }
+  }
+
   if (!pkg) return <p className="text-sm text-slate-500">Memuat...</p>;
 
   return (
@@ -139,12 +156,20 @@ export function PackageDetail({
                   <td className="px-4 py-2">{q.tingkatKesulitan}</td>
                   <td className="px-4 py-2 font-mono text-xs">{q.kompetensi.kode}</td>
                   <td className="px-4 py-2 text-right">
-                    <Link
-                      href={`${basePath}/${packageId}/soal/${q.id}`}
-                      className="text-sm font-medium text-slate-600 hover:text-slate-900"
-                    >
-                      {q._count.attemptAnswers > 0 ? "Lihat" : "Edit"}
-                    </Link>
+                    <div className="flex items-center justify-end gap-3">
+                      <Link
+                        href={`${basePath}/${packageId}/soal/${q.id}`}
+                        className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                      >
+                        {q._count.attemptAnswers > 0 ? "Lihat" : "Edit"}
+                      </Link>
+                      <button
+                        onClick={() => handleDeleteQuestion(q.id)}
+                        className="text-sm font-medium text-red-600 hover:underline"
+                      >
+                        Hapus
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
