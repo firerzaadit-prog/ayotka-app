@@ -148,6 +148,10 @@ model Class {
   assignments        Assignment[]
   studentEnrollments StudentEnrollment[]
 
+  /// Tiket 3.6: cegah rombel duplikat (nama sama, tingkat sama) dalam satu
+  /// sekolah pada tahun ajaran yang sama - juga dipakai sebagai target
+  /// upsert saat Naik Kelas massal membuat/menemukan kelas tujuan.
+  @@unique([schoolId, academicYearId, tingkat, namaRombel])
   @@map("classes")
 }
 
