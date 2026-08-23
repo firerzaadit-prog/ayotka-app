@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
@@ -15,7 +16,20 @@ export default async function AdminSekolahLayout({
   }
 
   return (
-    <DashboardShell title="Admin Sekolah" email={user.email}>
+    <DashboardShell
+      title="Admin Sekolah"
+      email={user.email}
+      nav={
+        <nav className="flex gap-4 text-sm text-slate-600">
+          <Link href="/admin-sekolah/dashboard" className="hover:text-slate-900">
+            Dashboard
+          </Link>
+          <Link href="/admin-sekolah/bank-soal" className="hover:text-slate-900">
+            Bank Soal
+          </Link>
+        </nav>
+      }
+    >
       {children}
     </DashboardShell>
   );

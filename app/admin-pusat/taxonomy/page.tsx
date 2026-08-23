@@ -1,0 +1,58 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+
+type Subject = { id: string; nama: string; kode: string; jenjang: "SD" | "SMP" };
+
+export default function TaxonomyPage() {
+  const [subjects, setSubjects] = useState<Subject[] | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      const res = await fetch("/api/admin-pusat/subjects");
+      const data = await res.json();
+      if (!ignore) setSubjects(data.subjects ?? []);
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  if (!subjects) return <p className="text-sm text-slate-500">Memuat...</p>;
+
+  const byJenjang = {
+    SD: subjects.filter((s) => s.jenjang === "SD"),
+    SMP: subjects.filter((s) => s.jenjang === "SMP"),
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-xl font-semibold text-slate-900">Master Taxonomy</h1>
+        <p className="text-sm text-slate-500">
+          Kelola Materi → Sub Materi → Kompetensi per mapel. Ini fondasi analisis AI -
+          pilih mapel untuk mulai.
+        </p>
+      </div>
+
+      {(["SD", "SMP"] as const).map((jenjang) => (
+        <div key={jenjang}>
+          <h2 className="mb-2 text-sm font-semibold uppercase text-slate-500">{jenjang}</h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {byJenjang[jenjang].map((subject) => (
+              <Link
+                key={subject.id}
+                href={`/admin-pusat/taxonomy/${subject.id}`}
+                className="rounded-lg border border-slate-200 bg-white p-4 text-sm font-medium text-slate-900 hover:border-slate-400"
+              >
+                {subject.nama}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
