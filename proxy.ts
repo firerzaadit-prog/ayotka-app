@@ -30,7 +30,12 @@ const ROLE_PREFIXES: Record<string, string> = {
   "/admin-pusat": "admin_pusat",
 };
 
-const PUBLIC_AUTH_PATHS = ["/login", "/forgot-password", "/reset-password"];
+// "/reset-password" SENGAJA tidak dimasukkan ke sini. Kalau dimasukkan,
+// user dengan must_change_password=true kena loop-redirect tak berujung:
+// aturan di bawah memaksa mereka ke /reset-password, lalu blok ini
+// langsung melempar mereka balik ke dashboard karena sudah login -
+// dua aturan saling lempar selamanya (ERR_TOO_MANY_REDIRECTS).
+const PUBLIC_AUTH_PATHS = ["/login", "/forgot-password"];
 
 export default async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
