@@ -399,10 +399,15 @@ export function QuestionForm({
                 <div className="flex-1">
                   <Input
                     required
-                    placeholder="Teks opsi"
+                    placeholder="Teks opsi (rumus: $x^2$)"
                     value={opt.teks}
                     onChange={(e) => updateOption(i, { teks: e.target.value })}
                   />
+                  {opt.teks && (
+                    <div className="mt-2 rounded-md border border-dashed border-slate-300 p-2 text-sm">
+                      <RichText text={opt.teks} />
+                    </div>
+                  )}
                   <div className="mt-2">
                     <ImageUpload value={opt.media} onChange={(url) => updateOption(i, { media: url })} />
                   </div>
@@ -437,10 +442,15 @@ export function QuestionForm({
                   <div className="flex-1">
                     <Input
                       required
-                      placeholder="Teks pernyataan"
+                      placeholder="Teks pernyataan (rumus: $x^2$)"
                       value={s.teks}
                       onChange={(e) => updateStatement(i, { teks: e.target.value })}
                     />
+                    {s.teks && (
+                      <div className="mt-2 rounded-md border border-dashed border-slate-300 p-2 text-sm">
+                        <RichText text={s.teks} />
+                      </div>
+                    )}
                     <div className="mt-2">
                       <ImageUpload value={s.media} onChange={(url) => updateStatement(i, { media: url })} />
                     </div>
