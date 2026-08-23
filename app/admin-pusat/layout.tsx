@@ -29,6 +29,12 @@ export default async function AdminPusatLayout({
           <Link href="/admin-pusat/sekolah" className="hover:text-slate-900">
             Sekolah
           </Link>
+          <Link href="/admin-pusat/taxonomy" className="hover:text-slate-900">
+            Taxonomy
+          </Link>
+          <Link href="/admin-pusat/bank-soal" className="hover:text-slate-900">
+            Bank Soal
+          </Link>
         </nav>
       }
     >
