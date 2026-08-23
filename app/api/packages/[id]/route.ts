@@ -83,3 +83,39 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
   return NextResponse.json({ package: pkg });
 }
+
+/**
+ * Tiket 2.9 (Bagian 7.2 brief): paket tidak boleh dihapus permanen, hanya
+ * diarsipkan - dipakai status "archived" yang sudah ada di enum
+ * PackageStatus, bukan kolom baru. Berlaku sama baik paket sudah punya
+ * soal/attempt maupun masih kosong, supaya perilakunya konsisten &
+ * riwayat tidak pernah hilang tanpa sengaja.
+ */
+export async function DELETE(request: Request, { params }: RouteParams) {
+  let user;
+  try {
+    user = await requireRole("admin_pusat", "admin_sekolah");
+  } catch {
+    return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+  }
+
+  const { id } = await params;
+  if (!(await assertOwnsPackage(user, id))) {
+    return NextResponse.json({ error: "Paket tidak ditemukan." }, { status: 404 });
+  }
+
+  const before = await prisma.package.findUnique({ where: { id } });
+  const pkg = await prisma.package.update({ where: { id }, data: { status: "archived" } });
+
+  await logAudit({
+    userId: user.id,
+    aksi: "delete",
+    entitas: "packages",
+    entitasId: id,
+    before,
+    after: pkg,
+    ip: getClientIp(request),
+  });
+
+  return NextResponse.json({ ok: true });
+}

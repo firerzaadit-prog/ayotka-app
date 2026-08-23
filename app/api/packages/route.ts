@@ -19,7 +19,7 @@ export async function GET() {
   }
 
   const packages = await prisma.package.findMany({
-    where: { ownerType: scope.ownerType, ownerId: scope.ownerId },
+    where: { ownerType: scope.ownerType, ownerId: scope.ownerId, status: { not: "archived" } },
     orderBy: { nama: "asc" },
     include: { subject: true, _count: { select: { questions: true } } },
   });

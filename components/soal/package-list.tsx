@@ -78,6 +78,16 @@ export function PackageList({ basePath }: { basePath: string }) {
     setRefreshKey((k) => k + 1);
   }
 
+  async function handleDelete(packageId: string, nama: string) {
+    if (!window.confirm(`Hapus paket "${nama}"? Soal & riwayatnya tetap aman, cuma paket ini yang diarsipkan.`)) {
+      return;
+    }
+    const res = await fetch(`/api/packages/${packageId}`, { method: "DELETE" });
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -191,6 +201,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                 <th className="px-4 py-2 font-medium">Tingkat</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Soal</th>
+                <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -206,6 +217,14 @@ export function PackageList({ basePath }: { basePath: string }) {
                   <td className="px-4 py-2">{pkg.status}</td>
                   <td className="px-4 py-2">
                     {pkg._count.questions}/{pkg.jumlahSoal}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                      onClick={() => handleDelete(pkg.id, pkg.nama)}
+                      className="text-sm font-medium text-red-600 hover:underline"
+                    >
+                      Hapus
+                    </button>
                   </td>
                 </tr>
               ))}
