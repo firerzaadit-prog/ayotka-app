@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PackageDistribution } from "@/components/soal/package-distribution";
 
 type Question = {
   id: string;
@@ -20,6 +21,7 @@ type PackageDetail = {
   status: string;
   jumlahSoal: number;
   subjectId: string;
+  ownerType: "pusat" | "sekolah";
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -150,6 +152,8 @@ export function PackageDetail({
           </table>
         </div>
       )}
+
+      {pkg.ownerType === "pusat" && <PackageDistribution packageId={packageId} />}
     </div>
   );
 }
