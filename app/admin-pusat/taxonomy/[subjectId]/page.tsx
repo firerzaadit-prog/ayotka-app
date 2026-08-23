@@ -57,6 +57,17 @@ export default function TaxonomySubjectPage({
     }
   }
 
+  async function handleDeleteMateri(id: string, nama: string) {
+    if (!window.confirm(`Hapus materi "${nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    const res = await fetch(`/api/admin-pusat/materi/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      alert(data?.error ?? "Gagal menghapus materi.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -104,14 +115,20 @@ export default function TaxonomySubjectPage({
 
       <div className="flex flex-col gap-3">
         {materi?.map((m) => (
-          <MateriItem key={m.id} materi={m} />
+          <MateriItem key={m.id} materi={m} onDelete={handleDeleteMateri} />
         ))}
       </div>
     </div>
   );
 }
 
-function MateriItem({ materi }: { materi: Materi }) {
+function MateriItem({
+  materi,
+  onDelete,
+}: {
+  materi: Materi;
+  onDelete: (id: string, nama: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [subMateri, setSubMateri] = useState<SubMateri[] | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -145,17 +162,38 @@ function MateriItem({ materi }: { materi: Materi }) {
     }
   }
 
+  async function handleDeleteSubMateri(id: string, namaSubMateri: string) {
+    if (!window.confirm(`Hapus sub materi "${namaSubMateri}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    const res = await fetch(`/api/admin-pusat/sub-materi/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      alert(data?.error ?? "Gagal menghapus sub materi.");
+    }
+  }
+
   return (
     <div className="rounded-lg border border-slate-200 bg-white">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
-      >
-        <span className="text-sm font-medium text-slate-900">
-          Tingkat {materi.tingkat ?? "-"} · {materi.nama}
-        </span>
-        <span className="text-xs text-slate-400">{open ? "▲" : "▼"} {materi._count.subMateri} sub materi</span>
-      </button>
+      <div className="flex w-full items-center justify-between px-4 py-3">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex flex-1 items-center justify-between text-left"
+        >
+          <span className="text-sm font-medium text-slate-900">
+            Tingkat {materi.tingkat ?? "-"} · {materi.nama}
+          </span>
+          <span className="mr-3 text-xs text-slate-400">
+            {open ? "▲" : "▼"} {subMateri?.length ?? materi._count.subMateri} sub materi
+          </span>
+        </button>
+        <button
+          onClick={() => onDelete(materi.id, materi.nama)}
+          className="text-sm font-medium text-red-600 hover:underline"
+        >
+          Hapus
+        </button>
+      </div>
 
       {open && (
         <div className="border-t border-slate-100 p-4">
@@ -182,7 +220,7 @@ function MateriItem({ materi }: { materi: Materi }) {
 
           <div className="flex flex-col gap-2">
             {subMateri?.map((sm) => (
-              <SubMateriItem key={sm.id} subMateri={sm} />
+              <SubMateriItem key={sm.id} subMateri={sm} onDelete={handleDeleteSubMateri} />
             ))}
           </div>
         </div>
@@ -191,7 +229,13 @@ function MateriItem({ materi }: { materi: Materi }) {
   );
 }
 
-function SubMateriItem({ subMateri }: { subMateri: SubMateri }) {
+function SubMateriItem({
+  subMateri,
+  onDelete,
+}: {
+  subMateri: SubMateri;
+  onDelete: (id: string, nama: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [kompetensi, setKompetensi] = useState<Kompetensi[] | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -228,17 +272,36 @@ function SubMateriItem({ subMateri }: { subMateri: SubMateri }) {
     }
   }
 
+  async function handleDeleteKompetensi(id: string, kodeKompetensi: string) {
+    if (!window.confirm(`Hapus kompetensi "${kodeKompetensi}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    const res = await fetch(`/api/admin-pusat/kompetensi/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      alert(data?.error ?? "Gagal menghapus kompetensi.");
+    }
+  }
+
   return (
     <div className="rounded-md border border-slate-100 bg-slate-50">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-2 text-left"
-      >
-        <span className="text-sm text-slate-800">{subMateri.nama}</span>
-        <span className="text-xs text-slate-400">
-          {open ? "▲" : "▼"} {subMateri._count.kompetensi} kompetensi
-        </span>
-      </button>
+      <div className="flex w-full items-center justify-between px-3 py-2">
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex flex-1 items-center justify-between text-left"
+        >
+          <span className="text-sm text-slate-800">{subMateri.nama}</span>
+          <span className="mr-3 text-xs text-slate-400">
+            {open ? "▲" : "▼"} {kompetensi?.length ?? subMateri._count.kompetensi} kompetensi
+          </span>
+        </button>
+        <button
+          onClick={() => onDelete(subMateri.id, subMateri.nama)}
+          className="text-sm font-medium text-red-600 hover:underline"
+        >
+          Hapus
+        </button>
+      </div>
 
       {open && (
         <div className="border-t border-slate-200 p-3">
@@ -286,7 +349,13 @@ function SubMateriItem({ subMateri }: { subMateri: SubMateri }) {
                 <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
                   {k.levelKognitif}
                 </span>
-                <span>{k.deskripsi}</span>
+                <span className="flex-1">{k.deskripsi}</span>
+                <button
+                  onClick={() => handleDeleteKompetensi(k.id, k.kode)}
+                  className="text-xs font-medium text-red-600 hover:underline"
+                >
+                  Hapus
+                </button>
               </li>
             ))}
           </ul>
