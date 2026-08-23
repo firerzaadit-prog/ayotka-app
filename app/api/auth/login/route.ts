@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db/prisma";
 import { getClientIp } from "@/lib/audit/log";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validations/auth";
 
 const ROLE_HOME: Record<string, string> = {
@@ -10,22 +11,39 @@ const ROLE_HOME: Record<string, string> = {
   admin_pusat: "/admin-pusat/dashboard",
 };
 
+/** Tiket 3.4: NISN adalah 10 digit angka murni - kalau tidak, perlakukan sebagai email. */
+function resolveEmail(emailOrNisn: string): string {
+  return /^\d{10}$/.test(emailOrNisn) ? `${emailOrNisn}@nisn.ayotka.id` : emailOrNisn;
+}
+
 export async function POST(request: Request) {
+  const ip = getClientIp(request) ?? "unknown";
+  if (!checkRateLimit(`login:${ip}`, 15, 60_000)) {
+    return NextResponse.json(
+      { error: "Terlalu banyak percobaan masuk, coba lagi sebentar lagi." },
+      { status: 429 },
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = loginSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Email atau password tidak valid." },
+      { error: "Email/NISN atau password tidak valid." },
       { status: 400 },
     );
   }
 
+  const email = resolveEmail(parsed.data.emailOrNisn);
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password: parsed.data.password,
+  });
 
   if (error || !data.user) {
     return NextResponse.json(
-      { error: "Email atau password salah." },
+      { error: "Email/NISN atau password salah." },
       { status: 401 },
     );
   }
@@ -40,7 +58,7 @@ export async function POST(request: Request) {
     prisma.loginLog.create({
       data: {
         userId: data.user.id,
-        ip: getClientIp(request),
+        ip,
         device: request.headers.get("user-agent"),
       },
     }),

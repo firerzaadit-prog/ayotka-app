@@ -8,7 +8,7 @@ import { Input, Label, FieldError } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [emailOrNisn, setEmailOrNisn] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ export default function LoginPage() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ emailOrNisn, password }),
       });
       const data = await res.json();
 
@@ -44,7 +44,7 @@ export default function LoginPage() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <h1 className="text-lg font-semibold text-slate-900">Masuk ke AyoTKA</h1>
-        <p className="text-sm text-slate-500">Gunakan email dan password akunmu.</p>
+        <p className="text-sm text-slate-500">Gunakan email (atau NISN untuk siswa tanpa email) dan password akunmu.</p>
       </div>
 
       {error && (
@@ -52,14 +52,14 @@ export default function LoginPage() {
       )}
 
       <div>
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="emailOrNisn">Email atau NISN</Label>
         <Input
-          id="email"
-          type="email"
-          autoComplete="email"
+          id="emailOrNisn"
+          type="text"
+          autoComplete="username"
           required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          value={emailOrNisn}
+          onChange={(e) => setEmailOrNisn(e.target.value)}
         />
       </div>
 
@@ -85,6 +85,12 @@ export default function LoginPage() {
         className="text-center text-sm text-slate-500 hover:text-slate-700"
       >
         Lupa password?
+      </Link>
+      <Link
+        href="/registrasi"
+        className="text-center text-sm text-slate-500 hover:text-slate-700"
+      >
+        Belum punya akun? Daftar
       </Link>
     </form>
   );
