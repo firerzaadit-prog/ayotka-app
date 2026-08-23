@@ -32,6 +32,9 @@ export default async function AdminPusatLayout({
           <Link href="/admin-pusat/taxonomy" className="hover:text-slate-900">
             Taxonomy
           </Link>
+          <Link href="/admin-pusat/kisi-kisi" className="hover:text-slate-900">
+            Kisi-kisi
+          </Link>
           <Link href="/admin-pusat/bank-soal" className="hover:text-slate-900">
             Bank Soal
           </Link>

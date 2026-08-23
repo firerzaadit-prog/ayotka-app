@@ -7,6 +7,7 @@ import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
+type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; tingkat: number };
 type PackageListItem = {
   id: string;
   nama: string;
@@ -25,11 +26,13 @@ const emptyForm = {
   tingkat: "",
   durasiMenit: "",
   jumlahSoal: "",
+  blueprintId: "",
 };
 
 export function PackageList({ basePath }: { basePath: string }) {
   const [packages, setPackages] = useState<PackageListItem[] | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [blueprints, setBlueprints] = useState<BlueprintOption[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +57,22 @@ export function PackageList({ basePath }: { basePath: string }) {
       ignore = true;
     };
   }, [refreshKey]);
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      if (!form.subjectId) {
+        if (!ignore) setBlueprints([]);
+        return;
+      }
+      const res = await fetch(`/api/blueprints?subjectId=${form.subjectId}`);
+      const data = await res.json();
+      if (!ignore) setBlueprints(data.blueprints ?? []);
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [form.subjectId]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -127,6 +146,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                     ...form,
                     subjectId: e.target.value,
                     jenjang: subject?.jenjang ?? form.jenjang,
+                    blueprintId: "",
                   });
                 }}
               >
@@ -174,6 +194,24 @@ export function PackageList({ basePath }: { basePath: string }) {
                 onChange={(e) => setForm({ ...form, jumlahSoal: e.target.value })}
               />
             </div>
+          </div>
+          <div>
+            <Label htmlFor="blueprintId">Kisi-kisi (opsional)</Label>
+            <select
+              id="blueprintId"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              value={form.blueprintId}
+              onChange={(e) => setForm({ ...form, blueprintId: e.target.value })}
+            >
+              <option value="">Tanpa kisi-kisi</option>
+              {blueprints
+                .filter((b) => b.jenjang === form.jenjang && String(b.tingkat) === form.tingkat)
+                .map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.nama}
+                  </option>
+                ))}
+            </select>
           </div>
           <Button type="submit" disabled={submitting} className="w-fit">
             {submitting ? "Menyimpan..." : "Simpan paket"}
