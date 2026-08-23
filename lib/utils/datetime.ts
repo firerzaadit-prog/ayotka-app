@@ -1,0 +1,24 @@
+import { formatInTimeZone } from "date-fns-tz";
+import { id as localeId } from "date-fns/locale";
+
+/**
+ * Konvensi waktu AyoTKA (Tiket 1.8, Bagian 7.2 brief): semua timestamp
+ * disimpan di database dalam UTC (default Postgres `timestamptz` + `Date`
+ * JS selalu UTC secara internal), dan HANYA diformat ke WIB (UTC+7) di
+ * lapisan tampilan lewat fungsi-fungsi di file ini. Jangan pernah
+ * menampilkan Date mentah (mis. `date.toString()`) langsung ke UI.
+ */
+const WIB_TIMEZONE = "Asia/Jakarta";
+
+export function formatWIB(date: Date | string, pattern = "d MMMM yyyy HH:mm"): string {
+  const value = typeof date === "string" ? new Date(date) : date;
+  return `${formatInTimeZone(value, WIB_TIMEZONE, pattern, { locale: localeId })} WIB`;
+}
+
+export function formatWIBDate(date: Date | string): string {
+  return formatWIB(date, "d MMMM yyyy");
+}
+
+export function formatWIBTime(date: Date | string): string {
+  return formatWIB(date, "HH:mm");
+}
