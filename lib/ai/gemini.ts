@@ -2,7 +2,11 @@ import "server-only";
 import { GoogleGenAI, ApiError } from "@google/genai";
 import { geminiResponseSchema, analisisSchema, type AnalisisAi } from "@/lib/ai/schema";
 
-const MODEL = "gemini-2.5-flash";
+// Google cukup sering pensiunkan model lama untuk pengguna baru (sudah
+// kejadian sekali - gemini-2.5-flash sempat dipakai di sini, lalu Google
+// balas 404 dan minta ganti ke model lebih baru). AI_MODEL opsional supaya
+// kalau kejadian lagi, tinggal ganti env var tanpa perlu deploy ulang.
+const MODEL = process.env.AI_MODEL || "gemini-3.6-flash";
 const BACKOFF_MS = [10_000, 20_000, 40_000];
 
 class InvalidAiResponseError extends Error {}
@@ -81,6 +85,14 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
       `Gagal autentikasi ke Gemini (401) - cek lagi AI_API_KEY: pastikan diambil dari ` +
         `Google AI Studio (bukan Google Cloud Console biasa), tidak ada spasi/kutip nyasar ` +
         `di .env, dan server sudah di-restart setelah diisi. Pesan asli: ${lastError.message}`,
+    );
+  }
+  if (lastError instanceof ApiError && lastError.status === 404) {
+    throw new Error(
+      `Model AI "${MODEL}" tidak ditemukan/sudah pensiun di Gemini (404) - Google kadang ` +
+        `mengganti model lama tanpa pemberitahuan. Cek pesan asli di bawah untuk nama model ` +
+        `pengganti yang disarankan Google, lalu set env var AI_MODEL ke nama itu (tidak perlu ` +
+        `ubah kode). Pesan asli: ${lastError.message}`,
     );
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
