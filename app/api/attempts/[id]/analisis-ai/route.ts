@@ -4,7 +4,13 @@ import { requireRole, type CurrentUser } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
 import { runAnalisisAi } from "@/lib/ai/analyze";
-import { isProcessing, tryStartProcessing, finishProcessing } from "@/lib/ai/analysis-guard";
+import {
+  isProcessing,
+  tryStartProcessing,
+  finishProcessing,
+  setLastError,
+  getLastError,
+} from "@/lib/ai/analysis-guard";
 import type { Attempt } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -57,7 +63,9 @@ export async function POST(_request: Request, { params }: RouteParams) {
     try {
       await runAnalisisAi(attempt);
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error(`[analisis-ai] gagal untuk attempt ${id}:`, err);
+      setLastError(id, message);
     } finally {
       finishProcessing(id);
     }
@@ -88,6 +96,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
   }
   if (isProcessing(id)) {
     return NextResponse.json({ status: "processing" });
+  }
+  const failure = getLastError(id);
+  if (failure) {
+    return NextResponse.json({ status: "error", error: failure });
   }
   return NextResponse.json({ status: "none" });
 }

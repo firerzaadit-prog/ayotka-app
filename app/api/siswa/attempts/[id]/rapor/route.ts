@@ -5,6 +5,7 @@ import { requireRole, type CurrentUser } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
 import { buildHasil } from "@/lib/exam/hasil";
+import { latexToPlainText } from "@/lib/pdf/latex-to-text";
 import type { Attempt } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -96,7 +97,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     doc
       .fontSize(10)
       .fillColor("#0f172a")
-      .text(`${i + 1}. ${s.teks.replace(/<[^>]+>/g, "")}`, { width: doc.page.width - 96 });
+      .text(`${i + 1}. ${latexToPlainText(s.teks)}`, { width: doc.page.width - 96 });
     doc
       .fontSize(9)
       .fillColor(benar ? "#15803d" : "#b91c1c")
@@ -104,14 +105,24 @@ export async function GET(_request: Request, { params }: RouteParams) {
     if (hasil.canShowPembahasan) {
       if (s.options) {
         const kunci = s.options.find((o) => o.isCorrect);
-        if (kunci) doc.fontSize(9).fillColor("#475569").text(`Kunci: ${kunci.label}. ${kunci.teks}`);
+        if (kunci) {
+          doc
+            .fontSize(9)
+            .fillColor("#475569")
+            .text(`Kunci: ${kunci.label}. ${latexToPlainText(kunci.teks)}`, { width: doc.page.width - 96 });
+        }
       }
       if (s.statements) {
-        const rangkuman = s.statements.map((st) => `${st.teks} = ${st.correctLabel}`).join("; ");
+        const rangkuman = s.statements
+          .map((st) => `${latexToPlainText(st.teks)} = ${st.correctLabel}`)
+          .join("; ");
         doc.fontSize(9).fillColor("#475569").text(`Kunci: ${rangkuman}`, { width: doc.page.width - 96 });
       }
       if (s.pembahasan) {
-        doc.fontSize(9).fillColor("#64748b").text(`Pembahasan: ${s.pembahasan}`, { width: doc.page.width - 96 });
+        doc
+          .fontSize(9)
+          .fillColor("#64748b")
+          .text(`Pembahasan: ${latexToPlainText(s.pembahasan)}`, { width: doc.page.width - 96 });
       }
     }
     doc.moveDown(0.6);
