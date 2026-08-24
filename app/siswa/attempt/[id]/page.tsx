@@ -157,15 +157,17 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     return () => clearInterval(interval);
   }, [attempt, handleSubmit]);
 
-  // Resync berkala ke server - meluruskan drift timer & mendeteksi pause oleh admin (Tiket 4.9).
+  // Resync berkala ke server - meluruskan drift timer & mendeteksi pause/resume
+  // oleh admin (Tiket 4.9). Tetap jalan selama "paused" juga (bukan cuma
+  // "berjalan") - sesi yang dijeda justru butuh polling ini untuk tahu kapan
+  // admin membuka kembali, kalau tidak halaman paused ini tidak akan pernah
+  // tahu sesinya sudah lanjut.
   useEffect(() => {
-    if (!attempt || attempt.status !== "berjalan") return;
+    if (!attempt || attempt.status === "selesai" || attempt.status === "kedaluwarsa") return;
     const interval = setInterval(async () => {
       const a = await loadAttempt();
-      if (a && a.status !== "berjalan") {
-        if (a.status === "selesai" || a.status === "kedaluwarsa") {
-          router.replace(`/siswa/hasil/${id}`);
-        }
+      if (a && (a.status === "selesai" || a.status === "kedaluwarsa")) {
+        router.replace(`/siswa/hasil/${id}`);
       }
     }, RESYNC_INTERVAL_MS);
     return () => clearInterval(interval);
