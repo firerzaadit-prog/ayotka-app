@@ -50,6 +50,9 @@ export default async function AdminPusatLayout({
           <Link href="/admin-pusat/bank-soal" className="hover:text-slate-900">
             Bank Soal
           </Link>
+          <Link href="/admin-pusat/jadwal-ujian" className="hover:text-slate-900">
+            Jadwal Ujian
+          </Link>
           <Link href="/admin-pusat/pelanggaran-ujian" className="hover:text-slate-900">
             Pelanggaran Ujian
           </Link>
