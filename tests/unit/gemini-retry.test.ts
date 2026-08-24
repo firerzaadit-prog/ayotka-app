@@ -45,6 +45,11 @@ describe("generateAnalisis retry/backoff", () => {
     vi.stubEnv("AI_API_KEY", "test-key");
     generateContentMock.mockReset();
     constructorOptionsSpy.mockReset();
+    // MODEL di lib/ai/gemini.ts dihitung sekali di top-level modul (dari
+    // AI_MODEL env var) - reset modul supaya tiap test yang stub env
+    // berbeda benar-benar dapat modul yang dievaluasi ulang, bukan modul
+    // ter-cache dari test sebelumnya.
+    vi.resetModules();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -135,5 +140,31 @@ describe("generateAnalisis retry/backoff", () => {
 
     await expect(generateAnalisis("prompt")).rejects.toThrow(/AI_API_KEY|Google AI Studio/);
     expect(generateContentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("404 (model pensiun/tidak ditemukan) dikasih petunjuk untuk ganti AI_MODEL, bukan cuma JSON mentah", async () => {
+    const { generateAnalisis } = await import("@/lib/ai/gemini");
+    const { ApiError } = await import("@google/genai");
+    generateContentMock.mockRejectedValue(
+      new ApiError({
+        message: "This model models/gemini-3.6-flash is no longer available to new users.",
+        status: 404,
+      }),
+    );
+
+    await expect(generateAnalisis("prompt")).rejects.toThrow(/AI_MODEL/);
+    expect(generateContentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("AI_MODEL env var menimpa nama model default", async () => {
+    vi.stubEnv("AI_MODEL", "gemini-custom-model");
+    const { generateAnalisis } = await import("@/lib/ai/gemini");
+    generateContentMock.mockResolvedValueOnce({ text: JSON.stringify(validPayload) });
+
+    await generateAnalisis("prompt");
+
+    expect(generateContentMock).toHaveBeenCalledWith(
+      expect.objectContaining({ model: "gemini-custom-model" }),
+    );
   });
 });
