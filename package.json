@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
-    "seed:subjects": "tsx scripts/seed-subjects.ts"
+    "seed:subjects": "tsx scripts/seed-subjects.ts",
+    "cron:langganan": "tsx scripts/cron-langganan.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

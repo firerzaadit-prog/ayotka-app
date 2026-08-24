@@ -1,13 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-
-// lib/billing/subscription-status.ts sengaja pakai "server-only" - itu murni
-// guard build-time Next.js, tidak relevan di runner Node vitest (lihat pola
-// yang sama di tests/unit/gemini-retry.test.ts).
-vi.mock("server-only", () => ({}));
-
-const { effectiveSubscriptionStatus, hasFullAccess, computeRenewalPeriod } = await import(
-  "@/lib/billing/subscription-status"
-);
+import { describe, expect, it } from "vitest";
+import { effectiveSubscriptionStatus, hasFullAccess, computeRenewalPeriod } from "@/lib/billing/subscription-status";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

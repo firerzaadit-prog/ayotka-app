@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
-import { getUsableSubscription } from "@/lib/billing/subscription-status";
+import { getUsableSubscription } from "@/lib/billing/subscription-queries";
 
 /**
  * Tiket 6.5 (Bagian 7.1 brief, "Uji coba gratis"): siswa mandiri (jalur B)
