@@ -8,6 +8,7 @@ import { SoalPgKompleks } from "@/components/exam/soal-pg-kompleks";
 import { SoalPgKategori } from "@/components/exam/soal-pg-kategori";
 import type { ExamJawaban, ExamQuestion } from "@/components/exam/types";
 import { getLocalAnswers, saveLocalAnswer } from "@/lib/exam/offline-store";
+import { isJawabanKosong } from "@/lib/exam/scoring";
 
 type AttemptState = {
   id: string;
@@ -122,7 +123,10 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     async (auto: boolean) => {
       if (hasSubmitted.current) return;
       if (!auto) {
-        const unanswered = questions.length - Object.keys(answers).length;
+        const terjawab = questions.filter(
+          (q) => !isJawabanKosong(answers[q.id]?.jawabanJson),
+        ).length;
+        const unanswered = questions.length - terjawab;
         const msg =
           unanswered > 0
             ? `Masih ada ${unanswered} soal belum dijawab, yakin ingin submit?`
@@ -134,7 +138,7 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
       await fetch(`/api/siswa/attempts/${id}/submit`, { method: "POST" });
       router.replace(`/siswa/hasil/${id}`);
     },
-    [id, questions.length, answers, router],
+    [id, questions, answers, router],
   );
 
   // Timer lokal (server tetap sumber kebenaran - resync berkala di bawah).
