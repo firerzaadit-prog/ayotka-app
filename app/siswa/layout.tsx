@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export default async function SiswaLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user || user.role !== "siswa") {
-    redirect("/login");
+    redirect("/api/auth/force-logout?next=/login");
   }
 
   return (

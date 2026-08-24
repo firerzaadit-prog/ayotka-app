@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { prisma } from "@/lib/db/prisma";
+import { closeOpenLoginSession } from "@/lib/auth/logout";
 
 export async function POST() {
   const supabase = await createClient();
@@ -9,16 +9,7 @@ export async function POST() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    const openSession = await prisma.loginLog.findFirst({
-      where: { userId: user.id, logoutAt: null },
-      orderBy: { loginAt: "desc" },
-    });
-    if (openSession) {
-      await prisma.loginLog.update({
-        where: { id: openSession.id },
-        data: { logoutAt: new Date() },
-      });
-    }
+    await closeOpenLoginSession(user.id);
   }
 
   await supabase.auth.signOut();

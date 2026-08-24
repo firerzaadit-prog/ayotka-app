@@ -14,7 +14,7 @@ export default async function AdminPusatLayout({
 }) {
   const user = await getCurrentUser();
   if (!user || user.role !== "admin_pusat") {
-    redirect("/login");
+    redirect("/api/auth/force-logout?next=/login");
   }
 
   return (
