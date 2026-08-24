@@ -1,8 +1,9 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { Fragment, use, useEffect, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
 
 type AttemptRow = {
   id: string;
@@ -39,6 +40,7 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
   const [attempts, setAttempts] = useState<AttemptRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -112,7 +114,8 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
             </thead>
             <tbody>
               {attempts.map((a) => (
-                <tr key={a.id} className="border-b border-slate-100 last:border-0">
+                <Fragment key={a.id}>
+                <tr className="border-b border-slate-100 last:border-0">
                   <td className="px-4 py-2 font-medium text-slate-900">{a.studentNama}</td>
                   <td className="px-4 py-2">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[a.status]}`}>
@@ -149,8 +152,32 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
                         Lanjutkan
                       </button>
                     )}
+                    {(a.status === "selesai" || a.status === "kedaluwarsa") && (
+                      <span className="inline-flex items-center gap-3">
+                        <a
+                          href={`/api/siswa/attempts/${a.id}/rapor`}
+                          className="text-sm font-medium text-slate-600 hover:underline"
+                        >
+                          Rapor (PDF)
+                        </a>
+                        <button
+                          onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
+                          className="text-sm font-medium text-slate-600 hover:underline"
+                        >
+                          Analisis AI
+                        </button>
+                      </span>
+                    )}
                   </td>
                 </tr>
+                {expandedId === a.id && (
+                  <tr className="border-b border-slate-100 bg-slate-50 last:border-0">
+                    <td colSpan={6} className="px-4 py-3">
+                      <AnalisisAiPanel attemptId={a.id} canTrigger />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

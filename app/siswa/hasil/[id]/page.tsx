@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RichText } from "@/components/soal/rich-text";
+import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
 
 const FORMAT_LABEL: Record<string, string> = {
   pg: "PG",
@@ -20,6 +21,7 @@ type Hasil = {
     selesaiAt: string | null;
   };
   package: { nama: string };
+  siswa: { nama: string; idSamar: string };
   canShowPembahasan: boolean;
   perSoal: {
     questionId: string;
@@ -29,9 +31,22 @@ type Hasil = {
     skorMaks: number;
     pembahasan?: string | null;
     options?: { id: string; label: string; teks: string; isCorrect: boolean }[];
+    statements?: { id: string; teks: string; correctLabel: string }[];
   }[];
   competencyScores: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
 };
+
+/**
+ * Tiket 5.9: watermark identitas siswa di halaman pembahasan (bank soal
+ * gampang bocor lewat screenshot kalau tidak ada jejak siapa yang
+ * mengambilnya) - dirender sebagai background berulang, jadi ikut
+ * terbawa di screenshot, bukan overlay terpisah yang gampang dihapus.
+ */
+function watermarkBackground(nama: string, idSamar: string): string {
+  const escaped = `${nama} · ${idSamar}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="160"><text x="0" y="90" transform="rotate(-28 160 80)" font-family="sans-serif" font-size="13" fill="rgba(15,23,42,0.14)">${escaped}</text></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
 
 /** Tiket 4.10: halaman hasil - nilai, rincian benar/salah, pembahasan (kalau sudah boleh tampil). */
 export default function HasilPage({ params }: { params: Promise<{ id: string }> }) {
@@ -64,12 +79,25 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
   }
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 p-4">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">{hasil.package.nama}</h1>
-        <p className="text-sm text-slate-500">
-          {hasil.attempt.status === "kedaluwarsa" ? "Waktu habis — disubmit otomatis." : "Selesai."}
-        </p>
+    <div className="relative mx-auto flex max-w-2xl flex-col gap-6 p-4">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-10"
+        style={{ backgroundImage: watermarkBackground(hasil.siswa.nama, hasil.siswa.idSamar) }}
+      />
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">{hasil.package.nama}</h1>
+          <p className="text-sm text-slate-500">
+            {hasil.attempt.status === "kedaluwarsa" ? "Waktu habis — disubmit otomatis." : "Selesai."}
+          </p>
+        </div>
+        <a
+          href={`/api/siswa/attempts/${id}/rapor`}
+          className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Unduh Rapor (PDF)
+        </a>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-6 text-center">
@@ -109,7 +137,13 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         </div>
       )}
 
-      <div>
+      <AnalisisAiPanel attemptId={id} canTrigger={false} />
+
+      <div
+        className="select-none"
+        onContextMenu={(e) => e.preventDefault()}
+        onCopy={(e) => e.preventDefault()}
+      >
         <h2 className="mb-2 text-lg font-semibold text-slate-900">Rincian Jawaban</h2>
         {!hasil.canShowPembahasan && (
           <p className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
@@ -145,6 +179,16 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
                     >
                       {o.label}. <RichText text={o.teks} />
                       {o.isCorrect && " (kunci)"}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {hasil.canShowPembahasan && s.statements && (
+                <ul className="mb-2 flex flex-col gap-1 text-sm">
+                  {s.statements.map((st) => (
+                    <li key={st.id} className="text-slate-600">
+                      <RichText text={st.teks} />{" "}
+                      <span className="font-medium text-green-700">— {st.correctLabel}</span>
                     </li>
                   ))}
                 </ul>
