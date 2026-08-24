@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
@@ -58,52 +59,68 @@ export async function POST(request: Request) {
   let dipindah = 0;
   let diluluskan = 0;
 
-  await prisma.$transaction(async (tx) => {
-    for (const kelas of classesToPromote) {
-      const studentIds = kelas.studentEnrollments.map((e) => e.studentId);
+  try {
+    await prisma.$transaction(async (tx) => {
+      for (const kelas of classesToPromote) {
+        const studentIds = kelas.studentEnrollments.map((e) => e.studentId);
 
-      if (kelas.tingkat >= maxTingkat) {
-        if (studentIds.length > 0) {
-          await tx.student.updateMany({
-            where: { id: { in: studentIds } },
-            data: { status: "nonaktif" },
-          });
-          diluluskan += studentIds.length;
+        if (kelas.tingkat >= maxTingkat) {
+          if (studentIds.length > 0) {
+            await tx.student.updateMany({
+              where: { id: { in: studentIds } },
+              data: { status: "nonaktif" },
+            });
+            diluluskan += studentIds.length;
+          }
+          continue;
         }
-        continue;
-      }
 
-      const destination = await tx.class.upsert({
-        where: {
-          schoolId_academicYearId_tingkat_namaRombel: {
+        const destination = await tx.class.upsert({
+          where: {
+            schoolId_academicYearId_tingkat_namaRombel: {
+              schoolId,
+              academicYearId: activeYear.id,
+              tingkat: kelas.tingkat + 1,
+              namaRombel: kelas.namaRombel,
+            },
+          },
+          create: {
             schoolId,
             academicYearId: activeYear.id,
             tingkat: kelas.tingkat + 1,
             namaRombel: kelas.namaRombel,
           },
-        },
-        create: {
-          schoolId,
-          academicYearId: activeYear.id,
-          tingkat: kelas.tingkat + 1,
-          namaRombel: kelas.namaRombel,
-        },
-        update: {},
-      });
-
-      if (studentIds.length > 0) {
-        const result = await tx.studentEnrollment.createMany({
-          data: studentIds.map((studentId) => ({
-            studentId,
-            classId: destination.id,
-            academicYearId: activeYear.id,
-          })),
-          skipDuplicates: true,
+          update: {},
         });
-        dipindah += result.count;
+
+        if (studentIds.length > 0) {
+          const result = await tx.studentEnrollment.createMany({
+            data: studentIds.map((studentId) => ({
+              studentId,
+              classId: destination.id,
+              academicYearId: activeYear.id,
+            })),
+            skipDuplicates: true,
+          });
+          dipindah += result.count;
+        }
       }
+    });
+  } catch (error) {
+    console.error("Naik Kelas gagal:", error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      return NextResponse.json(
+        {
+          error: `Naik Kelas gagal (kode ${error.code}): ${error.message.split("\n").pop()?.trim() ?? error.message}`,
+        },
+        { status: 500 },
+      );
     }
-  });
+    return NextResponse.json(
+      { error: `Naik Kelas gagal: ${error instanceof Error ? error.message : "unknown error"}` },
+      { status: 500 },
+    );
+  }
 
   await logAudit({
     userId: user.id,
