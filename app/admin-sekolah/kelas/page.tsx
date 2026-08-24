@@ -14,8 +14,11 @@ type ClassRow = {
   _count: { studentEnrollments: number };
 };
 type WaliOption = { id: string; email: string; username: string | null };
+type AcademicYearOption = { id: string; nama: string; isActive: boolean };
 
 export default function KelolaKelasPage() {
+  const [academicYears, setAcademicYears] = useState<AcademicYearOption[]>([]);
+  const [selectedYearId, setSelectedYearId] = useState("");
   const [classes, setClasses] = useState<ClassRow[] | null>(null);
   const [waliOptions, setWaliOptions] = useState<WaliOption[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -28,24 +31,45 @@ export default function KelolaKelasPage() {
   const [naikKelasBusy, setNaikKelasBusy] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const activeYear = academicYears.find((y) => y.isActive);
+  const isViewingActiveYear = !selectedYearId || selectedYearId === activeYear?.id;
+
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const [classRes, waliRes] = await Promise.all([
-        fetch("/api/admin-sekolah/kelas"),
+      const [yearRes, waliRes] = await Promise.all([
+        fetch("/api/admin-pusat/academic-years"),
         fetch("/api/admin-sekolah/wali-kelas-options"),
       ]);
-      const classData = await classRes.json();
+      const yearData = await yearRes.json();
       const waliData = await waliRes.json();
       if (!ignore) {
-        setClasses(classData.classes ?? []);
+        const years: AcademicYearOption[] = yearData.academicYears ?? [];
+        setAcademicYears(years);
         setWaliOptions(waliData.options ?? []);
+        setSelectedYearId((current) => current || years.find((y) => y.isActive)?.id || "");
       }
     })();
     return () => {
       ignore = true;
     };
   }, [refreshKey]);
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      if (!selectedYearId) {
+        setClasses(null);
+        return;
+      }
+      const res = await fetch(`/api/admin-sekolah/kelas?academicYearId=${selectedYearId}`);
+      const data = await res.json();
+      if (!ignore) setClasses(data.classes ?? []);
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [selectedYearId, refreshKey]);
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
@@ -104,25 +128,53 @@ export default function KelolaKelasPage() {
     setNaikKelasResult(
       `Berhasil: ${data.dipindah} siswa naik ke rombel berikutnya, ${data.diluluskan} siswa ditandai lulus.`,
     );
+    setSelectedYearId(activeYear?.id ?? selectedYearId);
     setRefreshKey((k) => k + 1);
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">Kelola Kelas/Rombel</h1>
           <p className="text-sm text-slate-500">
-            Rombel di tahun ajaran yang sedang aktif{classes && classes[0] ? ` (${classes[0].academicYear.nama})` : ""}.
+            Riwayat rombel &amp; siswa tiap tahun ajaran tetap tersimpan - pilih tahun ajaran di
+            bawah untuk melihatnya.
           </p>
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={handleNaikKelas} disabled={naikKelasBusy}>
             {naikKelasBusy ? "Memproses..." : "Naik Kelas massal"}
           </Button>
-          <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Tambah rombel"}</Button>
+          <Button onClick={() => setShowForm((v) => !v)} disabled={!isViewingActiveYear}>
+            {showForm ? "Batal" : "Tambah rombel"}
+          </Button>
         </div>
       </div>
+
+      <div className="w-64">
+        <Label htmlFor="yearSelect">Tahun ajaran</Label>
+        <select
+          id="yearSelect"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          value={selectedYearId}
+          onChange={(e) => setSelectedYearId(e.target.value)}
+        >
+          {academicYears.map((y) => (
+            <option key={y.id} value={y.id}>
+              {y.nama}
+              {y.isActive ? " (aktif)" : ""}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {!isViewingActiveYear && (
+        <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
+          Ini arsip tahun ajaran lama, hanya bisa dilihat. Rombel baru cuma bisa ditambah di tahun
+          ajaran yang aktif ({activeYear?.nama ?? "-"}).
+        </p>
+      )}
 
       {naikKelasResult && (
         <p className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">{naikKelasResult}</p>
@@ -181,11 +233,17 @@ export default function KelolaKelasPage() {
       )}
 
       {classes === null && <p className="text-sm text-slate-500">Memuat...</p>}
-      {classes?.length === 0 && (
+      {classes?.length === 0 && isViewingActiveYear && (
         <EmptyState
-          title="Belum ada rombel"
-          description="Tambah rombel pertama untuk mulai mengelola siswa."
+          title="Belum ada rombel di tahun ajaran ini"
+          description='Kalau ini tahun ajaran baru dan siswa sudah ada di tahun sebelumnya, klik "Naik Kelas massal" di atas untuk memindahkan rombel & siswa secara otomatis. Atau tambah rombel baru dari awal.'
           action={<Button onClick={() => setShowForm(true)}>Tambah rombel</Button>}
+        />
+      )}
+      {classes?.length === 0 && !isViewingActiveYear && (
+        <EmptyState
+          title="Belum ada rombel di tahun ajaran ini"
+          description="Sekolah belum punya rombel yang tercatat untuk tahun ajaran ini."
         />
       )}
 
@@ -209,12 +267,14 @@ export default function KelolaKelasPage() {
                   <td className="px-4 py-2">{c.waliKelas ? (c.waliKelas.username ?? c.waliKelas.email) : "-"}</td>
                   <td className="px-4 py-2">{c._count.studentEnrollments}</td>
                   <td className="px-4 py-2 text-right">
-                    <button
-                      onClick={() => handleDelete(c.id, `${c.tingkat}${c.namaRombel}`)}
-                      className="text-sm font-medium text-red-600 hover:underline"
-                    >
-                      Hapus
-                    </button>
+                    {isViewingActiveYear && (
+                      <button
+                        onClick={() => handleDelete(c.id, `${c.tingkat}${c.namaRombel}`)}
+                        className="text-sm font-medium text-red-600 hover:underline"
+                      >
+                        Hapus
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
