@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PackageDistribution } from "@/components/soal/package-distribution";
 
@@ -15,16 +16,41 @@ type Question = {
   _count: { attemptAnswers: number };
 };
 
+type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
+
 type PackageDetail = {
   id: string;
   nama: string;
   status: string;
+  jenjang: "SD" | "SMP";
+  tingkat: number;
+  durasiMenit: number;
   jumlahSoal: number;
   subjectId: string;
   ownerType: "pusat" | "sekolah";
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
+
+type EditForm = {
+  nama: string;
+  subjectId: string;
+  jenjang: "SD" | "SMP";
+  tingkat: string;
+  durasiMenit: string;
+  jumlahSoal: string;
+};
+
+function toEditForm(pkg: PackageDetail): EditForm {
+  return {
+    nama: pkg.nama,
+    subjectId: pkg.subjectId,
+    jenjang: pkg.jenjang,
+    tingkat: String(pkg.tingkat),
+    durasiMenit: String(pkg.durasiMenit),
+    jumlahSoal: String(pkg.jumlahSoal),
+  };
+}
 
 const FORMAT_LABEL: Record<string, string> = {
   pg: "PG",
@@ -40,21 +66,61 @@ export function PackageDetail({
   basePath: string;
 }) {
   const [pkg, setPkg] = useState<PackageDetail | null>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/packages/${packageId}`);
-      const data = await res.json();
-      if (!ignore) setPkg(data.package);
+      const [pkgRes, subjectRes] = await Promise.all([
+        fetch(`/api/packages/${packageId}`),
+        fetch("/api/admin-pusat/subjects"),
+      ]);
+      const data = await pkgRes.json();
+      const subjectData = await subjectRes.json();
+      if (!ignore) {
+        setPkg(data.package);
+        setSubjects(subjectData.subjects ?? []);
+      }
     })();
     return () => {
       ignore = true;
     };
   }, [packageId, refreshKey]);
+
+  function handleOpenEdit() {
+    if (pkg) setEditForm(toEditForm(pkg));
+    setEditError(null);
+    setShowEditForm(true);
+  }
+
+  async function handleEditSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!editForm) return;
+    setEditError(null);
+    setEditSubmitting(true);
+
+    const res = await fetch(`/api/packages/${packageId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(editForm),
+    });
+    const data = await res.json().catch(() => null);
+    setEditSubmitting(false);
+
+    if (!res.ok) {
+      setEditError(data?.error ?? "Gagal menyimpan perubahan.");
+      return;
+    }
+    setShowEditForm(false);
+    setRefreshKey((k) => k + 1);
+  }
 
   async function handlePublish() {
     setPublishError(null);
@@ -104,6 +170,9 @@ export function PackageDetail({
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="secondary" onClick={handleOpenEdit}>
+              Edit
+            </Button>
             <Link
               href={`${basePath}/${packageId}/soal/baru`}
               className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
@@ -117,6 +186,95 @@ export function PackageDetail({
             )}
           </div>
         </div>
+
+        {showEditForm && editForm && (
+          <form
+            onSubmit={handleEditSubmit}
+            className="mt-4 flex max-w-xl flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+          >
+            {editError && (
+              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</p>
+            )}
+            <div>
+              <Label htmlFor="editPkgNama">Nama paket</Label>
+              <Input
+                id="editPkgNama"
+                required
+                value={editForm.nama}
+                onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="editPkgSubject">Mapel</Label>
+                <select
+                  id="editPkgSubject"
+                  required
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  value={editForm.subjectId}
+                  onChange={(e) => {
+                    const subject = subjects.find((s) => s.id === e.target.value);
+                    setEditForm({
+                      ...editForm,
+                      subjectId: e.target.value,
+                      jenjang: subject?.jenjang ?? editForm.jenjang,
+                    });
+                  }}
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nama} ({s.jenjang})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="editPkgTingkat">Tingkat kelas</Label>
+                <Input
+                  id="editPkgTingkat"
+                  type="number"
+                  min={1}
+                  max={12}
+                  required
+                  value={editForm.tingkat}
+                  onChange={(e) => setEditForm({ ...editForm, tingkat: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="editPkgDurasi">Durasi (menit)</Label>
+                <Input
+                  id="editPkgDurasi"
+                  type="number"
+                  min={1}
+                  required
+                  value={editForm.durasiMenit}
+                  onChange={(e) => setEditForm({ ...editForm, durasiMenit: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editPkgJumlah">Target jumlah soal</Label>
+                <Input
+                  id="editPkgJumlah"
+                  type="number"
+                  min={1}
+                  required
+                  value={editForm.jumlahSoal}
+                  onChange={(e) => setEditForm({ ...editForm, jumlahSoal: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={editSubmitting}>
+                {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setShowEditForm(false)}>
+                Batal
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
 
       {publishError && (
