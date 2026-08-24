@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import type { Attempt } from "@prisma/client";
+import { shuffleWithSeed } from "@/lib/exam/shuffle";
 
 /**
  * Tiket 4.10 + Bagian 7.1 brief ("Tampil pembahasan"): siswa sekolah (Jalur
@@ -19,7 +20,11 @@ export async function buildHasil(attempt: Attempt) {
       where: { attemptId: attempt.id },
       include: {
         question: {
-          include: { options: { orderBy: { urutan: "asc" } }, statements: { orderBy: { urutan: "asc" } } },
+          include: {
+            options: { orderBy: { urutan: "asc" } },
+            statements: { orderBy: { urutan: "asc" } },
+            categories: { orderBy: { urutan: "asc" } },
+          },
         },
       },
     }),
@@ -32,31 +37,44 @@ export async function buildHasil(attempt: Attempt) {
   const canShowPembahasan =
     pkg.modePembahasan === "langsung" || !assignment || assignment.selesai.getTime() < Date.now();
 
-  const perSoal = answers.map((a) => ({
-    questionId: a.questionId,
-    format: a.question.format,
-    teks: a.question.teks,
-    media: a.question.media,
-    jawabanJson: a.jawabanJson,
-    skor: a.skor,
-    skorMaks: a.skorMaks,
-    ...(canShowPembahasan
-      ? {
-          pembahasan: a.question.pembahasan,
-          options: a.question.options.map((o) => ({
-            id: o.id,
-            label: o.label,
-            teks: o.teks,
-            isCorrect: o.isCorrect,
-          })),
-          statements: a.question.statements.map((s) => ({
-            id: s.id,
-            teks: s.teks,
-            correctCategoryId: s.correctCategoryId,
-          })),
-        }
-      : {}),
-  }));
+  // Urutan+label opsi & baris di sini HARUS sama persis dengan yang dilihat
+  // siswa saat mengerjakan (lihat app/api/siswa/attempts/[id]/route.ts,
+  // seed yang sama) - kalau balik ke urutan/label asli DB, halaman review
+  // jadi tidak cocok dengan yang benar-benar dipilih siswa saat ujian
+  // berlangsung (mis. "kunci"-nya kelihatan pindah ke opsi lain).
+  const perSoal = answers.map((a) => {
+    const q = a.question;
+    const orderedOptions = pkg.acakOpsi
+      ? shuffleWithSeed(q.options, `${attempt.id}:opsi:${q.id}`)
+      : q.options;
+    const orderedStatements = shuffleWithSeed(q.statements, `${attempt.id}:baris:${q.id}`);
+
+    return {
+      questionId: a.questionId,
+      format: q.format,
+      teks: q.teks,
+      media: q.media,
+      jawabanJson: a.jawabanJson,
+      skor: a.skor,
+      skorMaks: a.skorMaks,
+      ...(canShowPembahasan
+        ? {
+            pembahasan: q.pembahasan,
+            options: orderedOptions.map((o, idx) => ({
+              id: o.id,
+              label: String.fromCharCode(65 + idx),
+              teks: o.teks,
+              isCorrect: o.isCorrect,
+            })),
+            statements: orderedStatements.map((s) => ({
+              id: s.id,
+              teks: s.teks,
+              correctLabel: q.categories.find((c) => c.id === s.correctCategoryId)?.label ?? "-",
+            })),
+          }
+        : {}),
+    };
+  });
 
   return {
     attempt: {

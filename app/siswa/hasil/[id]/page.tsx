@@ -29,6 +29,7 @@ type Hasil = {
     skorMaks: number;
     pembahasan?: string | null;
     options?: { id: string; label: string; teks: string; isCorrect: boolean }[];
+    statements?: { id: string; teks: string; correctLabel: string }[];
   }[];
   competencyScores: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
 };
@@ -145,6 +146,16 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
                     >
                       {o.label}. <RichText text={o.teks} />
                       {o.isCorrect && " (kunci)"}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {hasil.canShowPembahasan && s.statements && (
+                <ul className="mb-2 flex flex-col gap-1 text-sm">
+                  {s.statements.map((st) => (
+                    <li key={st.id} className="text-slate-600">
+                      <RichText text={st.teks} />{" "}
+                      <span className="font-medium text-green-700">— {st.correctLabel}</span>
                     </li>
                   ))}
                 </ul>
