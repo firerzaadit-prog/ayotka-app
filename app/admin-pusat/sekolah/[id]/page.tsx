@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -19,11 +20,33 @@ type SchoolDetail = {
   nama: string;
   kodeSekolah: string;
   jenjang: "SD" | "SMP";
+  npsn: string | null;
+  alamat: string | null;
   status: SchoolStatus;
   kuotaSiswa: number;
   langgananBerakhir: string | null;
   schoolUsers: SchoolAdmin[];
 };
+
+type EditForm = {
+  nama: string;
+  jenjang: "SD" | "SMP";
+  npsn: string;
+  alamat: string;
+  kuotaSiswa: string;
+  langgananBerakhir: string;
+};
+
+function toEditForm(school: SchoolDetail): EditForm {
+  return {
+    nama: school.nama,
+    jenjang: school.jenjang,
+    npsn: school.npsn ?? "",
+    alamat: school.alamat ?? "",
+    kuotaSiswa: String(school.kuotaSiswa),
+    langgananBerakhir: school.langgananBerakhir ? school.langgananBerakhir.slice(0, 10) : "",
+  };
+}
 
 const STATUS_LABEL: Record<SchoolStatus, string> = {
   pending_verifikasi: "Menunggu verifikasi",
@@ -41,6 +64,7 @@ export default function SekolahDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const router = useRouter();
   const { id } = use(params);
   const [school, setSchool] = useState<SchoolDetail | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -51,6 +75,12 @@ export default function SekolahDetailPage({
   const [tempPassword, setTempPassword] = useState<{ email: string; password: string } | null>(
     null,
   );
+
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -112,6 +142,61 @@ export default function SekolahDetailPage({
     setRefreshKey((k) => k + 1);
   }
 
+  function handleOpenEdit() {
+    if (school) setEditForm(toEditForm(school));
+    setEditError(null);
+    setShowEditForm(true);
+  }
+
+  async function handleEditSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!editForm) return;
+    setEditError(null);
+    setEditSubmitting(true);
+
+    const res = await fetch(`/api/admin-pusat/schools/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        nama: editForm.nama,
+        jenjang: editForm.jenjang,
+        npsn: editForm.npsn,
+        alamat: editForm.alamat,
+        kuotaSiswa: editForm.kuotaSiswa,
+        langgananBerakhir: editForm.langgananBerakhir || null,
+      }),
+    });
+    const data = await res.json().catch(() => null);
+    setEditSubmitting(false);
+
+    if (!res.ok) {
+      setEditError(data?.error ?? "Gagal menyimpan perubahan.");
+      return;
+    }
+    setShowEditForm(false);
+    setRefreshKey((k) => k + 1);
+  }
+
+  async function handleDeleteSchool() {
+    if (!school) return;
+    if (
+      !window.confirm(
+        `Hapus sekolah "${school.nama}" secara permanen? Tindakan ini tidak bisa dibatalkan.`,
+      )
+    ) {
+      return;
+    }
+    setDeleteError(null);
+    const res = await fetch(`/api/admin-pusat/schools/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      setDeleteError(data?.error ?? "Gagal menghapus sekolah.");
+      return;
+    }
+    router.push("/admin-pusat/sekolah");
+  }
+
   if (!school) {
     return <p className="text-sm text-slate-500">Memuat...</p>;
   }
@@ -142,7 +227,11 @@ export default function SekolahDetailPage({
             sampai statusnya diaktifkan.
           </p>
         )}
-        <div className="mt-2 flex gap-2">
+        {deleteError && (
+          <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</p>
+        )}
+
+        <div className="mt-2 flex flex-wrap gap-2">
           {school.status !== "aktif" ? (
             <Button variant="secondary" onClick={() => handleChangeStatus("aktif")}>
               Aktifkan sekolah
@@ -152,7 +241,98 @@ export default function SekolahDetailPage({
               Suspend sekolah
             </Button>
           )}
+          <Button variant="secondary" onClick={handleOpenEdit}>
+            Edit sekolah
+          </Button>
+          <Button variant="danger" onClick={handleDeleteSchool}>
+            Hapus sekolah
+          </Button>
         </div>
+
+        {showEditForm && editForm && (
+          <form
+            onSubmit={handleEditSubmit}
+            className="mt-4 flex max-w-xl flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+          >
+            {editError && (
+              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</p>
+            )}
+            <div>
+              <Label htmlFor="editNama">Nama sekolah</Label>
+              <Input
+                id="editNama"
+                required
+                value={editForm.nama}
+                onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="editJenjang">Jenjang</Label>
+                <select
+                  id="editJenjang"
+                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  value={editForm.jenjang}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, jenjang: e.target.value as "SD" | "SMP" })
+                  }
+                >
+                  <option value="SD">SD</option>
+                  <option value="SMP">SMP</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="editNpsn">NPSN (opsional)</Label>
+                <Input
+                  id="editNpsn"
+                  placeholder="8 digit"
+                  value={editForm.npsn}
+                  onChange={(e) => setEditForm({ ...editForm, npsn: e.target.value })}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="editAlamat">Alamat (opsional)</Label>
+              <Input
+                id="editAlamat"
+                value={editForm.alamat}
+                onChange={(e) => setEditForm({ ...editForm, alamat: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="editKuota">Kuota siswa</Label>
+                <Input
+                  id="editKuota"
+                  type="number"
+                  min={1}
+                  required
+                  value={editForm.kuotaSiswa}
+                  onChange={(e) => setEditForm({ ...editForm, kuotaSiswa: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="editLangganan">Langganan berakhir (opsional)</Label>
+                <Input
+                  id="editLangganan"
+                  type="date"
+                  value={editForm.langgananBerakhir}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, langgananBerakhir: e.target.value })
+                  }
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={editSubmitting}>
+                {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setShowEditForm(false)}>
+                Batal
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
 
       {tempPassword && (

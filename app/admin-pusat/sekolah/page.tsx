@@ -46,6 +46,7 @@ export default function SekolahPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -84,6 +85,20 @@ export default function SekolahPage() {
     setRefreshKey((k) => k + 1);
   }
 
+  async function handleDelete(schoolId: string, nama: string) {
+    if (!window.confirm(`Hapus sekolah "${nama}" secara permanen? Tindakan ini tidak bisa dibatalkan.`)) {
+      return;
+    }
+    setDeleteError(null);
+    const res = await fetch(`/api/admin-pusat/schools/${schoolId}`, { method: "DELETE" });
+    const data = await res.json().catch(() => null);
+    if (res.ok) {
+      setRefreshKey((k) => k + 1);
+    } else {
+      setDeleteError(data?.error ?? "Gagal menghapus sekolah.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -98,6 +113,10 @@ export default function SekolahPage() {
           Sekolah berhasil dibuat. Kode Sekolah: <strong>{createdCode}</strong> — sampaikan
           kode ini ke sekolah untuk proses registrasi siswa.
         </p>
+      )}
+
+      {deleteError && (
+        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</p>
       )}
 
       {showForm && (
@@ -193,6 +212,7 @@ export default function SekolahPage() {
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Admin</th>
                 <th className="px-4 py-2 font-medium">Siswa</th>
+                <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody>
@@ -218,6 +238,14 @@ export default function SekolahPage() {
                   <td className="px-4 py-2">{school._count.schoolUsers}</td>
                   <td className="px-4 py-2">
                     {school._count.students}/{school.kuotaSiswa}
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                      onClick={() => handleDelete(school.id, school.nama)}
+                      className="text-sm font-medium text-red-600 hover:underline"
+                    >
+                      Hapus
+                    </button>
                   </td>
                 </tr>
               ))}
