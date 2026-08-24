@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -227,7 +228,11 @@ export default function UjianPage() {
             <tbody>
               {assignments.map((a) => (
                 <tr key={a.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-900">{a.package.nama}</td>
+                  <td className="px-4 py-2 font-medium text-slate-900">
+                    <Link href={`/admin-sekolah/ujian/${a.id}`} className="hover:underline">
+                      {a.package.nama}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2">
                     {a.class ? `${a.class.tingkat}${a.class.namaRombel}` : "-"}
                   </td>

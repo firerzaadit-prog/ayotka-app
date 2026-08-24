@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
+import { checkAndClaimSession } from "@/lib/exam/session-guard";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -14,6 +15,7 @@ const jawabanSchema = z.object({
     z.record(z.string(), z.string()),
   ]),
   ragu: z.boolean().optional(),
+  tabToken: z.string().optional(),
 });
 
 /** Tiket 4.8: auto-save satu jawaban (dipanggil debounced dari client). */
@@ -38,6 +40,13 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const parsed = jawabanSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Data jawaban tidak valid." }, { status: 400 });
+  }
+
+  if (parsed.data.tabToken && !checkAndClaimSession(attempt.id, parsed.data.tabToken)) {
+    return NextResponse.json(
+      { error: "SESI_DIAMBIL_ALIH", message: "Ujian ini sedang dibuka di tab/perangkat lain." },
+      { status: 409 },
+    );
   }
 
   const answer = await prisma.attemptAnswer.findUnique({
