@@ -44,11 +44,21 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
 
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const hasSubmitted = useRef(false);
-  const [tabToken] = useState(() =>
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random()}`,
-  );
+  const [tabToken] = useState(() => {
+    const generate = () =>
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
+    if (typeof window === "undefined") return generate();
+
+    const storageKey = `ayotka-tab-token-${id}`;
+    const existing = window.sessionStorage.getItem(storageKey);
+    if (existing) return existing;
+
+    const token = generate();
+    window.sessionStorage.setItem(storageKey, token);
+    return token;
+  });
 
   const loadAttempt = useCallback(async () => {
     const res = await fetch(`/api/siswa/attempts/${id}?tabToken=${tabToken}`);
