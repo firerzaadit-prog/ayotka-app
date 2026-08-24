@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RichText } from "@/components/soal/rich-text";
+import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
 
 const FORMAT_LABEL: Record<string, string> = {
   pg: "PG",
@@ -135,6 +136,8 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
           </div>
         </div>
       )}
+
+      <AnalisisAiPanel attemptId={id} canTrigger={false} />
 
       <div
         className="select-none"

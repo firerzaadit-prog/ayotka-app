@@ -1,0 +1,93 @@
+import { NextResponse, after } from "next/server";
+import { prisma } from "@/lib/db/prisma";
+import { requireRole, type CurrentUser } from "@/lib/auth/session";
+import { resolveSchoolId } from "@/lib/schools/scope";
+import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
+import { runAnalisisAi } from "@/lib/ai/analyze";
+import { isProcessing, tryStartProcessing, finishProcessing } from "@/lib/ai/analysis-guard";
+import type { Attempt } from "@prisma/client";
+
+type RouteParams = { params: Promise<{ id: string }> };
+
+async function loadAttemptForAdmin(user: CurrentUser, attemptId: string): Promise<Attempt | null> {
+  const attempt = await prisma.attempt.findUnique({
+    where: { id: attemptId },
+    include: { student: true },
+  });
+  if (!attempt) return null;
+  if (user.role === "admin_pusat") return attempt;
+  const schoolId = await resolveSchoolId(user, null);
+  return schoolId && attempt.student.schoolId === schoolId ? attempt : null;
+}
+
+/**
+ * Tiket 5.3 (keputusan user): analisis AI dipicu manual oleh admin pusat
+ * atau admin sekolah lewat tombol - bukan otomatis untuk setiap attempt
+ * selesai (jadi cost AI terkendali, sekolah/pusat yang pilih siswa mana
+ * yang perlu dianalisis). Proses AI-nya sendiri tetap tidak memblokir:
+ * endpoint ini langsung balas "processing" dan pemanggilan Gemini (yang
+ * bisa retry sampai puluhan detik) jalan di background.
+ */
+export async function POST(_request: Request, { params }: RouteParams) {
+  let user;
+  try {
+    user = await requireRole("admin_sekolah", "admin_pusat");
+  } catch {
+    return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const attempt = await loadAttemptForAdmin(user, id);
+  if (!attempt) {
+    return NextResponse.json({ error: "Attempt tidak ditemukan." }, { status: 404 });
+  }
+  if (attempt.status !== "selesai" && attempt.status !== "kedaluwarsa") {
+    return NextResponse.json({ error: "Ujian belum selesai, belum bisa dianalisis." }, { status: 400 });
+  }
+
+  if (!tryStartProcessing(id)) {
+    return NextResponse.json({ status: "processing" });
+  }
+
+  // next/server after(): cara resmi Next.js untuk kerja di background
+  // setelah respons terkirim - tidak menahan admin menunggu Gemini (bisa
+  // retry sampai puluhan detik), dan tetap didukung baik di server
+  // Node.js biasa maupun (lewat waitUntil) di platform serverless.
+  after(async () => {
+    try {
+      await runAnalisisAi(attempt);
+    } catch (err) {
+      console.error(`[analisis-ai] gagal untuk attempt ${id}:`, err);
+    } finally {
+      finishProcessing(id);
+    }
+  });
+
+  return NextResponse.json({ status: "processing" });
+}
+
+/** Status/hasil analisis - siswa pemilik attempt, admin sekolahnya, atau admin pusat. */
+export async function GET(_request: Request, { params }: RouteParams) {
+  let user;
+  try {
+    user = await requireRole("siswa", "admin_sekolah", "admin_pusat");
+  } catch {
+    return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const attempt =
+    user.role === "siswa" ? await loadOwnedAttempt(user.id, id) : await loadAttemptForAdmin(user, id);
+  if (!attempt) {
+    return NextResponse.json({ error: "Attempt tidak ditemukan." }, { status: 404 });
+  }
+
+  const analysis = await prisma.aiAnalysis.findUnique({ where: { attemptId: id } });
+  if (analysis) {
+    return NextResponse.json({ status: "ready", analysis: analysis.detailJson, generatedAt: analysis.generatedAt });
+  }
+  if (isProcessing(id)) {
+    return NextResponse.json({ status: "processing" });
+  }
+  return NextResponse.json({ status: "none" });
+}
