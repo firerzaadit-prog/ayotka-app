@@ -512,6 +512,10 @@ model Attempt {
   skorAkhir    Float?        @map("skor_akhir")
   ip           String?
   userAgent    String?       @map("user_agent")
+  /// Tiket 4.13: hitung berapa kali siswa pindah tab/aplikasi lain selama
+  /// attempt ini - dicatat untuk dipantau admin sekolah & admin pusat,
+  /// bukan pembatas otomatis (tidak menggagalkan ujian sendirian).
+  tabSwitchCount Int         @default(0) @map("tab_switch_count")
 
   student    Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
   package    Package     @relation(fields: [packageId], references: [id], onDelete: Restrict)

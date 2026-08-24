@@ -27,6 +27,7 @@ const emptyForm = {
   durasiMenit: "",
   jumlahSoal: "",
   blueprintId: "",
+  modePembahasan: "setelah_tutup" as "langsung" | "setelah_tutup",
 };
 
 export function PackageList({ basePath }: { basePath: string }) {
@@ -211,6 +212,23 @@ export function PackageList({ basePath }: { basePath: string }) {
                     {b.nama}
                   </option>
                 ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="modePembahasan">Tampilkan pembahasan</Label>
+            <select
+              id="modePembahasan"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              value={form.modePembahasan}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  modePembahasan: e.target.value as "langsung" | "setelah_tutup",
+                })
+              }
+            >
+              <option value="setelah_tutup">Setelah jendela ujian ditutup (aman dari bocor ke teman sekelas)</option>
+              <option value="langsung">Langsung setelah siswa submit</option>
             </select>
           </div>
           <Button type="submit" disabled={submitting} className="w-fit">

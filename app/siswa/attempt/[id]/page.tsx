@@ -190,17 +190,20 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   }, [attempt]);
 
   // Tiket 4.13: deteksi pindah tab (basic - dicatat & ditampilkan sebagai
-  // peringatan ke siswa, tidak otomatis menggagalkan ujian).
+  // peringatan ke siswa, tidak otomatis menggagalkan ujian). Dikirim juga ke
+  // server (fire-and-forget) supaya admin sekolah & admin pusat bisa
+  // memantaunya - sebelumnya cuma di state lokal, hilang tiap refresh.
   useEffect(() => {
     if (!attempt || attempt.status !== "berjalan") return;
     function onVisibilityChange() {
       if (document.visibilityState === "hidden") {
         setTabSwitchCount((c) => c + 1);
+        fetch(`/api/siswa/attempts/${id}/pelanggaran`, { method: "POST" }).catch(() => {});
       }
     }
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
-  }, [attempt]);
+  }, [attempt, id]);
 
   function persistAnswer(questionId: string, jawabanJson: ExamJawaban, ragu: boolean) {
     setAnswers((prev) => ({ ...prev, [questionId]: { jawabanJson, ragu } }));

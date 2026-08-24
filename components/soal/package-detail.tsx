@@ -28,6 +28,7 @@ type PackageDetail = {
   jumlahSoal: number;
   subjectId: string;
   ownerType: "pusat" | "sekolah";
+  modePembahasan: "langsung" | "setelah_tutup";
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -39,6 +40,12 @@ type EditForm = {
   tingkat: string;
   durasiMenit: string;
   jumlahSoal: string;
+  modePembahasan: "langsung" | "setelah_tutup";
+};
+
+const MODE_PEMBAHASAN_LABEL: Record<"langsung" | "setelah_tutup", string> = {
+  langsung: "Langsung setelah siswa submit",
+  setelah_tutup: "Setelah jendela ujian ditutup",
 };
 
 function toEditForm(pkg: PackageDetail): EditForm {
@@ -49,6 +56,7 @@ function toEditForm(pkg: PackageDetail): EditForm {
     tingkat: String(pkg.tingkat),
     durasiMenit: String(pkg.durasiMenit),
     jumlahSoal: String(pkg.jumlahSoal),
+    modePembahasan: pkg.modePembahasan,
   };
 }
 
@@ -167,6 +175,8 @@ export function PackageDetail({
             <p className="text-sm text-slate-500">
               Status: {pkg.status} · {pkg.questions.length}/{pkg.jumlahSoal} soal
               {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
+              {" · Pembahasan: "}
+              {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
             </p>
           </div>
           <div className="flex gap-2">
@@ -264,6 +274,25 @@ export function PackageDetail({
                   onChange={(e) => setEditForm({ ...editForm, jumlahSoal: e.target.value })}
                 />
               </div>
+            </div>
+            <div>
+              <Label htmlFor="editPkgPembahasan">Tampilkan pembahasan</Label>
+              <select
+                id="editPkgPembahasan"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                value={editForm.modePembahasan}
+                onChange={(e) =>
+                  setEditForm({
+                    ...editForm,
+                    modePembahasan: e.target.value as "langsung" | "setelah_tutup",
+                  })
+                }
+              >
+                <option value="setelah_tutup">
+                  Setelah jendela ujian ditutup (aman dari bocor ke teman sekelas)
+                </option>
+                <option value="langsung">Langsung setelah siswa submit</option>
+              </select>
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={editSubmitting}>
