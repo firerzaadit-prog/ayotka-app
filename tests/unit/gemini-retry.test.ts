@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const generateContentMock = vi.fn();
+const constructorOptionsSpy = vi.fn();
 
 vi.mock("@google/genai", () => {
   class ApiError extends Error {
@@ -18,6 +19,9 @@ vi.mock("@google/genai", () => {
   }
   class GoogleGenAI {
     models = { generateContent: generateContentMock };
+    constructor(options: unknown) {
+      constructorOptionsSpy(options);
+    }
   }
   return { GoogleGenAI, ApiError, Type: { OBJECT: "OBJECT", STRING: "STRING", ARRAY: "ARRAY" } };
 });
@@ -40,6 +44,7 @@ describe("generateAnalisis retry/backoff", () => {
     vi.useFakeTimers();
     vi.stubEnv("AI_API_KEY", "test-key");
     generateContentMock.mockReset();
+    constructorOptionsSpy.mockReset();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -107,6 +112,28 @@ describe("generateAnalisis retry/backoff", () => {
     generateContentMock.mockRejectedValue(new ApiError({ message: "bad request", status: 400 }));
 
     await expect(generateAnalisis("prompt")).rejects.toThrow();
+    expect(generateContentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("selalu memaksa mode Gemini Developer API (vertexai: false), tidak ikut tebakan dari env ambient", async () => {
+    const { generateAnalisis } = await import("@/lib/ai/gemini");
+    generateContentMock.mockResolvedValueOnce({ text: JSON.stringify(validPayload) });
+
+    await generateAnalisis("prompt");
+
+    expect(constructorOptionsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ apiKey: "test-key", vertexai: false }),
+    );
+  });
+
+  it("401 dari Gemini dikasih petunjuk troubleshooting yang jelas, bukan cuma JSON mentah", async () => {
+    const { generateAnalisis } = await import("@/lib/ai/gemini");
+    const { ApiError } = await import("@google/genai");
+    generateContentMock.mockRejectedValue(
+      new ApiError({ message: "Request had invalid authentication credentials.", status: 401 }),
+    );
+
+    await expect(generateAnalisis("prompt")).rejects.toThrow(/AI_API_KEY|Google AI Studio/);
     expect(generateContentMock).toHaveBeenCalledTimes(1);
   });
 });

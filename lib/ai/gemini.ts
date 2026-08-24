@@ -29,7 +29,13 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
   if (!apiKey) {
     throw new Error("AI_API_KEY belum diisi di environment server.");
   }
-  const client = new GoogleGenAI({ apiKey });
+  // vertexai eksplisit false: SDK ini juga bisa jalan lewat Vertex AI (butuh
+  // kredensial OAuth/service account, bukan API key biasa), dan tanpa flag
+  // ini dia menebak dari variabel lingkungan (GOOGLE_GENAI_USE_VERTEXAI dkk)
+  // yang bisa saja kebetulan ada di server tanpa disadari - kalau kepilih
+  // Vertex AI secara tidak sengaja, errornya persis "expected OAuth 2
+  // access token" walau AI_API_KEY sudah benar diisi.
+  const client = new GoogleGenAI({ apiKey, vertexai: false });
 
   let lastError: unknown = new Error("Gagal memanggil AI.");
 
@@ -70,6 +76,13 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
     }
   }
 
+  if (lastError instanceof ApiError && lastError.status === 401) {
+    throw new Error(
+      `Gagal autentikasi ke Gemini (401) - cek lagi AI_API_KEY: pastikan diambil dari ` +
+        `Google AI Studio (bukan Google Cloud Console biasa), tidak ada spasi/kutip nyasar ` +
+        `di .env, dan server sudah di-restart setelah diisi. Pesan asli: ${lastError.message}`,
+    );
+  }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
