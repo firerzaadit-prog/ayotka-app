@@ -84,11 +84,19 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         className="pointer-events-none absolute inset-0 z-10"
         style={{ backgroundImage: watermarkBackground(hasil.siswa.nama, hasil.siswa.idSamar) }}
       />
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">{hasil.package.nama}</h1>
-        <p className="text-sm text-slate-500">
-          {hasil.attempt.status === "kedaluwarsa" ? "Waktu habis — disubmit otomatis." : "Selesai."}
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">{hasil.package.nama}</h1>
+          <p className="text-sm text-slate-500">
+            {hasil.attempt.status === "kedaluwarsa" ? "Waktu habis — disubmit otomatis." : "Selesai."}
+          </p>
+        </div>
+        <a
+          href={`/api/siswa/attempts/${id}/rapor`}
+          className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Unduh Rapor (PDF)
+        </a>
       </div>
 
       <div className="rounded-lg border border-slate-200 bg-white p-6 text-center">

@@ -149,6 +149,14 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
                         Lanjutkan
                       </button>
                     )}
+                    {(a.status === "selesai" || a.status === "kedaluwarsa") && (
+                      <a
+                        href={`/api/siswa/attempts/${a.id}/rapor`}
+                        className="text-sm font-medium text-slate-600 hover:underline"
+                      >
+                        Rapor (PDF)
+                      </a>
+                    )}
                   </td>
                 </tr>
               ))}

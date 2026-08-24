@@ -64,11 +64,24 @@ export default function AnalitikPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Analitik</h1>
-        <p className="text-sm text-slate-500">
-          Kompetensi terlemah & ranking siswa berdasarkan hasil ujian yang sudah selesai.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900">Analitik</h1>
+          <p className="text-sm text-slate-500">
+            Kompetensi terlemah & ranking siswa berdasarkan hasil ujian yang sudah selesai.
+          </p>
+        </div>
+        {jumlahAttempt > 0 && (
+          <a
+            href={`/api/admin-sekolah/analitik/export?${new URLSearchParams({
+              ...(classId ? { classId } : {}),
+              ...(subjectId ? { subjectId } : {}),
+            }).toString()}`}
+            className="shrink-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Unduh Rekap (Excel)
+          </a>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-4">
