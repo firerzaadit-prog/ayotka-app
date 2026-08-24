@@ -12,15 +12,28 @@ type SchoolAdmin = {
   user: { id: string; email: string; status: "aktif" | "nonaktif" };
 };
 
+type SchoolStatus = "pending_verifikasi" | "aktif" | "suspend";
+
 type SchoolDetail = {
   id: string;
   nama: string;
   kodeSekolah: string;
   jenjang: "SD" | "SMP";
-  status: string;
+  status: SchoolStatus;
   kuotaSiswa: number;
   langgananBerakhir: string | null;
   schoolUsers: SchoolAdmin[];
+};
+
+const STATUS_LABEL: Record<SchoolStatus, string> = {
+  pending_verifikasi: "Menunggu verifikasi",
+  aktif: "Aktif",
+  suspend: "Suspend",
+};
+const STATUS_BADGE_CLASS: Record<SchoolStatus, string> = {
+  pending_verifikasi: "bg-amber-100 text-amber-700",
+  aktif: "bg-green-100 text-green-700",
+  suspend: "bg-red-100 text-red-700",
 };
 
 export default function SekolahDetailPage({
@@ -90,6 +103,15 @@ export default function SekolahDetailPage({
     setRefreshKey((k) => k + 1);
   }
 
+  async function handleChangeStatus(nextStatus: SchoolStatus) {
+    await fetch(`/api/admin-pusat/schools/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    setRefreshKey((k) => k + 1);
+  }
+
   if (!school) {
     return <p className="text-sm text-slate-500">Memuat...</p>;
   }
@@ -100,13 +122,37 @@ export default function SekolahDetailPage({
         <Link href="/admin-pusat/sekolah" className="text-sm text-slate-500 hover:text-slate-700">
           &larr; Kembali ke daftar sekolah
         </Link>
-        <h1 className="mt-1 text-xl font-semibold text-slate-900">{school.nama}</h1>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-slate-900">{school.nama}</h1>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[school.status]}`}
+          >
+            {STATUS_LABEL[school.status]}
+          </span>
+        </div>
         <p className="text-sm text-slate-500">
           Kode Sekolah <span className="font-mono">{school.kodeSekolah}</span> · {school.jenjang}{" "}
           · Kuota {school.kuotaSiswa} siswa
           {school.langgananBerakhir &&
             ` · Langganan sampai ${formatWIBDate(school.langgananBerakhir)}`}
         </p>
+        {school.status !== "aktif" && (
+          <p className="mt-1 text-sm text-amber-700">
+            Sekolah ini belum aktif — pendaftaran siswa Jalur A (pakai kode sekolah) akan ditolak
+            sampai statusnya diaktifkan.
+          </p>
+        )}
+        <div className="mt-2 flex gap-2">
+          {school.status !== "aktif" ? (
+            <Button variant="secondary" onClick={() => handleChangeStatus("aktif")}>
+              Aktifkan sekolah
+            </Button>
+          ) : (
+            <Button variant="danger" onClick={() => handleChangeStatus("suspend")}>
+              Suspend sekolah
+            </Button>
+          )}
+        </div>
       </div>
 
       {tempPassword && (
