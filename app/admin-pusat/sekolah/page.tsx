@@ -6,14 +6,27 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 
+type SchoolStatus = "pending_verifikasi" | "aktif" | "suspend";
+
 type SchoolListItem = {
   id: string;
   nama: string;
   jenjang: "SD" | "SMP";
   kodeSekolah: string;
-  status: string;
+  status: SchoolStatus;
   kuotaSiswa: number;
   _count: { schoolUsers: number; students: number };
+};
+
+const STATUS_LABEL: Record<SchoolStatus, string> = {
+  pending_verifikasi: "Menunggu verifikasi",
+  aktif: "Aktif",
+  suspend: "Suspend",
+};
+const STATUS_BADGE_CLASS: Record<SchoolStatus, string> = {
+  pending_verifikasi: "bg-amber-100 text-amber-700",
+  aktif: "bg-green-100 text-green-700",
+  suspend: "bg-red-100 text-red-700",
 };
 
 type SchoolFormState = {
@@ -195,7 +208,13 @@ export default function SekolahPage() {
                   </td>
                   <td className="px-4 py-2">{school.jenjang}</td>
                   <td className="px-4 py-2 font-mono">{school.kodeSekolah}</td>
-                  <td className="px-4 py-2">{school.status}</td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[school.status]}`}
+                    >
+                      {STATUS_LABEL[school.status]}
+                    </span>
+                  </td>
                   <td className="px-4 py-2">{school._count.schoolUsers}</td>
                   <td className="px-4 py-2">
                     {school._count.students}/{school.kuotaSiswa}
