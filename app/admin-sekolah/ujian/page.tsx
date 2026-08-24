@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatWIBDate } from "@/lib/utils/datetime";
+import { formatWIB } from "@/lib/utils/datetime";
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type PackageOption = { id: string; nama: string; jumlahSoal: number; durasiMenit: number };
@@ -237,7 +237,7 @@ export default function UjianPage() {
                     {a.class ? `${a.class.tingkat}${a.class.namaRombel}` : "-"}
                   </td>
                   <td className="px-4 py-2 text-xs">
-                    {formatWIBDate(a.mulai)} — {formatWIBDate(a.selesai)}
+                    {formatWIB(a.mulai)} — {formatWIB(a.selesai)}
                   </td>
                   <td className="px-4 py-2">{METODE_LABEL[a.metodeDistribusi]}</td>
                   <td className="px-4 py-2">{a._count.attempts}</td>

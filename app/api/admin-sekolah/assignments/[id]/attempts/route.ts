@@ -46,6 +46,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       status: a.status,
       sisaDetik: a.status === "berjalan" ? getRemainingSeconds(a) : a.sisaDetik,
       skorAkhir: a.skorAkhir,
+      tabSwitchCount: a.tabSwitchCount,
     })),
   });
 }

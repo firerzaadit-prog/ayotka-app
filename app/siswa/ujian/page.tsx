@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatWIBDate } from "@/lib/utils/datetime";
+import { formatWIB } from "@/lib/utils/datetime";
 
 type AssignmentItem = {
   id: string;
@@ -95,7 +95,7 @@ export default function SiswaUjianPage() {
                     <p className="font-medium text-slate-900">{a.package.nama}</p>
                     <p className="text-xs text-slate-500">
                       {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit · Buka sampai{" "}
-                      {formatWIBDate(a.selesai)}
+                      {formatWIB(a.selesai)}
                     </p>
                   </div>
                   {disabled ? (

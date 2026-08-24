@@ -10,6 +10,7 @@ type AttemptRow = {
   status: "berjalan" | "paused" | "selesai" | "kedaluwarsa";
   sisaDetik: number;
   skorAkhir: number | null;
+  tabSwitchCount: number;
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -105,6 +106,7 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 font-medium">Sisa waktu</th>
                 <th className="px-4 py-2 font-medium">Nilai</th>
+                <th className="px-4 py-2 font-medium">Pindah tab</th>
                 <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
@@ -121,6 +123,15 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
                     {a.status === "berjalan" || a.status === "paused" ? formatSisa(a.sisaDetik) : "-"}
                   </td>
                   <td className="px-4 py-2">{a.skorAkhir?.toFixed(0) ?? "-"}</td>
+                  <td className="px-4 py-2">
+                    {a.tabSwitchCount > 0 ? (
+                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                        {a.tabSwitchCount}x
+                      </span>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-right">
                     {a.status === "berjalan" && (
                       <button

@@ -72,7 +72,15 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       teks: q.teks,
       media: q.media,
       bobot: q.bobot,
-      options: options.map((o) => ({ id: o.id, label: o.label, teks: o.teks, media: o.media })),
+      // Label A/B/C/D dihitung ulang dari posisi tampil setelah acak, bukan
+      // label asli tersimpan - kalau tetap pakai label asli, urutannya jadi
+      // "C, B, A, D" dsb. yang justru membongkar bahwa opsinya diacak.
+      options: options.map((o, idx) => ({
+        id: o.id,
+        label: String.fromCharCode(65 + idx),
+        teks: o.teks,
+        media: o.media,
+      })),
       categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
       statements: shuffleWithSeed(q.statements, `${attempt.id}:baris:${q.id}`).map((s) => ({
         id: s.id,

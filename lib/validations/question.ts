@@ -9,6 +9,7 @@ export const packageCreateSchema = z.object({
   jumlahSoal: z.coerce.number().int().min(1, "Jumlah soal wajib diisi"),
   blueprintId: z.string().uuid().optional().or(z.literal("")),
   grupParalelId: z.string().uuid().optional().or(z.literal("")),
+  modePembahasan: z.enum(["langsung", "setelah_tutup"]).optional(),
 });
 export type PackageCreateInput = z.infer<typeof packageCreateSchema>;
 
