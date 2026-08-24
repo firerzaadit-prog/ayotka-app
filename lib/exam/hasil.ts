@@ -10,8 +10,20 @@ import { shuffleWithSeed } from "@/lib/exam/shuffle";
  * tanpa penugasan langsung lihat begitu submit. package.mode_pembahasan
  * "langsung" selalu menang; "setelah_tutup" digerbang oleh assignment.selesai.
  */
+/**
+ * Tiket 5.9: ID separuh disamarkan untuk watermark - cukup untuk dilacak
+ * balik oleh admin kalau ada kebocoran soal, tapi tidak menampilkan NISN
+ * penuh ke siapa pun yang melihat/screenshot halaman.
+ */
+function maskIdentifier(nisn: string | null, attemptId: string): string {
+  if (nisn && nisn.length >= 5) {
+    return `${nisn.slice(0, 3)}${"*".repeat(Math.max(0, nisn.length - 5))}${nisn.slice(-2)}`;
+  }
+  return `ID-${attemptId.slice(0, 8)}`;
+}
+
 export async function buildHasil(attempt: Attempt) {
-  const [pkg, assignment, answers, competencyScores] = await Promise.all([
+  const [pkg, assignment, answers, competencyScores, student] = await Promise.all([
     prisma.package.findUniqueOrThrow({ where: { id: attempt.packageId } }),
     attempt.assignmentId
       ? prisma.assignment.findUnique({ where: { id: attempt.assignmentId } })
@@ -31,6 +43,10 @@ export async function buildHasil(attempt: Attempt) {
     prisma.competencyScore.findMany({
       where: { attemptId: attempt.id },
       include: { kompetensi: { select: { kode: true, deskripsi: true } } },
+    }),
+    prisma.student.findUniqueOrThrow({
+      where: { id: attempt.studentId },
+      select: { nama: true, nisn: true },
     }),
   ]);
 
@@ -86,6 +102,7 @@ export async function buildHasil(attempt: Attempt) {
       selesaiAt: attempt.selesaiAt,
     },
     package: { nama: pkg.nama },
+    siswa: { nama: student.nama, idSamar: maskIdentifier(student.nisn, attempt.id) },
     canShowPembahasan,
     perSoal,
     competencyScores: competencyScores.map((c) => ({

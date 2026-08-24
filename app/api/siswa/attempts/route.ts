@@ -18,6 +18,48 @@ const startAttemptSchema = z
   });
 
 /**
+ * Tiket 5.6: riwayat - semua attempt siswa sepanjang waktu (bukan cuma
+ * yang terbaru per paket seperti di /api/siswa/ujian), tetap bisa dibuka
+ * kapan saja. Tidak ada pengecekan status langganan di sini secara
+ * sengaja - riwayat harus tetap terbuka meski akun mandiri kedaluwarsa
+ * (Bagian 7.1 brief), cuma mulai attempt baru yang boleh terkunci.
+ */
+export async function GET() {
+  let user;
+  try {
+    user = await requireRole("siswa");
+  } catch {
+    return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+  }
+
+  const student = await prisma.student.findFirst({ where: { userId: user.id } });
+  if (!student) {
+    return NextResponse.json({ error: "Profil siswa tidak ditemukan." }, { status: 404 });
+  }
+
+  const attempts = await prisma.attempt.findMany({
+    where: { studentId: student.id },
+    orderBy: { mulaiAt: "desc" },
+    include: {
+      package: { select: { nama: true } },
+      assignment: { select: { class: { select: { tingkat: true, namaRombel: true } } } },
+    },
+  });
+
+  return NextResponse.json({
+    attempts: attempts.map((a) => ({
+      id: a.id,
+      paketNama: a.package.nama,
+      kelas: a.assignment?.class ? `${a.assignment.class.tingkat}${a.assignment.class.namaRombel}` : null,
+      status: a.status,
+      skorAkhir: a.skorAkhir,
+      mulaiAt: a.mulaiAt,
+      selesaiAt: a.selesaiAt,
+    })),
+  });
+}
+
+/**
  * Tiket 4.3/4.4: mulai atau lanjutkan attempt. Attempt "berjalan" yang
  * belum kedaluwarsa untuk assignment/paket yang sama langsung
  * dikembalikan (resume alami saat refresh halaman) alih-alih membuat
