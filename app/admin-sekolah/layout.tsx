@@ -30,6 +30,9 @@ export default async function AdminSekolahLayout({
           <Link href="/admin-sekolah/siswa" className="hover:text-slate-900">
             Siswa
           </Link>
+          <Link href="/admin-sekolah/ujian" className="hover:text-slate-900">
+            Ujian
+          </Link>
           <Link href="/admin-sekolah/bank-soal" className="hover:text-slate-900">
             Bank Soal
           </Link>
