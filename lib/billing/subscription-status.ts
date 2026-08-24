@@ -15,14 +15,15 @@ export type EffectiveStatus = "aktif" | "tenggang" | "kedaluwarsa" | "batal";
  */
 export function effectiveSubscriptionStatus(
   sub: Pick<Subscription, "status" | "berakhirAt">,
+  now: Date = new Date(),
 ): EffectiveStatus {
   if (sub.status === "batal") return "batal";
 
-  const now = Date.now();
-  if (now <= sub.berakhirAt.getTime()) return "aktif";
+  const nowMs = now.getTime();
+  if (nowMs <= sub.berakhirAt.getTime()) return "aktif";
 
   const graceEndsAt = sub.berakhirAt.getTime() + GRACE_PERIOD_DAYS * 24 * 60 * 60 * 1000;
-  return now <= graceEndsAt ? "tenggang" : "kedaluwarsa";
+  return nowMs <= graceEndsAt ? "tenggang" : "kedaluwarsa";
 }
 
 /** aktif & tenggang = akses penuh; kedaluwarsa/batal = "mulai ujian baru" terkunci (Bagian 7.1 brief). */
@@ -48,4 +49,25 @@ export async function getUsableSubscription(userId: string): Promise<Subscriptio
   const latest = await getLatestSubscription(userId);
   if (!latest) return null;
   return hasFullAccess(effectiveSubscriptionStatus(latest)) ? latest : null;
+}
+
+/**
+ * Tiket 6.7 (Bagian 5 brief): "masa aktif bertambah dari tanggal berakhir
+ * sebelumnya" - kalau subscription yang ada masih usable (aktif/tenggang)
+ * saat order di-ACC, periode baru MULAI dari berakhir_at yang lama supaya
+ * sisa masa aktif yang belum terpakai tidak hilang. Kalau tidak usable
+ * (belum pernah langganan, atau sudah lama kedaluwarsa lewat masa
+ * tenggang), periode baru mulai dari sekarang - memulai dari tanggal
+ * kedaluwarsa yang sudah lama lewat akan merugikan siswa (sebagian besar
+ * periode barunya langsung habis).
+ */
+export function computeRenewalPeriod(
+  currentSub: Pick<Subscription, "status" | "berakhirAt"> | null,
+  durasiHari: number,
+  now: Date = new Date(),
+): { mulaiAt: Date; berakhirAt: Date; isRenewal: boolean } {
+  const isRenewal = currentSub != null && hasFullAccess(effectiveSubscriptionStatus(currentSub, now));
+  const mulaiAt = isRenewal ? currentSub!.berakhirAt : now;
+  const berakhirAt = new Date(mulaiAt.getTime() + durasiHari * 24 * 60 * 60 * 1000);
+  return { mulaiAt, berakhirAt, isRenewal };
 }

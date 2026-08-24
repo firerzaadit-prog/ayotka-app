@@ -59,6 +59,9 @@ export default async function AdminPusatLayout({
           <Link href="/admin-pusat/langganan" className="hover:text-slate-900">
             Langganan
           </Link>
+          <Link href="/admin-pusat/verifikasi-pembayaran" className="hover:text-slate-900">
+            Verifikasi Pembayaran
+          </Link>
         </nav>
       }
     >
