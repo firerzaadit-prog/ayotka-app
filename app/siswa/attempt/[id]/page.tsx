@@ -39,14 +39,25 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [sessionTakenOver, setSessionTakenOver] = useState(false);
+  const [tabSwitchCount, setTabSwitchCount] = useState(0);
 
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const hasSubmitted = useRef(false);
+  const [tabToken] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`,
+  );
 
   const loadAttempt = useCallback(async () => {
-    const res = await fetch(`/api/siswa/attempts/${id}`);
+    const res = await fetch(`/api/siswa/attempts/${id}?tabToken=${tabToken}`);
     if (!res.ok) {
       const data = await res.json().catch(() => null);
+      if (data?.error === "SESI_DIAMBIL_ALIH") {
+        setSessionTakenOver(true);
+        return null;
+      }
       setError(data?.error ?? "Gagal memuat ujian.");
       return null;
     }
@@ -63,7 +74,7 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
       setAnswers(map);
     }
     return data.attempt as AttemptState;
-  }, [id]);
+  }, [id, tabToken]);
 
   useEffect(() => {
     (async () => {
@@ -162,6 +173,19 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     };
   }, [attempt]);
 
+  // Tiket 4.13: deteksi pindah tab (basic - dicatat & ditampilkan sebagai
+  // peringatan ke siswa, tidak otomatis menggagalkan ujian).
+  useEffect(() => {
+    if (!attempt || attempt.status !== "berjalan") return;
+    function onVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        setTabSwitchCount((c) => c + 1);
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [attempt]);
+
   function persistAnswer(questionId: string, jawabanJson: ExamJawaban, ragu: boolean) {
     setAnswers((prev) => ({ ...prev, [questionId]: { jawabanJson, ragu } }));
     void saveLocalAnswer(id, questionId, jawabanJson, ragu, false);
@@ -173,10 +197,13 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
         const res = await fetch(`/api/siswa/attempts/${id}/jawaban`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questionId, jawabanJson, ragu }),
+          body: JSON.stringify({ questionId, jawabanJson, ragu, tabToken }),
         });
         if (res.ok) {
           void saveLocalAnswer(id, questionId, jawabanJson, ragu, true);
+        } else {
+          const data = await res.json().catch(() => null);
+          if (data?.error === "SESI_DIAMBIL_ALIH") setSessionTakenOver(true);
         }
       } catch {
         // Gagal (offline) - jawaban tetap aman di IndexedDB, dicoba lagi saat soal berikutnya disimpan.
@@ -186,6 +213,16 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   }
 
   if (loading) return <p className="p-6 text-sm text-slate-500">Memuat ujian...</p>;
+  if (sessionTakenOver) {
+    return (
+      <div className="mx-auto max-w-lg p-6 text-center">
+        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+          Ujian ini sedang dibuka di tab atau perangkat lain dengan akun yang sama. Hanya satu
+          sesi yang boleh aktif — tutup halaman ini.
+        </p>
+      </div>
+    );
+  }
   if (error) {
     return (
       <div className="mx-auto max-w-lg p-6">
@@ -236,6 +273,12 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
       {remaining <= 60 && remaining > 0 && (
         <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
           Sisa waktu 1 menit lagi — jawaban akan otomatis disubmit saat waktu habis.
+        </p>
+      )}
+      {tabSwitchCount > 0 && (
+        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          Terdeteksi {tabSwitchCount}x kamu meninggalkan tab ujian ini. Tetap di halaman ini
+          sampai selesai.
         </p>
       )}
 
