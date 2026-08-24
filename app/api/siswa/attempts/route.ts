@@ -7,6 +7,7 @@ import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/vi
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
 import { canStartMandiriPackage } from "@/lib/billing/free-trial";
+import { incrementAttemptUsage } from "@/lib/billing/usage";
 import { z } from "zod";
 
 const startAttemptSchema = z
@@ -221,6 +222,7 @@ export async function POST(request: Request) {
     after: attempt,
     ip,
   });
+  await incrementAttemptUsage(user.id);
 
   return NextResponse.json({ attempt }, { status: 201 });
 }

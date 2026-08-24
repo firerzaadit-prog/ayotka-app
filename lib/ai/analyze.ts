@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateAnalisis, MODEL_NAME } from "@/lib/ai/gemini";
 import { buildAnalisisPrompt } from "@/lib/ai/prompt";
 import { PROMPT_VERSION } from "@/lib/ai/version";
+import { incrementAnalisisAiUsage } from "@/lib/billing/usage";
 import type { Attempt } from "@prisma/client";
 
 /**
@@ -14,7 +15,10 @@ import type { Attempt } from "@prisma/client";
  */
 export async function runAnalisisAi(attempt: Attempt) {
   const [student, pkg, competencyScores, answers] = await Promise.all([
-    prisma.student.findUniqueOrThrow({ where: { id: attempt.studentId }, select: { nama: true } }),
+    prisma.student.findUniqueOrThrow({
+      where: { id: attempt.studentId },
+      select: { nama: true, userId: true },
+    }),
     prisma.package.findUniqueOrThrow({ where: { id: attempt.packageId }, select: { nama: true } }),
     prisma.competencyScore.findMany({
       where: { attemptId: attempt.id },
@@ -75,6 +79,13 @@ export async function runAnalisisAi(attempt: Attempt) {
       generatedAt: new Date(),
     },
   });
+  // student.userId nullable di skema (siswa jalur A yang belum klaim akun),
+  // tapi attempt cuma bisa dibuat lewat requireRole("siswa") - jadi pada
+  // praktiknya selalu terisi di sini. Tetap dijaga: pemakaian cuma untuk
+  // monitoring, jangan sampai gagal isi ini menggagalkan analisis AI-nya.
+  if (student.userId) {
+    await incrementAnalisisAiUsage(student.userId);
+  }
 
   return hasil;
 }

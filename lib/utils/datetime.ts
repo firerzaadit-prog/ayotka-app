@@ -22,3 +22,8 @@ export function formatWIBDate(date: Date | string): string {
 export function formatWIBTime(date: Date | string): string {
   return formatWIB(date, "HH:mm");
 }
+
+/** Tiket 6.11: kunci "periode_bulan" usage_counters, dalam WIB supaya konsisten dengan tanggal yang dilihat admin. */
+export function periodeBulanWIB(date: Date = new Date()): string {
+  return formatInTimeZone(date, WIB_TIMEZONE, "yyyy-MM");
+}
