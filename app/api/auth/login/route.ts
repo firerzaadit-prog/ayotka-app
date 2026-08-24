@@ -48,6 +48,18 @@ export async function POST(request: Request) {
     );
   }
 
+  const localUser = await prisma.user.findUnique({
+    where: { id: data.user.id },
+    select: { status: true },
+  });
+  if (!localUser || localUser.status !== "aktif") {
+    await supabase.auth.signOut();
+    return NextResponse.json(
+      { error: "Email/NISN atau password salah." },
+      { status: 401 },
+    );
+  }
+
   const role = (data.user.app_metadata as { role?: string }).role ?? "siswa";
 
   await prisma.$transaction([

@@ -12,7 +12,7 @@ export default async function AdminSekolahLayout({
 }) {
   const user = await getCurrentUser();
   if (!user || user.role !== "admin_sekolah") {
-    redirect("/login");
+    redirect("/api/auth/force-logout?next=/login");
   }
 
   return (
