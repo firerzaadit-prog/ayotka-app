@@ -6,6 +6,7 @@ import { pickPackageForAttempt } from "@/lib/exam/distribution";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
+import { canStartMandiriPackage } from "@/lib/billing/free-trial";
 import { z } from "zod";
 
 const startAttemptSchema = z
@@ -108,6 +109,20 @@ export async function POST(request: Request) {
         { error: "Paket tidak ditemukan atau tidak tersedia untukmu." },
         { status: 404 },
       );
+    }
+
+    if (student.jalur === "B") {
+      const allowed = await canStartMandiriPackage(user.id, student.id, packageForMandiri.id);
+      if (!allowed) {
+        return NextResponse.json(
+          {
+            error:
+              "Uji coba gratis (1 paket) sudah kamu pakai untuk paket lain. Berlangganan dulu untuk membuka paket ini.",
+            code: "SUBSCRIPTION_REQUIRED",
+          },
+          { status: 402 },
+        );
+      }
     }
   }
 
