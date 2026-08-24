@@ -104,7 +104,13 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
       {data.status === "processing" && (
         <p className="text-sm text-slate-500">Sedang diproses, biasanya beberapa detik sampai satu menit...</p>
       )}
-      {data.status === "error" && <p className="text-sm text-red-700">{data.error}</p>}
+      {data.status === "error" && (
+        <p className="text-sm text-red-700">
+          {canTrigger
+            ? data.error
+            : "Analisis belum tersedia, coba lagi nanti."}
+        </p>
+      )}
       {data.status === "ready" && (
         <div className="flex flex-col gap-3 text-sm">
           <p className="text-slate-700">{data.analysis.ringkasan}</p>
