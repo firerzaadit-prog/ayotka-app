@@ -71,37 +71,50 @@ export async function POST(request: Request) {
     );
   }
 
-  const { error: resendError } = await supabaseAdmin.auth.resend({
-    type: "signup",
-    email: data.email,
-    options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/confirm?next=/siswa/dashboard`,
-    },
-  });
-  if (resendError) {
+  // Akun Supabase & baris User/Student kita hidup di dua sistem terpisah -
+  // tidak bisa satu transaksi ACID. Kalau ADA SAJA yang gagal setelah akun
+  // Supabase dibuat (kirim email atau simpan ke DB kita), akun Supabase itu
+  // WAJIB dihapus lagi supaya emailnya bisa dipakai coba daftar ulang -
+  // kalau dibiarkan, jadi akun "mati": tidak bisa login (baris User kita
+  // tidak ada) dan tidak bisa didaftarkan ulang (Supabase sudah menganggap
+  // emailnya terpakai).
+  try {
+    const { error: resendError } = await supabaseAdmin.auth.resend({
+      type: "signup",
+      email: data.email,
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/confirm?next=/siswa/dashboard`,
+      },
+    });
+    if (resendError) {
+      throw new Error(`Gagal mengirim email verifikasi: ${resendError.message}`);
+    }
+
+    await prisma.$transaction([
+      prisma.user.create({
+        data: { id: authData.user.id, email: data.email, role: "siswa", status: "aktif" },
+      }),
+      prisma.student.create({
+        data: {
+          userId: authData.user.id,
+          schoolId,
+          jenjang: data.jenjang,
+          tingkat: data.tingkat,
+          nama: data.nama,
+          jalur: "B",
+          claimStatus: "sudah_klaim",
+          status: "pending",
+        },
+      }),
+    ]);
+  } catch (err) {
+    await supabaseAdmin.auth.admin.deleteUser(authData.user.id).catch(() => {});
+    const message = err instanceof Error ? err.message : "Terjadi kesalahan tak terduga.";
     return NextResponse.json(
-      { error: `Akun dibuat tapi gagal mengirim email verifikasi: ${resendError.message}. Coba lupa password untuk kirim ulang, atau hubungi kami.` },
+      { error: `Gagal membuat akun: ${message}. Coba daftar lagi.` },
       { status: 502 },
     );
   }
-
-  await prisma.$transaction([
-    prisma.user.create({
-      data: { id: authData.user.id, email: data.email, role: "siswa", status: "aktif" },
-    }),
-    prisma.student.create({
-      data: {
-        userId: authData.user.id,
-        schoolId,
-        jenjang: data.jenjang,
-        tingkat: data.tingkat,
-        nama: data.nama,
-        jalur: "B",
-        claimStatus: "sudah_klaim",
-        status: "pending",
-      },
-    }),
-  ]);
 
   await logAudit({
     userId: authData.user.id,
