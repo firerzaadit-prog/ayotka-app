@@ -18,6 +18,16 @@ async function ensureBucketExists(): Promise<void> {
   });
 }
 
+/** Tiket 8.2: nama ekstensi diturunkan dari MIME type yang SUDAH divalidasi,
+ * bukan dari file.name (bisa dipalsukan klien) - mencegah nilai aneh masuk
+ * ke object key di Storage. */
+const EXT_BY_MIME: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/gif": "gif",
+};
+
 export async function uploadQuestionImage(
   file: File,
 ): Promise<{ url: string } | { error: string }> {
@@ -31,8 +41,7 @@ export async function uploadQuestionImage(
   await ensureBucketExists();
 
   const admin = createAdminClient();
-  const ext = file.name.split(".").pop() ?? "bin";
-  const path = `${crypto.randomUUID()}.${ext}`;
+  const path = `${crypto.randomUUID()}.${EXT_BY_MIME[file.type]}`;
 
   const { error } = await admin.storage.from(BUCKET).upload(path, file, {
     contentType: file.type,
