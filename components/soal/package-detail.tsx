@@ -2,9 +2,13 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { PackageDistribution } from "@/components/soal/package-distribution";
 
 type Question = {
@@ -49,6 +53,15 @@ const MODE_PEMBAHASAN_LABEL: Record<"langsung" | "setelah_tutup", string> = {
   langsung: "Langsung setelah siswa submit",
   setelah_tutup: "Setelah jendela ujian ditutup",
 };
+
+const STATUS_BADGE_VARIANT: Record<string, "neutral" | "success" | "warning"> = {
+  draft: "neutral",
+  published: "success",
+  archived: "warning",
+};
+
+const selectClassName =
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 function toEditForm(pkg: PackageDetail): EditForm {
   return {
@@ -172,200 +185,190 @@ export function PackageDetail({
         <Link href={basePath} className="text-sm text-slate-500 hover:text-slate-700">
           &larr; Kembali ke Bank Soal
         </Link>
-        <div className="mt-1 flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900">{pkg.nama}</h1>
-            <p className="text-sm text-slate-500">
-              Status: {pkg.status} · {pkg.questions.length}/{pkg.jumlahSoal} soal
-              {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
-              {" · Pembahasan: "}
-              {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
-              {" · Latihan Mandiri: "}
-              {pkg.bolehDipilihSiswa ? "aktif" : "nonaktif"}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={handleOpenEdit}>
-              Edit
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-slate-900">{pkg.nama}</h1>
+          <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
+        </div>
+        <p className="text-sm text-slate-500">
+          {pkg.questions.length}/{pkg.jumlahSoal} soal
+          {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
+          {" · Pembahasan: "}
+          {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
+          {" · Latihan Mandiri: "}
+          {pkg.bolehDipilihSiswa ? "aktif" : "nonaktif"}
+        </p>
+
+        <div className="mt-2 flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={handleOpenEdit}>
+            Edit
+          </Button>
+          <Link href={`${basePath}/${packageId}/soal/baru`} className={buttonClassName("primary")}>
+            Tambah soal
+          </Link>
+          {pkg.status !== "published" && (
+            <Button onClick={handlePublish} disabled={publishing}>
+              {publishing ? "Memproses..." : "Publish"}
             </Button>
-            <Link
-              href={`${basePath}/${packageId}/soal/baru`}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-            >
-              Tambah soal
-            </Link>
-            {pkg.status !== "published" && (
-              <Button onClick={handlePublish} disabled={publishing}>
-                {publishing ? "Memproses..." : "Publish"}
-              </Button>
-            )}
-          </div>
+          )}
         </div>
 
         {showEditForm && editForm && (
-          <form
-            onSubmit={handleEditSubmit}
-            className="mt-4 flex max-w-xl flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
-          >
-            {editError && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</p>
-            )}
-            <div>
-              <Label htmlFor="editPkgNama">Nama paket</Label>
-              <Input
-                id="editPkgNama"
-                required
-                value={editForm.nama}
-                onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+          <Card className="mt-4 max-w-xl">
+            <form onSubmit={handleEditSubmit} className="flex flex-col gap-4">
+              {editError && <Alert variant="danger">{editError}</Alert>}
               <div>
-                <Label htmlFor="editPkgSubject">Mapel</Label>
-                <select
-                  id="editPkgSubject"
+                <Label htmlFor="editPkgNama">Nama paket</Label>
+                <Input
+                  id="editPkgNama"
                   required
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                  value={editForm.subjectId}
-                  onChange={(e) => {
-                    const subject = subjects.find((s) => s.id === e.target.value);
+                  value={editForm.nama}
+                  onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editPkgSubject">Mapel</Label>
+                  <select
+                    id="editPkgSubject"
+                    required
+                    className={selectClassName}
+                    value={editForm.subjectId}
+                    onChange={(e) => {
+                      const subject = subjects.find((s) => s.id === e.target.value);
+                      setEditForm({
+                        ...editForm,
+                        subjectId: e.target.value,
+                        jenjang: subject?.jenjang ?? editForm.jenjang,
+                      });
+                    }}
+                  >
+                    {subjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.nama} ({s.jenjang})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="editPkgTingkat">Tingkat kelas</Label>
+                  <Input
+                    id="editPkgTingkat"
+                    type="number"
+                    min={1}
+                    max={12}
+                    required
+                    value={editForm.tingkat}
+                    onChange={(e) => setEditForm({ ...editForm, tingkat: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editPkgDurasi">Durasi (menit)</Label>
+                  <Input
+                    id="editPkgDurasi"
+                    type="number"
+                    min={1}
+                    required
+                    value={editForm.durasiMenit}
+                    onChange={(e) => setEditForm({ ...editForm, durasiMenit: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editPkgJumlah">Target jumlah soal</Label>
+                  <Input
+                    id="editPkgJumlah"
+                    type="number"
+                    min={1}
+                    required
+                    value={editForm.jumlahSoal}
+                    onChange={(e) => setEditForm({ ...editForm, jumlahSoal: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div>
+                <Label htmlFor="editPkgPembahasan">Tampilkan pembahasan</Label>
+                <select
+                  id="editPkgPembahasan"
+                  className={selectClassName}
+                  value={editForm.modePembahasan}
+                  onChange={(e) =>
                     setEditForm({
                       ...editForm,
-                      subjectId: e.target.value,
-                      jenjang: subject?.jenjang ?? editForm.jenjang,
-                    });
-                  }}
+                      modePembahasan: e.target.value as "langsung" | "setelah_tutup",
+                    })
+                  }
                 >
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nama} ({s.jenjang})
-                    </option>
-                  ))}
+                  <option value="setelah_tutup">
+                    Setelah jendela ujian ditutup (aman dari bocor ke teman sekelas)
+                  </option>
+                  <option value="langsung">Langsung setelah siswa submit</option>
                 </select>
               </div>
               <div>
-                <Label htmlFor="editPkgTingkat">Tingkat kelas</Label>
-                <Input
-                  id="editPkgTingkat"
-                  type="number"
-                  min={1}
-                  max={12}
-                  required
-                  value={editForm.tingkat}
-                  onChange={(e) => setEditForm({ ...editForm, tingkat: e.target.value })}
-                />
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={editForm.bolehDipilihSiswa}
+                    onChange={(e) =>
+                      setEditForm({ ...editForm, bolehDipilihSiswa: e.target.checked })
+                    }
+                    className="accent-indigo-600"
+                  />
+                  Boleh dipilih bebas siswa (Latihan Mandiri)
+                </label>
+                <p className="mt-1 text-xs text-slate-500">
+                  Kalau aktif, siswa bisa memilih paket ini sendiri lewat menu Latihan Mandiri
+                  (di luar jadwal ujian) - selama paket sudah di-publish dan distribusinya
+                  (lihat bagian &quot;Distribusi ke Sekolah&quot; di bawah) mengizinkan siswa
+                  tersebut melihatnya.
+                </p>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="editPkgDurasi">Durasi (menit)</Label>
-                <Input
-                  id="editPkgDurasi"
-                  type="number"
-                  min={1}
-                  required
-                  value={editForm.durasiMenit}
-                  onChange={(e) => setEditForm({ ...editForm, durasiMenit: e.target.value })}
-                />
+              <div className="flex gap-2">
+                <Button type="submit" disabled={editSubmitting}>
+                  {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}
+                </Button>
+                <Button type="button" variant="secondary" onClick={() => setShowEditForm(false)}>
+                  Batal
+                </Button>
               </div>
-              <div>
-                <Label htmlFor="editPkgJumlah">Target jumlah soal</Label>
-                <Input
-                  id="editPkgJumlah"
-                  type="number"
-                  min={1}
-                  required
-                  value={editForm.jumlahSoal}
-                  onChange={(e) => setEditForm({ ...editForm, jumlahSoal: e.target.value })}
-                />
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="editPkgPembahasan">Tampilkan pembahasan</Label>
-              <select
-                id="editPkgPembahasan"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-                value={editForm.modePembahasan}
-                onChange={(e) =>
-                  setEditForm({
-                    ...editForm,
-                    modePembahasan: e.target.value as "langsung" | "setelah_tutup",
-                  })
-                }
-              >
-                <option value="setelah_tutup">
-                  Setelah jendela ujian ditutup (aman dari bocor ke teman sekelas)
-                </option>
-                <option value="langsung">Langsung setelah siswa submit</option>
-              </select>
-            </div>
-            <div>
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={editForm.bolehDipilihSiswa}
-                  onChange={(e) =>
-                    setEditForm({ ...editForm, bolehDipilihSiswa: e.target.checked })
-                  }
-                />
-                Boleh dipilih bebas siswa (Latihan Mandiri)
-              </label>
-              <p className="mt-1 text-xs text-slate-500">
-                Kalau aktif, siswa bisa memilih paket ini sendiri lewat menu Latihan Mandiri
-                (di luar jadwal ujian) - selama paket sudah di-publish dan distribusinya
-                (lihat bagian &quot;Distribusi ke Sekolah&quot; di bawah) mengizinkan siswa
-                tersebut melihatnya.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" disabled={editSubmitting}>
-                {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => setShowEditForm(false)}>
-                Batal
-              </Button>
-            </div>
-          </form>
+            </form>
+          </Card>
         )}
       </div>
 
-      {publishError && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{publishError}</p>
-      )}
+      {publishError && <Alert variant="danger">{publishError}</Alert>}
 
       {pkg.questions.length === 0 ? (
         <EmptyState
           title="Belum ada soal"
           description="Tambah soal pertama untuk paket ini."
           action={
-            <Link
-              href={`${basePath}/${packageId}/soal/baru`}
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-            >
+            <Link href={`${basePath}/${packageId}/soal/baru`} className={buttonClassName("primary")}>
               Tambah soal
             </Link>
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+        <TableContainer>
+          <Table>
+            <Thead>
               <tr>
-                <th className="px-4 py-2 font-medium">Soal</th>
-                <th className="px-4 py-2 font-medium">Format</th>
-                <th className="px-4 py-2 font-medium">Kesulitan</th>
-                <th className="px-4 py-2 font-medium">Kompetensi</th>
-                <th className="px-4 py-2 font-medium"></th>
+                <Th>Soal</Th>
+                <Th>Format</Th>
+                <Th>Kesulitan</Th>
+                <Th>Kompetensi</Th>
+                <Th></Th>
               </tr>
-            </thead>
+            </Thead>
             <tbody>
               {pkg.questions.map((q) => (
-                <tr key={q.id} className="border-b border-slate-100 last:border-0">
-                  <td className="max-w-sm truncate px-4 py-2">{q.teks}</td>
-                  <td className="px-4 py-2">{FORMAT_LABEL[q.format] ?? q.format}</td>
-                  <td className="px-4 py-2">{q.tingkatKesulitan}</td>
-                  <td className="px-4 py-2 font-mono text-xs">{q.kompetensi.kode}</td>
-                  <td className="px-4 py-2 text-right">
+                <Tr key={q.id}>
+                  <Td className="max-w-sm truncate">{q.teks}</Td>
+                  <Td>{FORMAT_LABEL[q.format] ?? q.format}</Td>
+                  <Td>{q.tingkatKesulitan}</Td>
+                  <Td className="font-mono text-xs">{q.kompetensi.kode}</Td>
+                  <Td className="text-right">
                     <div className="flex items-center justify-end gap-3">
                       <Link
                         href={`${basePath}/${packageId}/soal/${q.id}`}
@@ -375,17 +378,17 @@ export function PackageDetail({
                       </Link>
                       <button
                         onClick={() => handleDeleteQuestion(q.id)}
-                        className="text-sm font-medium text-red-600 hover:underline"
+                        className="text-sm font-medium text-rose-600 hover:underline"
                       >
                         Hapus
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
 
       {pkg.ownerType === "pusat" && <PackageDistribution packageId={packageId} />}

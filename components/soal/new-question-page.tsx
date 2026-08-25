@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { QuestionForm } from "@/components/soal/question-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 export function NewQuestionPage({
   packageId,
@@ -32,7 +33,7 @@ export function NewQuestionPage({
       <Link href={`${basePath}/${packageId}`} className="text-sm text-slate-500 hover:text-slate-700">
         &larr; Kembali ke paket
       </Link>
-      <h1 className="text-xl font-semibold text-slate-900">Tambah Soal</h1>
+      <PageHeader title="Tambah Soal" />
       <QuestionForm packageId={packageId} subjectId={subjectId} basePath={basePath} />
     </div>
   );

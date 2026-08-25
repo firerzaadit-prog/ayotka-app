@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 type School = { id: string; nama: string };
 type VisibilityRow = { targetType: "semua" | "sekolah" | "publik"; school: School | null };
@@ -72,12 +74,10 @@ export function PackageDistribution({ packageId }: { packageId: string }) {
   if (rows === null) return null;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <Card>
       <h2 className="mb-3 text-sm font-semibold text-slate-900">Distribusi ke Sekolah</h2>
 
-      {error && (
-        <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-      )}
+      {error && <Alert variant="danger" className="mb-3">{error}</Alert>}
 
       <div className="flex flex-col gap-2 text-sm">
         {(
@@ -94,6 +94,7 @@ export function PackageDistribution({ packageId }: { packageId: string }) {
               name="visibility-mode"
               checked={mode === value}
               onChange={() => setMode(value)}
+              className="accent-indigo-600"
             />
             {label}
           </label>
@@ -101,7 +102,7 @@ export function PackageDistribution({ packageId }: { packageId: string }) {
       </div>
 
       {mode === "sekolah" && (
-        <div className="mt-3 max-h-40 overflow-y-auto rounded-md border border-slate-200 p-2">
+        <div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2">
           {allSchools.map((school) => (
             <label key={school.id} className="flex items-center gap-2 py-1 text-sm">
               <input
@@ -114,6 +115,7 @@ export function PackageDistribution({ packageId }: { packageId: string }) {
                       : prev.filter((id) => id !== school.id),
                   )
                 }
+                className="accent-indigo-600"
               />
               {school.nama}
             </label>
@@ -128,6 +130,6 @@ export function PackageDistribution({ packageId }: { packageId: string }) {
       >
         {saving ? "Menyimpan..." : "Simpan distribusi"}
       </Button>
-    </div>
+    </Card>
   );
 }

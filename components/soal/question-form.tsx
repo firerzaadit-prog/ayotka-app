@@ -4,6 +4,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { ImageUpload } from "@/components/soal/image-upload";
 import { RichText } from "@/components/soal/rich-text";
 
@@ -17,6 +19,9 @@ type Kompetensi = { id: string; kode: string; deskripsi: string };
 const LEVEL_OPTIONS = ["C1", "C2", "C3", "C4", "C5", "C6"];
 const KESULITAN_OPTIONS = ["mudah", "sedang", "sulit"] as const;
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H"];
+
+const selectClassName =
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 function emptyOptions(count: number): Option[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -217,287 +222,290 @@ export function QuestionForm({
 
   if (locked) {
     return (
-      <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <Alert variant="warning">
         Soal ini sudah pernah dijawab siswa dan tidak bisa diedit lagi. Buat soal baru kalau perlu
         perbaikan.
-      </p>
+      </Alert>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+    <Card>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        {error && <Alert variant="danger">{error}</Alert>}
 
-      {!initial && (
-        <div>
-          <Label htmlFor="format">Format soal</Label>
-          <select
-            id="format"
-            className="w-full max-w-xs rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={format}
-            onChange={(e) => {
-              const next = e.target.value as Format;
-              setFormat(next);
-              setOptions(emptyOptions(next === "pg" ? 4 : 2));
-            }}
-          >
-            <option value="pg">Pilihan Ganda</option>
-            <option value="pg_kompleks">PG Kompleks (jawaban ganda)</option>
-            <option value="pg_kategori">PG Kategori (Benar/Salah)</option>
-          </select>
-        </div>
-      )}
-
-      <div>
-        <Label htmlFor="teks">Teks soal</Label>
-        <p className="mb-1 text-xs text-slate-500">
-          Rumus matematika: apit dengan $...$ untuk inline atau $$...$$ untuk blok.
-        </p>
-        <textarea
-          id="teks"
-          required
-          rows={3}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          value={teks}
-          onChange={(e) => setTeks(e.target.value)}
-        />
-        {teks && (
-          <div className="mt-2 rounded-md border border-dashed border-slate-300 p-3 text-sm">
-            <RichText text={teks} />
+        {!initial && (
+          <div>
+            <Label htmlFor="format">Format soal</Label>
+            <select
+              id="format"
+              className={`max-w-xs ${selectClassName}`}
+              value={format}
+              onChange={(e) => {
+                const next = e.target.value as Format;
+                setFormat(next);
+                setOptions(emptyOptions(next === "pg" ? 4 : 2));
+              }}
+            >
+              <option value="pg">Pilihan Ganda</option>
+              <option value="pg_kompleks">PG Kompleks (jawaban ganda)</option>
+              <option value="pg_kategori">PG Kategori (Benar/Salah)</option>
+            </select>
           </div>
         )}
-        <div className="mt-2">
-          <ImageUpload value={media} onChange={setMedia} />
-        </div>
-      </div>
 
-      <div className="grid grid-cols-3 gap-4">
         <div>
-          <Label htmlFor="bobot">Bobot</Label>
-          <Input id="bobot" type="number" min={1} value={bobot} onChange={(e) => setBobot(e.target.value)} />
-        </div>
-        <div>
-          <Label htmlFor="tingkatKesulitan">Tingkat kesulitan</Label>
-          <select
-            id="tingkatKesulitan"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={tingkatKesulitan}
-            onChange={(e) => setTingkatKesulitan(e.target.value as (typeof KESULITAN_OPTIONS)[number])}
-          >
-            {KESULITAN_OPTIONS.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label htmlFor="levelBloom">Level kognitif</Label>
-          <select
-            id="levelBloom"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={levelBloom}
-            onChange={(e) => setLevelBloom(e.target.value)}
-          >
-            {LEVEL_OPTIONS.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
-        <div>
-          <Label htmlFor="materiId">Materi</Label>
-          <select
-            id="materiId"
+          <Label htmlFor="teks">Teks soal</Label>
+          <p className="mb-1 text-xs text-slate-500">
+            Rumus matematika: apit dengan $...$ untuk inline atau $$...$$ untuk blok.
+          </p>
+          <textarea
+            id="teks"
             required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={materiId}
-            onChange={(e) => {
-              setMateriId(e.target.value);
-              setSubMateriId("");
-              setKompetensiId("");
-            }}
-          >
-            <option value="">Pilih materi</option>
-            {materiList.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label htmlFor="subMateriId">Sub materi</Label>
-          <select
-            id="subMateriId"
-            required
-            disabled={!materiId}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={subMateriId}
-            onChange={(e) => {
-              setSubMateriId(e.target.value);
-              setKompetensiId("");
-            }}
-          >
-            <option value="">Pilih sub materi</option>
-            {subMateriList.map((sm) => (
-              <option key={sm.id} value={sm.id}>
-                {sm.nama}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label htmlFor="kompetensiId">Kompetensi</Label>
-          <select
-            id="kompetensiId"
-            required
-            disabled={!subMateriId}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={kompetensiId}
-            onChange={(e) => setKompetensiId(e.target.value)}
-          >
-            <option value="">Pilih kompetensi</option>
-            {kompetensiList.map((k) => (
-              <option key={k.id} value={k.id}>
-                {k.kode} - {k.deskripsi}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {(format === "pg" || format === "pg_kompleks") && (
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <Label>
-              Opsi jawaban {format === "pg" ? "(pilih 1 kunci)" : "(centang semua kunci)"}
-            </Label>
-            {format === "pg_kompleks" && (
-              <div className="flex gap-2">
-                <Button type="button" variant="secondary" onClick={addOption}>
-                  Tambah opsi
-                </Button>
-              </div>
-            )}
+            rows={3}
+            className={selectClassName}
+            value={teks}
+            onChange={(e) => setTeks(e.target.value)}
+          />
+          {teks && (
+            <div className="mt-2 rounded-lg border border-dashed border-slate-300 p-3 text-sm">
+              <RichText text={teks} />
+            </div>
+          )}
+          <div className="mt-2">
+            <ImageUpload value={media} onChange={setMedia} />
           </div>
-          <div className="flex flex-col gap-3">
-            {options.map((opt, i) => (
-              <div key={i} className="flex items-start gap-3 rounded-md border border-slate-200 p-3">
-                <input
-                  type={format === "pg" ? "radio" : "checkbox"}
-                  name="correct-option"
-                  checked={opt.isCorrect}
-                  onChange={() => toggleCorrect(i)}
-                  className="mt-2"
-                />
-                <span className="mt-2 w-5 font-mono text-sm text-slate-500">{opt.label}</span>
-                <div className="flex-1">
-                  <Input
-                    required
-                    placeholder="Teks opsi (rumus: $x^2$)"
-                    value={opt.teks}
-                    onChange={(e) => updateOption(i, { teks: e.target.value })}
-                  />
-                  {opt.teks && (
-                    <div className="mt-2 rounded-md border border-dashed border-slate-300 p-2 text-sm">
-                      <RichText text={opt.teks} />
-                    </div>
-                  )}
-                  <div className="mt-2">
-                    <ImageUpload value={opt.media} onChange={(url) => updateOption(i, { media: url })} />
-                  </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="bobot">Bobot</Label>
+            <Input id="bobot" type="number" min={1} value={bobot} onChange={(e) => setBobot(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="tingkatKesulitan">Tingkat kesulitan</Label>
+            <select
+              id="tingkatKesulitan"
+              className={selectClassName}
+              value={tingkatKesulitan}
+              onChange={(e) => setTingkatKesulitan(e.target.value as (typeof KESULITAN_OPTIONS)[number])}
+            >
+              {KESULITAN_OPTIONS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="levelBloom">Level kognitif</Label>
+            <select
+              id="levelBloom"
+              className={selectClassName}
+              value={levelBloom}
+              onChange={(e) => setLevelBloom(e.target.value)}
+            >
+              {LEVEL_OPTIONS.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <Label htmlFor="materiId">Materi</Label>
+            <select
+              id="materiId"
+              required
+              className={selectClassName}
+              value={materiId}
+              onChange={(e) => {
+                setMateriId(e.target.value);
+                setSubMateriId("");
+                setKompetensiId("");
+              }}
+            >
+              <option value="">Pilih materi</option>
+              {materiList.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.nama}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="subMateriId">Sub materi</Label>
+            <select
+              id="subMateriId"
+              required
+              disabled={!materiId}
+              className={selectClassName}
+              value={subMateriId}
+              onChange={(e) => {
+                setSubMateriId(e.target.value);
+                setKompetensiId("");
+              }}
+            >
+              <option value="">Pilih sub materi</option>
+              {subMateriList.map((sm) => (
+                <option key={sm.id} value={sm.id}>
+                  {sm.nama}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <Label htmlFor="kompetensiId">Kompetensi</Label>
+            <select
+              id="kompetensiId"
+              required
+              disabled={!subMateriId}
+              className={selectClassName}
+              value={kompetensiId}
+              onChange={(e) => setKompetensiId(e.target.value)}
+            >
+              <option value="">Pilih kompetensi</option>
+              {kompetensiList.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.kode} - {k.deskripsi}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {(format === "pg" || format === "pg_kompleks") && (
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <Label>
+                Opsi jawaban {format === "pg" ? "(pilih 1 kunci)" : "(centang semua kunci)"}
+              </Label>
+              {format === "pg_kompleks" && (
+                <div className="flex gap-2">
+                  <Button type="button" variant="secondary" onClick={addOption}>
+                    Tambah opsi
+                  </Button>
                 </div>
-                {format === "pg_kompleks" && options.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => removeOption(i)}
-                    className="text-xs text-red-600 hover:underline"
-                  >
-                    Hapus
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {format === "pg_kategori" && (
-        <div>
-          <div className="mb-2 flex items-center justify-between">
-            <Label>Pernyataan (maks. 3, kolom kategori tetap Benar/Salah)</Label>
-            <Button type="button" variant="secondary" onClick={addStatement} disabled={statements.length >= 3}>
-              Tambah pernyataan
-            </Button>
-          </div>
-          <div className="flex flex-col gap-3">
-            {statements.map((s, i) => (
-              <div key={i} className="rounded-md border border-slate-200 p-3">
-                <div className="flex items-start gap-3">
+              )}
+            </div>
+            <div className="flex flex-col gap-3">
+              {options.map((opt, i) => (
+                <div key={i} className="flex items-start gap-3 rounded-lg border border-slate-200 p-3">
+                  <input
+                    type={format === "pg" ? "radio" : "checkbox"}
+                    name="correct-option"
+                    checked={opt.isCorrect}
+                    onChange={() => toggleCorrect(i)}
+                    className="mt-2 accent-indigo-600"
+                  />
+                  <span className="mt-2 w-5 font-mono text-sm text-slate-500">{opt.label}</span>
                   <div className="flex-1">
                     <Input
                       required
-                      placeholder="Teks pernyataan (rumus: $x^2$)"
-                      value={s.teks}
-                      onChange={(e) => updateStatement(i, { teks: e.target.value })}
+                      placeholder="Teks opsi (rumus: $x^2$)"
+                      value={opt.teks}
+                      onChange={(e) => updateOption(i, { teks: e.target.value })}
                     />
-                    {s.teks && (
-                      <div className="mt-2 rounded-md border border-dashed border-slate-300 p-2 text-sm">
-                        <RichText text={s.teks} />
+                    {opt.teks && (
+                      <div className="mt-2 rounded-lg border border-dashed border-slate-300 p-2 text-sm">
+                        <RichText text={opt.teks} />
                       </div>
                     )}
                     <div className="mt-2">
-                      <ImageUpload value={s.media} onChange={(url) => updateStatement(i, { media: url })} />
+                      <ImageUpload value={opt.media} onChange={(url) => updateOption(i, { media: url })} />
                     </div>
                   </div>
-                  {statements.length > 1 && (
+                  {format === "pg_kompleks" && options.length > 2 && (
                     <button
                       type="button"
-                      onClick={() => removeStatement(i)}
-                      className="text-xs text-red-600 hover:underline"
+                      onClick={() => removeOption(i)}
+                      className="text-xs text-rose-600 hover:underline"
                     >
                       Hapus
                     </button>
                   )}
                 </div>
-                <div className="mt-2 flex gap-4 text-sm">
-                  {(["Benar", "Salah"] as const).map((cat) => (
-                    <label key={cat} className="flex items-center gap-1">
-                      <input
-                        type="radio"
-                        name={`statement-${i}-category`}
-                        checked={s.correctCategory === cat}
-                        onChange={() => updateStatement(i, { correctCategory: cat })}
-                      />
-                      {cat}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
+        )}
+
+        {format === "pg_kategori" && (
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <Label>Pernyataan (maks. 3, kolom kategori tetap Benar/Salah)</Label>
+              <Button type="button" variant="secondary" onClick={addStatement} disabled={statements.length >= 3}>
+                Tambah pernyataan
+              </Button>
+            </div>
+            <div className="flex flex-col gap-3">
+              {statements.map((s, i) => (
+                <div key={i} className="rounded-lg border border-slate-200 p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <Input
+                        required
+                        placeholder="Teks pernyataan (rumus: $x^2$)"
+                        value={s.teks}
+                        onChange={(e) => updateStatement(i, { teks: e.target.value })}
+                      />
+                      {s.teks && (
+                        <div className="mt-2 rounded-lg border border-dashed border-slate-300 p-2 text-sm">
+                          <RichText text={s.teks} />
+                        </div>
+                      )}
+                      <div className="mt-2">
+                        <ImageUpload value={s.media} onChange={(url) => updateStatement(i, { media: url })} />
+                      </div>
+                    </div>
+                    {statements.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeStatement(i)}
+                        className="text-xs text-rose-600 hover:underline"
+                      >
+                        Hapus
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-2 flex gap-4 text-sm">
+                    {(["Benar", "Salah"] as const).map((cat) => (
+                      <label key={cat} className="flex items-center gap-1">
+                        <input
+                          type="radio"
+                          name={`statement-${i}-category`}
+                          checked={s.correctCategory === cat}
+                          onChange={() => updateStatement(i, { correctCategory: cat })}
+                          className="accent-indigo-600"
+                        />
+                        {cat}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <Label htmlFor="pembahasan">Pembahasan (opsional)</Label>
+          <textarea
+            id="pembahasan"
+            rows={3}
+            className={selectClassName}
+            value={pembahasan}
+            onChange={(e) => setPembahasan(e.target.value)}
+          />
         </div>
-      )}
 
-      <div>
-        <Label htmlFor="pembahasan">Pembahasan (opsional)</Label>
-        <textarea
-          id="pembahasan"
-          rows={3}
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-          value={pembahasan}
-          onChange={(e) => setPembahasan(e.target.value)}
-        />
-      </div>
-
-      <Button type="submit" disabled={submitting} className="w-fit">
-        {submitting ? "Menyimpan..." : "Simpan soal"}
-      </Button>
-    </form>
+        <Button type="submit" disabled={submitting} className="w-fit">
+          {submitting ? "Menyimpan..." : "Simpan soal"}
+        </Button>
+      </form>
+    </Card>
   );
 }
