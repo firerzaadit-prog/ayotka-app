@@ -12,12 +12,21 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const jenjang = url.searchParams.get("jenjang");
-  const result = await buildAnalitikGlobal({
-    schoolId: url.searchParams.get("schoolId"),
-    jenjang: jenjang === "SD" || jenjang === "SMP" ? jenjang : null,
-    subjectId: url.searchParams.get("subjectId"),
-    wilayah: url.searchParams.get("wilayah"),
-  });
 
-  return NextResponse.json(result);
+  try {
+    const result = await buildAnalitikGlobal({
+      schoolId: url.searchParams.get("schoolId"),
+      jenjang: jenjang === "SD" || jenjang === "SMP" ? jenjang : null,
+      subjectId: url.searchParams.get("subjectId"),
+      wilayah: url.searchParams.get("wilayah"),
+    });
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Gagal memuat analitik global", error);
+    const message = error instanceof Error ? error.message : "unknown error";
+    return NextResponse.json(
+      { error: `Gagal memuat analitik: ${message}` },
+      { status: 500 },
+    );
+  }
 }

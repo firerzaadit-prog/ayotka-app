@@ -21,29 +21,44 @@ export type AnalitikGlobalFilter = {
  * Jalur A (terikat sekolah beneran, status aktif) - sekolah "pending" hasil
  * input manual siswa mandiri (Tiket 7.4) belum tentu entitas nyata, jadi
  * dikeluarkan supaya perbandingan tidak bias oleh data yang belum terverifikasi.
+ *
+ * Sengaja dua query terpisah (sekolah dulu, baru attempt-nya via
+ * schoolId: {in: [...]}), bukan satu query attempt dengan filter relasi
+ * bersarang student.school.{status,jenjang,alamat} - meniru persis pola
+ * lib/analytics/sekolah.ts (Tiket 5.7, filter schoolId scalar langsung)
+ * yang sudah terbukti jalan, dan menghindari filter relasi bersarang yang
+ * belum pernah dipakai di manapun lagi di kode ini.
  */
 export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
+  const schools = await prisma.school.findMany({
+    where: {
+      status: "aktif",
+      ...(filter.schoolId ? { id: filter.schoolId } : {}),
+      ...(filter.jenjang ? { jenjang: filter.jenjang } : {}),
+      ...(filter.wilayah
+        ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
+        : {}),
+    },
+    select: { id: true, nama: true },
+  });
+  const schoolNamaById = new Map(schools.map((s) => [s.id, s.nama]));
+  const schoolIds = schools.map((s) => s.id);
+
+  if (schoolIds.length === 0) {
+    return { jumlahAttempt: 0, perSekolah: [], kompetensi: [], tren: [] };
+  }
+
   const attempts = await prisma.attempt.findMany({
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
-      student: {
-        deletedAt: null,
-        school: {
-          status: "aktif",
-          ...(filter.schoolId ? { id: filter.schoolId } : {}),
-          ...(filter.jenjang ? { jenjang: filter.jenjang } : {}),
-          ...(filter.wilayah
-            ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
-            : {}),
-        },
-      },
+      student: { schoolId: { in: schoolIds }, deletedAt: null },
       ...(filter.subjectId ? { package: { subjectId: filter.subjectId } } : {}),
     },
     select: {
       skorAkhir: true,
       selesaiAt: true,
       mulaiAt: true,
-      student: { select: { id: true, schoolId: true, school: { select: { nama: true } } } },
+      student: { select: { id: true, schoolId: true } },
       competencyScores: {
         select: {
           jmlBenar: true,
@@ -75,7 +90,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
     const schoolId = a.student.schoolId;
     if (schoolId) {
       const existing = sekolahMap.get(schoolId) ?? {
-        nama: a.student.school!.nama,
+        nama: schoolNamaById.get(schoolId) ?? "(sekolah tidak dikenal)",
         totalSkor: 0,
         jumlahAttempt: 0,
         siswaIds: new Set<string>(),
