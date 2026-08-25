@@ -10,6 +10,7 @@ export const packageCreateSchema = z.object({
   blueprintId: z.string().uuid().optional().or(z.literal("")),
   grupParalelId: z.string().uuid().optional().or(z.literal("")),
   modePembahasan: z.enum(["langsung", "setelah_tutup"]).optional(),
+  bolehDipilihSiswa: z.boolean().optional(),
 });
 export type PackageCreateInput = z.infer<typeof packageCreateSchema>;
 
