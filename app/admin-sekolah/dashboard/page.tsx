@@ -3,6 +3,10 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { Alert } from "@/components/ui/alert";
+import { buttonClassName } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +17,7 @@ export default async function AdminSekolahDashboardPage() {
   if (!schoolId) {
     return (
       <div className="flex flex-col gap-6">
-        <h1 className="text-xl font-semibold text-slate-900">Dashboard Admin Sekolah</h1>
+        <PageHeader title="Dashboard Admin Sekolah" />
         <EmptyState
           title="Akun belum terhubung ke sekolah"
           description="Hubungi Admin Pusat untuk menghubungkan akun ini ke sebuah sekolah."
@@ -42,63 +46,37 @@ export default async function AdminSekolahDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-slate-900">Dashboard Admin Sekolah</h1>
+      <PageHeader title="Dashboard Admin Sekolah" description={school?.nama} />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Siswa aktif</p>
-          <p className="text-2xl font-semibold text-slate-900">
-            {siswaAktif}
-            <span className="text-base font-normal text-slate-400">
-              /{school?.kuotaSiswa ?? 0}
-            </span>
-          </p>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Rombel (tahun ajaran aktif)</p>
-          <p className="text-2xl font-semibold text-slate-900">{rombel}</p>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Siswa belum klaim akun</p>
-          <p className="text-2xl font-semibold text-slate-900">{belumKlaim}</p>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Paket soal</p>
-          <p className="text-2xl font-semibold text-slate-900">{paketSoal}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Siswa aktif" value={`${siswaAktif}/${school?.kuotaSiswa ?? 0}`} />
+        <StatCard label="Rombel (tahun ajaran aktif)" value={rombel} />
+        <StatCard label="Siswa belum klaim akun" value={belumKlaim} />
+        <StatCard label="Paket soal" value={paketSoal} />
       </div>
 
       {!activeYear && (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <Alert variant="warning">
           Belum ada tahun ajaran aktif — hubungi Admin Pusat untuk mengaktifkan salah satu tahun
           ajaran sebelum mengelola rombel.
-        </p>
+        </Alert>
       )}
 
       {belumKlaim > 0 && (
-        <p className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">
+        <Alert variant="info">
           Ada {belumKlaim} siswa yang belum mengklaim akunnya — cetak kartu kode klaim dari
           halaman Kelas untuk dibagikan.
-        </p>
+        </Alert>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Link
-          href="/admin-sekolah/kelas"
-          className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-        >
+        <Link href="/admin-sekolah/kelas" className={buttonClassName("primary")}>
           Kelola Kelas
         </Link>
-        <Link
-          href="/admin-sekolah/siswa"
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
+        <Link href="/admin-sekolah/siswa" className={buttonClassName("secondary")}>
           Kelola Siswa
         </Link>
-        <Link
-          href="/admin-sekolah/bank-soal"
-          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
+        <Link href="/admin-sekolah/bank-soal" className={buttonClassName("secondary")}>
           Bank Soal
         </Link>
       </div>

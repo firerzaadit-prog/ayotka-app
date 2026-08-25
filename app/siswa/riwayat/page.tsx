@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { buttonClassName } from "@/components/ui/button";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type RiwayatItem = {
@@ -20,6 +25,13 @@ const STATUS_LABEL: Record<string, string> = {
   paused: "Dijeda",
   selesai: "Selesai",
   kedaluwarsa: "Waktu habis",
+};
+
+const STATUS_VARIANT: Record<RiwayatItem["status"], "info" | "warning" | "success" | "neutral"> = {
+  berjalan: "info",
+  paused: "warning",
+  selesai: "success",
+  kedaluwarsa: "neutral",
 };
 
 function hrefFor(item: RiwayatItem) {
@@ -50,24 +62,19 @@ export default function RiwayatPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Riwayat Ujian</h1>
-        <p className="text-sm text-slate-500">
-          Semua ujian yang pernah kamu kerjakan, bisa dibuka kapan saja.
-        </p>
-      </div>
+      <PageHeader
+        title="Riwayat Ujian"
+        description="Semua ujian yang pernah kamu kerjakan, bisa dibuka kapan saja."
+      />
 
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
       {attempts === null && !error && <p className="text-sm text-slate-500">Memuat...</p>}
       {attempts?.length === 0 && (
         <EmptyState
           title="Belum ada riwayat ujian"
           description="Kerjakan ujian yang ditugaskan sekolahmu atau paket latihan mandiri untuk mulai."
           action={
-            <Link
-              href="/siswa/ujian"
-              className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-            >
+            <Link href="/siswa/ujian" className={buttonClassName("primary")}>
               Buka Ujian
             </Link>
           }
@@ -75,36 +82,38 @@ export default function RiwayatPage() {
       )}
 
       {attempts && attempts.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Paket</th>
-                <th className="px-4 py-2 font-medium">Kelas</th>
-                <th className="px-4 py-2 font-medium">Mulai</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Nilai</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Paket</Th>
+                <Th>Kelas</Th>
+                <Th>Mulai</Th>
+                <Th>Status</Th>
+                <Th>Nilai</Th>
+                <Th></Th>
+              </Tr>
+            </Thead>
             <tbody>
               {attempts.map((a) => (
-                <tr key={a.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-900">{a.paketNama}</td>
-                  <td className="px-4 py-2">{a.kelas ?? "Mandiri"}</td>
-                  <td className="px-4 py-2 text-xs">{formatWIB(a.mulaiAt)}</td>
-                  <td className="px-4 py-2">{STATUS_LABEL[a.status]}</td>
-                  <td className="px-4 py-2">{a.skorAkhir?.toFixed(0) ?? "-"}</td>
-                  <td className="px-4 py-2 text-right">
+                <Tr key={a.id}>
+                  <Td className="font-medium text-slate-900">{a.paketNama}</Td>
+                  <Td>{a.kelas ?? "Mandiri"}</Td>
+                  <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
+                  <Td>
+                    <Badge variant={STATUS_VARIANT[a.status]}>{STATUS_LABEL[a.status]}</Badge>
+                  </Td>
+                  <Td>{a.skorAkhir?.toFixed(0) ?? "-"}</Td>
+                  <Td className="text-right">
                     <Link href={hrefFor(a)} className="text-sm font-medium text-slate-600 hover:text-slate-900">
                       {a.status === "berjalan" || a.status === "paused" ? "Lanjutkan" : "Lihat hasil"}
                     </Link>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

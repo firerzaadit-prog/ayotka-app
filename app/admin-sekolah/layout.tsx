@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { SidebarSection, SidebarLink } from "@/components/layout/sidebar-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -20,26 +20,14 @@ export default async function AdminSekolahLayout({
       title="Admin Sekolah"
       email={user.email}
       nav={
-        <nav className="flex gap-4 text-sm text-slate-600">
-          <Link href="/admin-sekolah/dashboard" className="hover:text-slate-900">
-            Dashboard
-          </Link>
-          <Link href="/admin-sekolah/kelas" className="hover:text-slate-900">
-            Kelas
-          </Link>
-          <Link href="/admin-sekolah/siswa" className="hover:text-slate-900">
-            Siswa
-          </Link>
-          <Link href="/admin-sekolah/ujian" className="hover:text-slate-900">
-            Ujian
-          </Link>
-          <Link href="/admin-sekolah/bank-soal" className="hover:text-slate-900">
-            Bank Soal
-          </Link>
-          <Link href="/admin-sekolah/analitik" className="hover:text-slate-900">
-            Analitik
-          </Link>
-        </nav>
+        <SidebarSection>
+          <SidebarLink href="/admin-sekolah/dashboard">Dashboard</SidebarLink>
+          <SidebarLink href="/admin-sekolah/kelas">Kelas</SidebarLink>
+          <SidebarLink href="/admin-sekolah/siswa">Siswa</SidebarLink>
+          <SidebarLink href="/admin-sekolah/ujian">Ujian</SidebarLink>
+          <SidebarLink href="/admin-sekolah/bank-soal">Bank Soal</SidebarLink>
+          <SidebarLink href="/admin-sekolah/analitik">Analitik</SidebarLink>
+        </SidebarSection>
       }
     >
       {children}

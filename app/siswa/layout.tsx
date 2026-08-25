@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { SidebarSection, SidebarLink } from "@/components/layout/sidebar-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -16,20 +16,12 @@ export default async function SiswaLayout({ children }: { children: React.ReactN
       title="Siswa"
       email={user.email}
       nav={
-        <nav className="flex gap-4 text-sm text-slate-600">
-          <Link href="/siswa/dashboard" className="hover:text-slate-900">
-            Dashboard
-          </Link>
-          <Link href="/siswa/ujian" className="hover:text-slate-900">
-            Ujian
-          </Link>
-          <Link href="/siswa/riwayat" className="hover:text-slate-900">
-            Riwayat
-          </Link>
-          <Link href="/siswa/langganan" className="hover:text-slate-900">
-            Langganan
-          </Link>
-        </nav>
+        <SidebarSection>
+          <SidebarLink href="/siswa/dashboard">Dashboard</SidebarLink>
+          <SidebarLink href="/siswa/ujian">Ujian</SidebarLink>
+          <SidebarLink href="/siswa/riwayat">Riwayat</SidebarLink>
+          <SidebarLink href="/siswa/langganan">Langganan</SidebarLink>
+        </SidebarSection>
       }
     >
       {children}

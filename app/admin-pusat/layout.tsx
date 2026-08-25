@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
+import { SidebarSection, SidebarLink } from "@/components/layout/sidebar-nav";
 
 // Halaman di bawah section ini selalu bergantung sesi login per pengguna -
 // jangan pernah di-prerender statis saat build.
@@ -22,65 +22,46 @@ export default async function AdminPusatLayout({
       title="Admin Pusat"
       email={user.email}
       nav={
-        <nav className="flex gap-4 text-sm text-slate-600">
-          <Link href="/admin-pusat/dashboard" className="hover:text-slate-900">
-            Dashboard
-          </Link>
-          <Link href="/admin-pusat/sekolah" className="hover:text-slate-900">
-            Sekolah
-          </Link>
-          <Link href="/admin-pusat/tahun-ajaran" className="hover:text-slate-900">
-            Tahun Ajaran
-          </Link>
-          <Link href="/admin-pusat/siswa" className="hover:text-slate-900">
-            Semua Siswa
-          </Link>
-          <Link href="/admin-pusat/siswa-mandiri" className="hover:text-slate-900">
-            Siswa Mandiri
-          </Link>
-          <Link href="/admin-pusat/siswa/pindah" className="hover:text-slate-900">
-            Pindah Sekolah
-          </Link>
-          <Link href="/admin-pusat/taxonomy" className="hover:text-slate-900">
-            Taxonomy
-          </Link>
-          <Link href="/admin-pusat/kisi-kisi" className="hover:text-slate-900">
-            Kisi-kisi
-          </Link>
-          <Link href="/admin-pusat/bank-soal" className="hover:text-slate-900">
-            Bank Soal
-          </Link>
-          <Link href="/admin-pusat/jadwal-ujian" className="hover:text-slate-900">
-            Jadwal Ujian
-          </Link>
-          <Link href="/admin-pusat/pelanggaran-ujian" className="hover:text-slate-900">
-            Pelanggaran Ujian
-          </Link>
-          <Link href="/admin-pusat/langganan" className="hover:text-slate-900">
-            Langganan
-          </Link>
-          <Link href="/admin-pusat/verifikasi-pembayaran" className="hover:text-slate-900">
-            Verifikasi Pembayaran
-          </Link>
-          <Link href="/admin-pusat/pendapatan" className="hover:text-slate-900">
-            Pendapatan
-          </Link>
-          <Link href="/admin-pusat/pemakaian" className="hover:text-slate-900">
-            Pemakaian
-          </Link>
-          <Link href="/admin-pusat/analitik" className="hover:text-slate-900">
-            Analitik Global
-          </Link>
-          <Link href="/admin-pusat/sesi" className="hover:text-slate-900">
-            Sesi Aktif
-          </Link>
-          <Link href="/admin-pusat/audit-log" className="hover:text-slate-900">
-            Audit Log
-          </Link>
-          <Link href="/admin-pusat/verifikasi-sekolah" className="hover:text-slate-900">
-            Verifikasi Sekolah
-          </Link>
-        </nav>
+        <>
+          <SidebarSection>
+            <SidebarLink href="/admin-pusat/dashboard">Dashboard</SidebarLink>
+          </SidebarSection>
+
+          <SidebarSection label="Sekolah & Siswa">
+            <SidebarLink href="/admin-pusat/sekolah">Sekolah</SidebarLink>
+            <SidebarLink href="/admin-pusat/tahun-ajaran">Tahun Ajaran</SidebarLink>
+            <SidebarLink href="/admin-pusat/siswa">Semua Siswa</SidebarLink>
+            <SidebarLink href="/admin-pusat/siswa-mandiri">Siswa Mandiri</SidebarLink>
+            <SidebarLink href="/admin-pusat/siswa/pindah">Pindah Sekolah</SidebarLink>
+            <SidebarLink href="/admin-pusat/verifikasi-sekolah">Verifikasi Sekolah</SidebarLink>
+          </SidebarSection>
+
+          <SidebarSection label="Bank Soal">
+            <SidebarLink href="/admin-pusat/taxonomy">Taxonomy</SidebarLink>
+            <SidebarLink href="/admin-pusat/kisi-kisi">Kisi-kisi</SidebarLink>
+            <SidebarLink href="/admin-pusat/bank-soal">Bank Soal</SidebarLink>
+          </SidebarSection>
+
+          <SidebarSection label="Ujian">
+            <SidebarLink href="/admin-pusat/jadwal-ujian">Jadwal Ujian</SidebarLink>
+            <SidebarLink href="/admin-pusat/pelanggaran-ujian">Pelanggaran Ujian</SidebarLink>
+          </SidebarSection>
+
+          <SidebarSection label="Monetisasi">
+            <SidebarLink href="/admin-pusat/langganan">Langganan</SidebarLink>
+            <SidebarLink href="/admin-pusat/verifikasi-pembayaran">
+              Verifikasi Pembayaran
+            </SidebarLink>
+            <SidebarLink href="/admin-pusat/pendapatan">Pendapatan</SidebarLink>
+            <SidebarLink href="/admin-pusat/pemakaian">Pemakaian</SidebarLink>
+          </SidebarSection>
+
+          <SidebarSection label="Monitoring">
+            <SidebarLink href="/admin-pusat/analitik">Analitik Global</SidebarLink>
+            <SidebarLink href="/admin-pusat/sesi">Sesi Aktif</SidebarLink>
+            <SidebarLink href="/admin-pusat/audit-log">Audit Log</SidebarLink>
+          </SidebarSection>
+        </>
       }
     >
       {children}

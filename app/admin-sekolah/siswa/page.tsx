@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type StudentRow = {
@@ -17,6 +21,13 @@ type StudentRow = {
 };
 
 const CLAIM_LABEL: Record<string, string> = { belum_klaim: "Belum klaim", sudah_klaim: "Sudah klaim" };
+const CLAIM_VARIANT: Record<string, "warning" | "success"> = {
+  belum_klaim: "warning",
+  sudah_klaim: "success",
+};
+
+const selectClassName =
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function KelolaSiswaPage() {
   const [classes, setClasses] = useState<ClassOption[]>([]);
@@ -153,43 +164,41 @@ export default function KelolaSiswaPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Kelola Siswa</h1>
-          <p className="text-sm text-slate-500">Input satuan, import Excel/CSV, atau cetak kartu kode klaim.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <label className="cursor-pointer rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            {importing ? "Mengimpor..." : "Import Excel/CSV"}
-            <input
-              type="file"
-              accept=".xlsx,.csv"
-              className="hidden"
-              disabled={importing}
-              onChange={handleImport}
-            />
-          </label>
-          {selectedClassId && (
-            <a
-              href={`/api/admin-sekolah/kelas/${selectedClassId}/kartu-klaim`}
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Cetak kartu klaim
-            </a>
-          )}
-          <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Tambah siswa"}</Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Kelola Siswa"
+        description="Input satuan, import Excel/CSV, atau cetak kartu kode klaim."
+        action={
+          <>
+            <label className={buttonClassName("secondary", "cursor-pointer")}>
+              {importing ? "Mengimpor..." : "Import Excel/CSV"}
+              <input
+                type="file"
+                accept=".xlsx,.csv"
+                className="hidden"
+                disabled={importing}
+                onChange={handleImport}
+              />
+            </label>
+            {selectedClassId && (
+              <a
+                href={`/api/admin-sekolah/kelas/${selectedClassId}/kartu-klaim`}
+                className={buttonClassName("secondary")}
+              >
+                Cetak kartu klaim
+              </a>
+            )}
+            <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Tambah siswa"}</Button>
+          </>
+        }
+      />
 
-      {importResult && (
-        <p className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">{importResult}</p>
-      )}
+      {importResult && <Alert variant="info">{importResult}</Alert>}
 
       <div className="w-56">
         <Label htmlFor="classFilter">Rombel</Label>
         <select
           id="classFilter"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className={selectClassName}
           value={selectedClassId}
           onChange={(e) => setSelectedClassId(e.target.value)}
         >
@@ -206,11 +215,9 @@ export default function KelolaSiswaPage() {
       {showForm && (
         <form
           onSubmit={handleAdd}
-          className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
+          className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
         >
-          {error && (
-            <p className="w-full rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
+          {error && <Alert variant="danger" className="w-full">{error}</Alert>}
           <div className="flex-1">
             <Label htmlFor="nama">Nama</Label>
             <Input id="nama" required value={nama} onChange={(e) => setNama(e.target.value)} />
@@ -244,27 +251,29 @@ export default function KelolaSiswaPage() {
       )}
 
       {students && students.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Nama</th>
-                <th className="px-4 py-2 font-medium">NISN</th>
-                <th className="px-4 py-2 font-medium">Kode Klaim</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Nama</Th>
+                <Th>NISN</Th>
+                <Th>Kode Klaim</Th>
+                <Th>Status</Th>
+                <Th></Th>
+              </Tr>
+            </Thead>
             <tbody>
               {students.map((s) => (
-                <tr key={s.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-900">{s.nama}</td>
-                  <td className="px-4 py-2 font-mono text-xs">{s.nisn ?? "-"}</td>
-                  <td className="px-4 py-2 font-mono text-xs">
+                <Tr key={s.id}>
+                  <Td className="font-medium text-slate-900">{s.nama}</Td>
+                  <Td className="font-mono text-xs">{s.nisn ?? "-"}</Td>
+                  <Td className="font-mono text-xs">
                     {s.claimStatus === "belum_klaim" ? s.claimToken : "-"}
-                  </td>
-                  <td className="px-4 py-2">{CLAIM_LABEL[s.claimStatus]}</td>
-                  <td className="px-4 py-2 text-right">
+                  </Td>
+                  <Td>
+                    <Badge variant={CLAIM_VARIANT[s.claimStatus]}>{CLAIM_LABEL[s.claimStatus]}</Badge>
+                  </Td>
+                  <Td className="text-right">
                     <div className="flex items-center justify-end gap-3">
                       {s.claimStatus === "belum_klaim" && (
                         <button
@@ -284,17 +293,17 @@ export default function KelolaSiswaPage() {
                       )}
                       <button
                         onClick={() => handleDelete(s.id, s.nama)}
-                        className="text-sm font-medium text-red-600 hover:underline"
+                        className="text-sm font-medium text-rose-600 hover:underline"
                       >
                         Hapus
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );
