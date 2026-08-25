@@ -68,6 +68,18 @@ export default async function AdminPusatLayout({
           <Link href="/admin-pusat/pemakaian" className="hover:text-slate-900">
             Pemakaian
           </Link>
+          <Link href="/admin-pusat/analitik" className="hover:text-slate-900">
+            Analitik Global
+          </Link>
+          <Link href="/admin-pusat/sesi" className="hover:text-slate-900">
+            Sesi Aktif
+          </Link>
+          <Link href="/admin-pusat/audit-log" className="hover:text-slate-900">
+            Audit Log
+          </Link>
+          <Link href="/admin-pusat/verifikasi-sekolah" className="hover:text-slate-900">
+            Verifikasi Sekolah
+          </Link>
         </nav>
       }
     >

@@ -1,4 +1,4 @@
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { id as localeId } from "date-fns/locale";
 
 /**
@@ -36,4 +36,14 @@ export function periodeBulanWIB(date: Date = new Date()): string {
  */
 export function tanggalWIB(date: Date = new Date()): string {
   return formatInTimeZone(date, WIB_TIMEZONE, "yyyy-MM-dd");
+}
+
+/**
+ * Tiket 7.3: ubah tanggal kalender WIB ("yyyy-MM-dd", dari input date HTML)
+ * jadi awal hari itu (00:00) dalam UTC - kebalikan dari tanggalWIB. WIB
+ * tidak kenal DST (selalu UTC+7 sepanjang tahun), jadi aman ditambah 24 jam
+ * mentah kalau perlu batas akhir hari (exclusive upper bound).
+ */
+export function startOfDayWIB(dateStr: string): Date {
+  return fromZonedTime(`${dateStr}T00:00:00`, WIB_TIMEZONE);
 }
