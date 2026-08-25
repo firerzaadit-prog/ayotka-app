@@ -2,11 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError } from "@/components/ui/input";
 
-export default function LoginPage() {
+/**
+ * Form login yang dipakai bersama oleh siswa, admin sekolah, dan admin
+ * pusat - ketiganya submit ke endpoint yang sama (role-agnostic, ditentukan
+ * dari app_metadata di server) dan cuma beda label field & auto-complete.
+ */
+export function LoginForm({
+  identifierLabel,
+  identifierAutoComplete = "username",
+}: {
+  identifierLabel: string;
+  identifierAutoComplete?: string;
+}) {
   const router = useRouter();
   const [emailOrNisn, setEmailOrNisn] = useState("");
   const [password, setPassword] = useState("");
@@ -42,21 +52,16 @@ export default function LoginPage() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold text-slate-900">Masuk ke AyoTKA</h1>
-        <p className="text-sm text-slate-500">Gunakan email (atau NISN untuk siswa tanpa email) dan password akunmu.</p>
-      </div>
-
       {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
       )}
 
       <div>
-        <Label htmlFor="emailOrNisn">Email atau NISN</Label>
+        <Label htmlFor="emailOrNisn">{identifierLabel}</Label>
         <Input
           id="emailOrNisn"
           type="text"
-          autoComplete="username"
+          autoComplete={identifierAutoComplete}
           required
           value={emailOrNisn}
           onChange={(e) => setEmailOrNisn(e.target.value)}
@@ -79,19 +84,6 @@ export default function LoginPage() {
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Memproses..." : "Masuk"}
       </Button>
-
-      <Link
-        href="/forgot-password"
-        className="text-center text-sm text-slate-500 hover:text-slate-700"
-      >
-        Lupa password?
-      </Link>
-      <Link
-        href="/registrasi"
-        className="text-center text-sm text-slate-500 hover:text-slate-700"
-      >
-        Belum punya akun? Daftar
-      </Link>
     </form>
   );
 }
