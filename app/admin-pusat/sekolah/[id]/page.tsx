@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatWIBDate } from "@/lib/utils/datetime";
+import { isSchoolActive } from "@/lib/schools/active";
 
 type SchoolAdmin = {
   userId: string;
@@ -244,10 +245,15 @@ export default function SekolahDetailPage({
           {school.langgananBerakhir &&
             ` · Langganan sampai ${formatWIBDate(school.langgananBerakhir)}`}
         </p>
-        {school.status !== "aktif" && (
+        {!isSchoolActive(school) && (
           <p className="mt-1 text-sm text-amber-700">
-            Sekolah ini belum aktif — pendaftaran siswa Jalur A (pakai kode sekolah) akan ditolak
-            sampai statusnya diaktifkan.
+            Sekolah ini tidak aktif
+            {school.status === "aktif" && school.langgananBerakhir
+              ? ` (langganan berakhir ${formatWIBDate(school.langgananBerakhir)})`
+              : ""}
+            {" — "}pendaftaran siswa Jalur A baru akan ditolak, dan akun admin sekolah maupun
+            siswa yang sudah ada akan otomatis ter-logout begitu mereka membuka halaman
+            berikutnya.
           </p>
         )}
         {deleteError && (

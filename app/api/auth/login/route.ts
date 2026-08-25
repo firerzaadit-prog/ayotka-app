@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getClientIp } from "@/lib/audit/log";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { loginSchema } from "@/lib/validations/auth";
+import { hasActiveSchoolAccess } from "@/lib/auth/session";
 
 const ROLE_HOME: Record<string, string> = {
   siswa: "/siswa/dashboard",
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
 
   const localUser = await prisma.user.findUnique({
     where: { id: data.user.id },
-    select: { status: true },
+    select: { status: true, role: true },
   });
   if (!localUser || localUser.status !== "aktif") {
     await supabase.auth.signOut();
@@ -76,6 +77,23 @@ export async function POST(request: Request) {
   }
 
   const role = (data.user.app_metadata as { role?: string }).role ?? "siswa";
+
+  // Beda dari status akun (di atas): ini soal langganan SEKOLAHNYA, bukan
+  // akunnya sendiri - kredensialnya valid & akunnya aktif, jadi wajar dikasih
+  // alasan jelas (bukan pesan generik) supaya tahu harus hubungi siapa. Cek
+  // ini aman diungkap karena cuma tercapai setelah password terbukti benar
+  // (sama seperti email_not_confirmed di atas), jadi tidak menambah celah
+  // untuk menebak akun yang valid.
+  if (!(await hasActiveSchoolAccess(data.user.id, localUser.role))) {
+    await supabase.auth.signOut();
+    return NextResponse.json(
+      {
+        error:
+          "Langganan sekolahmu sudah berakhir atau belum aktif. Hubungi admin sekolah atau admin pusat AyoTKA untuk mengaktifkan kembali.",
+      },
+      { status: 403 },
+    );
+  }
 
   await prisma.$transaction([
     prisma.user.update({
