@@ -41,6 +41,21 @@ export async function POST(request: Request) {
     password: parsed.data.password,
   });
 
+  // Beda dari kredensial salah (Supabase kasih error.code terpisah, lihat
+  // node_modules/@supabase/auth-js) - siswa mandiri (Tiket 3.3) dibuat
+  // dengan email belum terkonfirmasi, jadi ini gampang kejadian pas baru
+  // daftar dan belum sempat klik link di emailnya. Kalau digabung jadi
+  // pesan "salah password" generik, orangnya tidak tahu harus ngapain.
+  if (error?.code === "email_not_confirmed") {
+    return NextResponse.json(
+      {
+        error:
+          "Email kamu belum dikonfirmasi. Cek kotak masuk (atau folder spam) untuk link konfirmasi yang dikirim saat mendaftar, lalu coba masuk lagi.",
+      },
+      { status: 401 },
+    );
+  }
+
   if (error || !data.user) {
     return NextResponse.json(
       { error: "Email/NISN atau password salah." },
