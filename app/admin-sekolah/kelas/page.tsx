@@ -4,6 +4,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 
 type ClassRow = {
   id: string;
@@ -15,6 +18,9 @@ type ClassRow = {
 };
 type WaliOption = { id: string; email: string; username: string | null };
 type AcademicYearOption = { id: string; nama: string; isActive: boolean };
+
+const selectClassName =
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function KelolaKelasPage() {
   const [academicYears, setAcademicYears] = useState<AcademicYearOption[]>([]);
@@ -134,29 +140,26 @@ export default function KelolaKelasPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Kelola Kelas/Rombel</h1>
-          <p className="text-sm text-slate-500">
-            Riwayat rombel &amp; siswa tiap tahun ajaran tetap tersimpan - pilih tahun ajaran di
-            bawah untuk melihatnya.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="secondary" onClick={handleNaikKelas} disabled={naikKelasBusy}>
-            {naikKelasBusy ? "Memproses..." : "Naik Kelas massal"}
-          </Button>
-          <Button onClick={() => setShowForm((v) => !v)} disabled={!isViewingActiveYear}>
-            {showForm ? "Batal" : "Tambah rombel"}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Kelola Kelas/Rombel"
+        description="Riwayat rombel & siswa tiap tahun ajaran tetap tersimpan - pilih tahun ajaran di bawah untuk melihatnya."
+        action={
+          <>
+            <Button variant="secondary" onClick={handleNaikKelas} disabled={naikKelasBusy}>
+              {naikKelasBusy ? "Memproses..." : "Naik Kelas massal"}
+            </Button>
+            <Button onClick={() => setShowForm((v) => !v)} disabled={!isViewingActiveYear}>
+              {showForm ? "Batal" : "Tambah rombel"}
+            </Button>
+          </>
+        }
+      />
 
       <div className="w-64">
         <Label htmlFor="yearSelect">Tahun ajaran</Label>
         <select
           id="yearSelect"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className={selectClassName}
           value={selectedYearId}
           onChange={(e) => setSelectedYearId(e.target.value)}
         >
@@ -170,24 +173,20 @@ export default function KelolaKelasPage() {
       </div>
 
       {!isViewingActiveYear && (
-        <p className="rounded-md bg-slate-100 px-3 py-2 text-sm text-slate-600">
+        <Alert variant="info">
           Ini arsip tahun ajaran lama, hanya bisa dilihat. Rombel baru cuma bisa ditambah di tahun
           ajaran yang aktif ({activeYear?.nama ?? "-"}).
-        </p>
+        </Alert>
       )}
 
-      {naikKelasResult && (
-        <p className="rounded-md bg-blue-50 px-3 py-2 text-sm text-blue-700">{naikKelasResult}</p>
-      )}
+      {naikKelasResult && <Alert variant="info">{naikKelasResult}</Alert>}
 
       {showForm && (
         <form
           onSubmit={handleAdd}
-          className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
+          className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
         >
-          {error && (
-            <p className="w-full rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
+          {error && <Alert variant="danger" className="w-full">{error}</Alert>}
           <div className="w-24">
             <Label htmlFor="tingkat">Tingkat</Label>
             <Input
@@ -214,7 +213,7 @@ export default function KelolaKelasPage() {
             <Label htmlFor="waliKelasId">Wali kelas (opsional)</Label>
             <select
               id="waliKelasId"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className={selectClassName}
               value={waliKelasId}
               onChange={(e) => setWaliKelasId(e.target.value)}
             >
@@ -248,39 +247,39 @@ export default function KelolaKelasPage() {
       )}
 
       {classes && classes.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Tingkat</th>
-                <th className="px-4 py-2 font-medium">Rombel</th>
-                <th className="px-4 py-2 font-medium">Wali kelas</th>
-                <th className="px-4 py-2 font-medium">Siswa</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Tingkat</Th>
+                <Th>Rombel</Th>
+                <Th>Wali kelas</Th>
+                <Th>Siswa</Th>
+                <Th></Th>
+              </Tr>
+            </Thead>
             <tbody>
               {classes.map((c) => (
-                <tr key={c.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">{c.tingkat}</td>
-                  <td className="px-4 py-2 font-medium text-slate-900">{c.namaRombel}</td>
-                  <td className="px-4 py-2">{c.waliKelas ? (c.waliKelas.username ?? c.waliKelas.email) : "-"}</td>
-                  <td className="px-4 py-2">{c._count.studentEnrollments}</td>
-                  <td className="px-4 py-2 text-right">
+                <Tr key={c.id}>
+                  <Td>{c.tingkat}</Td>
+                  <Td className="font-medium text-slate-900">{c.namaRombel}</Td>
+                  <Td>{c.waliKelas ? (c.waliKelas.username ?? c.waliKelas.email) : "-"}</Td>
+                  <Td>{c._count.studentEnrollments}</Td>
+                  <Td className="text-right">
                     {isViewingActiveYear && (
                       <button
                         onClick={() => handleDelete(c.id, `${c.tingkat}${c.namaRombel}`)}
-                        className="text-sm font-medium text-red-600 hover:underline"
+                        className="text-sm font-medium text-rose-600 hover:underline"
                       >
                         Hapus
                       </button>
                     )}
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

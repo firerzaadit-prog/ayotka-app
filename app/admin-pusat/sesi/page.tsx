@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type SessionRow = {
@@ -68,62 +71,59 @@ export default function SesiAktifPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Sesi Aktif</h1>
-        <p className="text-sm text-slate-500">
-          Akun yang belum tercatat logout sejak login terakhirnya. Cek waktu login untuk menilai
-          kewajaran — bukan jaminan sesinya masih dipakai detik ini.
-        </p>
-      </div>
+      <PageHeader
+        title="Sesi Aktif"
+        description="Akun yang belum tercatat logout sejak login terakhirnya. Cek waktu login untuk menilai kewajaran — bukan jaminan sesinya masih dipakai detik ini."
+      />
 
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
 
       {!error && sessions !== null && sessions.length === 0 && (
         <EmptyState title="Tidak ada sesi aktif" description="Belum ada yang login." />
       )}
 
       {sessions !== null && sessions.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Pengguna</th>
-                <th className="px-4 py-2 font-medium">Peran</th>
-                <th className="px-4 py-2 font-medium">Login sejak</th>
-                <th className="px-4 py-2 font-medium">IP</th>
-                <th className="px-4 py-2 font-medium">Perangkat</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Pengguna</Th>
+                <Th>Peran</Th>
+                <Th>Login sejak</Th>
+                <Th>IP</Th>
+                <Th>Perangkat</Th>
+                <Th></Th>
+              </Tr>
+            </Thead>
             <tbody>
               {sessions.map((row) => (
-                <tr key={row.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">
+                <Tr key={row.id}>
+                  <Td>
                     <div className="font-medium text-slate-900">{row.nama ?? row.email}</div>
                     {row.nama && <div className="text-xs text-slate-400">{row.email}</div>}
-                  </td>
-                  <td className="px-4 py-2">{ROLE_LABEL[row.role]}</td>
-                  <td className="whitespace-nowrap px-4 py-2 text-slate-500">
+                  </Td>
+                  <Td>{ROLE_LABEL[row.role]}</Td>
+                  <Td className="whitespace-nowrap text-slate-500">
                     {formatWIB(row.loginAt)}
-                  </td>
-                  <td className="px-4 py-2 font-mono text-xs">{row.ip ?? "—"}</td>
-                  <td className="max-w-xs truncate px-4 py-2 text-xs text-slate-500">
+                  </Td>
+                  <Td className="font-mono text-xs">{row.ip ?? "—"}</Td>
+                  <Td className="max-w-xs truncate text-xs text-slate-500">
                     {row.device ?? "—"}
-                  </td>
-                  <td className="px-4 py-2 text-right">
+                  </Td>
+                  <Td className="text-right">
                     <button
                       onClick={() => handleForceLogout(row)}
                       disabled={processingId === row.id}
-                      className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50"
+                      className="text-sm font-medium text-rose-600 hover:underline disabled:opacity-50"
                     >
                       {processingId === row.id ? "Memproses..." : "Paksa logout"}
                     </button>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { buttonClassName } from "@/components/ui/button";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type AssignmentItem = {
@@ -70,10 +73,10 @@ export default function SiswaUjianPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Ujian</h1>
-        <p className="text-sm text-slate-500">Ujian yang ditugaskan sekolahmu & paket latihan mandiri.</p>
-      </div>
+      <PageHeader
+        title="Ujian"
+        description="Ujian yang ditugaskan sekolahmu & paket latihan mandiri."
+      />
 
       <div>
         <h2 className="mb-3 text-lg font-semibold text-slate-900">Ujian Ditugaskan</h2>
@@ -87,10 +90,7 @@ export default function SiswaUjianPage() {
               const attempt = attemptFor(a.id, "");
               const disabled = attempt?.status === "paused";
               return (
-                <div
-                  key={a.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4"
-                >
+                <Card key={a.id} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-slate-900">{a.package.nama}</p>
                     <p className="text-xs text-slate-500">
@@ -99,18 +99,15 @@ export default function SiswaUjianPage() {
                     </p>
                   </div>
                   {disabled ? (
-                    <span className="rounded-md bg-amber-100 px-4 py-2 text-sm font-medium text-amber-700">
+                    <span className="rounded-lg bg-amber-100 px-4 py-2 text-sm font-medium text-amber-700">
                       {actionLabel(attempt)}
                     </span>
                   ) : (
-                    <Link
-                      href={actionHref(attempt, a.id, "")}
-                      className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
-                    >
+                    <Link href={actionHref(attempt, a.id, "")} className={buttonClassName("primary")}>
                       {actionLabel(attempt)}
                     </Link>
                   )}
-                </div>
+                </Card>
               );
             })}
           </div>
@@ -126,23 +123,17 @@ export default function SiswaUjianPage() {
             {packages.map((p) => {
               const attempt = attemptFor(null, p.id);
               return (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4"
-                >
+                <Card key={p.id} className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-slate-900">{p.nama}</p>
                     <p className="text-xs text-slate-500">
                       {p.subject.nama} · {p.jumlahSoal} soal · {p.durasiMenit} menit
                     </p>
                   </div>
-                  <Link
-                    href={actionHref(attempt, null, p.id)}
-                    className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                  >
+                  <Link href={actionHref(attempt, null, p.id)} className={buttonClassName("secondary")}>
                     {attempt ? actionLabel(attempt) : "Mulai"}
                   </Link>
-                </div>
+                </Card>
               );
             })}
           </div>

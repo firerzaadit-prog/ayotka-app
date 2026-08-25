@@ -3,6 +3,10 @@
 import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Label, Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 
 type SchoolOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type SubjectOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
@@ -24,6 +28,9 @@ function labelPeriode(periode: string): string {
   const [tahun, bulan] = periode.split("-");
   return `${BULAN_LABEL[bulan!] ?? bulan} ${tahun}`;
 }
+
+const selectClassName =
+  "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function AnalitikGlobalPage() {
   const [schools, setSchools] = useState<SchoolOption[]>([]);
@@ -92,20 +99,17 @@ export default function AnalitikGlobalPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Analitik Global</h1>
-        <p className="text-sm text-slate-500">
-          Perbandingan antar sekolah & tren waktu, dari seluruh siswa Jalur A (sekolah aktif
-          berlangganan).
-        </p>
-      </div>
+      <PageHeader
+        title="Analitik Global"
+        description="Perbandingan antar sekolah & tren waktu, dari seluruh siswa Jalur A (sekolah aktif berlangganan)."
+      />
 
       <div className="flex flex-wrap gap-4">
         <div>
           <Label htmlFor="filSekolah">Sekolah</Label>
           <select
             id="filSekolah"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className={selectClassName}
             value={schoolId}
             onChange={(e) => setSchoolId(e.target.value)}
           >
@@ -121,7 +125,7 @@ export default function AnalitikGlobalPage() {
           <Label htmlFor="filJenjang">Jenjang</Label>
           <select
             id="filJenjang"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className={selectClassName}
             value={jenjang}
             onChange={(e) => setJenjang(e.target.value)}
           >
@@ -134,7 +138,7 @@ export default function AnalitikGlobalPage() {
           <Label htmlFor="filMapel">Mapel</Label>
           <select
             id="filMapel"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className={selectClassName}
             value={subjectId}
             onChange={(e) => setSubjectId(e.target.value)}
           >
@@ -158,7 +162,7 @@ export default function AnalitikGlobalPage() {
         </div>
       </div>
 
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
 
       {!error && jumlahAttempt === 0 && perSekolah !== null && (
         <EmptyState
@@ -171,106 +175,98 @@ export default function AnalitikGlobalPage() {
         <>
           <div>
             <h2 className="mb-2 text-lg font-semibold text-slate-900">Perbandingan Antar Sekolah</h2>
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">#</th>
-                    <th className="px-4 py-2 font-medium">Sekolah</th>
-                    <th className="px-4 py-2 font-medium">Siswa aktif</th>
-                    <th className="px-4 py-2 font-medium">Jumlah ujian</th>
-                    <th className="px-4 py-2 font-medium">Rata-rata nilai</th>
-                  </tr>
-                </thead>
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>#</Th>
+                    <Th>Sekolah</Th>
+                    <Th>Siswa aktif</Th>
+                    <Th>Jumlah ujian</Th>
+                    <Th>Rata-rata nilai</Th>
+                  </Tr>
+                </Thead>
                 <tbody>
                   {perSekolah?.map((s, i) => (
-                    <tr key={s.schoolId} className="border-b border-slate-100 last:border-0">
-                      <td className="px-4 py-2 text-slate-500">{i + 1}</td>
-                      <td className="px-4 py-2 font-medium text-slate-900">{s.nama}</td>
-                      <td className="px-4 py-2">{s.jumlahSiswaAktif}</td>
-                      <td className="px-4 py-2">{s.jumlahAttempt}</td>
-                      <td className="px-4 py-2">{s.rataRata.toFixed(1)}</td>
-                    </tr>
+                    <Tr key={s.schoolId}>
+                      <Td className="text-slate-500">{i + 1}</Td>
+                      <Td className="font-medium text-slate-900">{s.nama}</Td>
+                      <Td>{s.jumlahSiswaAktif}</Td>
+                      <Td>{s.jumlahAttempt}</Td>
+                      <Td>{s.rataRata.toFixed(1)}</Td>
+                    </Tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableContainer>
           </div>
 
           <div>
             <h2 className="mb-2 text-lg font-semibold text-slate-900">Kompetensi Terlemah</h2>
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">Kompetensi</th>
-                    <th className="px-4 py-2 font-medium">Materi</th>
-                    <th className="px-4 py-2 font-medium">Benar</th>
-                    <th className="px-4 py-2 font-medium">Persentase</th>
-                  </tr>
-                </thead>
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Kompetensi</Th>
+                    <Th>Materi</Th>
+                    <Th>Benar</Th>
+                    <Th>Persentase</Th>
+                  </Tr>
+                </Thead>
                 <tbody>
                   {kompetensi?.map((k) => (
-                    <tr key={k.kode} className="border-b border-slate-100 last:border-0">
-                      <td className="px-4 py-2">
+                    <Tr key={k.kode}>
+                      <Td>
                         <span className="font-mono text-xs">{k.kode}</span> {k.deskripsi}
-                      </td>
-                      <td className="px-4 py-2 text-slate-500">{k.materi}</td>
-                      <td className="px-4 py-2">
+                      </Td>
+                      <Td className="text-slate-500">{k.materi}</Td>
+                      <Td>
                         {k.jmlBenar}/{k.jmlSoal}
-                      </td>
-                      <td className="px-4 py-2">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            k.persentase < 60
-                              ? "bg-red-100 text-red-700"
-                              : k.persentase < 80
-                                ? "bg-amber-100 text-amber-700"
-                                : "bg-green-100 text-green-700"
-                          }`}
-                        >
+                      </Td>
+                      <Td>
+                        <Badge variant={k.persentase < 60 ? "danger" : k.persentase < 80 ? "warning" : "success"}>
                           {k.persentase.toFixed(0)}%
-                        </span>
-                      </td>
-                    </tr>
+                        </Badge>
+                      </Td>
+                    </Tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableContainer>
           </div>
 
           <div>
             <h2 className="mb-2 text-lg font-semibold text-slate-900">Tren Bulanan</h2>
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                  <tr>
-                    <th className="px-4 py-2 font-medium">Bulan</th>
-                    <th className="px-4 py-2 font-medium">Jumlah ujian</th>
-                    <th className="px-4 py-2 font-medium">Rata-rata nilai</th>
-                  </tr>
-                </thead>
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Bulan</Th>
+                    <Th>Jumlah ujian</Th>
+                    <Th>Rata-rata nilai</Th>
+                  </Tr>
+                </Thead>
                 <tbody>
                   {tren?.map((t) => (
-                    <tr key={t.periode} className="border-b border-slate-100 last:border-0">
-                      <td className="px-4 py-2">{labelPeriode(t.periode)}</td>
-                      <td className="px-4 py-2">{t.jumlahAttempt}</td>
-                      <td className="px-4 py-2">
+                    <Tr key={t.periode}>
+                      <Td>{labelPeriode(t.periode)}</Td>
+                      <Td>{t.jumlahAttempt}</Td>
+                      <Td>
                         <div className="flex items-center gap-2">
                           <span className="w-10 shrink-0">{t.rataRata.toFixed(1)}</span>
                           <div className="h-2 flex-1 max-w-xs rounded-full bg-slate-100">
                             <div
-                              className="h-2 rounded-full bg-slate-500"
+                              className="h-2 rounded-full bg-indigo-500"
                               style={{ width: `${(t.rataRata / maxTren) * 100}%` }}
                             />
                           </div>
                         </div>
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </Table>
+            </TableContainer>
           </div>
         </>
       )}

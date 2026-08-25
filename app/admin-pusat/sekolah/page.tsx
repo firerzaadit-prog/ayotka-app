@@ -5,6 +5,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 
 type SchoolStatus = "pending_verifikasi" | "aktif" | "suspend";
 
@@ -23,10 +27,10 @@ const STATUS_LABEL: Record<SchoolStatus, string> = {
   aktif: "Aktif",
   suspend: "Suspend",
 };
-const STATUS_BADGE_CLASS: Record<SchoolStatus, string> = {
-  pending_verifikasi: "bg-amber-100 text-amber-700",
-  aktif: "bg-green-100 text-green-700",
-  suspend: "bg-red-100 text-red-700",
+const STATUS_BADGE_VARIANT: Record<SchoolStatus, "warning" | "success" | "danger"> = {
+  pending_verifikasi: "warning",
+  aktif: "success",
+  suspend: "danger",
 };
 
 type SchoolFormState = {
@@ -101,32 +105,30 @@ export default function SekolahPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-slate-900">Sekolah</h1>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Batal" : "Tambah sekolah"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Sekolah"
+        action={
+          <Button onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Batal" : "Tambah sekolah"}
+          </Button>
+        }
+      />
 
       {createdCode && (
-        <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+        <Alert variant="success">
           Sekolah berhasil dibuat. Kode Sekolah: <strong>{createdCode}</strong> — sampaikan
           kode ini ke sekolah untuk proses registrasi siswa.
-        </p>
+        </Alert>
       )}
 
-      {deleteError && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</p>
-      )}
+      {deleteError && <Alert variant="danger">{deleteError}</Alert>}
 
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+          className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
         >
-          {error && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
+          {error && <Alert variant="danger">{error}</Alert>}
 
           <div>
             <Label htmlFor="nama">Nama sekolah</Label>
@@ -143,7 +145,7 @@ export default function SekolahPage() {
               <Label htmlFor="jenjang">Jenjang</Label>
               <select
                 id="jenjang"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 value={form.jenjang}
                 onChange={(e) =>
                   setForm({ ...form, jenjang: e.target.value as "SD" | "SMP" })
@@ -202,56 +204,54 @@ export default function SekolahPage() {
       )}
 
       {schools && schools.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+        <TableContainer>
+          <Table>
+            <Thead>
               <tr>
-                <th className="px-4 py-2 font-medium">Nama</th>
-                <th className="px-4 py-2 font-medium">Jenjang</th>
-                <th className="px-4 py-2 font-medium">Kode Sekolah</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Admin</th>
-                <th className="px-4 py-2 font-medium">Siswa</th>
-                <th className="px-4 py-2 font-medium"></th>
+                <Th>Nama</Th>
+                <Th>Jenjang</Th>
+                <Th>Kode Sekolah</Th>
+                <Th>Status</Th>
+                <Th>Admin</Th>
+                <Th>Siswa</Th>
+                <Th></Th>
               </tr>
-            </thead>
+            </Thead>
             <tbody>
               {schools.map((school) => (
-                <tr key={school.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">
+                <Tr key={school.id}>
+                  <Td>
                     <Link
                       href={`/admin-pusat/sekolah/${school.id}`}
                       className="font-medium text-slate-900 hover:underline"
                     >
                       {school.nama}
                     </Link>
-                  </td>
-                  <td className="px-4 py-2">{school.jenjang}</td>
-                  <td className="px-4 py-2 font-mono">{school.kodeSekolah}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[school.status]}`}
-                    >
+                  </Td>
+                  <Td>{school.jenjang}</Td>
+                  <Td className="font-mono">{school.kodeSekolah}</Td>
+                  <Td>
+                    <Badge variant={STATUS_BADGE_VARIANT[school.status]}>
                       {STATUS_LABEL[school.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2">{school._count.schoolUsers}</td>
-                  <td className="px-4 py-2">
+                    </Badge>
+                  </Td>
+                  <Td>{school._count.schoolUsers}</Td>
+                  <Td>
                     {school._count.students}/{school.kuotaSiswa}
-                  </td>
-                  <td className="px-4 py-2 text-right">
+                  </Td>
+                  <Td className="text-right">
                     <button
                       onClick={() => handleDelete(school.id, school.nama)}
-                      className="text-sm font-medium text-red-600 hover:underline"
+                      className="text-sm font-medium text-rose-600 hover:underline"
                     >
                       Hapus
                     </button>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

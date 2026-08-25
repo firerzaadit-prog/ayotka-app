@@ -4,6 +4,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 
 type SchoolOption = { id: string; nama: string };
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
@@ -28,6 +31,9 @@ const STATUS_LABEL: Record<string, string> = {
   active: "Aktif",
   nonaktif: "Nonaktif",
 };
+
+const SELECT_CLASS =
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function SemuaSiswaPage() {
   const [schools, setSchools] = useState<SchoolOption[]>([]);
@@ -139,24 +145,22 @@ export default function SemuaSiswaPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Semua Siswa</h1>
-          <p className="text-sm text-slate-500">
-            Gabungan siswa Jalur A (kerja sama sekolah) dan Jalur B (mandiri) di semua sekolah.
-          </p>
-        </div>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Batal" : "Tambah siswa"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Semua Siswa"
+        description="Gabungan siswa Jalur A (kerja sama sekolah) dan Jalur B (mandiri) di semua sekolah."
+        action={
+          <Button onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Batal" : "Tambah siswa"}
+          </Button>
+        }
+      />
 
       <div className="flex flex-wrap gap-3">
         <div className="w-64">
           <Label htmlFor="filterSchool">Filter sekolah</Label>
           <select
             id="filterSchool"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className={SELECT_CLASS}
             value={filterSchoolId}
             onChange={(e) => setFilterSchoolId(e.target.value)}
           >
@@ -172,7 +176,7 @@ export default function SemuaSiswaPage() {
           <Label htmlFor="filterJalur">Filter jalur</Label>
           <select
             id="filterJalur"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className={SELECT_CLASS}
             value={filterJalur}
             onChange={(e) => setFilterJalur(e.target.value)}
           >
@@ -186,11 +190,9 @@ export default function SemuaSiswaPage() {
       {showForm && (
         <form
           onSubmit={handleAdd}
-          className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+          className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
         >
-          {error && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
+          {error && <Alert variant="danger">{error}</Alert>}
           <p className="text-xs text-slate-500">
             Menambah siswa lewat sini selalu Jalur A (siswa dapat kode klaim) — untuk Jalur B,
             siswa mendaftar mandiri sendiri lewat halaman registrasi.
@@ -201,7 +203,7 @@ export default function SemuaSiswaPage() {
               <select
                 id="formSchool"
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className={SELECT_CLASS}
                 value={formSchoolId}
                 onChange={(e) => setFormSchoolId(e.target.value)}
               >
@@ -219,7 +221,7 @@ export default function SemuaSiswaPage() {
                 id="formClass"
                 required
                 disabled={!formSchoolId}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100"
+                className={`${SELECT_CLASS} disabled:bg-slate-100`}
                 value={classId}
                 onChange={(e) => setClassId(e.target.value)}
               >
@@ -267,45 +269,45 @@ export default function SemuaSiswaPage() {
       )}
 
       {students && students.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+        <TableContainer>
+          <Table>
+            <Thead>
               <tr>
-                <th className="px-4 py-2 font-medium">Nama</th>
-                <th className="px-4 py-2 font-medium">Sekolah</th>
-                <th className="px-4 py-2 font-medium">Jalur</th>
-                <th className="px-4 py-2 font-medium">Rombel</th>
-                <th className="px-4 py-2 font-medium">Klaim</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium"></th>
+                <Th>Nama</Th>
+                <Th>Sekolah</Th>
+                <Th>Jalur</Th>
+                <Th>Rombel</Th>
+                <Th>Klaim</Th>
+                <Th>Status</Th>
+                <Th></Th>
               </tr>
-            </thead>
+            </Thead>
             <tbody>
               {students.map((s) => (
-                <tr key={s.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-900">{s.nama}</td>
-                  <td className="px-4 py-2">{s.school?.nama ?? "-"}</td>
-                  <td className="px-4 py-2">{JALUR_LABEL[s.jalur]}</td>
-                  <td className="px-4 py-2">
+                <Tr key={s.id}>
+                  <Td className="font-medium text-slate-900">{s.nama}</Td>
+                  <Td>{s.school?.nama ?? "-"}</Td>
+                  <Td>{JALUR_LABEL[s.jalur]}</Td>
+                  <Td>
                     {s.enrollments[0]
                       ? `${s.enrollments[0].class.tingkat}${s.enrollments[0].class.namaRombel}`
                       : "-"}
-                  </td>
-                  <td className="px-4 py-2">{CLAIM_LABEL[s.claimStatus]}</td>
-                  <td className="px-4 py-2">{STATUS_LABEL[s.status]}</td>
-                  <td className="px-4 py-2 text-right">
+                  </Td>
+                  <Td>{CLAIM_LABEL[s.claimStatus]}</Td>
+                  <Td>{STATUS_LABEL[s.status]}</Td>
+                  <Td className="text-right">
                     <button
                       onClick={() => handleDelete(s.id, s.nama)}
-                      className="text-sm font-medium text-red-600 hover:underline"
+                      className="text-sm font-medium text-rose-600 hover:underline"
                     >
                       Hapus
                     </button>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIBDate } from "@/lib/utils/datetime";
 import { isSchoolActive } from "@/lib/schools/active";
 
@@ -60,10 +63,10 @@ const STATUS_LABEL: Record<SchoolStatus, string> = {
   aktif: "Aktif",
   suspend: "Suspend",
 };
-const STATUS_BADGE_CLASS: Record<SchoolStatus, string> = {
-  pending_verifikasi: "bg-amber-100 text-amber-700",
-  aktif: "bg-green-100 text-green-700",
-  suspend: "bg-red-100 text-red-700",
+const STATUS_BADGE_VARIANT: Record<SchoolStatus, "warning" | "success" | "danger"> = {
+  pending_verifikasi: "warning",
+  aktif: "success",
+  suspend: "danger",
 };
 
 export default function SekolahDetailPage({
@@ -232,11 +235,9 @@ export default function SekolahDetailPage({
         </Link>
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold text-slate-900">{school.nama}</h1>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[school.status]}`}
-          >
+          <Badge variant={STATUS_BADGE_VARIANT[school.status]}>
             {STATUS_LABEL[school.status]}
-          </span>
+          </Badge>
         </div>
         <p className="text-sm text-slate-500">
           Kode Sekolah <span className="font-mono">{school.kodeSekolah}</span> · {school.jenjang}{" "}
@@ -257,7 +258,9 @@ export default function SekolahDetailPage({
           </p>
         )}
         {deleteError && (
-          <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{deleteError}</p>
+          <Alert variant="danger" className="mt-2">
+            {deleteError}
+          </Alert>
         )}
 
         <div className="mt-2 flex flex-wrap gap-2">
@@ -281,11 +284,9 @@ export default function SekolahDetailPage({
         {showEditForm && editForm && (
           <form
             onSubmit={handleEditSubmit}
-            className="mt-4 flex max-w-xl flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+            className="mt-4 flex max-w-xl flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
           >
-            {editError && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{editError}</p>
-            )}
+            {editError && <Alert variant="danger">{editError}</Alert>}
             <div>
               <Label htmlFor="editNama">Nama sekolah</Label>
               <Input
@@ -300,7 +301,7 @@ export default function SekolahDetailPage({
                 <Label htmlFor="editJenjang">Jenjang</Label>
                 <select
                   id="editJenjang"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   value={editForm.jenjang}
                   onChange={(e) =>
                     setEditForm({ ...editForm, jenjang: e.target.value as "SD" | "SMP" })
@@ -344,7 +345,7 @@ export default function SekolahDetailPage({
                 <Label htmlFor="editPlan">Paket langganan (opsional)</Label>
                 <select
                   id="editPlan"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   value={editForm.planId}
                   onChange={(e) => setEditForm({ ...editForm, planId: e.target.value })}
                 >
@@ -365,11 +366,13 @@ export default function SekolahDetailPage({
                 id="editLangganan"
                 type="date"
                 value={editForm.langgananBerakhir}
-                onChange={(e) => setEditForm({ ...editForm, langgananBerakhir: e.target.value })}
+                onChange={(e) =>
+                  setEditForm({ ...editForm, langgananBerakhir: e.target.value })
+                }
               />
               <p className="mt-1 text-xs text-slate-500">
-                Sesuai Bagian 0.1 brief: langganan sekolah per tahun, tanpa siklus baku - tanggal
-                berakhir diatur manual per sekolah.
+                Sesuai Bagian 0.1 brief: langganan sekolah per tahun, tanpa siklus baku -
+                tanggal berakhir diatur manual per sekolah.
               </p>
             </div>
             <div className="flex gap-2">
@@ -385,7 +388,7 @@ export default function SekolahDetailPage({
       </div>
 
       {tempPassword && (
-        <div className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <Alert variant="warning">
           <p className="font-medium">
             Akun untuk {tempPassword.email} berhasil dibuat. Catat password sementara ini
             sekarang — tidak akan ditampilkan lagi:
@@ -395,7 +398,7 @@ export default function SekolahDetailPage({
             Sampaikan lewat jalur aman (bukan email) ke admin sekolah. Mereka wajib
             menggantinya saat login pertama.
           </p>
-        </div>
+        </Alert>
       )}
 
       <div className="flex items-center justify-between">
@@ -408,11 +411,9 @@ export default function SekolahDetailPage({
       {showForm && (
         <form
           onSubmit={handleCreateAdmin}
-          className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+          className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
         >
-          {error && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
+          {error && <Alert variant="danger">{error}</Alert>}
           <div>
             <Label htmlFor="nama">Nama</Label>
             <Input id="nama" required value={nama} onChange={(e) => setNama(e.target.value)} />
@@ -440,33 +441,33 @@ export default function SekolahDetailPage({
           action={<Button onClick={() => setShowForm(true)}>Tambah admin sekolah</Button>}
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+        <TableContainer>
+          <Table>
+            <Thead>
               <tr>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium"></th>
+                <Th>Email</Th>
+                <Th>Status</Th>
+                <Th></Th>
               </tr>
-            </thead>
+            </Thead>
             <tbody>
               {school.schoolUsers.map((admin) => (
-                <tr key={admin.userId} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">{admin.user.email}</td>
-                  <td className="px-4 py-2">{admin.user.status}</td>
-                  <td className="px-4 py-2 text-right">
+                <Tr key={admin.userId}>
+                  <Td>{admin.user.email}</Td>
+                  <Td>{admin.user.status}</Td>
+                  <Td className="text-right">
                     <button
                       onClick={() => toggleStatus(admin)}
                       className="text-sm font-medium text-slate-600 hover:text-slate-900"
                     >
                       {admin.user.status === "aktif" ? "Nonaktifkan" : "Aktifkan"}
                     </button>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

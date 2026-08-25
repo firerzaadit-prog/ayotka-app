@@ -5,6 +5,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
@@ -21,6 +25,9 @@ type AssignmentRow = {
 };
 
 const METODE_LABEL: Record<string, string> = { otomatis: "Otomatis (bergilir)", manual: "Manual" };
+
+const selectClassName =
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function UjianPage() {
   const [classes, setClasses] = useState<ClassOption[]>([]);
@@ -105,33 +112,29 @@ export default function UjianPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Penugasan Ujian</h1>
-          <p className="text-sm text-slate-500">
-            Tugaskan paket soal ke satu rombel dalam jendela waktu tertentu.
-          </p>
-        </div>
-        <Button onClick={() => setShowForm((v) => !v)}>
-          {showForm ? "Batal" : "Buat penugasan"}
-        </Button>
-      </div>
+      <PageHeader
+        title="Penugasan Ujian"
+        description="Tugaskan paket soal ke satu rombel dalam jendela waktu tertentu."
+        action={
+          <Button onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Batal" : "Buat penugasan"}
+          </Button>
+        }
+      />
 
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+          className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
         >
-          {error && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
+          {error && <Alert variant="danger">{error}</Alert>}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="packageId">Paket soal</Label>
               <select
                 id="packageId"
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className={selectClassName}
                 value={packageId}
                 onChange={(e) => setPackageId(e.target.value)}
               >
@@ -148,7 +151,7 @@ export default function UjianPage() {
               <select
                 id="classId"
                 required
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className={selectClassName}
                 value={classId}
                 onChange={(e) => setClassId(e.target.value)}
               >
@@ -188,7 +191,7 @@ export default function UjianPage() {
             <Label htmlFor="metodeDistribusi">Metode distribusi</Label>
             <select
               id="metodeDistribusi"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className={selectClassName}
               value={metodeDistribusi}
               onChange={(e) => setMetodeDistribusi(e.target.value as "otomatis" | "manual")}
             >
@@ -212,57 +215,53 @@ export default function UjianPage() {
       )}
 
       {assignments && assignments.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Paket</th>
-                <th className="px-4 py-2 font-medium">Rombel</th>
-                <th className="px-4 py-2 font-medium">Jendela waktu</th>
-                <th className="px-4 py-2 font-medium">Distribusi</th>
-                <th className="px-4 py-2 font-medium">Attempt</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Paket</Th>
+                <Th>Rombel</Th>
+                <Th>Jendela waktu</Th>
+                <Th>Distribusi</Th>
+                <Th>Attempt</Th>
+                <Th>Status</Th>
+                <Th></Th>
+              </Tr>
+            </Thead>
             <tbody>
               {assignments.map((a) => (
-                <tr key={a.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-900">
+                <Tr key={a.id}>
+                  <Td className="font-medium text-slate-900">
                     <Link href={`/admin-sekolah/ujian/${a.id}`} className="hover:underline">
                       {a.package.nama}
                     </Link>
-                  </td>
-                  <td className="px-4 py-2">
+                  </Td>
+                  <Td>
                     {a.class ? `${a.class.tingkat}${a.class.namaRombel}` : "-"}
-                  </td>
-                  <td className="px-4 py-2 text-xs">
+                  </Td>
+                  <Td className="text-xs">
                     {formatWIB(a.mulai)} — {formatWIB(a.selesai)}
-                  </td>
-                  <td className="px-4 py-2">{METODE_LABEL[a.metodeDistribusi]}</td>
-                  <td className="px-4 py-2">{a._count.attempts}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        a.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                      }`}
-                    >
+                  </Td>
+                  <Td>{METODE_LABEL[a.metodeDistribusi]}</Td>
+                  <Td>{a._count.attempts}</Td>
+                  <Td>
+                    <Badge variant={a.isActive ? "success" : "neutral"}>
                       {a.isActive ? "Aktif" : "Nonaktif"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right">
+                    </Badge>
+                  </Td>
+                  <Td className="text-right">
                     <button
                       onClick={() => handleToggleActive(a)}
                       className="text-sm font-medium text-slate-600 hover:text-slate-900"
                     >
                       {a.isActive ? "Nonaktifkan" : "Aktifkan"}
                     </button>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

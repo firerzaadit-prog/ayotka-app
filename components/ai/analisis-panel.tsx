@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 
 type AnalisisAi = {
   ringkasan: string;
@@ -75,21 +78,18 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
   if (!data) return null;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <Card>
       <div className="mb-2 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-900">Analisis AI</h3>
         {canTrigger && (data.status === "none" || data.status === "error") && (
-          <button
-            onClick={handleTrigger}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-700"
-          >
+          <Button onClick={handleTrigger} className="px-3 py-1.5 text-xs">
             Mulai Analisis AI
-          </button>
+          </Button>
         )}
         {canTrigger && data.status === "ready" && (
           <button
             onClick={handleTrigger}
-            className="text-xs font-medium text-slate-500 hover:text-slate-700"
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
           >
             Analisis ulang
           </button>
@@ -105,11 +105,11 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
         <p className="text-sm text-slate-500">Sedang diproses, biasanya beberapa detik sampai satu menit...</p>
       )}
       {data.status === "error" && (
-        <p className="text-sm text-red-700">
+        <Alert variant="danger">
           {canTrigger
             ? data.error
             : "Analisis belum tersedia, coba lagi nanti."}
-        </p>
+        </Alert>
       )}
       {data.status === "ready" && (
         <div className="flex flex-col gap-3 text-sm">
@@ -150,6 +150,6 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
           </p>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

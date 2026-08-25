@@ -46,9 +46,9 @@ export function ImageUpload({
     <div className="flex flex-col gap-2">
       {value && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={value} alt="Pratinjau" className="max-h-40 rounded-md border border-slate-200" />
+        <img src={value} alt="Pratinjau" className="max-h-40 rounded-lg border border-slate-200" />
       )}
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-rose-600">{error}</p>}
       <div className="flex gap-2">
         <input
           ref={inputRef}

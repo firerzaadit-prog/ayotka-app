@@ -11,19 +11,22 @@ const VARIANT_CLASSES: Record<Variant, string> = {
   danger: "bg-rose-600 text-white shadow-sm shadow-rose-600/20 hover:bg-rose-500",
 };
 
+/**
+ * Kelas Button yang sama, dipakai juga untuk elemen non-<button> yang perlu
+ * terlihat seperti tombol (mis. next/link <Link> di quick-actions dashboard).
+ */
+export function buttonClassName(variant: Variant = "primary", className?: string) {
+  return cn(
+    "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none",
+    VARIANT_CLASSES[variant],
+    className,
+  );
+}
+
 export const Button = forwardRef<
   HTMLButtonElement,
   ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }
 >(({ className, variant = "primary", disabled, ...props }, ref) => (
-  <button
-    ref={ref}
-    disabled={disabled}
-    className={cn(
-      "inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none",
-      VARIANT_CLASSES[variant],
-      className,
-    )}
-    {...props}
-  />
+  <button ref={ref} disabled={disabled} className={buttonClassName(variant, className)} {...props} />
 ));
 Button.displayName = "Button";

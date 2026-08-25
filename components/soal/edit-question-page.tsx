@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { QuestionForm, type QuestionFormInitial } from "@/components/soal/question-form";
+import { PageHeader } from "@/components/ui/page-header";
 
 export function EditQuestionPage({
   packageId,
@@ -71,9 +72,7 @@ export function EditQuestionPage({
       <Link href={`${basePath}/${packageId}`} className="text-sm text-slate-500 hover:text-slate-700">
         &larr; Kembali ke paket
       </Link>
-      <h1 className="text-xl font-semibold text-slate-900">
-        {locked ? "Lihat Soal" : "Edit Soal"}
-      </h1>
+      <PageHeader title={locked ? "Lihat Soal" : "Edit Soal"} />
       <QuestionForm
         packageId={packageId}
         subjectId={subjectId}

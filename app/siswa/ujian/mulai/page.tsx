@@ -3,6 +3,8 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 type Info = { nama: string; jumlahSoal: number; durasiMenit: number; selesai?: string } | null;
 
@@ -53,9 +55,7 @@ function InstruksiContent() {
   if (info === null) {
     return (
       <div className="mx-auto max-w-md p-6">
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          Ujian tidak ditemukan atau sudah tidak tersedia.
-        </p>
+        <Alert variant="danger">Ujian tidak ditemukan atau sudah tidak tersedia.</Alert>
       </div>
     );
   }
@@ -64,18 +64,18 @@ function InstruksiContent() {
     <div className="mx-auto flex max-w-md flex-col gap-4 p-6">
       <h1 className="text-xl font-semibold text-slate-900">{info.nama}</h1>
 
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm">
+      <Card className="text-sm">
         <p>
           <span className="font-medium">Jumlah soal:</span> {info.jumlahSoal}
         </p>
         <p>
           <span className="font-medium">Durasi:</span> {info.durasiMenit} menit
         </p>
-      </div>
+      </Card>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+      <Alert variant="warning">
         <p className="font-medium">Sebelum mulai:</p>
         <ul className="mt-1 list-disc pl-5">
           <li>Timer mulai berjalan begitu kamu klik &quot;Mulai&quot; dan dihitung di server — tidak bisa dicurangi lewat jam HP.</li>
@@ -83,7 +83,7 @@ function InstruksiContent() {
           <li>Waktu habis = jawaban yang sudah ada otomatis tersubmit.</li>
           <li>Jangan berpindah tab atau menyalin/menempel selama ujian berlangsung.</li>
         </ul>
-      </div>
+      </Alert>
 
       <Button onClick={handleMulai} disabled={starting} className="w-full">
         {starting ? "Memulai..." : "Mulai"}

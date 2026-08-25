@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type AttemptRow = {
@@ -42,15 +46,12 @@ export default function PelanggaranUjianPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Pelanggaran Ujian</h1>
-        <p className="text-sm text-slate-500">
-          Attempt yang tercatat berpindah tab/aplikasi lain selama mengerjakan ujian, lintas
-          semua sekolah (Tiket 4.13).
-        </p>
-      </div>
+      <PageHeader
+        title="Pelanggaran Ujian"
+        description="Attempt yang tercatat berpindah tab/aplikasi lain selama mengerjakan ujian, lintas semua sekolah (Tiket 4.13)."
+      />
 
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
       {attempts === null && !error && <p className="text-sm text-slate-500">Memuat...</p>}
       {attempts?.length === 0 && (
         <EmptyState
@@ -60,36 +61,34 @@ export default function PelanggaranUjianPage() {
       )}
 
       {attempts && attempts.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Siswa</th>
-                <th className="px-4 py-2 font-medium">Sekolah</th>
-                <th className="px-4 py-2 font-medium">Paket</th>
-                <th className="px-4 py-2 font-medium">Mulai</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Pindah tab</th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Siswa</Th>
+                <Th>Sekolah</Th>
+                <Th>Paket</Th>
+                <Th>Mulai</Th>
+                <Th>Status</Th>
+                <Th>Pindah tab</Th>
+              </Tr>
+            </Thead>
             <tbody>
               {attempts.map((a) => (
-                <tr key={a.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-900">{a.studentNama}</td>
-                  <td className="px-4 py-2">{a.sekolahNama}</td>
-                  <td className="px-4 py-2">{a.paketNama}</td>
-                  <td className="px-4 py-2 text-xs">{formatWIB(a.mulaiAt)}</td>
-                  <td className="px-4 py-2">{STATUS_LABEL[a.status]}</td>
-                  <td className="px-4 py-2">
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                      {a.tabSwitchCount}x
-                    </span>
-                  </td>
-                </tr>
+                <Tr key={a.id}>
+                  <Td className="font-medium text-slate-900">{a.studentNama}</Td>
+                  <Td>{a.sekolahNama}</Td>
+                  <Td>{a.paketNama}</Td>
+                  <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
+                  <Td>{STATUS_LABEL[a.status]}</Td>
+                  <Td>
+                    <Badge variant="danger">{a.tabSwitchCount}x</Badge>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

@@ -4,6 +4,10 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 
 type AcademicYear = { id: string; nama: string; mulai: string; selesai: string; isActive: boolean };
 
@@ -82,25 +86,24 @@ export default function TahunAjaranPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Tahun Ajaran</h1>
-          <p className="text-sm text-slate-500">
-            Berlaku untuk semua sekolah. Tahun ajaran baru dibuat nonaktif dulu - klik Aktifkan
-            saat siap dipakai sebagai tujuan tombol &quot;Naik Kelas&quot; di tiap sekolah.
-          </p>
-        </div>
-        <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Buat tahun ajaran"}</Button>
-      </div>
+      <PageHeader
+        title="Tahun Ajaran"
+        description={
+          'Berlaku untuk semua sekolah. Tahun ajaran baru dibuat nonaktif dulu - klik Aktifkan saat siap dipakai sebagai tujuan tombol "Naik Kelas" di tiap sekolah.'
+        }
+        action={
+          <Button onClick={() => setShowForm((v) => !v)}>
+            {showForm ? "Batal" : "Buat tahun ajaran"}
+          </Button>
+        }
+      />
 
       {showForm && (
         <form
           onSubmit={handleSubmit}
-          className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
+          className="flex flex-wrap items-end gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
         >
-          {error && (
-            <p className="w-full rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-          )}
+          {error && <Alert variant="danger" className="w-full">{error}</Alert>}
           <div className="flex-1">
             <Label htmlFor="nama">Nama</Label>
             <Input
@@ -141,31 +144,25 @@ export default function TahunAjaranPage() {
       )}
 
       {years && years.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+        <TableContainer>
+          <Table>
+            <Thead>
               <tr>
-                <th className="px-4 py-2 font-medium">Nama</th>
-                <th className="px-4 py-2 font-medium">Mulai</th>
-                <th className="px-4 py-2 font-medium">Selesai</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium"></th>
+                <Th>Nama</Th>
+                <Th>Mulai</Th>
+                <Th>Selesai</Th>
+                <Th>Status</Th>
+                <Th></Th>
               </tr>
-            </thead>
+            </Thead>
             <tbody>
               {years.map((y) => (
-                <tr key={y.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2 font-medium text-slate-900">{y.nama}</td>
-                  <td className="px-4 py-2">{new Date(y.mulai).toLocaleDateString("id-ID")}</td>
-                  <td className="px-4 py-2">{new Date(y.selesai).toLocaleDateString("id-ID")}</td>
-                  <td className="px-4 py-2">
-                    {y.isActive && (
-                      <span className="rounded bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                        Aktif
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2 text-right">
+                <Tr key={y.id}>
+                  <Td className="font-medium text-slate-900">{y.nama}</Td>
+                  <Td>{new Date(y.mulai).toLocaleDateString("id-ID")}</Td>
+                  <Td>{new Date(y.selesai).toLocaleDateString("id-ID")}</Td>
+                  <Td>{y.isActive && <Badge variant="success">Aktif</Badge>}</Td>
+                  <Td className="text-right">
                     <div className="flex items-center justify-end gap-3">
                       {!y.isActive && (
                         <button
@@ -179,17 +176,17 @@ export default function TahunAjaranPage() {
                       <button
                         onClick={() => handleDelete(y.id, y.nama)}
                         disabled={busyId === y.id}
-                        className="text-sm font-medium text-red-600 hover:underline"
+                        className="text-sm font-medium text-rose-600 hover:underline"
                       >
                         Hapus
                       </button>
                     </div>
-                  </td>
-                </tr>
+                  </Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );
