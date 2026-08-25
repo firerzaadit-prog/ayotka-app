@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import type { School } from "@prisma/client";
+import { isSchoolActive } from "@/lib/schools/active";
 
 /**
  * Tiket 3.2 (Bagian 3.1 brief): validasi kode sekolah - dipakai di dua
@@ -11,7 +12,6 @@ import type { School } from "@prisma/client";
  */
 export async function findActiveSchoolByCode(kodeSekolah: string): Promise<School | null> {
   const school = await prisma.school.findUnique({ where: { kodeSekolah } });
-  if (!school || school.status !== "aktif") return null;
-  if (school.langgananBerakhir && school.langgananBerakhir < new Date()) return null;
+  if (!school || !isSchoolActive(school)) return null;
   return school;
 }
