@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 type PendingStudent = { id: string; nama: string; jenjang: "SD" | "SMP"; tingkat: number };
 type PendingSchool = {
@@ -93,14 +96,10 @@ export default function VerifikasiSekolahPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Verifikasi Sekolah</h1>
-        <p className="text-sm text-slate-500">
-          Nama sekolah yang diketik bebas oleh siswa mandiri saat registrasi (bukan dipilih dari
-          daftar resmi) - putuskan apakah ini sekolah baru yang sah, sekadar salah ketik dari
-          sekolah yang sudah ada, atau tidak perlu dicatat.
-        </p>
-      </div>
+      <PageHeader
+        title="Verifikasi Sekolah"
+        description="Nama sekolah yang diketik bebas oleh siswa mandiri saat registrasi (bukan dipilih dari daftar resmi) - putuskan apakah ini sekolah baru yang sah, sekadar salah ketik dari sekolah yang sudah ada, atau tidak perlu dicatat."
+      />
 
       {pending !== null && pending.length === 0 && (
         <EmptyState
@@ -110,7 +109,7 @@ export default function VerifikasiSekolahPage() {
       )}
 
       {pending?.map((school) => (
-        <div key={school.id} className="rounded-lg border border-slate-200 bg-white p-4">
+        <Card key={school.id}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="font-medium text-slate-900">{school.nama}</p>
@@ -135,9 +134,9 @@ export default function VerifikasiSekolahPage() {
           {openId === school.id && (
             <div className="mt-4 border-t border-slate-100 pt-4">
               {rowError && (
-                <p className="mb-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                <Alert variant="danger" className="mb-3">
                   {rowError}
-                </p>
+                </Alert>
               )}
 
               {mode === "approve" && (
@@ -212,7 +211,7 @@ export default function VerifikasiSekolahPage() {
                     <Label htmlFor="mergeTarget">Gabung ke sekolah</Label>
                     <select
                       id="mergeTarget"
-                      className="w-full max-w-md rounded-md border border-slate-300 px-3 py-2 text-sm"
+                      className="w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                       value={mergeTargetId}
                       onChange={(e) => setMergeTargetId(e.target.value)}
                     >
@@ -263,7 +262,7 @@ export default function VerifikasiSekolahPage() {
               )}
             </div>
           )}
-        </div>
+        </Card>
       ))}
     </div>
   );
