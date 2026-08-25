@@ -2,7 +2,12 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIBDate } from "@/lib/utils/datetime";
 
 type Plan = { id: string; nama: string; harga: number; durasiHari: number };
@@ -32,11 +37,11 @@ const STATUS_LABEL: Record<EffectiveStatus, string> = {
   kedaluwarsa: "Kedaluwarsa",
   batal: "Dibatalkan",
 };
-const STATUS_BADGE_CLASS: Record<EffectiveStatus, string> = {
-  aktif: "bg-green-100 text-green-700",
-  tenggang: "bg-amber-100 text-amber-700",
-  kedaluwarsa: "bg-red-100 text-red-700",
-  batal: "bg-slate-100 text-slate-500",
+const STATUS_VARIANT: Record<EffectiveStatus, "success" | "warning" | "danger" | "neutral"> = {
+  aktif: "success",
+  tenggang: "warning",
+  kedaluwarsa: "danger",
+  batal: "neutral",
 };
 
 const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
@@ -45,11 +50,11 @@ const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   ditolak: "Ditolak",
   kedaluwarsa: "Kedaluwarsa",
 };
-const ORDER_STATUS_BADGE_CLASS: Record<OrderStatus, string> = {
-  menunggu_verifikasi: "bg-amber-100 text-amber-700",
-  disetujui: "bg-green-100 text-green-700",
-  ditolak: "bg-red-100 text-red-700",
-  kedaluwarsa: "bg-slate-100 text-slate-500",
+const ORDER_STATUS_VARIANT: Record<OrderStatus, "warning" | "success" | "danger" | "neutral"> = {
+  menunggu_verifikasi: "warning",
+  disetujui: "success",
+  ditolak: "danger",
+  kedaluwarsa: "neutral",
 };
 
 /** Tiket 6.3 (Bagian 7.1 brief): checkout siswa mandiri - pilih paket, transfer manual, unggah bukti. */
@@ -131,11 +136,13 @@ export default function LanggananSiswaPage() {
   if (sub.jalur === "A") {
     return (
       <div className="flex flex-col gap-2">
-        <h1 className="text-xl font-semibold text-slate-900">Langganan</h1>
-        <p className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
-          Akunmu terdaftar lewat sekolah. Akses ujian ditanggung langganan sekolahmu - kamu tidak
-          perlu berlangganan sendiri.
-        </p>
+        <PageHeader title="Langganan" />
+        <Card>
+          <p className="text-sm text-slate-600">
+            Akunmu terdaftar lewat sekolah. Akses ujian ditanggung langganan sekolahmu - kamu tidak
+            perlu berlangganan sendiri.
+          </p>
+        </Card>
       </div>
     );
   }
@@ -149,11 +156,9 @@ export default function LanggananSiswaPage() {
         {sub.subscription ? (
           <p className="mt-1 text-sm text-slate-600">
             Paket <span className="font-medium">{sub.subscription.planNama}</span>{" "}
-            <span
-              className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE_CLASS[sub.subscription.status]}`}
-            >
+            <Badge variant={STATUS_VARIANT[sub.subscription.status]}>
               {STATUS_LABEL[sub.subscription.status]}
-            </span>{" "}
+            </Badge>{" "}
             · berakhir {formatWIBDate(sub.subscription.berakhirAt)}
           </p>
         ) : (
@@ -175,24 +180,24 @@ export default function LanggananSiswaPage() {
         </h2>
 
         {pendingOrder ? (
-          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <Alert variant="warning">
             Order kamu untuk paket &quot;{pendingOrder.plan.nama}&quot; sedang menunggu verifikasi
             admin. Tunggu itu diproses sebelum membuat order baru.
-          </p>
+          </Alert>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4">
-            {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
+            {error && <Alert variant="danger">{error}</Alert>}
             {success && (
-              <p className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+              <Alert variant="success">
                 Order terkirim. Admin akan memverifikasi bukti transfermu.
-              </p>
+              </Alert>
             )}
 
             <div>
               <Label htmlFor="plan">Paket langganan</Label>
               <select
                 id="plan"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 value={planId}
                 onChange={(e) => setPlanId(e.target.value)}
               >
@@ -206,7 +211,7 @@ export default function LanggananSiswaPage() {
             </div>
 
             {accounts.length > 0 ? (
-              <div className="rounded-md bg-slate-50 p-3 text-sm">
+              <div className="rounded-lg bg-slate-50 p-3 text-sm">
                 <p className="font-medium text-slate-700">Transfer ke salah satu rekening berikut:</p>
                 <ul className="mt-2 flex flex-col gap-1">
                   {accounts.map((acc) => (
@@ -218,19 +223,18 @@ export default function LanggananSiswaPage() {
                 </ul>
               </div>
             ) : (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              <Alert variant="danger">
                 Belum ada rekening tujuan aktif. Hubungi admin pusat.
-              </p>
+              </Alert>
             )}
 
             <div>
               <Label htmlFor="bukti">Bukti transfer (gambar/PDF, maks. 5 MB)</Label>
-              <input
+              <Input
                 id="bukti"
                 type="file"
                 accept="image/png,image/jpeg,image/webp,application/pdf"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               />
             </div>
 
@@ -246,36 +250,34 @@ export default function LanggananSiswaPage() {
         {orders.length === 0 ? (
           <p className="text-sm text-slate-500">Belum ada order.</p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Tanggal</th>
-                  <th className="px-4 py-2 font-medium">Paket</th>
-                  <th className="px-4 py-2 font-medium">Jumlah</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Catatan admin</th>
-                </tr>
-              </thead>
+          <TableContainer>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Tanggal</Th>
+                  <Th>Paket</Th>
+                  <Th>Jumlah</Th>
+                  <Th>Status</Th>
+                  <Th>Catatan admin</Th>
+                </Tr>
+              </Thead>
               <tbody>
                 {orders.map((o) => (
-                  <tr key={o.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-2">{formatWIBDate(o.createdAt)}</td>
-                    <td className="px-4 py-2">{o.plan.nama}</td>
-                    <td className="px-4 py-2">{formatRupiah(o.jumlah)}</td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${ORDER_STATUS_BADGE_CLASS[o.status]}`}
-                      >
+                  <Tr key={o.id}>
+                    <Td>{formatWIBDate(o.createdAt)}</Td>
+                    <Td>{o.plan.nama}</Td>
+                    <Td>{formatRupiah(o.jumlah)}</Td>
+                    <Td>
+                      <Badge variant={ORDER_STATUS_VARIANT[o.status]}>
                         {ORDER_STATUS_LABEL[o.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-slate-500">{o.catatanAdmin ?? "-"}</td>
-                  </tr>
+                      </Badge>
+                    </Td>
+                    <Td className="text-slate-500">{o.catatanAdmin ?? "-"}</Td>
+                  </Tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableContainer>
         )}
       </section>
     </div>
