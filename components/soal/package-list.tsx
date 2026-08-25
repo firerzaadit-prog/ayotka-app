@@ -28,6 +28,7 @@ const emptyForm = {
   jumlahSoal: "",
   blueprintId: "",
   modePembahasan: "setelah_tutup" as "langsung" | "setelah_tutup",
+  bolehDipilihSiswa: false,
 };
 
 export function PackageList({ basePath }: { basePath: string }) {
@@ -231,6 +232,19 @@ export function PackageList({ basePath }: { basePath: string }) {
               <option value="langsung">Langsung setelah siswa submit</option>
             </select>
           </div>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.bolehDipilihSiswa}
+              onChange={(e) => setForm({ ...form, bolehDipilihSiswa: e.target.checked })}
+            />
+            Boleh dipilih bebas siswa (Latihan Mandiri)
+          </label>
+          <p className="text-xs text-slate-500">
+            Kalau aktif, siswa bisa memilih paket ini sendiri lewat menu Latihan Mandiri
+            (di luar jadwal ujian) - selama paket sudah di-publish dan distribusinya
+            (lihat halaman detail paket) mengizinkan siswa tersebut melihatnya.
+          </p>
           <Button type="submit" disabled={submitting} className="w-fit">
             {submitting ? "Menyimpan..." : "Simpan paket"}
           </Button>

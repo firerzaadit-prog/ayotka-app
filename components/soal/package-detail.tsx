@@ -29,6 +29,7 @@ type PackageDetail = {
   subjectId: string;
   ownerType: "pusat" | "sekolah";
   modePembahasan: "langsung" | "setelah_tutup";
+  bolehDipilihSiswa: boolean;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -41,6 +42,7 @@ type EditForm = {
   durasiMenit: string;
   jumlahSoal: string;
   modePembahasan: "langsung" | "setelah_tutup";
+  bolehDipilihSiswa: boolean;
 };
 
 const MODE_PEMBAHASAN_LABEL: Record<"langsung" | "setelah_tutup", string> = {
@@ -57,6 +59,7 @@ function toEditForm(pkg: PackageDetail): EditForm {
     durasiMenit: String(pkg.durasiMenit),
     jumlahSoal: String(pkg.jumlahSoal),
     modePembahasan: pkg.modePembahasan,
+    bolehDipilihSiswa: pkg.bolehDipilihSiswa,
   };
 }
 
@@ -177,6 +180,8 @@ export function PackageDetail({
               {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
               {" · Pembahasan: "}
               {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
+              {" · Latihan Mandiri: "}
+              {pkg.bolehDipilihSiswa ? "aktif" : "nonaktif"}
             </p>
           </div>
           <div className="flex gap-2">
@@ -293,6 +298,24 @@ export function PackageDetail({
                 </option>
                 <option value="langsung">Langsung setelah siswa submit</option>
               </select>
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={editForm.bolehDipilihSiswa}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, bolehDipilihSiswa: e.target.checked })
+                  }
+                />
+                Boleh dipilih bebas siswa (Latihan Mandiri)
+              </label>
+              <p className="mt-1 text-xs text-slate-500">
+                Kalau aktif, siswa bisa memilih paket ini sendiri lewat menu Latihan Mandiri
+                (di luar jadwal ujian) - selama paket sudah di-publish dan distribusinya
+                (lihat bagian &quot;Distribusi ke Sekolah&quot; di bawah) mengizinkan siswa
+                tersebut melihatnya.
+              </p>
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={editSubmitting}>
