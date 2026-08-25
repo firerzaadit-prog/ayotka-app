@@ -10,4 +10,5 @@
 body {
   color: var(--color-foreground);
   background: var(--color-background);
+  font-family: var(--font-poppins), system-ui, sans-serif;
 }

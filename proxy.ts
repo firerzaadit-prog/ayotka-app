@@ -30,12 +30,22 @@ const ROLE_PREFIXES: Record<string, string> = {
   "/admin-pusat": "admin_pusat",
 };
 
+// Pintu masuk login beda per role (lihat app/login, app/admin/admin-pusat,
+// app/admin/admin-sekolah) - dipakai untuk redirect pengunjung yang belum
+// login DAN untuk tahu path mana yang harus dianggap "halaman auth publik"
+// di bawah.
+const ROLE_LOGIN_PATH: Record<string, string> = {
+  siswa: "/login",
+  admin_sekolah: "/admin/admin-sekolah",
+  admin_pusat: "/admin/admin-pusat",
+};
+
 // "/reset-password" SENGAJA tidak dimasukkan ke sini. Kalau dimasukkan,
 // user dengan must_change_password=true kena loop-redirect tak berujung:
 // aturan di bawah memaksa mereka ke /reset-password, lalu blok ini
 // langsung melempar mereka balik ke dashboard karena sudah login -
 // dua aturan saling lempar selamanya (ERR_TOO_MANY_REDIRECTS).
-const PUBLIC_AUTH_PATHS = ["/login", "/forgot-password"];
+const PUBLIC_AUTH_PATHS = ["/forgot-password", ...Object.values(ROLE_LOGIN_PATH)];
 
 export default async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
@@ -76,13 +86,15 @@ export default async function proxy(request: NextRequest) {
   );
 
   if (matchedPrefix) {
+    const requiredRole = ROLE_PREFIXES[matchedPrefix];
+
     if (!user) {
-      const loginUrl = new URL("/login", request.url);
+      const loginPath = requiredRole ? (ROLE_LOGIN_PATH[requiredRole] ?? "/login") : "/login";
+      const loginUrl = new URL(loginPath, request.url);
       loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    const requiredRole = ROLE_PREFIXES[matchedPrefix];
     if (role !== requiredRole) {
       const home = role ? (ROLE_HOME[role] ?? "/login") : "/login";
       return NextResponse.redirect(new URL(home, request.url));
