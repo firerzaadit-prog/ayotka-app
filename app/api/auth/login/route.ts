@@ -57,6 +57,21 @@ export async function POST(request: Request) {
     );
   }
 
+  // Satu-satunya yang pernah pasang ban_duration di akun manapun adalah
+  // fitur force logout (Tiket 7.2, app/api/admin-pusat/sesi/[id]/force-logout) -
+  // jadi pesannya aman spesifik. Sama seperti email_not_confirmed di atas,
+  // baru terungkap setelah password terbukti benar, jadi tidak menambah
+  // celah menebak akun.
+  if (error?.code === "user_banned") {
+    return NextResponse.json(
+      {
+        error:
+          "Akun ini baru saja di-paksa logout oleh admin. Coba masuk lagi dalam beberapa menit.",
+      },
+      { status: 401 },
+    );
+  }
+
   if (error || !data.user) {
     return NextResponse.json(
       { error: "Email/NISN atau password salah." },
