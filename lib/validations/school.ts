@@ -16,6 +16,7 @@ export const schoolCreateSchema = z.object({
 export const schoolUpdateSchema = schoolCreateSchema.partial().extend({
   status: z.enum(["pending_verifikasi", "aktif", "suspend"]).optional(),
   langgananBerakhir: z.coerce.date().optional().nullable(),
+  planId: z.string().uuid().optional().or(z.literal("")),
 });
 
 export type SchoolCreateInput = z.infer<typeof schoolCreateSchema>;

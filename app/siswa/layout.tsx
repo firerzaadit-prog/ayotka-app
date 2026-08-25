@@ -26,6 +26,9 @@ export default async function SiswaLayout({ children }: { children: React.ReactN
           <Link href="/siswa/riwayat" className="hover:text-slate-900">
             Riwayat
           </Link>
+          <Link href="/siswa/langganan" className="hover:text-slate-900">
+            Langganan
+          </Link>
         </nav>
       }
     >

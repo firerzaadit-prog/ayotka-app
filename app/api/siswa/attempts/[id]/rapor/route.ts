@@ -14,27 +14,29 @@ async function loadAttemptForRapor(user: CurrentUser, attemptId: string): Promis
   if (user.role === "siswa") {
     return loadOwnedAttempt(user.id, attemptId);
   }
-  const schoolId = await resolveSchoolId(user, null);
-  if (!schoolId) return null;
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
     include: { student: true },
   });
-  if (!attempt || attempt.student.schoolId !== schoolId) return null;
+  if (!attempt) return null;
+  if (user.role === "admin_pusat") return attempt;
+  const schoolId = await resolveSchoolId(user, null);
+  if (!schoolId || attempt.student.schoolId !== schoolId) return null;
   return attempt;
 }
 
 /**
- * Tiket 5.8: export PDF rapor - bisa diakses siswa (rapornya sendiri) &
- * admin sekolah (siswa di sekolahnya sendiri saja). Datanya dipetik dari
- * buildHasil() yang sama dengan halaman hasil di layar, supaya angkanya
- * selalu konsisten dengan yang tampil di layar (bukan dihitung ulang
- * terpisah).
+ * Tiket 5.8: export PDF rapor - bisa diakses siswa (rapornya sendiri),
+ * admin sekolah (siswa di sekolahnya sendiri saja), dan admin pusat
+ * (lintas sekolah - sama seperti akses admin pusat di endpoint analisis
+ * AI & jadwal ujian). Datanya dipetik dari buildHasil() yang sama dengan
+ * halaman hasil di layar, supaya angkanya selalu konsisten dengan yang
+ * tampil di layar (bukan dihitung ulang terpisah).
  */
 export async function GET(_request: Request, { params }: RouteParams) {
   let user;
   try {
-    user = await requireRole("siswa", "admin_sekolah");
+    user = await requireRole("siswa", "admin_sekolah", "admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }

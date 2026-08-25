@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatWIB } from "@/lib/utils/datetime";
 
@@ -74,7 +75,11 @@ export default function JadwalUjianPage() {
               {assignments.map((a) => (
                 <tr key={a.id} className="border-b border-slate-100 last:border-0">
                   <td className="px-4 py-2 font-medium text-slate-900">{a.sekolahNama}</td>
-                  <td className="px-4 py-2">{a.paketNama}</td>
+                  <td className="px-4 py-2">
+                    <Link href={`/admin-pusat/jadwal-ujian/${a.id}`} className="text-slate-900 hover:underline">
+                      {a.paketNama}
+                    </Link>
+                  </td>
                   <td className="px-4 py-2">{a.kelas}</td>
                   <td className="px-4 py-2 text-xs">
                     {formatWIB(a.mulai)} — {formatWIB(a.selesai)}
