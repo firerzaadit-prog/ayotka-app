@@ -24,29 +24,44 @@ export function DashboardShell({
     router.refresh();
   }
 
+  const brand = (
+    <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 px-5">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-sm font-bold text-white">
+        A
+      </span>
+      <div className="leading-tight">
+        <p className="text-sm font-semibold text-slate-900">AyoTKA</p>
+        <p className="text-xs text-slate-400">{title}</p>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 lg:flex">
+      {/*
+        Sidebar desktop: elemen TERPISAH dari drawer mobile di bawah, cuma
+        ditampilkan lewat `hidden lg:flex` (bukan position/transform yang
+        berubah per breakpoint) supaya tidak pernah salah "nyangkut" jadi
+        fixed+overlap di atas konten pada lebar layar yang jadi ambigu.
+      */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
+        {brand}
+        <nav className="flex-1 overflow-y-auto px-3 py-4">{nav}</nav>
+      </aside>
+
+      {/* Drawer mobile: fixed + geser, dan disembunyikan total (display:none) di lg: ke atas lewat lg:hidden. */}
       {mobileNavOpen && (
         <div
           className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden"
           onClick={() => setMobileNavOpen(false)}
         />
       )}
-
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-slate-200 bg-white transition-transform lg:hidden ${
           mobileNavOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 px-5">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-sm font-bold text-white">
-            A
-          </span>
-          <div className="leading-tight">
-            <p className="text-sm font-semibold text-slate-900">AyoTKA</p>
-            <p className="text-xs text-slate-400">{title}</p>
-          </div>
-        </div>
+        {brand}
         <nav className="flex-1 overflow-y-auto px-3 py-4">{nav}</nav>
       </aside>
 
