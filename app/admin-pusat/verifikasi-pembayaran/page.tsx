@@ -3,6 +3,9 @@
 import { Fragment, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIBDate } from "@/lib/utils/datetime";
 
 type OrderStatus = "menunggu_verifikasi" | "disetujui" | "ditolak" | "kedaluwarsa";
@@ -109,14 +112,10 @@ export default function VerifikasiPembayaranPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Verifikasi Pembayaran</h1>
-        <p className="text-sm text-slate-500">
-          Antrean order siswa mandiri. ACC aktivasi/perpanjang langganan otomatis; kalau siswa
-          masih punya langganan yang berlaku, masa aktif bertambah dari tanggal berakhir
-          sebelumnya (bukan dari hari ACC).
-        </p>
-      </div>
+      <PageHeader
+        title="Verifikasi Pembayaran"
+        description="Antrean order siswa mandiri. ACC aktivasi/perpanjang langganan otomatis; kalau siswa masih punya langganan yang berlaku, masa aktif bertambah dari tanggal berakhir sebelumnya (bukan dari hari ACC)."
+      />
 
       <div className="flex gap-2 border-b border-slate-200">
         {TABS.map((t) => (
@@ -125,7 +124,7 @@ export default function VerifikasiPembayaranPage() {
             onClick={() => setTab(t.value)}
             className={`border-b-2 px-3 py-2 text-sm font-medium ${
               tab === t.value
-                ? "border-slate-900 text-slate-900"
+                ? "border-indigo-600 text-indigo-600"
                 : "border-transparent text-slate-500 hover:text-slate-700"
             }`}
           >
@@ -134,7 +133,7 @@ export default function VerifikasiPembayaranPage() {
         ))}
       </div>
 
-      {actionError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{actionError}</p>}
+      {actionError && <Alert variant="danger">{actionError}</Alert>}
 
       {orders === null && <p className="text-sm text-slate-500">Memuat...</p>}
       {orders?.length === 0 && (
@@ -142,30 +141,30 @@ export default function VerifikasiPembayaranPage() {
       )}
 
       {orders && orders.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Tanggal</th>
-                <th className="px-4 py-2 font-medium">Siswa</th>
-                <th className="px-4 py-2 font-medium">Paket</th>
-                <th className="px-4 py-2 font-medium">Jumlah</th>
-                <th className="px-4 py-2 font-medium">Catatan</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Tanggal</Th>
+                <Th>Siswa</Th>
+                <Th>Paket</Th>
+                <Th>Jumlah</Th>
+                <Th>Catatan</Th>
+                <Th></Th>
+              </Tr>
+            </Thead>
             <tbody>
               {orders.map((o) => (
                 <Fragment key={o.id}>
-                  <tr className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-2">{formatWIBDate(o.createdAt)}</td>
-                    <td className="px-4 py-2">{o.user.email}</td>
-                    <td className="px-4 py-2">
+                  <Tr>
+                    <Td>{formatWIBDate(o.createdAt)}</Td>
+                    <Td>{o.user.email}</Td>
+                    <Td>
                       {o.plan.nama} ({o.plan.durasiHari} hari)
-                    </td>
-                    <td className="px-4 py-2">{formatRupiah(o.jumlah)}</td>
-                    <td className="px-4 py-2 text-slate-500">{o.catatanAdmin ?? "-"}</td>
-                    <td className="px-4 py-2 text-right">
+                    </Td>
+                    <Td>{formatRupiah(o.jumlah)}</Td>
+                    <Td className="text-slate-500">{o.catatanAdmin ?? "-"}</Td>
+                    <Td className="text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button
                           onClick={() => handleLihatBukti(o.id)}
@@ -178,25 +177,25 @@ export default function VerifikasiPembayaranPage() {
                             <button
                               onClick={() => handleSetujui(o.id)}
                               disabled={busyId === o.id}
-                              className="text-sm font-medium text-green-700 hover:underline disabled:opacity-50"
+                              className="text-sm font-medium text-emerald-700 hover:underline disabled:opacity-50"
                             >
                               ACC
                             </button>
                             <button
                               onClick={() => handleOpenReject(o.id)}
                               disabled={busyId === o.id}
-                              className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50"
+                              className="text-sm font-medium text-rose-600 hover:underline disabled:opacity-50"
                             >
                               Tolak
                             </button>
                           </>
                         )}
                       </div>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                   {rejectingId === o.id && (
-                    <tr className="border-b border-slate-100 bg-red-50/50">
-                      <td colSpan={6} className="px-4 py-3">
+                    <Tr className="bg-rose-50/50">
+                      <Td colSpan={6} className="py-3">
                         <div className="flex flex-col gap-2">
                           <label className="text-sm font-medium text-slate-700">
                             Alasan penolakan (wajib, akan terlihat oleh siswa)
@@ -205,7 +204,7 @@ export default function VerifikasiPembayaranPage() {
                             value={catatan}
                             onChange={(e) => setCatatan(e.target.value)}
                             rows={2}
-                            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                             placeholder="mis. bukti transfer tidak jelas / nominal tidak sesuai"
                           />
                           <div className="flex gap-2">
@@ -222,14 +221,14 @@ export default function VerifikasiPembayaranPage() {
                             </Button>
                           </div>
                         </div>
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   )}
                 </Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

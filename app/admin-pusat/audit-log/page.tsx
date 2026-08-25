@@ -2,7 +2,10 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
-import { Label } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type AdminOption = { userId: string; email: string; schoolNama: string };
@@ -18,6 +21,9 @@ type AuditLogRow = {
 };
 
 const AKSI_LABEL: Record<string, string> = { create: "Buat", update: "Ubah", delete: "Hapus" };
+
+const selectClassName =
+  "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function AuditLogPage() {
   const [options, setOptions] = useState<AdminOption[]>([]);
@@ -69,19 +75,17 @@ export default function AuditLogPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Audit Trail</h1>
-        <p className="text-sm text-slate-500">
-          Riwayat siapa membuat/mengubah/menghapus data, kapan, dan nilai sebelum-sesudahnya.
-        </p>
-      </div>
+      <PageHeader
+        title="Audit Trail"
+        description="Riwayat siapa membuat/mengubah/menghapus data, kapan, dan nilai sebelum-sesudahnya."
+      />
 
       <div className="flex flex-wrap gap-4">
         <div>
           <Label htmlFor="filterAdmin">Admin sekolah</Label>
           <select
             id="filterAdmin"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className={selectClassName}
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
           >
@@ -95,20 +99,20 @@ export default function AuditLogPage() {
         </div>
         <div>
           <Label htmlFor="filterDari">Dari tanggal</Label>
-          <input
+          <Input
             id="filterDari"
             type="date"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-40"
             value={dari}
             onChange={(e) => setDari(e.target.value)}
           />
         </div>
         <div>
           <Label htmlFor="filterSampai">Sampai tanggal</Label>
-          <input
+          <Input
             id="filterSampai"
             type="date"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className="w-40"
             value={sampai}
             onChange={(e) => setSampai(e.target.value)}
           />
@@ -117,7 +121,7 @@ export default function AuditLogPage() {
           <Label htmlFor="filterAksi">Jenis aksi</Label>
           <select
             id="filterAksi"
-            className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+            className={selectClassName}
             value={aksi}
             onChange={(e) => setAksi(e.target.value)}
           >
@@ -129,7 +133,7 @@ export default function AuditLogPage() {
         </div>
       </div>
 
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
 
       {!error && logs !== null && logs.length === 0 && (
         <EmptyState
@@ -141,73 +145,73 @@ export default function AuditLogPage() {
       {logs !== null && logs.length > 0 && (
         <>
           {capped && (
-            <p className="text-xs text-amber-700">
+            <Alert variant="warning">
               Menampilkan {logs.length} catatan terbaru yang cocok — persempit filter untuk hasil
               lebih spesifik kalau ada yang lebih lama tidak terlihat.
-            </p>
+            </Alert>
           )}
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Waktu</th>
-                  <th className="px-4 py-2 font-medium">Pengguna</th>
-                  <th className="px-4 py-2 font-medium">Aksi</th>
-                  <th className="px-4 py-2 font-medium">Entitas</th>
-                  <th className="px-4 py-2 font-medium"></th>
-                </tr>
-              </thead>
+          <TableContainer>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Waktu</Th>
+                  <Th>Pengguna</Th>
+                  <Th>Aksi</Th>
+                  <Th>Entitas</Th>
+                  <Th></Th>
+                </Tr>
+              </Thead>
               <tbody>
                 {logs.map((log) => (
                   <Fragment key={log.id}>
-                    <tr className="border-b border-slate-100 last:border-0">
-                      <td className="whitespace-nowrap px-4 py-2 text-slate-500">
+                    <Tr>
+                      <Td className="whitespace-nowrap text-slate-500">
                         {formatWIB(log.createdAt)}
-                      </td>
-                      <td className="px-4 py-2">{log.user?.email ?? "(akun terhapus)"}</td>
-                      <td className="px-4 py-2">{AKSI_LABEL[log.aksi] ?? log.aksi}</td>
-                      <td className="px-4 py-2">
+                      </Td>
+                      <Td>{log.user?.email ?? "(akun terhapus)"}</Td>
+                      <Td>{AKSI_LABEL[log.aksi] ?? log.aksi}</Td>
+                      <Td>
                         {log.entitas}
                         {log.entitasId && (
                           <span className="ml-1 font-mono text-xs text-slate-400">
                             {log.entitasId}
                           </span>
                         )}
-                      </td>
-                      <td className="px-4 py-2 text-right">
+                      </Td>
+                      <Td className="text-right">
                         <button
                           onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
                           className="text-sm font-medium text-slate-600 hover:text-slate-900"
                         >
                           {expandedId === log.id ? "Sembunyikan" : "Detail"}
                         </button>
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                     {expandedId === log.id && (
-                      <tr className="border-b border-slate-100 bg-slate-50 last:border-0">
-                        <td colSpan={5} className="px-4 py-3">
+                      <Tr className="bg-slate-50">
+                        <Td colSpan={5} className="py-3">
                           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                             <div>
                               <p className="mb-1 text-xs font-medium text-slate-500">Sebelum</p>
-                              <pre className="overflow-x-auto rounded-md bg-white p-2 text-xs text-slate-700">
+                              <pre className="overflow-x-auto rounded-lg bg-white p-2 text-xs text-slate-700">
                                 {log.beforeJson ? JSON.stringify(log.beforeJson, null, 2) : "—"}
                               </pre>
                             </div>
                             <div>
                               <p className="mb-1 text-xs font-medium text-slate-500">Sesudah</p>
-                              <pre className="overflow-x-auto rounded-md bg-white p-2 text-xs text-slate-700">
+                              <pre className="overflow-x-auto rounded-lg bg-white p-2 text-xs text-slate-700">
                                 {log.afterJson ? JSON.stringify(log.afterJson, null, 2) : "—"}
                               </pre>
                             </div>
                           </div>
-                        </td>
-                      </tr>
+                        </Td>
+                      </Tr>
                     )}
                   </Fragment>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableContainer>
         </>
       )}
     </div>

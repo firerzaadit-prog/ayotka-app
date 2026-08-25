@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIBDate } from "@/lib/utils/datetime";
 
 type Transaksi = {
@@ -46,21 +49,12 @@ export default function PendapatanPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-xl font-semibold text-slate-900">Pendapatan</h1>
+      <PageHeader title="Pendapatan" />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Total pendapatan (semua waktu)</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">{formatRupiah(data.totalPendapatan)}</p>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Pendapatan bulan ini</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">{formatRupiah(data.pendapatanBulanIni)}</p>
-        </div>
-        <div className="rounded-lg border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Total transaksi disetujui</p>
-          <p className="mt-1 text-2xl font-semibold text-slate-900">{data.totalTransaksi}</p>
-        </div>
+        <StatCard label="Total pendapatan (semua waktu)" value={formatRupiah(data.totalPendapatan)} />
+        <StatCard label="Pendapatan bulan ini" value={formatRupiah(data.pendapatanBulanIni)} />
+        <StatCard label="Total transaksi disetujui" value={data.totalTransaksi} />
       </div>
 
       <section className="flex flex-col gap-4">
@@ -68,28 +62,28 @@ export default function PendapatanPage() {
         {data.transaksi.length === 0 ? (
           <EmptyState title="Belum ada transaksi" description="Belum ada order yang disetujui." />
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Tanggal disetujui</th>
-                  <th className="px-4 py-2 font-medium">Siswa</th>
-                  <th className="px-4 py-2 font-medium">Paket</th>
-                  <th className="px-4 py-2 font-medium">Jumlah</th>
-                </tr>
-              </thead>
+          <TableContainer>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Tanggal disetujui</Th>
+                  <Th>Siswa</Th>
+                  <Th>Paket</Th>
+                  <Th>Jumlah</Th>
+                </Tr>
+              </Thead>
               <tbody>
                 {data.transaksi.map((t) => (
-                  <tr key={t.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-2">{t.disetujuiAt ? formatWIBDate(t.disetujuiAt) : "-"}</td>
-                    <td className="px-4 py-2">{t.user.email}</td>
-                    <td className="px-4 py-2">{t.plan.nama}</td>
-                    <td className="px-4 py-2">{formatRupiah(t.jumlah)}</td>
-                  </tr>
+                  <Tr key={t.id}>
+                    <Td>{t.disetujuiAt ? formatWIBDate(t.disetujuiAt) : "-"}</Td>
+                    <Td>{t.user.email}</Td>
+                    <Td>{t.plan.nama}</Td>
+                    <Td>{formatRupiah(t.jumlah)}</Td>
+                  </Tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableContainer>
         )}
       </section>
     </div>

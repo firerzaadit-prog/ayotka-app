@@ -4,6 +4,10 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 
 type Plan = {
   id: string;
@@ -24,6 +28,9 @@ type BankAccount = {
 
 const emptyPlanForm = { nama: "", target: "siswa" as "sekolah" | "siswa", harga: "", durasiHari: "", kuota: "" };
 const emptyBankForm = { namaBank: "", nomorRekening: "", atasNama: "" };
+
+const selectClassName =
+  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 function formatRupiah(n: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
@@ -129,10 +136,10 @@ export default function LanggananSettingsPage() {
 
   return (
     <div className="flex flex-col gap-10">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Pengaturan Langganan</h1>
-        <p className="text-sm text-slate-500">Paket langganan & rekening tujuan pembayaran manual.</p>
-      </div>
+      <PageHeader
+        title="Pengaturan Langganan"
+        description="Paket langganan & rekening tujuan pembayaran manual."
+      />
 
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
@@ -143,9 +150,9 @@ export default function LanggananSettingsPage() {
         {showPlanForm && (
           <form
             onSubmit={handlePlanSubmit}
-            className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+            className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
           >
-            {planError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{planError}</p>}
+            {planError && <Alert variant="danger">{planError}</Alert>}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="planNama">Nama paket</Label>
@@ -161,7 +168,7 @@ export default function LanggananSettingsPage() {
                 <Label htmlFor="planTarget">Untuk</Label>
                 <select
                   id="planTarget"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                  className={selectClassName}
                   value={planForm.target}
                   onChange={(e) => setPlanForm({ ...planForm, target: e.target.value as "sekolah" | "siswa" })}
                 >
@@ -221,39 +228,39 @@ export default function LanggananSettingsPage() {
           />
         )}
         {plans && plans.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Nama</th>
-                  <th className="px-4 py-2 font-medium">Untuk</th>
-                  <th className="px-4 py-2 font-medium">Harga</th>
-                  <th className="px-4 py-2 font-medium">Durasi</th>
-                  <th className="px-4 py-2 font-medium">Kuota</th>
-                  <th className="px-4 py-2 font-medium"></th>
-                </tr>
-              </thead>
+          <TableContainer>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Nama</Th>
+                  <Th>Untuk</Th>
+                  <Th>Harga</Th>
+                  <Th>Durasi</Th>
+                  <Th>Kuota</Th>
+                  <Th></Th>
+                </Tr>
+              </Thead>
               <tbody>
                 {plans.map((p) => (
-                  <tr key={p.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-2 font-medium text-slate-900">{p.nama}</td>
-                    <td className="px-4 py-2 capitalize">{p.target}</td>
-                    <td className="px-4 py-2">{formatRupiah(p.harga)}</td>
-                    <td className="px-4 py-2">{p.durasiHari} hari</td>
-                    <td className="px-4 py-2">{p.kuota ?? "-"}</td>
-                    <td className="px-4 py-2 text-right">
+                  <Tr key={p.id}>
+                    <Td className="font-medium text-slate-900">{p.nama}</Td>
+                    <Td className="capitalize">{p.target}</Td>
+                    <Td>{formatRupiah(p.harga)}</Td>
+                    <Td>{p.durasiHari} hari</Td>
+                    <Td>{p.kuota ?? "-"}</Td>
+                    <Td className="text-right">
                       <button
                         onClick={() => handleDeletePlan(p)}
-                        className="text-sm font-medium text-red-600 hover:underline"
+                        className="text-sm font-medium text-rose-600 hover:underline"
                       >
                         Hapus
                       </button>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableContainer>
         )}
       </section>
 
@@ -269,9 +276,9 @@ export default function LanggananSettingsPage() {
         {showBankForm && (
           <form
             onSubmit={handleBankSubmit}
-            className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4"
+            className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
           >
-            {bankError && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{bankError}</p>}
+            {bankError && <Alert variant="danger">{bankError}</Alert>}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="namaBank">Nama bank</Label>
@@ -317,33 +324,29 @@ export default function LanggananSettingsPage() {
           />
         )}
         {accounts && accounts.length > 0 && (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Bank</th>
-                  <th className="px-4 py-2 font-medium">Nomor rekening</th>
-                  <th className="px-4 py-2 font-medium">Atas nama</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium"></th>
-                </tr>
-              </thead>
+          <TableContainer>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Bank</Th>
+                  <Th>Nomor rekening</Th>
+                  <Th>Atas nama</Th>
+                  <Th>Status</Th>
+                  <Th></Th>
+                </Tr>
+              </Thead>
               <tbody>
                 {accounts.map((acc) => (
-                  <tr key={acc.id} className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-2 font-medium text-slate-900">{acc.namaBank}</td>
-                    <td className="px-4 py-2 font-mono">{acc.nomorRekening}</td>
-                    <td className="px-4 py-2">{acc.atasNama}</td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                          acc.isActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                        }`}
-                      >
+                  <Tr key={acc.id}>
+                    <Td className="font-medium text-slate-900">{acc.namaBank}</Td>
+                    <Td className="font-mono">{acc.nomorRekening}</Td>
+                    <Td>{acc.atasNama}</Td>
+                    <Td>
+                      <Badge variant={acc.isActive ? "success" : "neutral"}>
                         {acc.isActive ? "Aktif" : "Nonaktif"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-right">
+                      </Badge>
+                    </Td>
+                    <Td className="text-right">
                       <div className="flex items-center justify-end gap-3">
                         <button
                           onClick={() => toggleBankActive(acc)}
@@ -353,17 +356,17 @@ export default function LanggananSettingsPage() {
                         </button>
                         <button
                           onClick={() => handleDeleteBank(acc)}
-                          className="text-sm font-medium text-red-600 hover:underline"
+                          className="text-sm font-medium text-rose-600 hover:underline"
                         >
                           Hapus
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+            </Table>
+          </TableContainer>
         )}
       </section>
     </div>

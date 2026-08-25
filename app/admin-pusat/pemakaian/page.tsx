@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
+import { Input } from "@/components/ui/input";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 
 type Counter = {
   id: string;
@@ -37,24 +40,21 @@ export default function PemakaianPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Pemakaian</h1>
-        <p className="text-sm text-slate-500">
-          Laporan pemakaian attempt & analisis AI per siswa per bulan - untuk memantau biaya,
-          bukan pembatas otomatis (tidak ada siswa yang diblokir karena angka di sini).
-        </p>
-      </div>
+      <PageHeader
+        title="Pemakaian"
+        description="Laporan pemakaian attempt & analisis AI per siswa per bulan - untuk memantau biaya, bukan pembatas otomatis (tidak ada siswa yang diblokir karena angka di sini)."
+      />
 
       <div className="flex items-center gap-2">
         <label htmlFor="periode" className="text-sm font-medium text-slate-700">
           Bulan
         </label>
-        <input
+        <Input
           id="periode"
           type="month"
           value={periode}
           onChange={(e) => setPeriode(e.target.value)}
-          className="rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-40"
         />
       </div>
 
@@ -64,30 +64,30 @@ export default function PemakaianPage() {
       )}
 
       {data && data.counters.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Siswa</th>
-                <th className="px-4 py-2 font-medium">Jalur</th>
-                <th className="px-4 py-2 font-medium">Jml attempt</th>
-                <th className="px-4 py-2 font-medium">Jml analisis AI</th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Siswa</Th>
+                <Th>Jalur</Th>
+                <Th>Jml attempt</Th>
+                <Th>Jml analisis AI</Th>
+              </Tr>
+            </Thead>
             <tbody>
               {data.counters.map((c) => (
-                <tr key={c.id} className="border-b border-slate-100 last:border-0">
-                  <td className="px-4 py-2">{c.user.studentProfile?.nama ?? c.user.email}</td>
-                  <td className="px-4 py-2">
+                <Tr key={c.id}>
+                  <Td>{c.user.studentProfile?.nama ?? c.user.email}</Td>
+                  <Td>
                     {c.user.studentProfile?.jalur === "B" ? "Mandiri" : c.user.studentProfile?.jalur === "A" ? "Sekolah" : "-"}
-                  </td>
-                  <td className="px-4 py-2">{c.jmlAttempt}</td>
-                  <td className="px-4 py-2">{c.jmlAnalisisAi}</td>
-                </tr>
+                  </Td>
+                  <Td>{c.jmlAttempt}</Td>
+                  <Td>{c.jmlAnalisisAi}</Td>
+                </Tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );

@@ -3,6 +3,9 @@
 import { Fragment, use, useEffect, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
 
 type AttemptRow = {
@@ -20,11 +23,11 @@ const STATUS_LABEL: Record<string, string> = {
   selesai: "Selesai",
   kedaluwarsa: "Waktu habis",
 };
-const STATUS_CLASS: Record<string, string> = {
-  berjalan: "bg-blue-100 text-blue-700",
-  paused: "bg-amber-100 text-amber-700",
-  selesai: "bg-green-100 text-green-700",
-  kedaluwarsa: "bg-slate-100 text-slate-600",
+const STATUS_VARIANT: Record<string, "info" | "warning" | "success" | "neutral"> = {
+  berjalan: "info",
+  paused: "warning",
+  selesai: "success",
+  kedaluwarsa: "neutral",
 };
 
 function formatSisa(seconds: number): string {
@@ -77,49 +80,45 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
         </p>
       </div>
 
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
       {attempts === null && !error && <p className="text-sm text-slate-500">Memuat...</p>}
       {attempts?.length === 0 && (
         <EmptyState title="Belum ada siswa yang mulai" description="Belum ada siswa yang mengerjakan penugasan ini." />
       )}
 
       {attempts && attempts.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
-              <tr>
-                <th className="px-4 py-2 font-medium">Siswa</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Sisa waktu</th>
-                <th className="px-4 py-2 font-medium">Nilai</th>
-                <th className="px-4 py-2 font-medium">Pindah tab</th>
-                <th className="px-4 py-2 font-medium"></th>
-              </tr>
-            </thead>
+        <TableContainer>
+          <Table>
+            <Thead>
+              <Tr>
+                <Th>Siswa</Th>
+                <Th>Status</Th>
+                <Th>Sisa waktu</Th>
+                <Th>Nilai</Th>
+                <Th>Pindah tab</Th>
+                <Th></Th>
+              </Tr>
+            </Thead>
             <tbody>
               {attempts.map((a) => (
                 <Fragment key={a.id}>
-                  <tr className="border-b border-slate-100 last:border-0">
-                    <td className="px-4 py-2 font-medium text-slate-900">{a.studentNama}</td>
-                    <td className="px-4 py-2">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_CLASS[a.status]}`}>
-                        {STATUS_LABEL[a.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 font-mono text-xs">
+                  <Tr>
+                    <Td className="font-medium text-slate-900">{a.studentNama}</Td>
+                    <Td>
+                      <Badge variant={STATUS_VARIANT[a.status]}>{STATUS_LABEL[a.status]}</Badge>
+                    </Td>
+                    <Td className="font-mono text-xs">
                       {a.status === "berjalan" || a.status === "paused" ? formatSisa(a.sisaDetik) : "-"}
-                    </td>
-                    <td className="px-4 py-2">{a.skorAkhir?.toFixed(0) ?? "-"}</td>
-                    <td className="px-4 py-2">
+                    </Td>
+                    <Td>{a.skorAkhir?.toFixed(0) ?? "-"}</Td>
+                    <Td>
                       {a.tabSwitchCount > 0 ? (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                          {a.tabSwitchCount}x
-                        </span>
+                        <Badge variant="danger">{a.tabSwitchCount}x</Badge>
                       ) : (
                         <span className="text-slate-400">-</span>
                       )}
-                    </td>
-                    <td className="px-4 py-2 text-right">
+                    </Td>
+                    <Td className="text-right">
                       {(a.status === "selesai" || a.status === "kedaluwarsa") && (
                         <span className="inline-flex items-center gap-3">
                           <a
@@ -136,20 +135,20 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
                           </button>
                         </span>
                       )}
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                   {expandedId === a.id && (
-                    <tr className="border-b border-slate-100 bg-slate-50 last:border-0">
-                      <td colSpan={6} className="px-4 py-3">
+                    <Tr className="bg-slate-50">
+                      <Td colSpan={6} className="py-3">
                         <AnalisisAiPanel attemptId={a.id} canTrigger />
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   )}
                 </Fragment>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </TableContainer>
       )}
     </div>
   );
