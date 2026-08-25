@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
 import { checkAndClaimSession } from "@/lib/exam/session-guard";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -34,6 +35,19 @@ export async function PUT(request: Request, { params }: RouteParams) {
   }
   if (attempt.status !== "berjalan") {
     return NextResponse.json({ error: "Sesi ujian ini sudah tidak aktif." }, { status: 409 });
+  }
+
+  // Tiket 8.2 (Bagian 9 brief: rate limit granular termasuk "submit jawaban").
+  // Per attempt, BUKAN per IP - satu lab komputer sekolah bisa berbagi satu
+  // IP publik untuk puluhan siswa ujian bersamaan, jadi limit per IP di sini
+  // salah sasaran (bisa memblokir siswa lain yang sah). Auto-save sudah
+  // di-debounce di client (Tiket 4.8), jadi batas ini longgar - cuma
+  // menahan flood dari satu sesi yang disalahgunakan/diserang skrip.
+  if (!checkRateLimit(`jawaban:${attempt.id}`, 30, 10_000)) {
+    return NextResponse.json(
+      { error: "Terlalu banyak permintaan simpan jawaban, coba lagi sebentar lagi." },
+      { status: 429 },
+    );
   }
 
   const body = await request.json().catch(() => null);
