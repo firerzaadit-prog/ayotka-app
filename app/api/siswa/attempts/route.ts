@@ -7,6 +7,7 @@ import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/vi
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
 import { canStartMandiriPackage } from "@/lib/billing/free-trial";
+import { canStartViaSubjectQuota, consumeSubjectTryOut } from "@/lib/billing/subject-tryout";
 import { incrementAttemptUsage } from "@/lib/billing/usage";
 import { z } from "zod";
 
@@ -92,6 +93,7 @@ export async function POST(request: Request) {
 
   let assignment = null as Awaited<ReturnType<typeof getActiveAssignmentsFor>>[number] | null;
   let packageForMandiri: Awaited<ReturnType<typeof getSelfSelectPackagesFor>>[number] | null = null;
+  let subjectIdToConsumeQuota: string | null = null;
 
   if (parsed.data.assignmentId) {
     const active = await getActiveAssignmentsFor(student);
@@ -113,16 +115,20 @@ export async function POST(request: Request) {
     }
 
     if (student.jalur === "B") {
-      const allowed = await canStartMandiriPackage(user.id, student.id, packageForMandiri.id);
-      if (!allowed) {
-        return NextResponse.json(
-          {
-            error:
-              "Uji coba gratis (1 paket) sudah kamu pakai untuk paket lain. Berlangganan dulu untuk membuka paket ini.",
-            code: "SUBSCRIPTION_REQUIRED",
-          },
-          { status: 402 },
-        );
+      const freeTrialAllowed = await canStartMandiriPackage(user.id, student.id, packageForMandiri.id);
+      if (!freeTrialAllowed) {
+        const quotaAllowed = await canStartViaSubjectQuota(user.id, packageForMandiri.subjectId);
+        if (!quotaAllowed) {
+          return NextResponse.json(
+            {
+              error:
+                "Uji coba gratis (1 paket) sudah kamu pakai untuk paket lain. Beli paket try out mata pelajaran ini atau berlangganan bulanan untuk membuka paket ini.",
+              code: "SUBSCRIPTION_REQUIRED",
+            },
+            { status: 402 },
+          );
+        }
+        subjectIdToConsumeQuota = packageForMandiri.subjectId;
       }
     }
   }
@@ -223,6 +229,9 @@ export async function POST(request: Request) {
     ip,
   });
   await incrementAttemptUsage(user.id);
+  if (subjectIdToConsumeQuota) {
+    await consumeSubjectTryOut(user.id, subjectIdToConsumeQuota);
+  }
 
   return NextResponse.json({ attempt }, { status: 201 });
 }

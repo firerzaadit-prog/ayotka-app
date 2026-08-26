@@ -45,18 +45,21 @@ model User {
   emailVerifiedAt DateTime?  @map("email_verified_at")
   lastLoginAt     DateTime?  @map("last_login_at")
 
-  schoolUsers           SchoolUser[]
-  studentProfile        Student?
-  waliKelasOf           Class[]        @relation("ClassWaliKelas")
-  createdQuestions      Question[]     @relation("QuestionCreatedBy")
-  orders                Order[]        @relation("OrderCustomer")
-  ordersApproved        Order[]        @relation("OrderApprovedBy")
-  ordersExtended        Order[]        @relation("OrderExtendedBy")
-  subscriptions         Subscription[] @relation("SubscriptionCustomer")
-  subscriptionsExtended Subscription[] @relation("SubscriptionExtendedBy")
-  usageCounters         UsageCounter[]
-  loginLogs             LoginLog[]
-  auditLogs             AuditLog[]
+  schoolUsers            SchoolUser[]
+  studentProfile         Student?
+  waliKelasOf            Class[]              @relation("ClassWaliKelas")
+  createdQuestions       Question[]           @relation("QuestionCreatedBy")
+  orders                 Order[]              @relation("OrderCustomer")
+  ordersApproved         Order[]              @relation("OrderApprovedBy")
+  ordersExtended         Order[]              @relation("OrderExtendedBy")
+  subscriptions          Subscription[]       @relation("SubscriptionCustomer")
+  subscriptionsExtended  Subscription[]       @relation("SubscriptionExtendedBy")
+  usageCounters          UsageCounter[]
+  subjectTryOutOrders    SubjectTryOutOrder[] @relation("SubjectTryOutOrderCustomer")
+  subjectTryOutApprovals SubjectTryOutOrder[] @relation("SubjectTryOutOrderApprovedBy")
+  subjectTryOutQuotas    SubjectTryOutQuota[]
+  loginLogs              LoginLog[]
+  auditLogs              AuditLog[]
 
   @@map("users")
 }
@@ -101,9 +104,11 @@ model Subject {
   nama    String
   jenjang Jenjang
 
-  materi     Materi[]
-  blueprints Blueprint[]
-  packages   Package[]
+  materi           Materi[]
+  blueprints       Blueprint[]
+  packages         Package[]
+  tryOutOrderItems SubjectTryOutOrderItem[]
+  tryOutQuotas     SubjectTryOutQuota[]
 
   @@map("subjects")
 }
@@ -500,22 +505,22 @@ enum AttemptStatus {
 }
 
 model Attempt {
-  id           String        @id @default(uuid()) @db.Uuid
-  studentId    String        @map("student_id") @db.Uuid
-  packageId    String        @map("package_id") @db.Uuid
-  assignmentId String?       @map("assignment_id") @db.Uuid
-  mulaiAt      DateTime      @map("mulai_at")
-  selesaiAt    DateTime?     @map("selesai_at")
-  status       AttemptStatus @default(berjalan)
-  sisaDetik    Int           @map("sisa_detik")
-  skorMentah   Float?        @map("skor_mentah")
-  skorAkhir    Float?        @map("skor_akhir")
-  ip           String?
-  userAgent    String?       @map("user_agent")
+  id             String        @id @default(uuid()) @db.Uuid
+  studentId      String        @map("student_id") @db.Uuid
+  packageId      String        @map("package_id") @db.Uuid
+  assignmentId   String?       @map("assignment_id") @db.Uuid
+  mulaiAt        DateTime      @map("mulai_at")
+  selesaiAt      DateTime?     @map("selesai_at")
+  status         AttemptStatus @default(berjalan)
+  sisaDetik      Int           @map("sisa_detik")
+  skorMentah     Float?        @map("skor_mentah")
+  skorAkhir      Float?        @map("skor_akhir")
+  ip             String?
+  userAgent      String?       @map("user_agent")
   /// Tiket 4.13: hitung berapa kali siswa pindah tab/aplikasi lain selama
   /// attempt ini - dicatat untuk dipantau admin sekolah & admin pusat,
   /// bukan pembatas otomatis (tidak menggagalkan ujian sendirian).
-  tabSwitchCount Int         @default(0) @map("tab_switch_count")
+  tabSwitchCount Int           @default(0) @map("tab_switch_count")
 
   student    Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
   package    Package     @relation(fields: [packageId], references: [id], onDelete: Restrict)
@@ -694,6 +699,64 @@ model UsageCounter {
 
   @@unique([userId, periodeBulan])
   @@map("usage_counters")
+}
+
+/// Bagian 7.3 brief, "Paket Layanan dan Skema Penawaran": alternatif dari
+/// langganan bulanan (Plan/Order/Subscription di atas) - siswa mandiri beli
+/// per mata pelajaran (Rp20.000/mapel, dapat 3x Try Out mapel itu), bisa
+/// pilih beberapa mapel sekaligus dalam 1 pembayaran. Model terpisah dari
+/// Order/Subscription karena bentuknya beda: satu order isinya banyak mapel
+/// (keranjang), dan yang dibatasi jumlah pemakaian (hitungan), bukan jendela
+/// waktu.
+model SubjectTryOutOrder {
+  id                   String      @id @default(uuid()) @db.Uuid
+  userId               String      @map("user_id") @db.Uuid
+  jumlah               Int
+  status               OrderStatus @default(menunggu_verifikasi)
+  buktiTransferUrl     String?     @map("bukti_transfer_url")
+  catatanAdmin         String?     @map("catatan_admin")
+  disetujuiOlehAdminId String?     @map("disetujui_oleh_admin_id") @db.Uuid
+  disetujuiAt          DateTime?   @map("disetujui_at")
+  createdAt            DateTime    @default(now()) @map("created_at")
+
+  user               User                     @relation("SubjectTryOutOrderCustomer", fields: [userId], references: [id], onDelete: Restrict)
+  disetujuiOlehAdmin User?                    @relation("SubjectTryOutOrderApprovedBy", fields: [disetujuiOlehAdminId], references: [id], onDelete: SetNull)
+  items              SubjectTryOutOrderItem[]
+
+  @@map("subject_tryout_orders")
+}
+
+/// Mapel-mapel yang dipilih dalam 1 SubjectTryOutOrder - masing-masing selalu
+/// bernilai SUBJECT_TRYOUT_COUNT (3) try out saat order di-ACC (lihat
+/// lib/billing/subject-tryout.ts).
+model SubjectTryOutOrderItem {
+  id        String @id @default(uuid()) @db.Uuid
+  orderId   String @map("order_id") @db.Uuid
+  subjectId String @map("subject_id") @db.Uuid
+
+  order   SubjectTryOutOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  subject Subject            @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, subjectId])
+  @@map("subject_tryout_order_items")
+}
+
+/// Kuota try out per (siswa, mapel) - kumulatif kalau mapel yang sama dibeli
+/// berkali-kali (total bertambah, tidak pernah diganti). `terpakai` HANYA
+/// bertambah saat kuota inilah yang jadi alasan attempt boleh dimulai (bukan
+/// karena langganan aktif atau uji coba gratis) - lihat consumeSubjectTryOut
+/// di lib/billing/subject-tryout.ts.
+model SubjectTryOutQuota {
+  userId    String @map("user_id") @db.Uuid
+  subjectId String @map("subject_id") @db.Uuid
+  total     Int    @default(0)
+  terpakai  Int    @default(0)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  @@id([userId, subjectId])
+  @@map("subject_tryout_quotas")
 }
 
 // ---------------------------------------------------------------------------

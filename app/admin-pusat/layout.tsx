@@ -52,6 +52,9 @@ export default async function AdminPusatLayout({
             <SidebarLink href="/admin-pusat/verifikasi-pembayaran">
               Verifikasi Pembayaran
             </SidebarLink>
+            <SidebarLink href="/admin-pusat/verifikasi-tryout-mapel">
+              Verifikasi Try Out Mapel
+            </SidebarLink>
             <SidebarLink href="/admin-pusat/pendapatan">Pendapatan</SidebarLink>
             <SidebarLink href="/admin-pusat/pemakaian">Pemakaian</SidebarLink>
           </SidebarSection>

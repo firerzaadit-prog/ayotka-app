@@ -15,3 +15,12 @@ export const orderReviewSchema = z
     message: "Catatan admin wajib diisi saat menolak order.",
     path: ["catatanAdmin"],
   });
+
+/**
+ * Bagian 7.3 brief: order paket try out per mata pelajaran - subjectIds
+ * dikirim lewat FormData (bareng file bukti transfer), boleh pilih lebih
+ * dari 1 mapel dalam satu pembayaran.
+ */
+export const subjectTryOutOrderCreateSchema = z.object({
+  subjectIds: z.array(z.string().uuid()).min(1, "Pilih minimal 1 mata pelajaran."),
+});
