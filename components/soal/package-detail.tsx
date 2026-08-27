@@ -11,6 +11,17 @@ import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { PackageDistribution } from "@/components/soal/package-distribution";
 
+/** Bersihkan simbol LaTeX untuk preview singkat di tabel */
+function stripLatex(text: string): string {
+  return text
+    .replace(/\$\$[^$]*\$\$/g, "[rumus]") // block math
+    .replace(/\$[^$]*\$/g, "[rumus]")       // inline math
+    .replace(/\\[a-zA-Z]+/g, "")            // perintah LaTeX seperti \div \frac
+    .replace(/[{}]/g, "")                    // kurung kurawal LaTeX
+    .replace(/\s+/g, " ")                    // normalisasi spasi
+    .trim();
+}
+
 type Question = {
   id: string;
   format: string;
@@ -80,6 +91,18 @@ const FORMAT_LABEL: Record<string, string> = {
   pg: "PG",
   pg_kompleks: "PG Kompleks",
   pg_kategori: "PG Kategori",
+};
+
+const FORMAT_COLOR: Record<string, string> = {
+  pg: "bg-blue-50 text-blue-700 ring-1 ring-blue-200",
+  pg_kompleks: "bg-violet-50 text-violet-700 ring-1 ring-violet-200",
+  pg_kategori: "bg-teal-50 text-teal-700 ring-1 ring-teal-200",
+};
+
+const KESULITAN_COLOR: Record<string, string> = {
+  mudah: "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200",
+  sedang: "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+  sulit: "bg-rose-50 text-rose-700 ring-1 ring-rose-200",
 };
 
 export function PackageDetail({
@@ -354,7 +377,8 @@ export function PackageDetail({
           <Table>
             <Thead>
               <tr>
-                <Th>Soal</Th>
+                <Th>No</Th>
+                <Th>Teks Soal</Th>
                 <Th>Format</Th>
                 <Th>Kesulitan</Th>
                 <Th>Kompetensi</Th>
@@ -362,23 +386,46 @@ export function PackageDetail({
               </tr>
             </Thead>
             <tbody>
-              {pkg.questions.map((q) => (
+              {pkg.questions.map((q, idx) => (
                 <Tr key={q.id}>
-                  <Td className="max-w-sm truncate">{q.teks}</Td>
-                  <Td>{FORMAT_LABEL[q.format] ?? q.format}</Td>
-                  <Td>{q.tingkatKesulitan}</Td>
-                  <Td className="font-mono text-xs">{q.kompetensi.kode}</Td>
+                  <Td className="w-10 text-center text-slate-400 text-xs font-medium">
+                    {idx + 1}
+                  </Td>
+                  <Td className="max-w-sm">
+                    <span className="line-clamp-2 text-sm text-slate-800 leading-relaxed">
+                      {stripLatex(q.teks)}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                      FORMAT_COLOR[q.format] ?? "bg-slate-100 text-slate-600"
+                    }`}>
+                      {FORMAT_LABEL[q.format] ?? q.format}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ${
+                      KESULITAN_COLOR[q.tingkatKesulitan] ?? "bg-slate-100 text-slate-600"
+                    }`}>
+                      {q.tingkatKesulitan}
+                    </span>
+                  </Td>
+                  <Td>
+                    <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-mono font-medium text-indigo-700 ring-1 ring-indigo-200">
+                      {q.kompetensi.kode}
+                    </span>
+                  </Td>
                   <Td className="text-right">
                     <div className="flex items-center justify-end gap-3">
                       <Link
                         href={`${basePath}/${packageId}/soal/${q.id}`}
-                        className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                        className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
                       >
                         {q._count.attemptAnswers > 0 ? "Lihat" : "Edit"}
                       </Link>
                       <button
                         onClick={() => handleDeleteQuestion(q.id)}
-                        className="text-sm font-medium text-rose-600 hover:underline"
+                        className="text-sm font-medium text-rose-500 hover:text-rose-700 transition-colors"
                       >
                         Hapus
                       </button>

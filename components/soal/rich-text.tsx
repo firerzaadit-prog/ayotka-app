@@ -6,8 +6,9 @@ import "katex/dist/katex.min.css";
 
 /**
  * Render teks yang bisa mengandung rumus KaTeX: `$...$` untuk inline,
- * `$$...$$` untuk block. Sisanya dirender sebagai teks biasa. Dipakai di
- * teks soal & teks opsi jawaban (Bagian 3.2 & 6 brief: dukungan KaTeX/LaTeX).
+ * `$$...$$` untuk block. Sisanya dirender sebagai teks biasa dengan
+ * newline (\n) dihormati sebagai <br /> supaya tampilan preview dan
+ * tampilan siswa sama persis dengan yang diketik.
  */
 export function RichText({ text, className }: { text: string; className?: string }) {
   const segments = useMemo(() => parseSegments(text), [text]);
@@ -16,7 +17,17 @@ export function RichText({ text, className }: { text: string; className?: string
     <span className={className}>
       {segments.map((segment, i) => {
         if (segment.type === "text") {
-          return <Fragment key={i}>{segment.value}</Fragment>;
+          // Pecah per baris lalu sisipkan <br /> di antara baris
+          return (
+            <Fragment key={i}>
+              {segment.value.split("\n").map((line, j, arr) => (
+                <Fragment key={j}>
+                  {line}
+                  {j < arr.length - 1 && <br />}
+                </Fragment>
+              ))}
+            </Fragment>
+          );
         }
         const html = renderKatexSafe(segment.value, segment.type === "block");
         return (
