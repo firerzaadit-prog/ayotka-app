@@ -191,12 +191,9 @@ model SubMateri {
 }
 
 enum LevelKognitif {
-  C1
-  C2
-  C3
-  C4
-  C5
-  C6
+  L1
+  L2
+  L3
 }
 
 model Kompetensi {

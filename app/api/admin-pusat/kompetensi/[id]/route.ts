@@ -10,7 +10,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 const updateSchema = z.object({
   kode: z.string().trim().min(1).optional(),
   deskripsi: z.string().trim().min(3).optional(),
-  levelKognitif: z.enum(["C1", "C2", "C3", "C4", "C5", "C6"]).optional(),
+  levelKognitif: z.enum(["L1", "L2", "L3"]).optional(),
 });
 
 export async function PATCH(request: Request, { params }: RouteParams) {

@@ -36,7 +36,7 @@ export const geminiResponseSchema: Schema = {
         required: ["kode", "narasi"],
       },
     },
-    levelKognitif: { type: Type.STRING, description: "narasi kekuatan/kelemahan per level kognitif C1-C6 berdasarkan data yang diberikan" },
+    levelKognitif: { type: Type.STRING, description: "narasi kekuatan/kelemahan per level kognitif L1-L3 berdasarkan data yang diberikan" },
     polaKesalahan: { type: Type.STRING, description: "narasi pola kesalahan yang terlihat dari data yang diberikan" },
     rekomendasi: {
       type: Type.ARRAY,

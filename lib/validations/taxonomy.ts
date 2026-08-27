@@ -17,7 +17,7 @@ export const kompetensiCreateSchema = z.object({
   subMateriId: z.string().uuid(),
   kode: z.string().trim().min(1, "Kode wajib diisi"),
   deskripsi: z.string().trim().min(3, "Deskripsi minimal 3 karakter"),
-  levelKognitif: z.enum(["C1", "C2", "C3", "C4", "C5", "C6"]),
+  levelKognitif: z.enum(["L1", "L2", "L3"]),
 });
 
 export const namaUpdateSchema = z.object({

@@ -16,7 +16,11 @@ type Materi = { id: string; nama: string };
 type SubMateri = { id: string; nama: string };
 type Kompetensi = { id: string; kode: string; deskripsi: string };
 
-const LEVEL_OPTIONS = ["C1", "C2", "C3", "C4", "C5", "C6"];
+const LEVEL_OPTIONS = [
+  { value: "L1", label: "Level 1 – Pengetahuan & Pemahaman" },
+  { value: "L2", label: "Level 2 – Aplikasi" },
+  { value: "L3", label: "Level 3 – Penalaran" },
+];
 const KESULITAN_OPTIONS = ["mudah", "sedang", "sulit"] as const;
 const OPTION_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H"];
 
@@ -70,7 +74,7 @@ export function QuestionForm({
   const [tingkatKesulitan, setTingkatKesulitan] = useState<(typeof KESULITAN_OPTIONS)[number]>(
     initial?.tingkatKesulitan ?? "sedang",
   );
-  const [levelBloom, setLevelBloom] = useState(initial?.levelBloom ?? "C1");
+  const [levelBloom, setLevelBloom] = useState(initial?.levelBloom ?? "L1");
   const [pembahasan, setPembahasan] = useState(initial?.pembahasan ?? "");
 
   const [materiId, setMateriId] = useState(initial?.materiId ?? "");
@@ -306,8 +310,8 @@ export function QuestionForm({
               onChange={(e) => setLevelBloom(e.target.value)}
             >
               {LEVEL_OPTIONS.map((l) => (
-                <option key={l} value={l}>
-                  {l}
+                <option key={l.value} value={l.value}>
+                  {l.label}
                 </option>
               ))}
             </select>

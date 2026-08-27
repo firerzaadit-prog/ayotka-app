@@ -16,7 +16,11 @@ type Materi = {
 type SubMateri = { id: string; nama: string; urutan: number; _count: { kompetensi: number } };
 type Kompetensi = { id: string; kode: string; deskripsi: string; levelKognitif: string };
 
-const LEVEL_OPTIONS = ["C1", "C2", "C3", "C4", "C5", "C6"];
+const LEVEL_OPTIONS = [
+  { value: "L1", label: "Level 1 – Pengetahuan & Pemahaman" },
+  { value: "L2", label: "Level 2 – Aplikasi" },
+  { value: "L3", label: "Level 3 – Penalaran" },
+];
 
 export default function TaxonomySubjectPage({
   params,
@@ -241,7 +245,7 @@ function SubMateriItem({
   const [showForm, setShowForm] = useState(false);
   const [kode, setKode] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
-  const [level, setLevel] = useState("C1");
+  const [level, setLevel] = useState("L1");
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -325,8 +329,8 @@ function SubMateriItem({
                   onChange={(e) => setLevel(e.target.value)}
                 >
                   {LEVEL_OPTIONS.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
+                    <option key={l.value} value={l.value}>
+                      {l.label}
                     </option>
                   ))}
                 </select>

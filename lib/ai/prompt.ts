@@ -41,7 +41,7 @@ Nilai akhir: ${input.skorAkhir.toFixed(0)}
 PETA KOMPETENSI (persentase penguasaan per kompetensi):
 ${kompetensiLines || "(tidak ada data)"}
 
-LEVEL KOGNITIF (C1=mengingat s.d. C6=mencipta):
+LEVEL KOGNITIF (L1=Pengetahuan & Pemahaman, L2=Aplikasi, L3=Penalaran):
 ${levelLines || "(tidak ada data)"}
 
 PER FORMAT SOAL:

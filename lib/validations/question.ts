@@ -31,7 +31,7 @@ const baseQuestionFields = {
   materiId: z.string().uuid().optional().or(z.literal("")),
   subMateriId: z.string().uuid().optional().or(z.literal("")),
   kompetensiId: z.string().uuid(),
-  levelBloom: z.enum(["C1", "C2", "C3", "C4", "C5", "C6"]),
+  levelBloom: z.enum(["L1", "L2", "L3"]),
   pembahasan: z.string().optional().or(z.literal("")),
 };
 
