@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import Image from "next/image";
 
 type Accent = "siswa" | "admin_sekolah" | "admin_pusat";
 
@@ -39,9 +40,14 @@ export function AuthSplitLayout({
             href="/"
             className="mb-10 inline-flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-sm text-white">
-              A
-            </span>
+            <div className="relative h-10 w-10 shrink-0">
+              <Image
+                src="/logo.png"
+                alt="AyoTKA Logo"
+                fill
+                className="object-contain"
+              />
+            </div>
             AyoTKA
           </Link>
           {children}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import Image from "next/image";
 
 export function DashboardShell({
   title,
@@ -26,9 +27,14 @@ export function DashboardShell({
 
   const brand = (
     <div className="flex h-16 shrink-0 items-center gap-2 border-b border-slate-100 px-5">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-sm font-bold text-white">
-        A
-      </span>
+      <div className="relative h-10 w-10 shrink-0">
+        <Image
+          src="/logo.png"
+          alt="AyoTKA Logo"
+          fill
+          className="object-contain"
+        />
+      </div>
       <div className="leading-tight">
         <p className="text-sm font-semibold text-slate-900">AyoTKA</p>
         <p className="text-xs text-slate-400">{title}</p>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 const FEATURES = [
   {
@@ -64,9 +65,14 @@ export default function LandingPage() {
     <main className="min-h-screen bg-white">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <span className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 text-sm text-white">
-            A
-          </span>
+          <div className="relative h-10 w-10 shrink-0">
+            <Image
+              src="/logo.png"
+              alt="AyoTKA Logo"
+              fill
+              className="object-contain"
+            />
+          </div>
           AyoTKA
         </span>
         <nav className="flex items-center gap-6">
