@@ -49,15 +49,10 @@ model User {
   studentProfile         Student?
   waliKelasOf            Class[]              @relation("ClassWaliKelas")
   createdQuestions       Question[]           @relation("QuestionCreatedBy")
-  orders                 Order[]              @relation("OrderCustomer")
-  ordersApproved         Order[]              @relation("OrderApprovedBy")
-  ordersExtended         Order[]              @relation("OrderExtendedBy")
-  subscriptions          Subscription[]       @relation("SubscriptionCustomer")
-  subscriptionsExtended  Subscription[]       @relation("SubscriptionExtendedBy")
-  usageCounters          UsageCounter[]
   subjectTryOutOrders    SubjectTryOutOrder[] @relation("SubjectTryOutOrderCustomer")
   subjectTryOutApprovals SubjectTryOutOrder[] @relation("SubjectTryOutOrderApprovedBy")
   subjectTryOutQuotas    SubjectTryOutQuota[]
+  schoolSubjectQuotasCreated SchoolSubjectQuota[] @relation("SchoolSubjectQuotaCreatedBy")
   loginLogs              LoginLog[]
   auditLogs              AuditLog[]
 
@@ -78,17 +73,13 @@ model School {
   alamat            String?
   kodeSekolah       String       @unique @map("kode_sekolah")
   status            SchoolStatus @default(pending_verifikasi)
-  planId            String?      @map("plan_id") @db.Uuid
-  kuotaSiswa        Int          @map("kuota_siswa")
-  langgananMulai    DateTime?    @map("langganan_mulai")
-  langgananBerakhir DateTime?    @map("langganan_berakhir")
 
-  plan              Plan?               @relation(fields: [planId], references: [id], onDelete: SetNull)
   schoolUsers       SchoolUser[]
   classes           Class[]
   students          Student[]
   packageVisibility PackageVisibility[]
   assignments       Assignment[]
+  schoolSubjectQuotas SchoolSubjectQuota[]
 
   @@map("schools")
 }
@@ -104,11 +95,12 @@ model Subject {
   nama    String
   jenjang Jenjang
 
-  materi           Materi[]
-  blueprints       Blueprint[]
-  packages         Package[]
-  tryOutOrderItems SubjectTryOutOrderItem[]
-  tryOutQuotas     SubjectTryOutQuota[]
+  materi              Materi[]
+  blueprints          Blueprint[]
+  packages            Package[]
+  tryOutOrderItems    SubjectTryOutOrderItem[]
+  tryOutQuotas        SubjectTryOutQuota[]
+  schoolSubjectQuotas SchoolSubjectQuota[]
 
   @@map("subjects")
 }
@@ -594,27 +586,26 @@ model AiAnalysis {
 }
 
 // ---------------------------------------------------------------------------
-// Grup 18-20: plans, bank_accounts, orders, subscriptions, usage_counters
+// Grup 18-20: service_packages, bank_accounts, subject tryout orders
 // ---------------------------------------------------------------------------
 
-enum PlanTarget {
-  sekolah
-  siswa
-}
+/// Paket layanan TKA: admin pusat bisa buat banyak paket (nama, harga per
+/// mapel, jumlah try out per mapel). Siswa mandiri pilih paket saat checkout.
+/// Bagian 7.3 brief: Rp20.000/siswa/mapel sudah termasuk 3× Try Out — tapi
+/// sekarang dikonfigurasi admin pusat bukan hardcode.
+model ServicePackage {
+  id             String   @id @default(uuid()) @db.Uuid
+  nama           String
+  hargaPerMapel  Int      @map("harga_per_mapel")
+  tryOutPerMapel Int      @default(3) @map("try_out_per_mapel")
+  deskripsi      String?
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-model Plan {
-  id         String     @id @default(uuid()) @db.Uuid
-  nama       String
-  target     PlanTarget
-  harga      Int
-  durasiHari Int        @map("durasi_hari")
-  kuota      Int?
+  orders SubjectTryOutOrder[]
 
-  schools       School[]
-  orders        Order[]
-  subscriptions Subscription[]
-
-  @@map("plans")
+  @@map("service_packages")
 }
 
 model BankAccount {
@@ -634,80 +625,14 @@ enum OrderStatus {
   kedaluwarsa
 }
 
-/// Pembayaran manual, tanpa payment gateway (keputusan #24 brief).
-model Order {
-  id                      String      @id @default(uuid()) @db.Uuid
-  userId                  String      @map("user_id") @db.Uuid
-  planId                  String      @map("plan_id") @db.Uuid
-  jumlah                  Int
-  status                  OrderStatus @default(menunggu_verifikasi)
-  buktiTransferUrl        String?     @map("bukti_transfer_url")
-  catatanAdmin            String?     @map("catatan_admin")
-  disetujuiOlehAdminId    String?     @map("disetujui_oleh_admin_id") @db.Uuid
-  disetujuiAt             DateTime?   @map("disetujui_at")
-  diperpanjangOlehAdminId String?     @map("diperpanjang_oleh_admin_id") @db.Uuid
-  createdAt               DateTime    @default(now()) @map("created_at")
-
-  user                  User           @relation("OrderCustomer", fields: [userId], references: [id], onDelete: Restrict)
-  plan                  Plan           @relation(fields: [planId], references: [id], onDelete: Restrict)
-  disetujuiOlehAdmin    User?          @relation("OrderApprovedBy", fields: [disetujuiOlehAdminId], references: [id], onDelete: SetNull)
-  diperpanjangOlehAdmin User?          @relation("OrderExtendedBy", fields: [diperpanjangOlehAdminId], references: [id], onDelete: SetNull)
-  subscriptions         Subscription[]
-
-  @@map("orders")
-}
-
-enum SubscriptionStatus {
-  aktif
-  tenggang
-  kedaluwarsa
-  batal
-}
-
-model Subscription {
-  id                      String             @id @default(uuid()) @db.Uuid
-  userId                  String             @map("user_id") @db.Uuid
-  planId                  String             @map("plan_id") @db.Uuid
-  mulaiAt                 DateTime           @map("mulai_at")
-  berakhirAt              DateTime           @map("berakhir_at")
-  status                  SubscriptionStatus @default(aktif)
-  orderId                 String?            @map("order_id") @db.Uuid
-  diperpanjangOlehAdminId String?            @map("diperpanjang_oleh_admin_id") @db.Uuid
-  createdAt               DateTime           @default(now()) @map("created_at")
-
-  user                  User   @relation("SubscriptionCustomer", fields: [userId], references: [id], onDelete: Restrict)
-  plan                  Plan   @relation(fields: [planId], references: [id], onDelete: Restrict)
-  order                 Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  diperpanjangOlehAdmin User?  @relation("SubscriptionExtendedBy", fields: [diperpanjangOlehAdminId], references: [id], onDelete: SetNull)
-
-  @@map("subscriptions")
-}
-
-/// Untuk monitoring pemakaian (bukan pembatas otomatis — batas wajar/fair use
-/// sudah dihapus, lihat keputusan #13 brief).
-model UsageCounter {
-  id            String @id @default(uuid()) @db.Uuid
-  userId        String @map("user_id") @db.Uuid
-  periodeBulan  String @map("periode_bulan")
-  jmlAttempt    Int    @default(0) @map("jml_attempt")
-  jmlAnalisisAi Int    @default(0) @map("jml_analisis_ai")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, periodeBulan])
-  @@map("usage_counters")
-}
-
-/// Bagian 7.3 brief, "Paket Layanan dan Skema Penawaran": alternatif dari
-/// langganan bulanan (Plan/Order/Subscription di atas) - siswa mandiri beli
-/// per mata pelajaran (Rp20.000/mapel, dapat 3x Try Out mapel itu), bisa
-/// pilih beberapa mapel sekaligus dalam 1 pembayaran. Model terpisah dari
-/// Order/Subscription karena bentuknya beda: satu order isinya banyak mapel
-/// (keranjang), dan yang dibatasi jumlah pemakaian (hitungan), bukan jendela
-/// waktu.
+/// Bagian 7.3 brief: siswa mandiri beli paket try out per mata pelajaran.
+/// Satu order bisa berisi banyak mapel (keranjang). Setiap order harus
+/// mereferensikan ServicePackage yang dipilih — sehingga harga & jumlah
+/// try out yang di-ACC sesuai dengan paket yang berlaku saat transaksi.
 model SubjectTryOutOrder {
   id                   String      @id @default(uuid()) @db.Uuid
   userId               String      @map("user_id") @db.Uuid
+  servicePackageId     String      @map("service_package_id") @db.Uuid
   jumlah               Int
   status               OrderStatus @default(menunggu_verifikasi)
   buktiTransferUrl     String?     @map("bukti_transfer_url")
@@ -717,6 +642,7 @@ model SubjectTryOutOrder {
   createdAt            DateTime    @default(now()) @map("created_at")
 
   user               User                     @relation("SubjectTryOutOrderCustomer", fields: [userId], references: [id], onDelete: Restrict)
+  servicePackage     ServicePackage           @relation(fields: [servicePackageId], references: [id], onDelete: Restrict)
   disetujuiOlehAdmin User?                    @relation("SubjectTryOutOrderApprovedBy", fields: [disetujuiOlehAdminId], references: [id], onDelete: SetNull)
   items              SubjectTryOutOrderItem[]
 
@@ -754,6 +680,27 @@ model SubjectTryOutQuota {
 
   @@id([userId, subjectId])
   @@map("subject_tryout_quotas")
+}
+
+/// Kuota try out per (sekolah, mapel) - di-set langsung oleh admin pusat
+/// (tanpa payment flow dari sekolah). Setiap siswa sekolah berhak atas
+/// `tryOutPerSiswa` (default 3) try out untuk mapel ini. Pengecekan akses
+/// dihitung dari jumlah attempt selesai per siswa per mapel vs tryOutPerSiswa.
+model SchoolSubjectQuota {
+  id             String   @id @default(uuid()) @db.Uuid
+  schoolId       String   @map("school_id") @db.Uuid
+  subjectId      String   @map("subject_id") @db.Uuid
+  tryOutPerSiswa Int      @default(3) @map("try_out_per_siswa")
+  kuotaSiswa     Int      @map("kuota_siswa")
+  createdBy      String   @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  school    School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  createdByUser User @relation("SchoolSubjectQuotaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@unique([schoolId, subjectId])
+  @@map("school_subject_quotas")
 }
 
 // ---------------------------------------------------------------------------

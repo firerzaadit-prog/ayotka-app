@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { planUpdateSchema } from "@/lib/validations/plan";
+import { servicePackageUpdateSchema } from "@/lib/validations/service-package";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -16,13 +16,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const before = await prisma.plan.findUnique({ where: { id } });
+  const before = await prisma.servicePackage.findUnique({ where: { id } });
   if (!before) {
-    return NextResponse.json({ error: "Paket langganan tidak ditemukan." }, { status: 404 });
+    return NextResponse.json({ error: "Paket layanan tidak ditemukan." }, { status: 404 });
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = planUpdateSchema.safeParse(body);
+  const parsed = servicePackageUpdateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Data tidak valid." },
@@ -30,26 +30,28 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     );
   }
 
-  const { kuota, ...rest } = parsed.data;
-  const plan = await prisma.plan.update({
+  const { deskripsi, ...rest } = parsed.data;
+  const pkg = await prisma.servicePackage.update({
     where: { id },
-    data: { ...rest, ...(kuota !== undefined ? { kuota: kuota === "" ? null : kuota } : {}) },
+    data: {
+      ...rest,
+      ...(deskripsi !== undefined ? { deskripsi: deskripsi || null } : {}),
+    },
   });
 
   await logAudit({
     userId: user.id,
     aksi: "update",
-    entitas: "plans",
+    entitas: "service_packages",
     entitasId: id,
     before,
-    after: plan,
+    after: pkg,
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ plan });
+  return NextResponse.json({ package: pkg });
 }
 
-/** Bagian 5 brief (jangan cascade hapus riwayat transaksi): orders/subscriptions/schools memakai onDelete Restrict ke plan. */
 export async function DELETE(request: Request, { params }: RouteParams) {
   let user;
   try {
@@ -59,20 +61,17 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const before = await prisma.plan.findUnique({ where: { id } });
+  const before = await prisma.servicePackage.findUnique({ where: { id } });
   if (!before) {
-    return NextResponse.json({ error: "Paket langganan tidak ditemukan." }, { status: 404 });
+    return NextResponse.json({ error: "Paket layanan tidak ditemukan." }, { status: 404 });
   }
 
   try {
-    await prisma.plan.delete({ where: { id } });
+    await prisma.servicePackage.delete({ where: { id } });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2003") {
       return NextResponse.json(
-        {
-          error:
-            "Paket ini masih dipakai sekolah atau ada riwayat pesanan/langganan, sehingga tidak bisa dihapus permanen.",
-        },
+        { error: "Paket ini masih dipakai dalam order siswa, tidak bisa dihapus permanen." },
         { status: 409 },
       );
     }
@@ -82,7 +81,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   await logAudit({
     userId: user.id,
     aksi: "delete",
-    entitas: "plans",
+    entitas: "service_packages",
     entitasId: id,
     before,
     ip: getClientIp(request),

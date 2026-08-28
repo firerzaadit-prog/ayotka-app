@@ -2,13 +2,12 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { planCreateSchema } from "@/lib/validations/plan";
+import { servicePackageCreateSchema } from "@/lib/validations/service-package";
 
 /**
- * Paket langganan (target sekolah atau siswa mandiri) - data dasar yang
- * dibutuhkan seluruh alur Fase 6 (checkout, approval, langganan sekolah).
- * Tidak ada tiket eksplisit untuk CRUD ini di panduan teknis, tapi tanpa
- * ini tiket 6.3/6.4/6.8 tidak punya data untuk dipakai sama sekali.
+ * Bagian 7.3 brief: paket layanan TKA — admin pusat bisa buat banyak paket
+ * berbeda (nama, harga/mapel, jumlah TryOut/mapel). Siswa mandiri memilih
+ * paket saat checkout.
  */
 export async function GET() {
   try {
@@ -17,8 +16,10 @@ export async function GET() {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  const plans = await prisma.plan.findMany({ orderBy: [{ target: "asc" }, { harga: "asc" }] });
-  return NextResponse.json({ plans });
+  const packages = await prisma.servicePackage.findMany({
+    orderBy: [{ isActive: "desc" }, { hargaPerMapel: "asc" }],
+  });
+  return NextResponse.json({ packages });
 }
 
 export async function POST(request: Request) {
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = planCreateSchema.safeParse(body);
+  const parsed = servicePackageCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Data tidak valid." },
@@ -38,19 +39,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const { kuota, ...rest } = parsed.data;
-  const plan = await prisma.plan.create({
-    data: { ...rest, kuota: kuota === "" || kuota === undefined ? null : kuota },
+  const { deskripsi, isActive, ...rest } = parsed.data;
+  const pkg = await prisma.servicePackage.create({
+    data: {
+      ...rest,
+      deskripsi: deskripsi || null,
+      isActive: isActive ?? true,
+    },
   });
 
   await logAudit({
     userId: user.id,
     aksi: "create",
-    entitas: "plans",
-    entitasId: plan.id,
-    after: plan,
+    entitas: "service_packages",
+    entitasId: pkg.id,
+    after: pkg,
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ plan }, { status: 201 });
+  return NextResponse.json({ package: pkg }, { status: 201 });
 }

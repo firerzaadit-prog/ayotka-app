@@ -2,13 +2,24 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 
 /**
- * Bagian 7.3 brief, "Paket Layanan dan Skema Penawaran": Rp20.000 per mata
- * pelajaran, sudah termasuk 3x Try Out mapel itu. Angka ini konstanta tetap
- * (bukan Plan yang admin atur lewat UI) - kalau nanti perlu diubah dari
- * dashboard, itu perluasan terpisah.
+ * Bagian 7.3 brief, "Paket Layanan dan Skema Penawaran": harga dan jumlah
+ * try out per mata pelajaran dikonfigurasi oleh admin pusat lewat tabel
+ * service_packages — bukan lagi hardcode. Siswa mandiri memilih paket
+ * saat checkout; admin pusat bisa membuat beberapa paket berbeda.
  */
-export const SUBJECT_TRYOUT_PRICE = 20_000;
-export const SUBJECT_TRYOUT_COUNT = 3;
+
+/** Ambil satu paket service berdasarkan id. */
+export async function getServicePackage(id: string) {
+  return prisma.servicePackage.findUnique({ where: { id } });
+}
+
+/** Semua paket aktif — ditampilkan di halaman checkout siswa. */
+export async function listActiveServicePackages() {
+  return prisma.servicePackage.findMany({
+    where: { isActive: true },
+    orderBy: { hargaPerMapel: "asc" },
+  });
+}
 
 /** Sisa try out siswa mandiri untuk 1 mata pelajaran (0 kalau belum pernah beli). */
 export async function getSubjectTryOutRemaining(userId: string, subjectId: string): Promise<number> {

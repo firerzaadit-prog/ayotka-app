@@ -19,7 +19,7 @@ export async function GET() {
   }
 
   const pending = await prisma.school.findMany({
-    where: { status: "pending_verifikasi", kuotaSiswa: 0 },
+    where: { status: "pending_verifikasi" },
     orderBy: { nama: "asc" },
     include: {
       students: {

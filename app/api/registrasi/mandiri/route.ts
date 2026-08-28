@@ -61,7 +61,6 @@ export async function POST(request: Request) {
         jenjang: data.jenjang,
         kodeSekolah: generateReadableCode(8),
         status: "pending_verifikasi",
-        kuotaSiswa: 0,
       },
     });
     schoolId = pendingSchool.id;

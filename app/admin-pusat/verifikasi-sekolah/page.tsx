@@ -17,12 +17,12 @@ type PendingSchool = {
   alamat: string | null;
   students: PendingStudent[];
 };
-type SchoolOption = { id: string; nama: string; jenjang: "SD" | "SMP"; status: string; kuotaSiswa: number };
+type SchoolOption = { id: string; nama: string; jenjang: "SD" | "SMP"; status: string };
 
 type Mode = null | "approve" | "reject" | "merge";
 
 function isPlaceholder(s: SchoolOption): boolean {
-  return s.status === "pending_verifikasi" && s.kuotaSiswa === 0;
+  return s.status === "pending_verifikasi";
 }
 
 export default function VerifikasiSekolahPage() {
@@ -30,7 +30,7 @@ export default function VerifikasiSekolahPage() {
   const [schoolOptions, setSchoolOptions] = useState<SchoolOption[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
-  const [approveForm, setApproveForm] = useState({ nama: "", npsn: "", alamat: "", kuotaSiswa: "" });
+  const [approveForm, setApproveForm] = useState({ nama: "", npsn: "", alamat: "" });
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -63,7 +63,6 @@ export default function VerifikasiSekolahPage() {
       nama: school.nama,
       npsn: school.npsn ?? "",
       alamat: school.alamat ?? "",
-      kuotaSiswa: "",
     });
     setMergeTargetId("");
   }
@@ -142,8 +141,7 @@ export default function VerifikasiSekolahPage() {
               {mode === "approve" && (
                 <div className="flex flex-col gap-4">
                   <p className="text-sm text-slate-600">
-                    Jadikan ini sekolah resmi baru - koreksi datanya kalau perlu, lalu isi kuota
-                    siswa (wajib, minimal 1).
+                    Jadikan ini sekolah resmi baru - koreksi datanya kalau perlu.
                   </p>
                   <div>
                     <Label htmlFor="apNama">Nama sekolah</Label>
@@ -164,30 +162,17 @@ export default function VerifikasiSekolahPage() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="apKuota">Kuota siswa</Label>
+                      <Label htmlFor="apAlamat">Alamat (opsional)</Label>
                       <Input
-                        id="apKuota"
-                        type="number"
-                        min={1}
-                        required
-                        value={approveForm.kuotaSiswa}
-                        onChange={(e) =>
-                          setApproveForm({ ...approveForm, kuotaSiswa: e.target.value })
-                        }
+                        id="apAlamat"
+                        value={approveForm.alamat}
+                        onChange={(e) => setApproveForm({ ...approveForm, alamat: e.target.value })}
                       />
                     </div>
                   </div>
-                  <div>
-                    <Label htmlFor="apAlamat">Alamat (opsional)</Label>
-                    <Input
-                      id="apAlamat"
-                      value={approveForm.alamat}
-                      onChange={(e) => setApproveForm({ ...approveForm, alamat: e.target.value })}
-                    />
-                  </div>
                   <div className="flex gap-2">
                     <Button
-                      disabled={submitting || !approveForm.kuotaSiswa}
+                      disabled={submitting}
                       onClick={() =>
                         submitAction(school.id, { action: "approve", ...approveForm })
                       }

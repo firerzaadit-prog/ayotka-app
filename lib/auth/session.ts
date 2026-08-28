@@ -53,7 +53,7 @@ export async function hasActiveSchoolAccess(userId: string, role: Role): Promise
   if (role === "admin_sekolah") {
     const schoolUser = await prisma.schoolUser.findFirst({
       where: { userId },
-      select: { school: { select: { status: true, langgananBerakhir: true } } },
+      select: { schoolId: true, school: { select: { status: true } } },
     });
     return Boolean(schoolUser && isSchoolActive(schoolUser.school));
   }
@@ -61,7 +61,7 @@ export async function hasActiveSchoolAccess(userId: string, role: Role): Promise
   if (role === "siswa") {
     const student = await prisma.student.findUnique({
       where: { userId },
-      select: { jalur: true, school: { select: { status: true, langgananBerakhir: true } } },
+      select: { jalur: true, school: { select: { status: true } } },
     });
     if (!student || student.jalur !== "A") return true;
     return Boolean(student.school && isSchoolActive(student.school));

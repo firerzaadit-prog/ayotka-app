@@ -18,7 +18,6 @@ type SchoolListItem = {
   jenjang: "SD" | "SMP";
   kodeSekolah: string;
   status: SchoolStatus;
-  kuotaSiswa: number;
   _count: { schoolUsers: number; students: number };
 };
 
@@ -38,10 +37,9 @@ type SchoolFormState = {
   npsn: string;
   jenjang: "SD" | "SMP";
   alamat: string;
-  kuotaSiswa: string;
 };
 
-const emptyForm: SchoolFormState = { nama: "", npsn: "", jenjang: "SD", alamat: "", kuotaSiswa: "" };
+const emptyForm: SchoolFormState = { nama: "", npsn: "", jenjang: "SD", alamat: "" };
 
 export default function SekolahPage() {
   const [schools, setSchools] = useState<SchoolListItem[] | null>(null);
@@ -175,18 +173,6 @@ export default function SekolahPage() {
             />
           </div>
 
-          <div>
-            <Label htmlFor="kuotaSiswa">Kuota siswa</Label>
-            <Input
-              id="kuotaSiswa"
-              type="number"
-              min={1}
-              required
-              value={form.kuotaSiswa}
-              onChange={(e) => setForm({ ...form, kuotaSiswa: e.target.value })}
-            />
-          </div>
-
           <Button type="submit" disabled={submitting} className="w-fit">
             {submitting ? "Menyimpan..." : "Simpan sekolah"}
           </Button>
@@ -237,7 +223,7 @@ export default function SekolahPage() {
                   </Td>
                   <Td>{school._count.schoolUsers}</Td>
                   <Td>
-                    {school._count.students}/{school.kuotaSiswa}
+                    {school._count.students}
                   </Td>
                   <Td className="text-right">
                     <button

@@ -3,9 +3,16 @@ import { prisma } from "@/lib/db/prisma";
 import { generateReadableCode } from "@/lib/utils/generate-code";
 import type { Jenjang } from "@prisma/client";
 
+/**
+ * Sejak redesign billing (Bagian 7.3), kuota siswa tidak lagi disimpan di
+ * kolom `kuotaSiswa` di tabel `schools`. Akses siswa Jalur A diatur lewat
+ * `SchoolSubjectQuota` yang di-set admin pusat per (sekolah, mapel).
+ * KuotaPenuhError dipertahankan untuk kompatibilitas ke depan, tapi
+ * assertKuotaTersedia tidak lagi memblokir penambahan siswa.
+ */
 export class KuotaPenuhError extends Error {
   constructor() {
-    super("Kuota siswa sekolah sudah penuh. Hubungi Admin Pusat untuk menambah kuota.");
+    super("Kuota siswa sekolah sudah penuh. Hubungi Admin Pusat.");
   }
 }
 
@@ -19,18 +26,14 @@ async function generateUniqueClaimToken(): Promise<string> {
 }
 
 /**
- * Tiket 3.7 (Bagian 7.2 brief): kuota dihitung dari siswa Jalur A saja -
- * siswa mandiri (Jalur B) berlangganan sendiri per Fase 6, bukan bagian
- * dari kuota berlangganan sekolah.
+ * Tiket 3.7: tidak ada lagi batas kuota dari model School.
+ * Fungsi ini dipertahankan agar caller tidak perlu diubah,
+ * tapi tidak lagi memblokir — admin pusat mengatur akses
+ * lewat SchoolSubjectQuota.
  */
-export async function assertKuotaTersedia(schoolId: string, tambahan: number): Promise<void> {
-  const [school, jumlahSiswaAktif] = await Promise.all([
-    prisma.school.findUniqueOrThrow({ where: { id: schoolId } }),
-    prisma.student.count({ where: { schoolId, jalur: "A", deletedAt: null } }),
-  ]);
-  if (jumlahSiswaAktif + tambahan > school.kuotaSiswa) {
-    throw new KuotaPenuhError();
-  }
+export async function assertKuotaTersedia(_schoolId: string, _tambahan: number): Promise<void> {
+  // Tidak ada batasan kuota di School model lagi (post billing redesign)
+  return;
 }
 
 export async function createStudentWithEnrollment(params: {

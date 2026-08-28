@@ -4,7 +4,6 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { subjectTryOutOrderCreateSchema } from "@/lib/validations/order";
 import { uploadBuktiTransfer } from "@/lib/supabase/bukti-transfer";
-import { SUBJECT_TRYOUT_PRICE } from "@/lib/billing/subject-tryout";
 
 /** Bagian 7.3 brief: riwayat order paket try out per mapel milik siswa mandiri sendiri. */
 export async function GET() {
@@ -18,7 +17,10 @@ export async function GET() {
   const orders = await prisma.subjectTryOutOrder.findMany({
     where: { userId: user.id },
     orderBy: { createdAt: "desc" },
-    include: { items: { include: { subject: { select: { nama: true } } } } },
+    include: {
+      items: { include: { subject: { select: { nama: true } } } },
+      servicePackage: { select: { nama: true, hargaPerMapel: true, tryOutPerMapel: true } },
+    },
   });
 
   return NextResponse.json({
@@ -29,15 +31,16 @@ export async function GET() {
       catatanAdmin: o.catatanAdmin,
       createdAt: o.createdAt,
       mapel: o.items.map((i) => i.subject.nama),
+      paket: o.servicePackage.nama,
+      tryOutPerMapel: o.servicePackage.tryOutPerMapel,
     })),
   });
 }
 
 /**
- * Bagian 7.3 brief: siswa mandiri pilih 1+ mata pelajaran + unggah bukti
- * transfer -> 1 SubjectTryOutOrder "menunggu_verifikasi" berisi semua mapel
- * yang dipilih. Harga = Rp20.000 x jumlah mapel (linear, sesuai tabel di
- * brief - bukan harga bertingkat/diskon).
+ * Bagian 7.3 brief: siswa mandiri pilih paket layanan + 1+ mata pelajaran +
+ * unggah bukti transfer → 1 SubjectTryOutOrder "menunggu_verifikasi".
+ * Harga = hargaPerMapel (dari ServicePackage) × jumlah mapel.
  */
 export async function POST(request: Request) {
   let user;
@@ -65,6 +68,7 @@ export async function POST(request: Request) {
 
   const parsed = subjectTryOutOrderCreateSchema.safeParse({
     subjectIds: formData.getAll("subjectIds"),
+    servicePackageId: formData.get("servicePackageId"),
   });
   if (!parsed.success) {
     return NextResponse.json(
@@ -76,6 +80,14 @@ export async function POST(request: Request) {
   const file = formData.get("file");
   if (!file || !(file instanceof File)) {
     return NextResponse.json({ error: "Bukti transfer wajib diunggah." }, { status: 400 });
+  }
+
+  // Validasi paket layanan aktif
+  const servicePackage = await prisma.servicePackage.findUnique({
+    where: { id: parsed.data.servicePackageId },
+  });
+  if (!servicePackage || !servicePackage.isActive) {
+    return NextResponse.json({ error: "Paket layanan tidak ditemukan atau tidak aktif." }, { status: 404 });
   }
 
   const subjectIds = [...new Set(parsed.data.subjectIds)];
@@ -104,7 +116,8 @@ export async function POST(request: Request) {
   const order = await prisma.subjectTryOutOrder.create({
     data: {
       userId: user.id,
-      jumlah: SUBJECT_TRYOUT_PRICE * subjectIds.length,
+      servicePackageId: servicePackage.id,
+      jumlah: servicePackage.hargaPerMapel * subjectIds.length,
       status: "menunggu_verifikasi",
       buktiTransferUrl: uploadResult.path,
       items: { create: subjectIds.map((subjectId) => ({ subjectId })) },

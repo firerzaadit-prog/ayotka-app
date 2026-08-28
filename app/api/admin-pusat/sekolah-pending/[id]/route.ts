@@ -6,8 +6,8 @@ import { schoolPendingActionSchema } from "@/lib/validations/school";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-function isPendingPlaceholder(school: { status: string; kuotaSiswa: number }): boolean {
-  return school.status === "pending_verifikasi" && school.kuotaSiswa === 0;
+function isPendingPlaceholder(school: { status: string }): boolean {
+  return school.status === "pending_verifikasi";
 }
 
 /**
@@ -57,7 +57,6 @@ export async function POST(request: Request, { params }: RouteParams) {
         nama: data.nama,
         npsn: data.npsn && data.npsn.length > 0 ? data.npsn : null,
         alamat: data.alamat && data.alamat.length > 0 ? data.alamat : null,
-        kuotaSiswa: data.kuotaSiswa,
         status: "aktif",
       },
     });

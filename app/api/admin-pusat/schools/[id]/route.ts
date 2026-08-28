@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const { id } = await params;
   const school = await prisma.school.findUnique({
     where: { id },
-    include: { schoolUsers: { include: { user: true } }, plan: true },
+    include: { schoolUsers: { include: { user: true } } },
   });
 
   if (!school) {
@@ -50,14 +50,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 404 });
   }
 
-  const { npsn, alamat, planId, ...rest } = parsed.data;
+  const { npsn, alamat, ...rest } = parsed.data;
   const school = await prisma.school.update({
     where: { id },
     data: {
       ...rest,
       ...(npsn !== undefined ? { npsn: npsn.length > 0 ? npsn : null } : {}),
       ...(alamat !== undefined ? { alamat: alamat.length > 0 ? alamat : null } : {}),
-      ...(planId !== undefined ? { planId: planId === "" ? null : planId } : {}),
     },
   });
 

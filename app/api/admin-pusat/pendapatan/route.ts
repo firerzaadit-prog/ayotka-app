@@ -10,6 +10,11 @@ import { periodeBulanWIB } from "@/lib/utils/datetime";
  * pendapatan di dashboard cocok dengan jumlah order disetujui di
  * database") otomatis terjamin oleh sumbernya sendiri.
  */
+/**
+ * Dashboard pendapatan — dihitung dari SubjectTryOutOrder (paket try out
+ * per mapel) yang disetujui. Sejak redesign billing (Bagian 7.3), tidak
+ * ada lagi Order berbasis plan/langganan bulanan.
+ */
 export async function GET() {
   try {
     await requireRole("admin_pusat");
@@ -18,11 +23,19 @@ export async function GET() {
   }
 
   const [agg, transaksi] = await Promise.all([
-    prisma.order.aggregate({ where: { status: "disetujui" }, _sum: { jumlah: true }, _count: true }),
-    prisma.order.findMany({
+    prisma.subjectTryOutOrder.aggregate({
+      where: { status: "disetujui" },
+      _sum: { jumlah: true },
+      _count: true,
+    }),
+    prisma.subjectTryOutOrder.findMany({
       where: { status: "disetujui" },
       orderBy: { disetujuiAt: "desc" },
-      include: { user: { select: { email: true } }, plan: { select: { nama: true } } },
+      include: {
+        user: { select: { email: true } },
+        servicePackage: { select: { nama: true } },
+        items: { include: { subject: { select: { nama: true } } } },
+      },
     }),
   ]);
 
@@ -35,6 +48,13 @@ export async function GET() {
     totalPendapatan: agg._sum.jumlah ?? 0,
     totalTransaksi: agg._count,
     pendapatanBulanIni,
-    transaksi,
+    transaksi: transaksi.map((o) => ({
+      id: o.id,
+      jumlah: o.jumlah,
+      userEmail: o.user.email,
+      paket: o.servicePackage.nama,
+      mapel: o.items.map((i) => i.subject.nama),
+      disetujuiAt: o.disetujuiAt,
+    })),
   });
 }

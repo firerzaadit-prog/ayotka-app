@@ -3,15 +3,14 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { orderReviewSchema } from "@/lib/validations/order";
-import { SUBJECT_TRYOUT_COUNT } from "@/lib/billing/subject-tryout";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 /**
  * Bagian 7.3 brief: ACC/tolak order try out mapel. ACC menambah
- * SubjectTryOutQuota.total sebanyak SUBJECT_TRYOUT_COUNT untuk SETIAP mapel
- * di order ini (kumulatif kalau mapel yang sama pernah dibeli sebelumnya -
- * upsert, bukan replace, supaya sisa try out lama tidak hilang).
+ * SubjectTryOutQuota.total sebanyak tryOutPerMapel (dari ServicePackage
+ * yang dipakai saat order) untuk SETIAP mapel di order ini.
+ * Kumulatif kalau mapel yang sama pernah dibeli sebelumnya (upsert).
  */
 export async function PATCH(request: Request, { params }: RouteParams) {
   let admin;
@@ -22,7 +21,10 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const order = await prisma.subjectTryOutOrder.findUnique({ where: { id }, include: { items: true } });
+  const order = await prisma.subjectTryOutOrder.findUnique({
+    where: { id },
+    include: { items: true, servicePackage: true },
+  });
   if (!order) {
     return NextResponse.json({ error: "Order tidak ditemukan." }, { status: 404 });
   }
@@ -61,12 +63,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ order: updated });
   }
 
+  // ACC: tambah kuota per mapel sesuai tryOutPerMapel dari ServicePackage
+  const tryOutPerMapel = order.servicePackage.tryOutPerMapel;
+
   const result = await prisma.$transaction(async (tx) => {
     for (const item of order.items) {
       await tx.subjectTryOutQuota.upsert({
         where: { userId_subjectId: { userId: order.userId, subjectId: item.subjectId } },
-        create: { userId: order.userId, subjectId: item.subjectId, total: SUBJECT_TRYOUT_COUNT },
-        update: { total: { increment: SUBJECT_TRYOUT_COUNT } },
+        create: { userId: order.userId, subjectId: item.subjectId, total: tryOutPerMapel },
+        update: { total: { increment: tryOutPerMapel } },
       });
     }
 

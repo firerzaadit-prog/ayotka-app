@@ -9,7 +9,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
-import { formatWIBDate } from "@/lib/utils/datetime";
 import { isSchoolActive } from "@/lib/schools/active";
 
 type SchoolAdmin = {
@@ -27,23 +26,14 @@ type SchoolDetail = {
   npsn: string | null;
   alamat: string | null;
   status: SchoolStatus;
-  kuotaSiswa: number;
-  planId: string | null;
-  plan: { id: string; nama: string } | null;
-  langgananBerakhir: string | null;
   schoolUsers: SchoolAdmin[];
 };
-
-type PlanOption = { id: string; nama: string; target: "sekolah" | "siswa" };
 
 type EditForm = {
   nama: string;
   jenjang: "SD" | "SMP";
   npsn: string;
   alamat: string;
-  kuotaSiswa: string;
-  planId: string;
-  langgananBerakhir: string;
 };
 
 function toEditForm(school: SchoolDetail): EditForm {
@@ -52,9 +42,6 @@ function toEditForm(school: SchoolDetail): EditForm {
     jenjang: school.jenjang,
     npsn: school.npsn ?? "",
     alamat: school.alamat ?? "",
-    kuotaSiswa: String(school.kuotaSiswa),
-    planId: school.planId ?? "",
-    langgananBerakhir: school.langgananBerakhir ? school.langgananBerakhir.slice(0, 10) : "",
   };
 }
 
@@ -77,7 +64,6 @@ export default function SekolahDetailPage({
   const router = useRouter();
   const { id } = use(params);
   const [school, setSchool] = useState<SchoolDetail | null>(null);
-  const [planOptions, setPlanOptions] = useState<PlanOption[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState("");
   const [nama, setNama] = useState("");
@@ -108,20 +94,6 @@ export default function SekolahDetailPage({
       ignore = true;
     };
   }, [id, refreshKey]);
-
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      const res = await fetch("/api/admin-pusat/plans");
-      if (res.ok) {
-        const data = await res.json();
-        if (!ignore) setPlanOptions(data.plans ?? []);
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, []);
 
   async function handleCreateAdmin(e: FormEvent) {
     e.preventDefault();
@@ -187,9 +159,6 @@ export default function SekolahDetailPage({
         jenjang: editForm.jenjang,
         npsn: editForm.npsn,
         alamat: editForm.alamat,
-        kuotaSiswa: editForm.kuotaSiswa,
-        planId: editForm.planId,
-        langgananBerakhir: editForm.langgananBerakhir || null,
       }),
     });
     const data = await res.json().catch(() => null);
@@ -240,21 +209,13 @@ export default function SekolahDetailPage({
           </Badge>
         </div>
         <p className="text-sm text-slate-500">
-          Kode Sekolah <span className="font-mono">{school.kodeSekolah}</span> · {school.jenjang}{" "}
-          · Kuota {school.kuotaSiswa} siswa
-          {school.plan && ` · Paket ${school.plan.nama}`}
-          {school.langgananBerakhir &&
-            ` · Langganan sampai ${formatWIBDate(school.langgananBerakhir)}`}
+          Kode Sekolah <span className="font-mono">{school.kodeSekolah}</span> · {school.jenjang}
         </p>
         {!isSchoolActive(school) && (
           <p className="mt-1 text-sm text-amber-700">
-            Sekolah ini tidak aktif
-            {school.status === "aktif" && school.langgananBerakhir
-              ? ` (langganan berakhir ${formatWIBDate(school.langgananBerakhir)})`
-              : ""}
-            {" — "}pendaftaran siswa Jalur A baru akan ditolak, dan akun admin sekolah maupun
-            siswa yang sudah ada akan otomatis ter-logout begitu mereka membuka halaman
-            berikutnya.
+            Sekolah ini tidak aktif — pendaftaran siswa Jalur A baru akan ditolak, dan akun admin
+            sekolah maupun siswa yang sudah ada akan otomatis ter-logout begitu mereka membuka
+            halaman berikutnya.
           </p>
         )}
         {deleteError && (
@@ -328,52 +289,6 @@ export default function SekolahDetailPage({
                 value={editForm.alamat}
                 onChange={(e) => setEditForm({ ...editForm, alamat: e.target.value })}
               />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="editKuota">Kuota siswa</Label>
-                <Input
-                  id="editKuota"
-                  type="number"
-                  min={1}
-                  required
-                  value={editForm.kuotaSiswa}
-                  onChange={(e) => setEditForm({ ...editForm, kuotaSiswa: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="editPlan">Paket langganan (opsional)</Label>
-                <select
-                  id="editPlan"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  value={editForm.planId}
-                  onChange={(e) => setEditForm({ ...editForm, planId: e.target.value })}
-                >
-                  <option value="">- Belum dipasangkan -</option>
-                  {planOptions
-                    .filter((p) => p.target === "sekolah")
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.nama}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            </div>
-            <div>
-              <Label htmlFor="editLangganan">Langganan berakhir (opsional)</Label>
-              <Input
-                id="editLangganan"
-                type="date"
-                value={editForm.langgananBerakhir}
-                onChange={(e) =>
-                  setEditForm({ ...editForm, langgananBerakhir: e.target.value })
-                }
-              />
-              <p className="mt-1 text-xs text-slate-500">
-                Sesuai Bagian 0.1 brief: langganan sekolah per tahun, tanpa siklus baku -
-                tanggal berakhir diatur manual per sekolah.
-              </p>
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={editSubmitting}>

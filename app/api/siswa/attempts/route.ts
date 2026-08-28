@@ -6,9 +6,7 @@ import { pickPackageForAttempt } from "@/lib/exam/distribution";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
-import { canStartMandiriPackage } from "@/lib/billing/free-trial";
 import { canStartViaSubjectQuota, consumeSubjectTryOut } from "@/lib/billing/subject-tryout";
-import { incrementAttemptUsage } from "@/lib/billing/usage";
 import { z } from "zod";
 
 const startAttemptSchema = z
@@ -115,21 +113,18 @@ export async function POST(request: Request) {
     }
 
     if (student.jalur === "B") {
-      const freeTrialAllowed = await canStartMandiriPackage(user.id, student.id, packageForMandiri.id);
-      if (!freeTrialAllowed) {
-        const quotaAllowed = await canStartViaSubjectQuota(user.id, packageForMandiri.subjectId);
-        if (!quotaAllowed) {
-          return NextResponse.json(
-            {
-              error:
-                "Uji coba gratis (1 paket) sudah kamu pakai untuk paket lain. Beli paket try out mata pelajaran ini atau berlangganan bulanan untuk membuka paket ini.",
-              code: "SUBSCRIPTION_REQUIRED",
-            },
-            { status: 402 },
-          );
-        }
-        subjectIdToConsumeQuota = packageForMandiri.subjectId;
+      const quotaAllowed = await canStartViaSubjectQuota(user.id, packageForMandiri.subjectId);
+      if (!quotaAllowed) {
+        return NextResponse.json(
+          {
+            error:
+              "Kamu belum memiliki kuota try out untuk mata pelajaran ini. Beli paket try out untuk membuka akses.",
+            code: "QUOTA_REQUIRED",
+          },
+          { status: 402 },
+        );
       }
+      subjectIdToConsumeQuota = packageForMandiri.subjectId;
     }
   }
 
@@ -228,7 +223,6 @@ export async function POST(request: Request) {
     after: attempt,
     ip,
   });
-  await incrementAttemptUsage(user.id);
   if (subjectIdToConsumeQuota) {
     await consumeSubjectTryOut(user.id, subjectIdToConsumeQuota);
   }

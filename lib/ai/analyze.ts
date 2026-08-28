@@ -3,7 +3,6 @@ import { prisma } from "@/lib/db/prisma";
 import { generateAnalisis, MODEL_NAME } from "@/lib/ai/gemini";
 import { buildAnalisisPrompt } from "@/lib/ai/prompt";
 import { PROMPT_VERSION } from "@/lib/ai/version";
-import { incrementAnalisisAiUsage } from "@/lib/billing/usage";
 import type { Attempt } from "@prisma/client";
 
 /**
@@ -79,13 +78,5 @@ export async function runAnalisisAi(attempt: Attempt) {
       generatedAt: new Date(),
     },
   });
-  // student.userId nullable di skema (siswa jalur A yang belum klaim akun),
-  // tapi attempt cuma bisa dibuat lewat requireRole("siswa") - jadi pada
-  // praktiknya selalu terisi di sini. Tetap dijaga: pemakaian cuma untuk
-  // monitoring, jangan sampai gagal isi ini menggagalkan analisis AI-nya.
-  if (student.userId) {
-    await incrementAnalisisAiUsage(student.userId);
-  }
-
   return hasil;
 }

@@ -49,7 +49,7 @@ export default async function AdminSekolahDashboardPage() {
       <PageHeader title="Dashboard Admin Sekolah" description={school?.nama} />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <StatCard label="Siswa aktif" value={`${siswaAktif}/${school?.kuotaSiswa ?? 0}`} />
+        <StatCard label="Siswa aktif" value={siswaAktif} />
         <StatCard label="Rombel (tahun ajaran aktif)" value={rombel} />
         <StatCard label="Siswa belum klaim akun" value={belumKlaim} />
         <StatCard label="Paket soal" value={paketSoal} />

@@ -10,13 +10,10 @@ export const schoolCreateSchema = z.object({
     .or(z.literal("")),
   jenjang: z.enum(["SD", "SMP"]),
   alamat: z.string().trim().optional().or(z.literal("")),
-  kuotaSiswa: z.coerce.number().int().min(1, "Kuota siswa minimal 1"),
 });
 
 export const schoolUpdateSchema = schoolCreateSchema.partial().extend({
   status: z.enum(["pending_verifikasi", "aktif", "suspend"]).optional(),
-  langgananBerakhir: z.coerce.date().optional().nullable(),
-  planId: z.string().uuid().optional().or(z.literal("")),
 });
 
 export type SchoolCreateInput = z.infer<typeof schoolCreateSchema>;
@@ -34,7 +31,6 @@ export const schoolPendingActionSchema = z.discriminatedUnion("action", [
       .optional()
       .or(z.literal("")),
     alamat: z.string().trim().optional().or(z.literal("")),
-    kuotaSiswa: z.coerce.number().int().min(1, "Kuota siswa minimal 1"),
   }),
   z.object({ action: z.literal("reject") }),
   z.object({ action: z.literal("merge"), targetSchoolId: z.string().uuid() }),

@@ -48,15 +48,11 @@ export default async function AdminPusatLayout({
           </SidebarSection>
 
           <SidebarSection label="Monetisasi">
-            <SidebarLink href="/admin-pusat/langganan">Langganan</SidebarLink>
-            <SidebarLink href="/admin-pusat/verifikasi-pembayaran">
-              Verifikasi Pembayaran
-            </SidebarLink>
+            <SidebarLink href="/admin-pusat/langganan">Paket Layanan</SidebarLink>
             <SidebarLink href="/admin-pusat/verifikasi-tryout-mapel">
               Verifikasi Try Out Mapel
             </SidebarLink>
             <SidebarLink href="/admin-pusat/pendapatan">Pendapatan</SidebarLink>
-            <SidebarLink href="/admin-pusat/pemakaian">Pemakaian</SidebarLink>
           </SidebarSection>
 
           <SidebarSection label="Monitoring">
