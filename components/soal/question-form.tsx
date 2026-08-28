@@ -7,7 +7,67 @@ import { Input, Label } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { ImageUpload } from "@/components/soal/image-upload";
+import { InlineImageUpload } from "@/components/soal/inline-image-upload";
 import { RichText } from "@/components/soal/rich-text";
+
+function insertAtCursor(inputId: string, textToInsert: string, value: string, setter: (val: string) => void) {
+  const el = document.getElementById(inputId) as HTMLInputElement | HTMLTextAreaElement | null;
+  if (!el) {
+    setter(value + " " + textToInsert);
+    return;
+  }
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  if (start === null || end === null) {
+    setter(value + " " + textToInsert);
+    return;
+  }
+  const newValue = value.substring(0, start) + textToInsert + value.substring(end);
+  setter(newValue);
+  setTimeout(() => {
+    el.selectionStart = el.selectionEnd = start + textToInsert.length;
+    el.focus();
+  }, 0);
+}
+
+function wrapAtCursor(inputId: string, openTag: string, closeTag: string, value: string, setter: (val: string) => void) {
+  const el = document.getElementById(inputId) as HTMLInputElement | HTMLTextAreaElement | null;
+  if (!el) {
+    setter(value + " " + openTag + closeTag);
+    return;
+  }
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  if (start === null || end === null) {
+    setter(value + " " + openTag + closeTag);
+    return;
+  }
+  const selectedText = value.substring(start, end);
+  const newValue = value.substring(0, start) + openTag + selectedText + closeTag + value.substring(end);
+  setter(newValue);
+  setTimeout(() => {
+    el.selectionStart = start + openTag.length;
+    el.selectionEnd = start + openTag.length + selectedText.length;
+    el.focus();
+  }, 0);
+}
+
+function FormatToolbar({ inputId, value, setter }: { inputId: string; value: string; setter: (val: string) => void }) {
+  const btn = "rounded border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 shadow-sm hover:bg-slate-50 hover:text-slate-900";
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <InlineImageUpload onUpload={(url) => insertAtCursor(inputId, `\n![Gambar](${url})\n`, value, setter)} />
+      <div className="h-4 w-px bg-slate-300"></div>
+      <button type="button" className={btn} onClick={() => wrapAtCursor(inputId, "**", "**", value, setter)} title="Cetak Tebal"><strong className="font-bold">B</strong></button>
+      <button type="button" className={btn} onClick={() => wrapAtCursor(inputId, "*", "*", value, setter)} title="Cetak Miring"><em className="italic font-serif">I</em></button>
+      <div className="h-4 w-px bg-slate-300"></div>
+      <button type="button" className={btn} onClick={() => wrapAtCursor(inputId, "[left]", "[/left]", value, setter)}>Rata Kiri</button>
+      <button type="button" className={btn} onClick={() => wrapAtCursor(inputId, "[center]", "[/center]", value, setter)}>Rata Tengah</button>
+      <button type="button" className={btn} onClick={() => wrapAtCursor(inputId, "[right]", "[/right]", value, setter)}>Rata Kanan</button>
+      <button type="button" className={btn} onClick={() => wrapAtCursor(inputId, "[justify]", "[/justify]", value, setter)}>Justify</button>
+    </div>
+  );
+}
 
 type Format = "pg" | "pg_kompleks" | "pg_kategori";
 type Option = { label: string; teks: string; media: string | null; isCorrect: boolean; urutan: number };
@@ -260,23 +320,26 @@ export function QuestionForm({
 
         <div>
           <Label htmlFor="teks">Teks soal</Label>
-          <p className="mb-1 text-xs text-slate-500">
-            Rumus matematika: apit dengan $...$ untuk inline atau $$...$$ untuk blok.
+          <p className="mb-2 text-xs text-slate-500">
+            Rumus matematika: apit dengan $...$ untuk inline atau $$...$$ untuk blok. <br />
+            Format Teks: Gunakan toolbar di bawah untuk menyisipkan gambar, cetak tebal/miring, atau mengatur perataan teks (kiri/tengah/kanan). Blok teks yang ingin diatur perataannya sebelum menekan tombol.
           </p>
           <textarea
             id="teks"
             required
-            rows={3}
+            rows={4}
             className={selectClassName}
             value={teks}
             onChange={(e) => setTeks(e.target.value)}
           />
+          <FormatToolbar inputId="teks" value={teks} setter={setTeks} />
           {teks && (
             <div className="mt-2 rounded-lg border border-dashed border-slate-300 p-3 text-sm">
               <RichText text={teks} />
             </div>
           )}
-          <div className="mt-2">
+          <div className="mt-4">
+            <Label className="mb-2 block text-xs text-slate-500">Gambar pendukung tambahan (ditampilkan di bawah soal, opsional)</Label>
             <ImageUpload value={media} onChange={setMedia} />
           </div>
         </div>
@@ -408,17 +471,20 @@ export function QuestionForm({
                   <span className="mt-2 w-5 font-mono text-sm text-slate-500">{opt.label}</span>
                   <div className="flex-1">
                     <Input
+                      id={`opt-teks-${i}`}
                       required
                       placeholder="Teks opsi (rumus: $x^2$)"
                       value={opt.teks}
                       onChange={(e) => updateOption(i, { teks: e.target.value })}
                     />
+                    <FormatToolbar inputId={`opt-teks-${i}`} value={opt.teks} setter={(val) => updateOption(i, { teks: val })} />
                     {opt.teks && (
                       <div className="mt-2 rounded-lg border border-dashed border-slate-300 p-2 text-sm">
                         <RichText text={opt.teks} />
                       </div>
                     )}
-                    <div className="mt-2">
+                    <div className="mt-2 border-t border-slate-100 pt-2">
+                      <Label className="mb-1 block text-xs text-slate-500">Gambar opsi (opsional)</Label>
                       <ImageUpload value={opt.media} onChange={(url) => updateOption(i, { media: url })} />
                     </div>
                   </div>
@@ -451,17 +517,20 @@ export function QuestionForm({
                   <div className="flex items-start gap-3">
                     <div className="flex-1">
                       <Input
+                        id={`s-teks-${i}`}
                         required
                         placeholder="Teks pernyataan (rumus: $x^2$)"
                         value={s.teks}
                         onChange={(e) => updateStatement(i, { teks: e.target.value })}
                       />
+                      <FormatToolbar inputId={`s-teks-${i}`} value={s.teks} setter={(val) => updateStatement(i, { teks: val })} />
                       {s.teks && (
                         <div className="mt-2 rounded-lg border border-dashed border-slate-300 p-2 text-sm">
                           <RichText text={s.teks} />
                         </div>
                       )}
-                      <div className="mt-2">
+                      <div className="mt-2 border-t border-slate-100 pt-2">
+                        <Label className="mb-1 block text-xs text-slate-500">Gambar pernyataan (opsional)</Label>
                         <ImageUpload value={s.media} onChange={(url) => updateStatement(i, { media: url })} />
                       </div>
                     </div>

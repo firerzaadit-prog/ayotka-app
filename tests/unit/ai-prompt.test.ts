@@ -12,6 +12,13 @@ describe("buildAnalisisPrompt", () => {
     ],
     levelKognitif: [{ level: "L1", jmlBenar: 3, jmlSoal: 3 }],
     format: [{ format: "pg", jmlBenar: 4, jmlSoal: 5 }],
+    salahDijawab: [
+      {
+        teksSoal: "Soal cerita panjang tentang bilangan bulat",
+        kompetensi: "K1",
+        levelBloom: "L3",
+      },
+    ],
   };
 
   it("menyertakan semua angka yang diberikan persis apa adanya", () => {

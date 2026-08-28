@@ -22,6 +22,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const questions = await prisma.question.findMany({
     where: { packageId, deletedAt: null },
+    orderBy: { createdAt: "desc" },
     include: {
       options: { orderBy: { urutan: "asc" } },
       categories: { orderBy: { urutan: "asc" } },

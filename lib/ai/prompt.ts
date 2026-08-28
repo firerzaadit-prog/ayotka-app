@@ -5,6 +5,7 @@ export type PromptInput = {
   kompetensi: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
   levelKognitif: { level: string; jmlBenar: number; jmlSoal: number }[];
   format: { format: string; jmlBenar: number; jmlSoal: number }[];
+  salahDijawab: { teksSoal: string; kompetensi: string; levelBloom: string }[];
 };
 
 /**
@@ -47,5 +48,9 @@ ${levelLines || "(tidak ada data)"}
 PER FORMAT SOAL:
 ${formatLines || "(tidak ada data)"}
 
-Buat narasi: ringkasan umum, narasi singkat per kompetensi di atas, narasi kekuatan/kelemahan level kognitif, narasi pola kesalahan yang terlihat dari data di atas, dan 3-5 rekomendasi sub materi prioritas untuk dipelajari ulang beserta alasannya.`;
+SAMPEL SOAL YANG SALAH DIJAWAB OLEH SISWA:
+(Analisis teks soal berikut untuk mencari letak miskonsepsi atau pola kesalahan berulang. Jangan bahas satu-satu secara literal, tapi tarik kesimpulan polanya)
+${input.salahDijawab.slice(0, 10).map((s, i) => `${i + 1}. [${s.kompetensi} - ${s.levelBloom}] ${s.teksSoal.replace(/\s+/g, ' ').slice(0, 300)}${s.teksSoal.length > 300 ? '...' : ''}`).join("\n") || "(tidak ada atau berhasil menjawab semua)"}
+
+Buat narasi: ringkasan umum, narasi singkat per kompetensi di atas, narasi kekuatan/kelemahan level kognitif, narasi pola miskonsepsi/kesalahan (didasarkan pada sampel soal yang salah dijawab), dan 3-5 rekomendasi sub materi prioritas untuk dipelajari ulang beserta alasannya.`;
 }

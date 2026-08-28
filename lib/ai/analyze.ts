@@ -25,7 +25,18 @@ export async function runAnalisisAi(attempt: Attempt) {
     }),
     prisma.attemptAnswer.findMany({
       where: { attemptId: attempt.id },
-      select: { skor: true, skorMaks: true, question: { select: { format: true, levelBloom: true } } },
+      select: { 
+        skor: true, 
+        skorMaks: true, 
+        question: { 
+          select: { 
+            teks: true,
+            format: true, 
+            levelBloom: true,
+            kompetensi: { select: { kode: true } }
+          } 
+        } 
+      },
     }),
   ]);
 
@@ -57,6 +68,13 @@ export async function runAnalisisAi(attempt: Attempt) {
     })),
     levelKognitif: Array.from(levelMap.entries()).map(([level, v]) => ({ level, ...v })),
     format: Array.from(formatMap.entries()).map(([format, v]) => ({ format, ...v })),
+    salahDijawab: answers
+      .filter((a) => (a.skor ?? 0) < a.skorMaks)
+      .map((a) => ({
+        teksSoal: a.question.teks,
+        kompetensi: a.question.kompetensi.kode,
+        levelBloom: a.question.levelBloom,
+      })),
   });
 
   const hasil = await generateAnalisis(prompt);
