@@ -9,8 +9,6 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
-import { PackageDistribution } from "@/components/soal/package-distribution";
-
 /** Bersihkan simbol LaTeX untuk preview singkat di tabel */
 function stripLatex(text: string): string {
   return text
@@ -59,7 +57,8 @@ type EditForm = {
   jumlahSoal: string;
   modePembahasan: "langsung" | "setelah_tutup";
   bolehDipilihSiswa: boolean;
-  targetSiswa: "sekolah" | "mandiri" | "semua";
+  visibilityMode: "privat" | "semua" | "sekolah" | "publik";
+  visibilitySchoolIds: string[];
 };
 
 const MODE_PEMBAHASAN_LABEL: Record<"langsung" | "setelah_tutup", string> = {
@@ -76,7 +75,7 @@ const STATUS_BADGE_VARIANT: Record<string, "neutral" | "success" | "warning"> = 
 const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
-function toEditForm(pkg: PackageDetail): EditForm {
+function toEditForm(pkg: PackageDetail & { visibility?: any[] }): EditForm {
   return {
     nama: pkg.nama,
     subjectId: pkg.subjectId,
@@ -86,8 +85,16 @@ function toEditForm(pkg: PackageDetail): EditForm {
     jumlahSoal: String(pkg.jumlahSoal),
     modePembahasan: pkg.modePembahasan,
     bolehDipilihSiswa: pkg.bolehDipilihSiswa,
-    targetSiswa: pkg.targetSiswa ?? "semua",
+    visibilityMode: deriveMode(pkg.visibility ?? []),
+    visibilitySchoolIds: (pkg.visibility ?? []).filter((v: any) => v.schoolId).map((v: any) => v.schoolId),
   };
+}
+
+function deriveMode(rows: any[]): "privat" | "semua" | "sekolah" | "publik" {
+  if (rows.length === 0) return "privat";
+  if (rows[0].targetType === "semua") return "semua";
+  if (rows[0].targetType === "publik") return "publik";
+  return "sekolah";
 }
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -115,8 +122,9 @@ export function PackageDetail({
   packageId: string;
   basePath: string;
 }) {
-  const [pkg, setPkg] = useState<PackageDetail | null>(null);
+  const [pkg, setPkg] = useState<PackageDetail & { visibility?: any[] } | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [allSchools, setAllSchools] = useState<{ id: string; nama: string }[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -128,15 +136,18 @@ export function PackageDetail({
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const [pkgRes, subjectRes] = await Promise.all([
+      const [pkgRes, subjectRes, schoolRes] = await Promise.all([
         fetch(`/api/packages/${packageId}`),
         fetch("/api/admin-pusat/subjects"),
+        fetch("/api/admin-pusat/schools"),
       ]);
       const data = await pkgRes.json();
       const subjectData = await subjectRes.json();
+      const schoolData = await schoolRes.json().catch(() => ({ schools: [] }));
       if (!ignore) {
         setPkg(data.package);
         setSubjects(subjectData.subjects ?? []);
+        setAllSchools(schoolData.schools ?? []);
       }
     })();
     return () => {
@@ -221,7 +232,7 @@ export function PackageDetail({
           {" · Pembahasan: "}
           {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
           {" · Target: "}
-          {pkg.targetSiswa === "sekolah" ? "Siswa Sekolah" : pkg.targetSiswa === "mandiri" ? "Siswa Mandiri" : "Semua Siswa"}
+          {deriveMode(pkg.visibility ?? []) === "sekolah" ? "Sekolah Terpilih" : deriveMode(pkg.visibility ?? []) === "publik" ? "Publik/Mandiri" : deriveMode(pkg.visibility ?? []) === "semua" ? "Semua Sekolah" : "Privat"}
         </p>
 
         <div className="mt-2 flex flex-wrap gap-2">
@@ -251,21 +262,19 @@ export function PackageDetail({
                   onChange={(e) => setEditForm({ ...editForm, nama: e.target.value })}
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="editPkgSubject">Mapel</Label>
+                  <Label htmlFor="editPkgSubject">Mata pelajaran</Label>
                   <select
                     id="editPkgSubject"
-                    required
                     className={selectClassName}
                     value={editForm.subjectId}
                     onChange={(e) => {
-                      const subject = subjects.find((s) => s.id === e.target.value);
-                      setEditForm({
-                        ...editForm,
-                        subjectId: e.target.value,
-                        jenjang: subject?.jenjang ?? editForm.jenjang,
-                      });
+                      const subj = subjects.find((s) => s.id === e.target.value);
+                      if (subj) {
+                        setEditForm({ ...editForm, subjectId: subj.id, jenjang: subj.jenjang });
+                      }
                     }}
                   >
                     {subjects.map((s) => (
@@ -276,42 +285,48 @@ export function PackageDetail({
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="editPkgTingkat">Tingkat kelas</Label>
-                  <Input
+                  <Label htmlFor="editPkgTingkat">Kelas</Label>
+                  <select
                     id="editPkgTingkat"
-                    type="number"
-                    min={1}
-                    max={12}
-                    required
+                    className={selectClassName}
                     value={editForm.tingkat}
                     onChange={(e) => setEditForm({ ...editForm, tingkat: e.target.value })}
-                  />
+                  >
+                    <option value="4">Kelas 4</option>
+                    <option value="5">Kelas 5</option>
+                    <option value="6">Kelas 6</option>
+                    <option value="7">Kelas 7</option>
+                    <option value="8">Kelas 8</option>
+                    <option value="9">Kelas 9</option>
+                  </select>
                 </div>
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="editPkgDurasi">Durasi (menit)</Label>
+                  <Label htmlFor="editPkgDurasi">Durasi (Menit)</Label>
                   <Input
                     id="editPkgDurasi"
                     type="number"
-                    min={1}
+                    min="1"
                     required
                     value={editForm.durasiMenit}
                     onChange={(e) => setEditForm({ ...editForm, durasiMenit: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label htmlFor="editPkgJumlah">Target jumlah soal</Label>
+                  <Label htmlFor="editPkgJumlahSoal">Target Jumlah Soal</Label>
                   <Input
-                    id="editPkgJumlah"
+                    id="editPkgJumlahSoal"
                     type="number"
-                    min={1}
+                    min="1"
                     required
                     value={editForm.jumlahSoal}
                     onChange={(e) => setEditForm({ ...editForm, jumlahSoal: e.target.value })}
                   />
                 </div>
               </div>
+
               <div>
                 <Label htmlFor="editPkgPembahasan">Tampilkan pembahasan</Label>
                 <select
@@ -331,36 +346,67 @@ export function PackageDetail({
                   <option value="langsung">Langsung setelah siswa submit</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Target Pengguna Paket</label>
-                <div className="flex flex-col gap-2">
-                  {(["semua", "sekolah", "mandiri"] as const).map((opt) => (
-                    <label key={opt} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="targetSiswa"
-                        value={opt}
-                        checked={editForm.targetSiswa === opt}
-                        onChange={() => setEditForm({ ...editForm, targetSiswa: opt })}
-                        className="accent-indigo-600"
-                      />
-                      {opt === "semua" && <span>Semua Siswa (Sekolah &amp; Mandiri)</span>}
-                      {opt === "sekolah" && <span>Siswa Sekolah saja (untuk Jadwal Ujian)</span>}
-                      {opt === "mandiri" && <span>Siswa Mandiri saja (untuk Try Out Mandiri)</span>}
-                    </label>
-                  ))}
+
+              {pkg.ownerType === "pusat" && (
+                <div className="pt-2 border-t border-slate-200 mt-2">
+                  <Label className="mb-2 block">Distribusi / Target Pengguna</Label>
+                  <div className="flex flex-col gap-2">
+                    {(
+                      [
+                        ["privat", "Privat (belum dirilis)"],
+                        ["semua", "Semua sekolah"],
+                        ["sekolah", "Sekolah terpilih"],
+                        ["publik", "Publik/Mandiri (siswa non-sekolah)"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <label key={value} className="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="radio"
+                          name="visibilityMode"
+                          checked={editForm.visibilityMode === value}
+                          onChange={() => setEditForm({ ...editForm, visibilityMode: value })}
+                          className="accent-indigo-600"
+                        />
+                        {label}
+                      </label>
+                    ))}
+                  </div>
+
+                  {editForm.visibilityMode === "sekolah" && (
+                    <div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2 bg-white">
+                      {allSchools.map((school) => (
+                        <label key={school.id} className="flex items-center gap-2 py-1 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={editForm.visibilitySchoolIds.includes(school.id)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setEditForm((prev) => {
+                                if (!prev) return prev;
+                                return {
+                                  ...prev,
+                                  visibilitySchoolIds: checked
+                                    ? [...prev.visibilitySchoolIds, school.id]
+                                    : prev.visibilitySchoolIds.filter((id) => id !== school.id),
+                                };
+                              });
+                            }}
+                            className="accent-indigo-600"
+                          />
+                          {school.nama}
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  Siswa Sekolah = paket muncul di daftar Admin Sekolah saat membuat Jadwal Ujian.<br/>
-                  Siswa Mandiri = paket muncul di halaman Try Out siswa mandiri.
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={editSubmitting}>
-                  {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}
-                </Button>
+              )}
+
+              <div className="flex items-center gap-2 mt-4">
                 <Button type="button" variant="secondary" onClick={() => setShowEditForm(false)}>
                   Batal
+                </Button>
+                <Button type="submit" disabled={editSubmitting || (editForm.visibilityMode === "sekolah" && editForm.visibilitySchoolIds.length === 0)}>
+                  {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}
                 </Button>
               </div>
             </form>
@@ -445,8 +491,6 @@ export function PackageDetail({
           </Table>
         </TableContainer>
       )}
-
-      {pkg.ownerType === "pusat" && <PackageDistribution packageId={packageId} />}
     </div>
   );
 }

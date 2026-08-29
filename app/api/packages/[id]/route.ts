@@ -24,6 +24,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     where: { id },
     include: {
       subject: true,
+      visibility: { include: { school: { select: { id: true, nama: true } } } },
       blueprint: { include: { items: { include: { kompetensi: true } } } },
       questions: {
         where: { deletedAt: null },
@@ -56,7 +57,25 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const before = await prisma.package.findUnique({ where: { id } });
-  const { blueprintId, grupParalelId, ...rest } = parsed.data;
+  const { blueprintId, grupParalelId, visibilityMode, visibilitySchoolIds, ...rest } = parsed.data;
+
+  // Siapkan data visibility jika ada perubahan
+  let visibilityUpdate: any = undefined;
+  if (visibilityMode) {
+    if (visibilityMode === "privat") {
+      visibilityUpdate = { deleteMany: {} };
+    } else if (visibilityMode === "semua" || visibilityMode === "publik") {
+      visibilityUpdate = {
+        deleteMany: {},
+        create: [{ targetType: visibilityMode }],
+      };
+    } else if (visibilityMode === "sekolah" && visibilitySchoolIds) {
+      visibilityUpdate = {
+        deleteMany: {},
+        create: visibilitySchoolIds.map((id: string) => ({ targetType: "sekolah" as const, schoolId: id })),
+      };
+    }
+  }
 
   const pkg = await prisma.package.update({
     where: { id },
@@ -68,6 +87,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       ...(grupParalelId !== undefined
         ? { grupParalelId: grupParalelId.length > 0 ? grupParalelId : null }
         : {}),
+      ...(visibilityUpdate ? { visibility: visibilityUpdate } : {}),
     },
   });
 

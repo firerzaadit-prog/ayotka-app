@@ -49,7 +49,18 @@ export async function POST(request: Request) {
     );
   }
 
-  const { blueprintId, grupParalelId, ...rest } = parsed.data;
+  const { blueprintId, grupParalelId, visibilityMode, visibilitySchoolIds, ...rest } = parsed.data;
+
+  let visibilityCreate: any = undefined;
+  if (visibilityMode && visibilityMode !== "privat") {
+    if (visibilityMode === "sekolah" && visibilitySchoolIds) {
+      visibilityCreate = {
+        create: visibilitySchoolIds.map((id: string) => ({ targetType: "sekolah" as const, schoolId: id })),
+      };
+    } else {
+      visibilityCreate = { create: [{ targetType: visibilityMode }] };
+    }
+  }
 
   const pkg = await prisma.package.create({
     data: {
@@ -57,6 +68,7 @@ export async function POST(request: Request) {
       ...scope,
       blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
       grupParalelId: grupParalelId && grupParalelId.length > 0 ? grupParalelId : null,
+      ...(visibilityCreate ? { visibility: visibilityCreate } : {}),
     },
   });
 
