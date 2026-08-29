@@ -19,7 +19,11 @@ export async function getSelfSelectPackagesFor(student: Student) {
 
   if (student.jalur === "B") {
     return prisma.package.findMany({
-      where: { ...baseWhere, visibility: { some: { targetType: "publik" as const } } },
+      where: {
+        ...baseWhere,
+        targetSiswa: { in: ["mandiri", "semua"] },
+        visibility: { some: { targetType: "publik" as const } },
+      },
       orderBy: { nama: "asc" },
       include: { subject: true },
     });
@@ -29,6 +33,7 @@ export async function getSelfSelectPackagesFor(student: Student) {
   return prisma.package.findMany({
     where: {
       ...baseWhere,
+      targetSiswa: { in: ["sekolah", "semua"] },
       OR: [
         { ownerType: "sekolah" as const, ownerId: student.schoolId },
         {

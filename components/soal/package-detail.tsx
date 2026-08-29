@@ -45,6 +45,7 @@ type PackageDetail = {
   ownerType: "pusat" | "sekolah";
   modePembahasan: "langsung" | "setelah_tutup";
   bolehDipilihSiswa: boolean;
+  targetSiswa: "sekolah" | "mandiri" | "semua";
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -58,6 +59,7 @@ type EditForm = {
   jumlahSoal: string;
   modePembahasan: "langsung" | "setelah_tutup";
   bolehDipilihSiswa: boolean;
+  targetSiswa: "sekolah" | "mandiri" | "semua";
 };
 
 const MODE_PEMBAHASAN_LABEL: Record<"langsung" | "setelah_tutup", string> = {
@@ -84,6 +86,7 @@ function toEditForm(pkg: PackageDetail): EditForm {
     jumlahSoal: String(pkg.jumlahSoal),
     modePembahasan: pkg.modePembahasan,
     bolehDipilihSiswa: pkg.bolehDipilihSiswa,
+    targetSiswa: pkg.targetSiswa ?? "semua",
   };
 }
 
@@ -217,8 +220,8 @@ export function PackageDetail({
           {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
           {" · Pembahasan: "}
           {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
-          {" · Latihan Mandiri: "}
-          {pkg.bolehDipilihSiswa ? "aktif" : "nonaktif"}
+          {" · Target: "}
+          {pkg.targetSiswa === "sekolah" ? "Siswa Sekolah" : pkg.targetSiswa === "mandiri" ? "Siswa Mandiri" : "Semua Siswa"}
         </p>
 
         <div className="mt-2 flex flex-wrap gap-2">
@@ -329,22 +332,27 @@ export function PackageDetail({
                 </select>
               </div>
               <div>
-                <label className="flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={editForm.bolehDipilihSiswa}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, bolehDipilihSiswa: e.target.checked })
-                    }
-                    className="accent-indigo-600"
-                  />
-                  Boleh dipilih bebas siswa (Latihan Mandiri)
-                </label>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Target Pengguna Paket</label>
+                <div className="flex flex-col gap-2">
+                  {(["semua", "sekolah", "mandiri"] as const).map((opt) => (
+                    <label key={opt} className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="targetSiswa"
+                        value={opt}
+                        checked={editForm.targetSiswa === opt}
+                        onChange={() => setEditForm({ ...editForm, targetSiswa: opt })}
+                        className="accent-indigo-600"
+                      />
+                      {opt === "semua" && <span>Semua Siswa (Sekolah &amp; Mandiri)</span>}
+                      {opt === "sekolah" && <span>Siswa Sekolah saja (untuk Jadwal Ujian)</span>}
+                      {opt === "mandiri" && <span>Siswa Mandiri saja (untuk Try Out Mandiri)</span>}
+                    </label>
+                  ))}
+                </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  Kalau aktif, siswa bisa memilih paket ini sendiri lewat menu Latihan Mandiri
-                  (di luar jadwal ujian) - selama paket sudah di-publish dan distribusinya
-                  (lihat bagian &quot;Distribusi ke Sekolah&quot; di bawah) mengizinkan siswa
-                  tersebut melihatnya.
+                  Siswa Sekolah = paket muncul di daftar Admin Sekolah saat membuat Jadwal Ujian.<br/>
+                  Siswa Mandiri = paket muncul di halaman Try Out siswa mandiri.
                 </p>
               </div>
               <div className="flex gap-2">

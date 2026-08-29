@@ -17,9 +17,12 @@ export async function GET() {
     return NextResponse.json({ error: "Profil siswa tidak ditemukan." }, { status: 404 });
   }
 
+  // Jalur A (sekolah): hanya ujian terjadwal. Jalur B (mandiri): hanya latihan mandiri.
+  const isJalurA = student.jalur === "A";
+
   const [assignments, packages, attempts] = await Promise.all([
-    getActiveAssignmentsFor(student),
-    getSelfSelectPackagesFor(student),
+    isJalurA ? getActiveAssignmentsFor(student) : Promise.resolve([]),
+    isJalurA ? Promise.resolve([]) : getSelfSelectPackagesFor(student),
     prisma.attempt.findMany({
       where: { studentId: student.id },
       select: {
@@ -34,5 +37,5 @@ export async function GET() {
     }),
   ]);
 
-  return NextResponse.json({ assignments, packages, attempts });
+  return NextResponse.json({ jalur: student.jalur, assignments, packages, attempts });
 }

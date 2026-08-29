@@ -102,6 +102,38 @@ export async function POST(request: Request) {
         { status: 404 },
       );
     }
+
+    // Cek kuota try out sekolah (SchoolSubjectQuota) jika sekolah punya quota yang dikonfigurasi
+    if (student.schoolId) {
+      const fullPkg = await prisma.package.findUnique({
+        where: { id: assignment.packageId },
+        select: { subjectId: true },
+      });
+      if (fullPkg) {
+        const schoolQuota = await prisma.schoolSubjectQuota.findUnique({
+          where: { schoolId_subjectId: { schoolId: student.schoolId, subjectId: fullPkg.subjectId } },
+        });
+        if (schoolQuota) {
+          // Hitung berapa kali siswa sudah mengerjakan mapel ini via assignment
+          const doneCount = await prisma.attempt.count({
+            where: {
+              studentId: student.id,
+              status: { in: ["selesai", "kedaluwarsa"] },
+              assignment: { package: { subjectId: fullPkg.subjectId } },
+            },
+          });
+          if (doneCount >= schoolQuota.tryOutPerSiswa) {
+            return NextResponse.json(
+              {
+                error: `Kuota try out untuk mata pelajaran ini sudah habis (${schoolQuota.tryOutPerSiswa}× try out).`,
+                code: "SCHOOL_QUOTA_EXCEEDED",
+              },
+              { status: 402 },
+            );
+          }
+        }
+      }
+    }
   } else {
     const options = await getSelfSelectPackagesFor(student);
     packageForMandiri = options.find((p) => p.id === parsed.data.packageId) ?? null;

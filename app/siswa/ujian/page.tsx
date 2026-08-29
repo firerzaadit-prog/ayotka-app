@@ -29,6 +29,7 @@ type AttemptSummary = {
 };
 
 export default function SiswaUjianPage() {
+  const [jalur, setJalur] = useState<"A" | "B" | null>(null);
   const [assignments, setAssignments] = useState<AssignmentItem[] | null>(null);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
@@ -39,6 +40,7 @@ export default function SiswaUjianPage() {
       const res = await fetch("/api/siswa/ujian");
       const data = await res.json();
       if (!ignore) {
+        setJalur(data.jalur ?? "B");
         setAssignments(data.assignments ?? []);
         setPackages(data.packages ?? []);
         setAttempts(data.attempts ?? []);
@@ -71,53 +73,62 @@ export default function SiswaUjianPage() {
     return `/siswa/ujian/mulai?${qs}`;
   }
 
+  // Jalur A: hanya Ujian Ditugaskan
+  if (jalur === "A") {
+    return (
+      <div className="flex flex-col gap-8">
+        <PageHeader
+          title="Ujian"
+          description="Daftar ujian yang ditugaskan oleh sekolahmu."
+        />
+        <div>
+          {assignments === null && <p className="text-sm text-slate-500">Memuat...</p>}
+          {assignments?.length === 0 && (
+            <EmptyState title="Tidak ada ujian aktif" description="Belum ada ujian yang ditugaskan sekolahmu saat ini." />
+          )}
+          {assignments && assignments.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {assignments.map((a) => {
+                const attempt = attemptFor(a.id, "");
+                const disabled = attempt?.status === "paused";
+                return (
+                  <Card key={a.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-slate-900">{a.package.nama}</p>
+                      <p className="text-xs text-slate-500">
+                        {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit · Buka sampai{" "}
+                        {formatWIB(a.selesai)}
+                      </p>
+                    </div>
+                    {disabled ? (
+                      <span className="rounded-lg bg-amber-100 px-4 py-2 text-sm font-medium text-amber-700">
+                        {actionLabel(attempt)}
+                      </span>
+                    ) : (
+                      <Link href={actionHref(attempt, a.id, "")} className={buttonClassName("primary")}>
+                        {actionLabel(attempt)}
+                      </Link>
+                    )}
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Jalur B: hanya Latihan Mandiri
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Ujian"
-        description="Ujian yang ditugaskan sekolahmu & paket latihan mandiri."
+        title="Try Out"
+        description="Paket try out yang tersedia untukmu."
       />
-
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Ujian Ditugaskan</h2>
-        {assignments === null && <p className="text-sm text-slate-500">Memuat...</p>}
-        {assignments?.length === 0 && (
-          <EmptyState title="Tidak ada ujian aktif" description="Belum ada ujian yang ditugaskan sekolahmu saat ini." />
-        )}
-        {assignments && assignments.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {assignments.map((a) => {
-              const attempt = attemptFor(a.id, "");
-              const disabled = attempt?.status === "paused";
-              return (
-                <Card key={a.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-slate-900">{a.package.nama}</p>
-                    <p className="text-xs text-slate-500">
-                      {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit · Buka sampai{" "}
-                      {formatWIB(a.selesai)}
-                    </p>
-                  </div>
-                  {disabled ? (
-                    <span className="rounded-lg bg-amber-100 px-4 py-2 text-sm font-medium text-amber-700">
-                      {actionLabel(attempt)}
-                    </span>
-                  ) : (
-                    <Link href={actionHref(attempt, a.id, "")} className={buttonClassName("primary")}>
-                      {actionLabel(attempt)}
-                    </Link>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <div>
-        <h2 className="mb-3 text-lg font-semibold text-slate-900">Latihan Mandiri</h2>
         {packages.length === 0 ? (
-          <EmptyState title="Belum ada paket latihan" description="Belum ada paket latihan mandiri untuk tingkatmu." />
+          <EmptyState title="Belum ada paket tersedia" description="Belum ada paket try out yang tersedia untuk tingkatmu saat ini." />
         ) : (
           <div className="flex flex-col gap-2">
             {packages.map((p) => {
@@ -142,3 +153,5 @@ export default function SiswaUjianPage() {
     </div>
   );
 }
+
+

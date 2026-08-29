@@ -11,6 +11,7 @@ export const packageCreateSchema = z.object({
   grupParalelId: z.string().uuid().optional().or(z.literal("")),
   modePembahasan: z.enum(["langsung", "setelah_tutup"]).optional(),
   bolehDipilihSiswa: z.boolean().optional(),
+  targetSiswa: z.enum(["sekolah", "mandiri", "semua"]).optional(),
 });
 export type PackageCreateInput = z.infer<typeof packageCreateSchema>;
 

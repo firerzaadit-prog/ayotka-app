@@ -26,6 +26,7 @@ export async function GET() {
   const packages = await prisma.package.findMany({
     where: {
       status: "published",
+      targetSiswa: { in: ["sekolah", "semua"] },
       OR: [
         { ownerType: "sekolah", ownerId: schoolId },
         {

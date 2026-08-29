@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { isSchoolActive } from "@/lib/schools/active";
+import { SchoolQuotaPanel } from "@/components/sekolah/school-quota-panel";
 
 type SchoolAdmin = {
   userId: string;
@@ -384,6 +385,10 @@ export default function SekolahDetailPage({
           </Table>
         </TableContainer>
       )}
+
+      <div className="border-t border-slate-200 pt-6">
+        <SchoolQuotaPanel schoolId={id} />
+      </div>
     </div>
   );
 }

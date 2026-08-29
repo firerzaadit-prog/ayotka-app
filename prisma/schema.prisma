@@ -331,6 +331,12 @@ enum PackageStatus {
   archived
 }
 
+enum TargetSiswa {
+  sekolah
+  mandiri
+  semua
+}
+
 model Package {
   id                String         @id @default(uuid()) @db.Uuid
   ownerType         OwnerType      @map("owner_type")
@@ -348,6 +354,7 @@ model Package {
   grupParalelId     String?        @map("grup_paralel_id") @db.Uuid
   blueprintId       String?        @map("blueprint_id") @db.Uuid
   bolehDipilihSiswa Boolean        @default(false) @map("boleh_dipilih_siswa")
+  targetSiswa       TargetSiswa    @default(semua) @map("target_siswa")
   modePembahasan    ModePembahasan @default(setelah_tutup) @map("mode_pembahasan")
   status            PackageStatus  @default(draft)
   publishedAt       DateTime?      @map("published_at")
