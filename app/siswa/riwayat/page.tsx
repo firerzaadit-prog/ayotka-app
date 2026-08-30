@@ -8,6 +8,8 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconClipboardCheck } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type RiwayatItem = {
@@ -68,9 +70,10 @@ export default function RiwayatPage() {
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
-      {attempts === null && !error && <p className="text-sm text-slate-500">Memuat...</p>}
+      {attempts === null && !error && <TableSkeleton columns={6} />}
       {attempts?.length === 0 && (
         <EmptyState
+          icon={<IconClipboardCheck />}
           title="Belum ada riwayat ujian"
           description="Kerjakan ujian yang ditugaskan sekolahmu atau paket latihan mandiri untuk mulai."
           action={

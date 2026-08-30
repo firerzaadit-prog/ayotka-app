@@ -44,10 +44,22 @@ export async function GET() {
     .filter((o) => o.disetujuiAt && periodeBulanWIB(o.disetujuiAt) === periodeIni)
     .reduce((sum, o) => sum + o.jumlah, 0);
 
+  const trenMap = new Map<string, number>();
+  for (const o of transaksi) {
+    if (!o.disetujuiAt) continue;
+    const periode = periodeBulanWIB(o.disetujuiAt);
+    trenMap.set(periode, (trenMap.get(periode) ?? 0) + o.jumlah);
+  }
+  const tren = Array.from(trenMap.entries())
+    .map(([periode, totalPendapatan]) => ({ periode, totalPendapatan }))
+    .sort((a, b) => a.periode.localeCompare(b.periode))
+    .slice(-12);
+
   return NextResponse.json({
     totalPendapatan: agg._sum.jumlah ?? 0,
     totalTransaksi: agg._count,
     pendapatanBulanIni,
+    tren,
     transaksi: transaksi.map((o) => ({
       id: o.id,
       jumlah: o.jumlah,

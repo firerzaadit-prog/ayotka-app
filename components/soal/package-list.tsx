@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { IconDocument } from "@/components/ui/empty-state-icons";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; tingkat: number };
@@ -267,6 +268,7 @@ export function PackageList({ basePath }: { basePath: string }) {
 
       {packages?.length === 0 && (
         <EmptyState
+          icon={<IconDocument />}
           title="Belum ada paket soal"
           description="Buat paket pertama, lalu tambahkan soal ke dalamnya."
           action={<Button onClick={() => setShowForm(true)}>Buat paket</Button>}

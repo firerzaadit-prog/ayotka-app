@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconUsers } from "@/components/ui/empty-state-icons";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
 
 type AttemptRow = {
@@ -81,9 +83,9 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
-      {attempts === null && !error && <p className="text-sm text-slate-500">Memuat...</p>}
+      {attempts === null && !error && <TableSkeleton columns={6} />}
       {attempts?.length === 0 && (
-        <EmptyState title="Belum ada siswa yang mulai" description="Belum ada siswa yang mengerjakan penugasan ini." />
+        <EmptyState icon={<IconUsers />} title="Belum ada siswa yang mulai" description="Belum ada siswa yang mengerjakan penugasan ini." />
       )}
 
       {attempts && attempts.length > 0 && (

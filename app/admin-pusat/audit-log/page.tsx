@@ -6,6 +6,7 @@ import { Input, Label } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { IconDocument } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type AdminOption = { userId: string; email: string; schoolNama: string };
@@ -137,6 +138,7 @@ export default function AuditLogPage() {
 
       {!error && logs !== null && logs.length === 0 && (
         <EmptyState
+          icon={<IconDocument />}
           title="Tidak ada aktivitas"
           description="Tidak ada catatan audit log yang cocok dengan filter ini."
         />

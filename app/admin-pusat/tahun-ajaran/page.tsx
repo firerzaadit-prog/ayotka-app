@@ -8,10 +8,16 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconCalendar } from "@/components/ui/empty-state-icons";
+import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/dialog";
 
 type AcademicYear = { id: string; nama: string; mulai: string; selesai: string; isActive: boolean };
 
 export default function TahunAjaranPage() {
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [years, setYears] = useState<AcademicYear[] | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [nama, setNama] = useState("");
@@ -67,12 +73,13 @@ export default function TahunAjaranPage() {
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal mengaktifkan.");
+      toast.error(data?.error ?? "Gagal mengaktifkan.");
     }
   }
 
   async function handleDelete(id: string, nama: string) {
-    if (!window.confirm(`Hapus tahun ajaran "${nama}"?`)) return;
+    const ok = await confirm({ title: `Hapus tahun ajaran "${nama}"?`, danger: true });
+    if (!ok) return;
     setBusyId(id);
     const res = await fetch(`/api/admin-pusat/academic-years/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
@@ -80,7 +87,7 @@ export default function TahunAjaranPage() {
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal menghapus tahun ajaran.");
+      toast.error(data?.error ?? "Gagal menghapus tahun ajaran.");
     }
   }
 
@@ -134,9 +141,10 @@ export default function TahunAjaranPage() {
         </form>
       )}
 
-      {years === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {years === null && <TableSkeleton columns={5} />}
       {years?.length === 0 && (
         <EmptyState
+          icon={<IconCalendar />}
           title="Belum ada tahun ajaran"
           description="Buat tahun ajaran pertama supaya sekolah bisa membuat kelas/rombel."
           action={<Button onClick={() => setShowForm(true)}>Buat tahun ajaran</Button>}

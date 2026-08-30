@@ -5,6 +5,10 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton, ListSkeleton } from "@/components/ui/skeleton";
+import { IconDocument } from "@/components/ui/empty-state-icons";
+import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/dialog";
 
 type Materi = {
   id: string;
@@ -28,6 +32,8 @@ export default function TaxonomySubjectPage({
   params: Promise<{ subjectId: string }>;
 }) {
   const { subjectId } = use(params);
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [materi, setMateri] = useState<Materi[] | null>(null);
   const [tingkat, setTingkat] = useState("");
   const [namaMateri, setNamaMateri] = useState("");
@@ -62,13 +68,18 @@ export default function TaxonomySubjectPage({
   }
 
   async function handleDeleteMateri(id: string, nama: string) {
-    if (!window.confirm(`Hapus materi "${nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    const ok = await confirm({
+      title: `Hapus materi "${nama}"?`,
+      description: "Tindakan ini tidak bisa dibatalkan.",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin-pusat/materi/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal menghapus materi.");
+      toast.error(data?.error ?? "Gagal menghapus materi.");
     }
   }
 
@@ -108,10 +119,11 @@ export default function TaxonomySubjectPage({
         </form>
       )}
 
-      {materi === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {materi === null && <ListSkeleton items={3} />}
 
       {materi?.length === 0 && (
         <EmptyState
+          icon={<IconDocument />}
           title="Belum ada materi"
           description="Tambah materi pertama untuk mulai menyusun sub materi dan kompetensi."
         />
@@ -133,6 +145,8 @@ function MateriItem({
   materi: Materi;
   onDelete: (id: string, nama: string) => void;
 }) {
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [open, setOpen] = useState(false);
   const [subMateri, setSubMateri] = useState<SubMateri[] | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -167,13 +181,18 @@ function MateriItem({
   }
 
   async function handleDeleteSubMateri(id: string, namaSubMateri: string) {
-    if (!window.confirm(`Hapus sub materi "${namaSubMateri}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    const ok = await confirm({
+      title: `Hapus sub materi "${namaSubMateri}"?`,
+      description: "Tindakan ini tidak bisa dibatalkan.",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin-pusat/sub-materi/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal menghapus sub materi.");
+      toast.error(data?.error ?? "Gagal menghapus sub materi.");
     }
   }
 
@@ -193,7 +212,7 @@ function MateriItem({
         </button>
         <button
           onClick={() => onDelete(materi.id, materi.nama)}
-          className="text-sm font-medium text-red-600 hover:underline"
+          className="text-sm font-medium text-rose-600 hover:underline"
         >
           Hapus
         </button>
@@ -217,7 +236,12 @@ function MateriItem({
             </form>
           )}
 
-          {subMateri === null && <p className="text-sm text-slate-500">Memuat...</p>}
+          {subMateri === null && (
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-8" />
+              <Skeleton className="h-8" />
+            </div>
+          )}
           {subMateri?.length === 0 && (
             <p className="text-sm text-slate-500">Belum ada sub materi.</p>
           )}
@@ -240,6 +264,8 @@ function SubMateriItem({
   subMateri: SubMateri;
   onDelete: (id: string, nama: string) => void;
 }) {
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [open, setOpen] = useState(false);
   const [kompetensi, setKompetensi] = useState<Kompetensi[] | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -277,13 +303,18 @@ function SubMateriItem({
   }
 
   async function handleDeleteKompetensi(id: string, kodeKompetensi: string) {
-    if (!window.confirm(`Hapus kompetensi "${kodeKompetensi}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+    const ok = await confirm({
+      title: `Hapus kompetensi "${kodeKompetensi}"?`,
+      description: "Tindakan ini tidak bisa dibatalkan.",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin-pusat/kompetensi/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal menghapus kompetensi.");
+      toast.error(data?.error ?? "Gagal menghapus kompetensi.");
     }
   }
 
@@ -301,7 +332,7 @@ function SubMateriItem({
         </button>
         <button
           onClick={() => onDelete(subMateri.id, subMateri.nama)}
-          className="text-sm font-medium text-red-600 hover:underline"
+          className="text-sm font-medium text-rose-600 hover:underline"
         >
           Hapus
         </button>
@@ -343,7 +374,12 @@ function SubMateriItem({
             </form>
           )}
 
-          {kompetensi === null && <p className="text-xs text-slate-500">Memuat...</p>}
+          {kompetensi === null && (
+            <div className="flex flex-col gap-1">
+              <Skeleton className="h-6" />
+              <Skeleton className="h-6" />
+            </div>
+          )}
           {kompetensi?.length === 0 && <p className="text-xs text-slate-500">Belum ada kompetensi.</p>}
 
           <ul className="flex flex-col gap-1">
@@ -356,7 +392,7 @@ function SubMateriItem({
                 <span className="flex-1">{k.deskripsi}</span>
                 <button
                   onClick={() => handleDeleteKompetensi(k.id, k.kode)}
-                  className="text-xs font-medium text-red-600 hover:underline"
+                  className="text-xs font-medium text-rose-600 hover:underline"
                 >
                   Hapus
                 </button>

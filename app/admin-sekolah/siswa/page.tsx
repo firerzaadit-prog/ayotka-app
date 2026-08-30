@@ -8,6 +8,13 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination } from "@/components/ui/pagination";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconUsers, IconSearch } from "@/components/ui/empty-state-icons";
+import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/dialog";
+
+const PAGE_SIZE = 15;
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type StudentRow = {
@@ -30,9 +37,13 @@ const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function KelolaSiswaPage() {
+  const toast = useToast();
+  const { confirm, alertDialog } = useDialog();
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [selectedClassId, setSelectedClassId] = useState("");
   const [students, setStudents] = useState<StudentRow[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [nama, setNama] = useState("");
   const [nisn, setNisn] = useState("");
@@ -64,7 +75,10 @@ export default function KelolaSiswaPage() {
       const qs = selectedClassId ? `?classId=${selectedClassId}` : "";
       const res = await fetch(`/api/admin-sekolah/siswa${qs}`);
       const data = await res.json();
-      if (!ignore) setStudents(data.students ?? []);
+      if (!ignore) {
+        setStudents(data.students ?? []);
+        setPage(1);
+      }
     })();
     return () => {
       ignore = true;
@@ -130,37 +144,58 @@ export default function KelolaSiswaPage() {
   }
 
   async function handleResetKode(id: string) {
-    if (!window.confirm("Reset kode klaim siswa ini?")) return;
+    const ok = await confirm({ title: "Reset kode klaim siswa ini?" });
+    if (!ok) return;
     const res = await fetch(`/api/admin-sekolah/siswa/${id}/reset-kode-klaim`, { method: "POST" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal reset kode klaim.");
+      toast.error(data?.error ?? "Gagal reset kode klaim.");
     }
   }
 
   async function handleResetPassword(id: string) {
-    if (!window.confirm("Reset password akun siswa ini? Password lama tidak akan berlaku lagi.")) return;
+    const ok = await confirm({
+      title: "Reset password akun siswa ini?",
+      description: "Password lama tidak akan berlaku lagi.",
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin-sekolah/siswa/${id}/reset-password`, { method: "POST" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
-      alert(`Password sementara: ${data.tempPassword}\n\nSampaikan ke siswa lewat jalur lain (bukan chat/email ini). Siswa wajib ganti password saat login berikutnya.`);
+      await alertDialog({
+        title: "Password berhasil direset",
+        description: `Password sementara: ${data.tempPassword}\n\nSampaikan ke siswa lewat jalur lain (bukan chat/email ini). Siswa wajib ganti password saat login berikutnya.`,
+      });
     } else {
-      alert(data?.error ?? "Gagal reset password.");
+      toast.error(data?.error ?? "Gagal reset password.");
     }
   }
 
   async function handleDelete(id: string, nama: string) {
-    if (!window.confirm(`Hapus siswa "${nama}"? Riwayat nilai tetap tersimpan.`)) return;
+    const ok = await confirm({
+      title: `Hapus siswa "${nama}"?`,
+      description: "Riwayat nilai tetap tersimpan.",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin-sekolah/siswa/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal menghapus siswa.");
+      toast.error(data?.error ?? "Gagal menghapus siswa.");
     }
   }
+
+  const filteredStudents = (students ?? []).filter((s) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return s.nama.toLowerCase().includes(q) || (s.nisn ?? "").toLowerCase().includes(q);
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE));
+  const pageStudents = filteredStudents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -194,22 +229,36 @@ export default function KelolaSiswaPage() {
 
       {importResult && <Alert variant="info">{importResult}</Alert>}
 
-      <div className="w-56">
-        <Label htmlFor="classFilter">Rombel</Label>
-        <select
-          id="classFilter"
-          className={selectClassName}
-          value={selectedClassId}
-          onChange={(e) => setSelectedClassId(e.target.value)}
-        >
-          {classes.length === 0 && <option value="">Belum ada rombel</option>}
-          {classes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.tingkat}
-              {c.namaRombel}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap gap-3">
+        <div className="w-56">
+          <Label htmlFor="classFilter">Rombel</Label>
+          <select
+            id="classFilter"
+            className={selectClassName}
+            value={selectedClassId}
+            onChange={(e) => setSelectedClassId(e.target.value)}
+          >
+            {classes.length === 0 && <option value="">Belum ada rombel</option>}
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.tingkat}
+                {c.namaRombel}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="w-56">
+          <Label htmlFor="searchSiswa">Cari nama/NISN</Label>
+          <Input
+            id="searchSiswa"
+            placeholder="Ketik nama atau NISN..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+        </div>
       </div>
 
       {showForm && (
@@ -241,16 +290,25 @@ export default function KelolaSiswaPage() {
         </form>
       )}
 
-      {students === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {students === null && <TableSkeleton columns={5} />}
       {students?.length === 0 && (
         <EmptyState
+          icon={<IconUsers />}
           title="Belum ada siswa"
           description="Import dari Excel atau tambah satu per satu."
           action={<Button onClick={() => setShowForm(true)}>Tambah siswa</Button>}
         />
       )}
+      {students && students.length > 0 && filteredStudents.length === 0 && (
+        <EmptyState
+          icon={<IconSearch />}
+          title="Tidak ditemukan"
+          description={`Tidak ada siswa yang cocok dengan "${search}".`}
+        />
+      )}
 
-      {students && students.length > 0 && (
+      {filteredStudents.length > 0 && (
+        <>
         <TableContainer>
           <Table>
             <Thead>
@@ -263,7 +321,7 @@ export default function KelolaSiswaPage() {
               </Tr>
             </Thead>
             <tbody>
-              {students.map((s) => (
+              {pageStudents.map((s) => (
                 <Tr key={s.id}>
                   <Td className="font-medium text-slate-900">{s.nama}</Td>
                   <Td className="font-mono text-xs">{s.nisn ?? "-"}</Td>
@@ -304,6 +362,8 @@ export default function KelolaSiswaPage() {
             </tbody>
           </Table>
         </TableContainer>
+        <Pagination page={page} totalPages={totalPages} totalItems={filteredStudents.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

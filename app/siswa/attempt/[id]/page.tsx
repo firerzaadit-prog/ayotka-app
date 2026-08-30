@@ -9,6 +9,9 @@ import { SoalPgKategori } from "@/components/exam/soal-pg-kategori";
 import type { ExamJawaban, ExamQuestion } from "@/components/exam/types";
 import { getLocalAnswers, saveLocalAnswer } from "@/lib/exam/offline-store";
 import { isJawabanKosong } from "@/lib/exam/scoring";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils/cn";
 
 type AttemptState = {
   id: string;
@@ -235,17 +238,17 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   if (sessionTakenOver) {
     return (
       <div className="mx-auto max-w-lg p-6 text-center">
-        <p className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-700">
+        <Alert variant="danger">
           Ujian ini sedang dibuka di tab atau perangkat lain dengan akun yang sama. Hanya satu
           sesi yang boleh aktif — tutup halaman ini.
-        </p>
+        </Alert>
       </div>
     );
   }
   if (error) {
     return (
       <div className="mx-auto max-w-lg p-6">
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+        <Alert variant="danger">{error}</Alert>
       </div>
     );
   }
@@ -254,10 +257,10 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   if (attempt.status === "paused") {
     return (
       <div className="mx-auto max-w-lg p-6 text-center">
-        <p className="rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <Alert variant="warning">
           Sesi ujianmu sedang dijeda oleh admin sekolah. Halaman ini akan otomatis lanjut begitu
           admin membuka kembali sesimu — jangan tutup halaman ini.
-        </p>
+        </Alert>
       </div>
     );
   }
@@ -269,36 +272,35 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pb-24">
-      <div className="sticky top-0 z-10 flex items-center justify-between rounded-md border border-slate-200 bg-white px-4 py-2 shadow-sm">
+      <div className="sticky top-0 z-10 flex items-center justify-between rounded-lg border border-slate-200 bg-white/95 px-4 py-2 shadow-sm backdrop-blur-sm">
         <span className="text-sm font-medium text-slate-900">{packageNama}</span>
         <span
-          className={`rounded-md px-3 py-1 font-mono text-sm font-semibold ${
+          className={cn(
+            "rounded-lg px-3 py-1 font-mono text-sm font-semibold",
             remaining <= 60
-              ? "bg-red-100 text-red-700"
+              ? "bg-rose-100 text-rose-700"
               : remaining <= 300
                 ? "bg-amber-100 text-amber-700"
-                : "bg-slate-100 text-slate-700"
-          }`}
+                : "bg-slate-100 text-slate-700",
+          )}
         >
           {formatSisaWaktu(remaining)}
         </span>
       </div>
 
       {remaining <= 300 && remaining > 60 && (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          Sisa waktu 5 menit lagi.
-        </p>
+        <Alert variant="warning">Sisa waktu 5 menit lagi.</Alert>
       )}
       {remaining <= 60 && remaining > 0 && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+        <Alert variant="danger">
           Sisa waktu 1 menit lagi — jawaban akan otomatis disubmit saat waktu habis.
-        </p>
+        </Alert>
       )}
       {tabSwitchCount > 0 && (
-        <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <Alert variant="warning">
           Terdeteksi {tabSwitchCount}x kamu meninggalkan tab ujian ini. Tetap di halaman ini
           sampai selesai.
-        </p>
+        </Alert>
       )}
 
       <div className="flex flex-wrap gap-1.5">
@@ -306,22 +308,23 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
           <button
             key={q.id}
             onClick={() => setCurrentIndex(i)}
-            className={`h-8 w-8 rounded-md text-xs font-medium ${
+            className={cn(
+              "h-8 w-8 rounded-lg text-xs font-medium transition-colors",
               i === currentIndex
-                ? "bg-slate-900 text-white"
+                ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white"
                 : answers[q.id]?.ragu
                   ? "bg-amber-100 text-amber-800"
                   : answeredIds.has(q.id)
-                    ? "bg-green-100 text-green-800"
-                    : "bg-slate-100 text-slate-500"
-            }`}
+                    ? "bg-emerald-100 text-emerald-800"
+                    : "bg-slate-100 text-slate-500",
+            )}
           >
             {i + 1}
           </button>
         ))}
       </div>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 select-none">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 select-none">
         <div className="mb-4 flex items-center justify-between">
           <p className="text-sm font-medium text-slate-500">Soal {currentIndex + 1}</p>
           <label className="flex items-center gap-2 text-xs text-slate-500">
@@ -333,6 +336,7 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
                 if (current) persistAnswer(question.id, current, e.target.checked);
                 else setAnswers((prev) => ({ ...prev, [question.id]: { jawabanJson: prev[question.id]?.jawabanJson ?? ({} as ExamJawaban), ragu: e.target.checked } }));
               }}
+              className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20"
             />
             Tandai ragu-ragu
           </label>
@@ -342,7 +346,8 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
           <RichText text={question.teks} />
         </p>
         {question.media && (
-          <img src={question.media} alt="" className="mb-4 max-w-full rounded-md border" />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={question.media} alt="" className="mb-4 max-w-full rounded-lg border border-slate-200" />
         )}
 
         {question.format === "pg" && (
@@ -369,26 +374,23 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 flex justify-between border-t border-slate-200 bg-white px-4 py-3">
-        <button
+      <div className="fixed inset-x-0 bottom-0 flex justify-between border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
+        <Button
+          variant="secondary"
           onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
           disabled={currentIndex === 0}
-          className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium disabled:opacity-40"
         >
           Sebelumnya
-        </button>
+        </Button>
         {currentIndex < questions.length - 1 ? (
-          <button
-            onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white"
-          >
+          <Button onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}>
             Selanjutnya
-          </button>
+          </Button>
         ) : (
           <button
             onClick={() => handleSubmit(false)}
             disabled={submitting}
-            className="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-emerald-600/20 transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? "Mengirim..." : "Submit"}
           </button>

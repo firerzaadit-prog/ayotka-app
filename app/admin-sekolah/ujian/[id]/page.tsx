@@ -6,7 +6,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconUsers } from "@/components/ui/empty-state-icons";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
+import { useToast } from "@/components/ui/toast";
 
 type AttemptRow = {
   id: string;
@@ -39,6 +42,7 @@ function formatSisa(seconds: number): string {
 /** Tiket 4.9: pantau & pause/resume attempt siswa untuk satu penugasan. */
 export default function PenugasanDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const toast = useToast();
   const [assignmentNama, setAssignmentNama] = useState("");
   const [attempts, setAttempts] = useState<AttemptRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,14 +75,14 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
     const res = await fetch(`/api/admin-sekolah/attempts/${attemptId}/pause`, { method: "POST" });
     const data = await res.json().catch(() => null);
     if (res.ok) setRefreshKey((k) => k + 1);
-    else alert(data?.error ?? "Gagal menjeda sesi.");
+    else toast.error(data?.error ?? "Gagal menjeda sesi.");
   }
 
   async function handleResume(attemptId: string) {
     const res = await fetch(`/api/admin-sekolah/attempts/${attemptId}/resume`, { method: "POST" });
     const data = await res.json().catch(() => null);
     if (res.ok) setRefreshKey((k) => k + 1);
-    else alert(data?.error ?? "Gagal melanjutkan sesi.");
+    else toast.error(data?.error ?? "Gagal melanjutkan sesi.");
   }
 
   return (
@@ -97,9 +101,9 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {attempts === null && !error && <p className="text-sm text-slate-500">Memuat...</p>}
+      {attempts === null && !error && <TableSkeleton columns={6} />}
       {attempts?.length === 0 && (
-        <EmptyState title="Belum ada siswa yang mulai" description="Belum ada siswa yang mengerjakan penugasan ini." />
+        <EmptyState icon={<IconUsers />} title="Belum ada siswa yang mulai" description="Belum ada siswa yang mengerjakan penugasan ini." />
       )}
 
       {attempts && attempts.length > 0 && (

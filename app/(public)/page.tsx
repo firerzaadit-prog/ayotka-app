@@ -1,5 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
+import { prisma } from "@/lib/db/prisma";
+
+export const dynamic = "force-dynamic";
+
+function formatRupiah(n: number): string {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
+}
 
 const FEATURES = [
   {
@@ -60,7 +67,13 @@ const FEATURES = [
   },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const packages = await prisma.servicePackage.findMany({
+    where: { isActive: true },
+    orderBy: { hargaPerMapel: "asc" },
+    select: { id: true, nama: true, hargaPerMapel: true, tryOutPerMapel: true, deskripsi: true },
+  });
+
   return (
     <main className="min-h-screen bg-white">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
@@ -150,6 +163,51 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {packages.length > 0 && (
+        <section className="mx-auto max-w-6xl px-6 pb-24">
+          <div className="mx-auto mb-10 max-w-xl text-center">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">
+              Paket Layanan
+            </p>
+            <h2 className="mt-2 text-3xl font-bold text-balance text-slate-900">
+              Harga transparan, per mata pelajaran
+            </h2>
+            <p className="mt-3 text-base leading-relaxed text-slate-600">
+              Bayar sesuai jumlah mata pelajaran yang kamu butuhkan. Setiap paket sudah termasuk
+              beberapa kali kesempatan Try Out TKA per mata pelajaran.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {packages.map((pkg) => (
+              <div
+                key={pkg.id}
+                className="flex flex-col rounded-xl border border-slate-200 p-6 shadow-sm transition-shadow hover:shadow-md"
+              >
+                <h3 className="font-semibold text-slate-900">{pkg.nama}</h3>
+                <p className="mt-3">
+                  <span className="text-3xl font-bold tracking-tight text-slate-900">
+                    {formatRupiah(pkg.hargaPerMapel)}
+                  </span>
+                  <span className="text-sm text-slate-500"> / mata pelajaran</span>
+                </p>
+                <p className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
+                  {pkg.tryOutPerMapel}× Try Out TKA per mata pelajaran
+                </p>
+                {pkg.deskripsi && (
+                  <p className="mt-3 text-sm leading-relaxed text-slate-500">{pkg.deskripsi}</p>
+                )}
+                <Link
+                  href="/registrasi"
+                  className="mt-6 rounded-lg border border-slate-200 bg-white px-4 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+                >
+                  Daftar sebagai siswa
+                </Link>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <footer className="border-t border-slate-100 px-6 py-8 text-center text-sm text-slate-400">
         &copy; {new Date().getFullYear()} AyoTKA — Tes Kemampuan Akademik

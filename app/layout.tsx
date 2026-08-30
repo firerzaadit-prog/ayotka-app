@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Poppins, IBM_Plex_Mono } from "next/font/google";
+import { Providers } from "@/components/providers";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -28,7 +29,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" className={`${poppins.variable} ${plexMono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

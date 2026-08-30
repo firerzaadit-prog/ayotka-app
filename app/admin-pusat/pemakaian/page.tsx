@@ -5,6 +5,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconChart } from "@/components/ui/empty-state-icons";
 
 type Counter = {
   id: string;
@@ -58,9 +60,9 @@ export default function PemakaianPage() {
         />
       </div>
 
-      {!data && <p className="text-sm text-slate-500">Memuat...</p>}
+      {!data && <TableSkeleton columns={4} />}
       {data?.counters.length === 0 && (
-        <EmptyState title="Belum ada data" description="Belum ada pemakaian tercatat pada bulan ini." />
+        <EmptyState icon={<IconChart />} title="Belum ada data" description="Belum ada pemakaian tercatat pada bulan ini." />
       )}
 
       {data && data.counters.length > 0 && (
