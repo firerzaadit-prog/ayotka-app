@@ -57,8 +57,11 @@ type EditForm = {
   jumlahSoal: string;
   modePembahasan: "langsung" | "setelah_tutup";
   bolehDipilihSiswa: boolean;
-  visibilityMode: "privat" | "semua" | "sekolah" | "publik";
-  visibilitySchoolIds: string[];
+  // Distribusi: dua target independen yang bisa aktif bersamaan
+  forSekolah: boolean;         // paket bisa dijadwalkan oleh admin sekolah
+  sekolahMode: "semua" | "terpilih"; // jika forSekolah: semua sekolah atau sekolah terpilih
+  visibilitySchoolIds: string[]; // daftar sekolah jika sekolahMode = "terpilih"
+  forMandiri: boolean;         // paket bisa diakses siswa mandiri
 };
 
 const MODE_PEMBAHASAN_LABEL: Record<"langsung" | "setelah_tutup", string> = {
@@ -76,6 +79,10 @@ const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 function toEditForm(pkg: PackageDetail & { visibility?: any[] }): EditForm {
+  const rows: any[] = pkg.visibility ?? [];
+  const hasSekolah = rows.some((r) => r.targetType === "sekolah" || r.targetType === "semua");
+  const hasPubik  = rows.some((r) => r.targetType === "publik");
+  const isSemua   = rows.some((r) => r.targetType === "semua");
   return {
     nama: pkg.nama,
     subjectId: pkg.subjectId,
@@ -85,16 +92,19 @@ function toEditForm(pkg: PackageDetail & { visibility?: any[] }): EditForm {
     jumlahSoal: String(pkg.jumlahSoal),
     modePembahasan: pkg.modePembahasan,
     bolehDipilihSiswa: pkg.bolehDipilihSiswa,
-    visibilityMode: deriveMode(pkg.visibility ?? []),
-    visibilitySchoolIds: (pkg.visibility ?? []).filter((v: any) => v.schoolId).map((v: any) => v.schoolId),
+    forSekolah: hasSekolah,
+    sekolahMode: isSemua ? "semua" : "terpilih",
+    visibilitySchoolIds: rows.filter((v: any) => v.schoolId).map((v: any) => v.schoolId),
+    forMandiri: hasPubik,
   };
 }
 
-function deriveMode(rows: any[]): "privat" | "semua" | "sekolah" | "publik" {
-  if (rows.length === 0) return "privat";
-  if (rows[0].targetType === "semua") return "semua";
-  if (rows[0].targetType === "publik") return "publik";
-  return "sekolah";
+function describeVisibility(rows: any[]): string {
+  const labels: string[] = [];
+  if (rows.some((r) => r.targetType === "semua")) labels.push("Semua Sekolah");
+  else if (rows.some((r) => r.targetType === "sekolah")) labels.push("Sekolah Terpilih");
+  if (rows.some((r) => r.targetType === "publik")) labels.push("Siswa Mandiri");
+  return labels.length > 0 ? labels.join(" + ") : "Privat";
 }
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -167,10 +177,54 @@ export function PackageDetail({
     setEditError(null);
     setEditSubmitting(true);
 
+    // Konversi flag forSekolah/forMandiri → format yang dimengerti API
+    let visibilityMode: string;
+    let visibilitySchoolIds: string[] | undefined;
+
+    if (editForm.forSekolah && editForm.forMandiri) {
+      // Keduanya aktif: kirim dua call terpisah atau gunakan mode "semua" + publik
+      // Kita kirim sebagai visibilityEntries di body (format baru)
+      visibilityMode = "custom";
+    } else if (editForm.forSekolah) {
+      visibilityMode = editForm.sekolahMode === "semua" ? "semua" : "sekolah";
+      visibilitySchoolIds = editForm.sekolahMode === "terpilih" ? editForm.visibilitySchoolIds : undefined;
+    } else if (editForm.forMandiri) {
+      visibilityMode = "publik";
+    } else {
+      visibilityMode = "privat";
+    }
+
+    // Buat entries array untuk kasus custom (sekolah + mandiri sekaligus)
+    let visibilityEntries: any[] | undefined;
+    if (visibilityMode === "custom") {
+      if (editForm.sekolahMode === "semua") {
+        visibilityEntries = [{ targetType: "semua" }, { targetType: "publik" }];
+      } else {
+        visibilityEntries = [
+          ...editForm.visibilitySchoolIds.map((id) => ({ targetType: "sekolah", schoolId: id })),
+          { targetType: "publik" },
+        ];
+      }
+    }
+
+    const payload = {
+      nama: editForm.nama,
+      subjectId: editForm.subjectId,
+      jenjang: editForm.jenjang,
+      tingkat: editForm.tingkat,
+      durasiMenit: editForm.durasiMenit,
+      jumlahSoal: editForm.jumlahSoal,
+      modePembahasan: editForm.modePembahasan,
+      bolehDipilihSiswa: editForm.bolehDipilihSiswa,
+      ...(visibilityEntries
+        ? { visibilityEntries }
+        : { visibilityMode, visibilitySchoolIds }),
+    };
+
     const res = await fetch(`/api/packages/${packageId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify(payload),
     });
     const data = await res.json().catch(() => null);
     setEditSubmitting(false);
@@ -231,8 +285,7 @@ export function PackageDetail({
           {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
           {" · Pembahasan: "}
           {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
-          {" · Target: "}
-          {deriveMode(pkg.visibility ?? []) === "sekolah" ? "Sekolah Terpilih" : deriveMode(pkg.visibility ?? []) === "publik" ? "Publik/Mandiri" : deriveMode(pkg.visibility ?? []) === "semua" ? "Semua Sekolah" : "Privat"}
+          {" · Target: "}{describeVisibility(pkg.visibility ?? [])}
         </p>
 
         <div className="mt-2 flex flex-wrap gap-2">
@@ -348,56 +401,87 @@ export function PackageDetail({
               </div>
 
               {pkg.ownerType === "pusat" && (
-                <div className="pt-2 border-t border-slate-200 mt-2">
-                  <Label className="mb-2 block">Distribusi / Target Pengguna</Label>
-                  <div className="flex flex-col gap-2">
-                    {(
-                      [
-                        ["privat", "Privat (belum dirilis)"],
-                        ["semua", "Semua sekolah"],
-                        ["sekolah", "Sekolah terpilih"],
-                        ["publik", "Publik/Mandiri (siswa non-sekolah)"],
-                      ] as const
-                    ).map(([value, label]) => (
-                      <label key={value} className="flex items-center gap-2 text-sm text-slate-700">
-                        <input
-                          type="radio"
-                          name="visibilityMode"
-                          checked={editForm.visibilityMode === value}
-                          onChange={() => setEditForm({ ...editForm, visibilityMode: value })}
-                          className="accent-indigo-600"
-                        />
-                        {label}
-                      </label>
-                    ))}
-                  </div>
+                <div className="pt-2 border-t border-slate-200 mt-2 flex flex-col gap-3">
+                  <Label className="block">Distribusi / Target Pengguna</Label>
+                  <p className="text-xs text-slate-500 -mt-2">Pilih satu atau keduanya. Paket bisa sekaligus dijadwalkan sekolah dan diakses siswa mandiri.</p>
 
-                  {editForm.visibilityMode === "sekolah" && (
-                    <div className="mt-3 max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2 bg-white">
-                      {allSchools.map((school) => (
-                        <label key={school.id} className="flex items-center gap-2 py-1 text-sm text-slate-700">
+                  {/* --- Target Sekolah --- */}
+                  <div className="rounded-lg border border-slate-200 p-3 flex flex-col gap-2 bg-slate-50">
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-800 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editForm.forSekolah}
+                        onChange={(e) => setEditForm({ ...editForm, forSekolah: e.target.checked })}
+                        className="accent-indigo-600 h-4 w-4"
+                      />
+                      Tersedia untuk Jadwal Ujian Sekolah
+                    </label>
+
+                    {editForm.forSekolah && (
+                      <div className="ml-6 flex flex-col gap-2">
+                        <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
                           <input
-                            type="checkbox"
-                            checked={editForm.visibilitySchoolIds.includes(school.id)}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setEditForm((prev) => {
-                                if (!prev) return prev;
-                                return {
-                                  ...prev,
-                                  visibilitySchoolIds: checked
-                                    ? [...prev.visibilitySchoolIds, school.id]
-                                    : prev.visibilitySchoolIds.filter((id) => id !== school.id),
-                                };
-                              });
-                            }}
+                            type="radio"
+                            name="sekolahMode"
+                            checked={editForm.sekolahMode === "semua"}
+                            onChange={() => setEditForm({ ...editForm, sekolahMode: "semua" })}
                             className="accent-indigo-600"
                           />
-                          {school.nama}
+                          Semua sekolah yang terdaftar
                         </label>
-                      ))}
-                    </div>
-                  )}
+                        <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="sekolahMode"
+                            checked={editForm.sekolahMode === "terpilih"}
+                            onChange={() => setEditForm({ ...editForm, sekolahMode: "terpilih" })}
+                            className="accent-indigo-600"
+                          />
+                          Sekolah terpilih saja
+                        </label>
+                        {editForm.sekolahMode === "terpilih" && (
+                          <div className="mt-1 max-h-40 overflow-y-auto rounded-lg border border-slate-200 p-2 bg-white">
+                            {allSchools.length === 0 && <p className="text-xs text-slate-400 p-1">Belum ada sekolah terdaftar.</p>}
+                            {allSchools.map((school) => (
+                              <label key={school.id} className="flex items-center gap-2 py-1 text-sm text-slate-700 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={editForm.visibilitySchoolIds.includes(school.id)}
+                                  onChange={(e) => {
+                                    const checked = e.target.checked;
+                                    setEditForm((prev) => {
+                                      if (!prev) return prev;
+                                      return {
+                                        ...prev,
+                                        visibilitySchoolIds: checked
+                                          ? [...prev.visibilitySchoolIds, school.id]
+                                          : prev.visibilitySchoolIds.filter((id) => id !== school.id),
+                                      };
+                                    });
+                                  }}
+                                  className="accent-indigo-600"
+                                />
+                                {school.nama}
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* --- Target Mandiri --- */}
+                  <div className="rounded-lg border border-slate-200 p-3 bg-slate-50">
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-800 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editForm.forMandiri}
+                        onChange={(e) => setEditForm({ ...editForm, forMandiri: e.target.checked })}
+                        className="accent-indigo-600 h-4 w-4"
+                      />
+                      Tersedia untuk Try Out Mandiri (Siswa Non-Sekolah)
+                    </label>
+                  </div>
                 </div>
               )}
 
@@ -405,7 +489,7 @@ export function PackageDetail({
                 <Button type="button" variant="secondary" onClick={() => setShowEditForm(false)}>
                   Batal
                 </Button>
-                <Button type="submit" disabled={editSubmitting || (editForm.visibilityMode === "sekolah" && editForm.visibilitySchoolIds.length === 0)}>
+                <Button type="submit" disabled={editSubmitting || (editForm.forSekolah && editForm.sekolahMode === "terpilih" && editForm.visibilitySchoolIds.length === 0)}>
                   {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}
                 </Button>
               </div>

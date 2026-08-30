@@ -13,6 +13,13 @@ export const packageCreateSchema = z.object({
   bolehDipilihSiswa: z.boolean().optional(),
   visibilityMode: z.enum(["privat", "semua", "sekolah", "publik"]).optional(),
   visibilitySchoolIds: z.array(z.string()).optional(),
+  // Untuk kasus dual-target (sekolah + mandiri sekaligus), kirim entries langsung
+  visibilityEntries: z
+    .array(z.object({
+      targetType: z.enum(["semua", "sekolah", "publik"]),
+      schoolId: z.string().optional(),
+    }))
+    .optional(),
 });
 export type PackageCreateInput = z.infer<typeof packageCreateSchema>;
 

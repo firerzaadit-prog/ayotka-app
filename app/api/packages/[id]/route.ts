@@ -57,11 +57,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const before = await prisma.package.findUnique({ where: { id } });
-  const { blueprintId, grupParalelId, visibilityMode, visibilitySchoolIds, ...rest } = parsed.data;
+  const { blueprintId, grupParalelId, visibilityMode, visibilitySchoolIds, visibilityEntries, ...rest } = parsed.data;
 
   // Siapkan data visibility jika ada perubahan
   let visibilityUpdate: any = undefined;
-  if (visibilityMode) {
+
+  if (visibilityEntries && visibilityEntries.length > 0) {
+    // Mode dual-target: gunakan entries langsung (sekolah + mandiri sekaligus)
+    visibilityUpdate = {
+      deleteMany: {},
+      create: visibilityEntries.map((e) => ({
+        targetType: e.targetType,
+        ...(e.schoolId ? { schoolId: e.schoolId } : {}),
+      })),
+    };
+  } else if (visibilityMode) {
     if (visibilityMode === "privat") {
       visibilityUpdate = { deleteMany: {} };
     } else if (visibilityMode === "semua" || visibilityMode === "publik") {
@@ -72,7 +82,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     } else if (visibilityMode === "sekolah" && visibilitySchoolIds) {
       visibilityUpdate = {
         deleteMany: {},
-        create: visibilitySchoolIds.map((id: string) => ({ targetType: "sekolah" as const, schoolId: id })),
+        create: visibilitySchoolIds.map((sid: string) => ({ targetType: "sekolah" as const, schoolId: sid })),
       };
     }
   }
