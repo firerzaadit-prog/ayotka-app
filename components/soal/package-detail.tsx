@@ -31,6 +31,9 @@ type Question = {
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 
+type VisibilityRow = { targetType: "semua" | "sekolah" | "publik"; schoolId: string | null };
+type VisibilityEntry = { targetType: "semua" | "sekolah" | "publik"; schoolId?: string };
+
 type PackageDetail = {
   id: string;
   nama: string;
@@ -78,8 +81,8 @@ const STATUS_BADGE_VARIANT: Record<string, "neutral" | "success" | "warning"> = 
 const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
-function toEditForm(pkg: PackageDetail & { visibility?: any[] }): EditForm {
-  const rows: any[] = pkg.visibility ?? [];
+function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): EditForm {
+  const rows: VisibilityRow[] = pkg.visibility ?? [];
   const hasSekolah = rows.some((r) => r.targetType === "sekolah" || r.targetType === "semua");
   const hasPubik  = rows.some((r) => r.targetType === "publik");
   const isSemua   = rows.some((r) => r.targetType === "semua");
@@ -94,12 +97,12 @@ function toEditForm(pkg: PackageDetail & { visibility?: any[] }): EditForm {
     bolehDipilihSiswa: pkg.bolehDipilihSiswa,
     forSekolah: hasSekolah,
     sekolahMode: isSemua ? "semua" : "terpilih",
-    visibilitySchoolIds: rows.filter((v: any) => v.schoolId).map((v: any) => v.schoolId),
+    visibilitySchoolIds: rows.filter((v) => v.schoolId).map((v) => v.schoolId as string),
     forMandiri: hasPubik,
   };
 }
 
-function describeVisibility(rows: any[]): string {
+function describeVisibility(rows: VisibilityRow[]): string {
   const labels: string[] = [];
   if (rows.some((r) => r.targetType === "semua")) labels.push("Semua Sekolah");
   else if (rows.some((r) => r.targetType === "sekolah")) labels.push("Sekolah Terpilih");
@@ -132,7 +135,7 @@ export function PackageDetail({
   packageId: string;
   basePath: string;
 }) {
-  const [pkg, setPkg] = useState<PackageDetail & { visibility?: any[] } | null>(null);
+  const [pkg, setPkg] = useState<PackageDetail & { visibility?: VisibilityRow[] } | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [allSchools, setAllSchools] = useState<{ id: string; nama: string }[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -195,14 +198,14 @@ export function PackageDetail({
     }
 
     // Buat entries array untuk kasus custom (sekolah + mandiri sekaligus)
-    let visibilityEntries: any[] | undefined;
+    let visibilityEntries: VisibilityEntry[] | undefined;
     if (visibilityMode === "custom") {
       if (editForm.sekolahMode === "semua") {
         visibilityEntries = [{ targetType: "semua" }, { targetType: "publik" }];
       } else {
         visibilityEntries = [
-          ...editForm.visibilitySchoolIds.map((id) => ({ targetType: "sekolah", schoolId: id })),
-          { targetType: "publik" },
+          ...editForm.visibilitySchoolIds.map((id) => ({ targetType: "sekolah" as const, schoolId: id })),
+          { targetType: "publik" as const },
         ];
       }
     }

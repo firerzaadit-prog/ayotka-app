@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
 
   const { blueprintId, grupParalelId, visibilityMode, visibilitySchoolIds, ...rest } = parsed.data;
 
-  let visibilityCreate: any = undefined;
+  let visibilityCreate: Prisma.PackageCreateInput["visibility"] = undefined;
   if (visibilityMode && visibilityMode !== "privat") {
     if (visibilityMode === "sekolah" && visibilitySchoolIds) {
       visibilityCreate = {
