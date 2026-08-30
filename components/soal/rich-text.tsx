@@ -44,7 +44,7 @@ function renderSegments(segments: Segment[]): React.ReactNode {
     }
     if (segment.type === "align") {
       return (
-        <div key={i} style={{ textAlign: segment.align as any }} className="w-full">
+        <div key={i} style={{ textAlign: segment.align }} className="w-full">
           {renderSegments(segment.children)}
         </div>
       );
@@ -71,9 +71,9 @@ function renderSegments(segments: Segment[]): React.ReactNode {
   });
 }
 
-type Segment = 
+type Segment =
   | { type: "text" | "inline" | "block" | "image"; value: string; alt?: string }
-  | { type: "align"; align: string; children: Segment[] }
+  | { type: "align"; align: "left" | "center" | "right" | "justify"; children: Segment[] }
   | { type: "bold" | "italic"; children: Segment[] };
 
 function parseSegments(text: string): Segment[] {
@@ -98,10 +98,11 @@ function parseSegments(text: string): Segment[] {
     } else if (match[4] !== undefined) {
       segments.push({ type: "image", value: match[4], alt: match[3] });
     } else if (match[5] !== undefined) {
-      segments.push({ 
-        type: "align", 
-        align: match[5].toLowerCase(), 
-        children: parseSegments(match[6] ?? "") 
+      segments.push({
+        type: "align",
+        // Aman: grup regex ini cuma bisa cocok "left|center|right|justify" (lihat pattern di atas).
+        align: match[5].toLowerCase() as "left" | "center" | "right" | "justify",
+        children: parseSegments(match[6] ?? ""),
       });
     } else if (match[7] !== undefined) {
       segments.push({

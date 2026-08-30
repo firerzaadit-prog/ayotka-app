@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
@@ -60,7 +61,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const { blueprintId, grupParalelId, visibilityMode, visibilitySchoolIds, visibilityEntries, ...rest } = parsed.data;
 
   // Siapkan data visibility jika ada perubahan
-  let visibilityUpdate: any = undefined;
+  let visibilityUpdate: Prisma.PackageUpdateInput["visibility"] = undefined;
 
   if (visibilityEntries && visibilityEntries.length > 0) {
     // Mode dual-target: gunakan entries langsung (sekolah + mandiri sekaligus)
