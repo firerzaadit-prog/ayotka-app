@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconCalendar } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
@@ -205,9 +207,10 @@ export default function UjianPage() {
         </form>
       )}
 
-      {assignments === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {assignments === null && <TableSkeleton columns={7} />}
       {assignments?.length === 0 && (
         <EmptyState
+          icon={<IconCalendar />}
           title="Belum ada penugasan ujian"
           description="Buat penugasan pertama untuk mulai memberi ujian ke satu rombel."
           action={<Button onClick={() => setShowForm(true)}>Buat penugasan</Button>}

@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { Alert } from "@/components/ui/alert";
 import { buttonClassName } from "@/components/ui/button";
+import { IconLink } from "@/components/ui/empty-state-icons";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function AdminSekolahDashboardPage() {
       <div className="flex flex-col gap-6">
         <PageHeader title="Dashboard Admin Sekolah" />
         <EmptyState
+          icon={<IconLink />}
           title="Akun belum terhubung ke sekolah"
           description="Hubungi Admin Pusat untuk menghubungkan akun ini ke sebuah sekolah."
         />

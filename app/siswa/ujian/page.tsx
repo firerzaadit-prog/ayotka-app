@@ -6,6 +6,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { buttonClassName } from "@/components/ui/button";
+import { ListSkeleton } from "@/components/ui/skeleton";
+import { IconClipboardCheck } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type AssignmentItem = {
@@ -82,9 +84,9 @@ export default function SiswaUjianPage() {
           description="Daftar ujian yang ditugaskan oleh sekolahmu."
         />
         <div>
-          {assignments === null && <p className="text-sm text-slate-500">Memuat...</p>}
+          {assignments === null && <ListSkeleton items={3} />}
           {assignments?.length === 0 && (
-            <EmptyState title="Tidak ada ujian aktif" description="Belum ada ujian yang ditugaskan sekolahmu saat ini." />
+            <EmptyState icon={<IconClipboardCheck />} title="Tidak ada ujian aktif" description="Belum ada ujian yang ditugaskan sekolahmu saat ini." />
           )}
           {assignments && assignments.length > 0 && (
             <div className="flex flex-col gap-2">
@@ -128,7 +130,7 @@ export default function SiswaUjianPage() {
       />
       <div>
         {packages.length === 0 ? (
-          <EmptyState title="Belum ada paket tersedia" description="Belum ada paket try out yang tersedia untuk tingkatmu saat ini." />
+          <EmptyState icon={<IconClipboardCheck />} title="Belum ada paket tersedia" description="Belum ada paket try out yang tersedia untuk tingkatmu saat ini." />
         ) : (
           <div className="flex flex-col gap-2">
             {packages.map((p) => {

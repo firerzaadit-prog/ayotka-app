@@ -11,6 +11,9 @@ import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { isSchoolActive } from "@/lib/schools/active";
 import { SchoolQuotaPanel } from "@/components/sekolah/school-quota-panel";
+import { PageSkeleton } from "@/components/ui/skeleton";
+import { IconUsers } from "@/components/ui/empty-state-icons";
+import { useDialog } from "@/components/ui/dialog";
 
 type SchoolAdmin = {
   userId: string;
@@ -64,6 +67,7 @@ export default function SekolahDetailPage({
 }) {
   const router = useRouter();
   const { id } = use(params);
+  const { confirm } = useDialog();
   const [school, setSchool] = useState<SchoolDetail | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState("");
@@ -175,13 +179,12 @@ export default function SekolahDetailPage({
 
   async function handleDeleteSchool() {
     if (!school) return;
-    if (
-      !window.confirm(
-        `Hapus sekolah "${school.nama}" secara permanen? Tindakan ini tidak bisa dibatalkan.`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Hapus sekolah "${school.nama}" secara permanen?`,
+      description: "Tindakan ini tidak bisa dibatalkan.",
+      danger: true,
+    });
+    if (!ok) return;
     setDeleteError(null);
     const res = await fetch(`/api/admin-pusat/schools/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
@@ -194,7 +197,7 @@ export default function SekolahDetailPage({
   }
 
   if (!school) {
-    return <p className="text-sm text-slate-500">Memuat...</p>;
+    return <PageSkeleton />;
   }
 
   return (
@@ -352,6 +355,7 @@ export default function SekolahDetailPage({
 
       {school.schoolUsers.length === 0 ? (
         <EmptyState
+          icon={<IconUsers />}
           title="Belum ada admin sekolah"
           description="Buat akun admin sekolah supaya sekolah ini bisa mulai mengelola siswa & soal."
           action={<Button onClick={() => setShowForm(true)}>Tambah admin sekolah</Button>}

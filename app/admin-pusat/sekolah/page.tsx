@@ -9,6 +9,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconSchool } from "@/components/ui/empty-state-icons";
+import { useDialog } from "@/components/ui/dialog";
 
 type SchoolStatus = "pending_verifikasi" | "aktif" | "suspend";
 
@@ -42,6 +45,7 @@ type SchoolFormState = {
 const emptyForm: SchoolFormState = { nama: "", npsn: "", jenjang: "SD", alamat: "" };
 
 export default function SekolahPage() {
+  const { confirm } = useDialog();
   const [schools, setSchools] = useState<SchoolListItem[] | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<SchoolFormState>(emptyForm);
@@ -88,9 +92,12 @@ export default function SekolahPage() {
   }
 
   async function handleDelete(schoolId: string, nama: string) {
-    if (!window.confirm(`Hapus sekolah "${nama}" secara permanen? Tindakan ini tidak bisa dibatalkan.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: `Hapus sekolah "${nama}" secara permanen?`,
+      description: "Tindakan ini tidak bisa dibatalkan.",
+      danger: true,
+    });
+    if (!ok) return;
     setDeleteError(null);
     const res = await fetch(`/api/admin-pusat/schools/${schoolId}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
@@ -179,10 +186,11 @@ export default function SekolahPage() {
         </form>
       )}
 
-      {schools === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {schools === null && <TableSkeleton columns={7} />}
 
       {schools?.length === 0 && (
         <EmptyState
+          icon={<IconSchool />}
           title="Belum ada sekolah"
           description="Tambah sekolah pertama untuk mulai mengelola akun admin sekolah dan siswanya."
           action={<Button onClick={() => setShowForm(true)}>Tambah sekolah</Button>}

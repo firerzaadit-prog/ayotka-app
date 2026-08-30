@@ -7,6 +7,9 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TrendChart } from "@/components/ui/trend-chart";
+import { IconChart } from "@/components/ui/empty-state-icons";
+import { labelPeriodeBulan } from "@/lib/utils/datetime";
 
 type SchoolOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type SubjectOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
@@ -19,15 +22,6 @@ type PerSekolah = {
 };
 type Kompetensi = { kode: string; deskripsi: string; materi: string; jmlBenar: number; jmlSoal: number; persentase: number };
 type Tren = { periode: string; jumlahAttempt: number; rataRata: number };
-
-const BULAN_LABEL: Record<string, string> = {
-  "01": "Jan", "02": "Feb", "03": "Mar", "04": "Apr", "05": "Mei", "06": "Jun",
-  "07": "Jul", "08": "Agu", "09": "Sep", "10": "Okt", "11": "Nov", "12": "Des",
-};
-function labelPeriode(periode: string): string {
-  const [tahun, bulan] = periode.split("-");
-  return `${BULAN_LABEL[bulan!] ?? bulan} ${tahun}`;
-}
 
 const selectClassName =
   "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
@@ -94,8 +88,6 @@ export default function AnalitikGlobalPage() {
       clearTimeout(timeout);
     };
   }, [schoolId, jenjang, subjectId, wilayah]);
-
-  const maxTren = Math.max(1, ...(tren?.map((t) => t.rataRata) ?? [1]));
 
   return (
     <div className="flex flex-col gap-6">
@@ -166,6 +158,7 @@ export default function AnalitikGlobalPage() {
 
       {!error && jumlahAttempt === 0 && perSekolah !== null && (
         <EmptyState
+          icon={<IconChart />}
           title="Belum ada data"
           description="Belum ada ujian yang selesai dikerjakan untuk filter ini."
         />
@@ -237,36 +230,25 @@ export default function AnalitikGlobalPage() {
 
           <div>
             <h2 className="mb-2 text-lg font-semibold text-slate-900">Tren Bulanan</h2>
-            <TableContainer>
-              <Table>
-                <Thead>
-                  <Tr>
-                    <Th>Bulan</Th>
-                    <Th>Jumlah ujian</Th>
-                    <Th>Rata-rata nilai</Th>
-                  </Tr>
-                </Thead>
-                <tbody>
-                  {tren?.map((t) => (
-                    <Tr key={t.periode}>
-                      <Td>{labelPeriode(t.periode)}</Td>
-                      <Td>{t.jumlahAttempt}</Td>
-                      <Td>
-                        <div className="flex items-center gap-2">
-                          <span className="w-10 shrink-0">{t.rataRata.toFixed(1)}</span>
-                          <div className="h-2 flex-1 max-w-xs rounded-full bg-slate-100">
-                            <div
-                              className="h-2 rounded-full bg-indigo-500"
-                              style={{ width: `${(t.rataRata / maxTren) * 100}%` }}
-                            />
-                          </div>
-                        </div>
-                      </Td>
-                    </Tr>
-                  ))}
-                </tbody>
-              </Table>
-            </TableContainer>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
+                <p className="mb-3 text-sm font-medium text-slate-700">Rata-rata nilai</p>
+                <TrendChart
+                  data={(tren ?? []).map((t) => ({ label: labelPeriodeBulan(t.periode), value: t.rataRata }))}
+                  variant="area"
+                  valueFormatter={(v) => v.toFixed(0)}
+                />
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
+                <p className="mb-3 text-sm font-medium text-slate-700">Jumlah ujian</p>
+                <TrendChart
+                  data={(tren ?? []).map((t) => ({ label: labelPeriodeBulan(t.periode), value: t.jumlahAttempt }))}
+                  variant="bar"
+                  color="#0ea5e9"
+                  valueFormatter={(v) => v.toFixed(0)}
+                />
+              </div>
+            </div>
           </div>
         </>
       )}

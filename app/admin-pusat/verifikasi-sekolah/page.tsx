@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
+import { IconCheckCircle } from "@/components/ui/empty-state-icons";
 
 type PendingStudent = { id: string; nama: string; jenjang: "SD" | "SMP"; tingkat: number };
 type PendingSchool = {
@@ -102,6 +103,7 @@ export default function VerifikasiSekolahPage() {
 
       {pending !== null && pending.length === 0 && (
         <EmptyState
+          icon={<IconCheckCircle />}
           title="Tidak ada antrean"
           description="Belum ada sekolah baru yang perlu diverifikasi."
         />

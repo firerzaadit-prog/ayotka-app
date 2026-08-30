@@ -7,6 +7,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconUsers } from "@/components/ui/empty-state-icons";
+import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/dialog";
 
 type ClassRow = {
   id: string;
@@ -23,6 +27,8 @@ const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function KelolaKelasPage() {
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [academicYears, setAcademicYears] = useState<AcademicYearOption[]>([]);
   const [selectedYearId, setSelectedYearId] = useState("");
   const [classes, setClasses] = useState<ClassRow[] | null>(null);
@@ -103,24 +109,23 @@ export default function KelolaKelasPage() {
   }
 
   async function handleDelete(id: string, label: string) {
-    if (!window.confirm(`Hapus rombel "${label}"?`)) return;
+    const ok = await confirm({ title: `Hapus rombel "${label}"?`, danger: true });
+    if (!ok) return;
     const res = await fetch(`/api/admin-sekolah/kelas/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal menghapus rombel.");
+      toast.error(data?.error ?? "Gagal menghapus rombel.");
     }
   }
 
   async function handleNaikKelas() {
-    if (
-      !window.confirm(
-        "Naikkan semua siswa ke tingkat/rombel berikutnya di tahun ajaran aktif? Siswa di tingkat akhir akan ditandai lulus (nonaktif). Riwayat nilai tidak akan hilang.",
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Naikkan semua siswa ke tingkat/rombel berikutnya di tahun ajaran aktif?",
+      description: "Siswa di tingkat akhir akan ditandai lulus (nonaktif). Riwayat nilai tidak akan hilang.",
+    });
+    if (!ok) return;
     setNaikKelasBusy(true);
     setNaikKelasResult(null);
     const res = await fetch("/api/admin-sekolah/kelas/naik-kelas", { method: "POST" });
@@ -231,9 +236,10 @@ export default function KelolaKelasPage() {
         </form>
       )}
 
-      {classes === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {classes === null && <TableSkeleton columns={5} />}
       {classes?.length === 0 && isViewingActiveYear && (
         <EmptyState
+          icon={<IconUsers />}
           title="Belum ada rombel di tahun ajaran ini"
           description='Kalau ini tahun ajaran baru dan siswa sudah ada di tahun sebelumnya, klik "Naik Kelas massal" di atas untuk memindahkan rombel & siswa secara otomatis. Atau tambah rombel baru dari awal.'
           action={<Button onClick={() => setShowForm(true)}>Tambah rombel</Button>}
@@ -241,6 +247,7 @@ export default function KelolaKelasPage() {
       )}
       {classes?.length === 0 && !isViewingActiveYear && (
         <EmptyState
+          icon={<IconUsers />}
           title="Belum ada rombel di tahun ajaran ini"
           description="Sekolah belum punya rombel yang tercatat untuk tahun ajaran ini."
         />

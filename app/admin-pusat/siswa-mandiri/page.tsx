@@ -6,6 +6,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconCheckCircle } from "@/components/ui/empty-state-icons";
+import { useToast } from "@/components/ui/toast";
 
 type PendingStudent = {
   id: string;
@@ -17,6 +20,7 @@ type PendingStudent = {
 };
 
 export default function SiswaMandiriPage() {
+  const toast = useToast();
   const [students, setStudents] = useState<PendingStudent[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -41,7 +45,7 @@ export default function SiswaMandiriPage() {
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal aktivasi.");
+      toast.error(data?.error ?? "Gagal aktivasi.");
     }
   }
 
@@ -52,9 +56,9 @@ export default function SiswaMandiriPage() {
         description="Panel sementara pengganti alur pembayaran (Fase 6 belum dibangun). Verifikasi pembayaran/identitas secara manual di luar sistem sebelum menekan Aktifkan."
       />
 
-      {students === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {students === null && <TableSkeleton columns={5} />}
       {students?.length === 0 && (
-        <EmptyState title="Tidak ada yang menunggu aktivasi" description="Semua siswa mandiri sudah aktif." />
+        <EmptyState icon={<IconCheckCircle />} title="Tidak ada yang menunggu aktivasi" description="Semua siswa mandiri sudah aktif." />
       )}
 
       {students && students.length > 0 && (

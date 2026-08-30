@@ -5,8 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Info = { nama: string; jumlahSoal: number; durasiMenit: number; selesai?: string } | null;
+
+function InstruksiSkeleton() {
+  return (
+    <div className="mx-auto flex max-w-md flex-col gap-4 p-6">
+      <Skeleton className="h-6 w-2/3" />
+      <Skeleton className="h-20" />
+      <Skeleton className="h-10" />
+    </div>
+  );
+}
 
 /** Tiket 4.4 (Bagian 3.2 brief): halaman instruksi - aturan, durasi, jumlah soal, sebelum timer mulai jalan. */
 function InstruksiContent() {
@@ -51,7 +62,7 @@ function InstruksiContent() {
     router.push(`/siswa/attempt/${data.attempt.id}`);
   }
 
-  if (info === undefined) return <p className="p-6 text-sm text-slate-500">Memuat...</p>;
+  if (info === undefined) return <InstruksiSkeleton />;
   if (info === null) {
     return (
       <div className="mx-auto max-w-md p-6">
@@ -94,7 +105,7 @@ function InstruksiContent() {
 
 export default function InstruksiPage() {
   return (
-    <Suspense fallback={<p className="p-6 text-sm text-slate-500">Memuat...</p>}>
+    <Suspense fallback={<InstruksiSkeleton />}>
       <InstruksiContent />
     </Suspense>
   );

@@ -4,6 +4,8 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function KonfirmasiContent() {
   const searchParams = useSearchParams();
@@ -63,9 +65,7 @@ function KonfirmasiContent() {
         </p>
       </div>
 
-      {error && (
-        <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-      )}
+      {error && <Alert variant="danger">{error}</Alert>}
 
       <Button onClick={handleConfirm} disabled={submitting} className="w-full">
         {submitting ? "Memproses..." : isRecovery ? "Lanjutkan" : "Konfirmasi email saya"}
@@ -80,7 +80,17 @@ function KonfirmasiContent() {
 
 export default function KonfirmasiPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-slate-500">Memuat...</p>}>
+    <Suspense
+      fallback={
+        <div className="flex flex-col gap-4 text-center">
+          <div>
+            <Skeleton className="mx-auto h-5 w-48" />
+            <Skeleton className="mx-auto mt-2 h-4 w-64" />
+          </div>
+          <Skeleton className="h-10 w-full" />
+        </div>
+      }
+    >
       <KonfirmasiContent />
     </Suspense>
   );

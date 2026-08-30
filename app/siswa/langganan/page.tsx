@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { PageSkeleton } from "@/components/ui/skeleton";
 import { formatWIBDate } from "@/lib/utils/datetime";
 
 type ServicePackage = {
@@ -140,7 +141,7 @@ export default function LanggananSiswaPage() {
   }
 
   if (!tryOut || !accounts || !tryOutOrders) {
-    return <p className="text-sm text-slate-500">Memuat...</p>;
+    return <PageSkeleton />;
   }
 
   if (tryOut.jalur === "A") {

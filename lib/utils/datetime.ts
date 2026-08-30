@@ -28,6 +28,18 @@ export function periodeBulanWIB(date: Date = new Date()): string {
   return formatInTimeZone(date, WIB_TIMEZONE, "yyyy-MM");
 }
 
+const BULAN_SINGKAT = [
+  "Jan", "Feb", "Mar", "Apr", "Mei", "Jun",
+  "Jul", "Agu", "Sep", "Okt", "Nov", "Des",
+];
+
+/** Ubah periode "yyyy-MM" (lihat periodeBulanWIB) jadi label ringkas mis. "Jan 2027", dipakai di sumbu grafik tren. */
+export function labelPeriodeBulan(periode: string): string {
+  const [tahun, bulan] = periode.split("-");
+  const label = BULAN_SINGKAT[Number(bulan) - 1];
+  return `${label ?? bulan} ${tahun}`;
+}
+
 /**
  * Tiket 6.9: tanggal kalender WIB (bukan selisih jam mentah) - dipakai
  * buat cocokkan "H-7/H-3/H-0" supaya tidak meleset sehari gara-gara jam

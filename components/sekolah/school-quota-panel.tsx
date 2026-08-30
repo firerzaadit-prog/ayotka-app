@@ -6,6 +6,7 @@ import { Input, Label } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { IconClipboardCheck } from "@/components/ui/empty-state-icons";
 
 type Subject = { id: string; nama: string; jenjang: string };
 type Quota = {
@@ -157,6 +158,7 @@ export function SchoolQuotaPanel({ schoolId }: { schoolId: string }) {
 
       {quotas.length === 0 ? (
         <EmptyState
+          icon={<IconClipboardCheck />}
           title="Belum ada kuota"
           description="Tambahkan kuota try out per mata pelajaran agar siswa sekolah ini bisa mengerjakan soal."
           action={<Button onClick={() => setShowForm(true)}>Tambah Kuota</Button>}

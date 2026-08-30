@@ -7,6 +7,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination } from "@/components/ui/pagination";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconUsers, IconSearch } from "@/components/ui/empty-state-icons";
+import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/dialog";
+
+const PAGE_SIZE = 15;
 
 type SchoolOption = { id: string; nama: string };
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
@@ -36,10 +43,14 @@ const SELECT_CLASS =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function SemuaSiswaPage() {
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [students, setStudents] = useState<StudentRow[] | null>(null);
   const [filterSchoolId, setFilterSchoolId] = useState("");
   const [filterJalur, setFilterJalur] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [showForm, setShowForm] = useState(false);
@@ -72,7 +83,10 @@ export default function SemuaSiswaPage() {
       if (filterJalur) params.set("jalur", filterJalur);
       const res = await fetch(`/api/admin-pusat/siswa?${params.toString()}`);
       const data = await res.json();
-      if (!ignore) setStudents(data.students ?? []);
+      if (!ignore) {
+        setStudents(data.students ?? []);
+        setPage(1);
+      }
     })();
     return () => {
       ignore = true;
@@ -133,15 +147,26 @@ export default function SemuaSiswaPage() {
   }
 
   async function handleDelete(id: string, namaSiswa: string) {
-    if (!window.confirm(`Hapus siswa "${namaSiswa}"? Riwayat nilai tetap tersimpan.`)) return;
+    const ok = await confirm({
+      title: `Hapus siswa "${namaSiswa}"?`,
+      description: "Riwayat nilai tetap tersimpan.",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin-sekolah/siswa/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal menghapus siswa.");
+      toast.error(data?.error ?? "Gagal menghapus siswa.");
     }
   }
+
+  const filteredStudents = (students ?? []).filter((s) =>
+    search.trim() ? s.nama.toLowerCase().includes(search.trim().toLowerCase()) : true,
+  );
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE));
+  const pageStudents = filteredStudents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="flex flex-col gap-6">
@@ -184,6 +209,18 @@ export default function SemuaSiswaPage() {
             <option value="A">Jalur A (sekolah)</option>
             <option value="B">Jalur B (mandiri)</option>
           </select>
+        </div>
+        <div className="w-56">
+          <Label htmlFor="searchNama">Cari nama</Label>
+          <Input
+            id="searchNama"
+            placeholder="Ketik nama siswa..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
         </div>
       </div>
 
@@ -260,15 +297,24 @@ export default function SemuaSiswaPage() {
         </form>
       )}
 
-      {students === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {students === null && <TableSkeleton columns={7} />}
       {students?.length === 0 && (
         <EmptyState
+          icon={<IconUsers />}
           title="Belum ada siswa"
           description="Tidak ada siswa yang cocok dengan filter ini."
         />
       )}
+      {students && students.length > 0 && filteredStudents.length === 0 && (
+        <EmptyState
+          icon={<IconSearch />}
+          title="Tidak ditemukan"
+          description={`Tidak ada siswa dengan nama yang cocok dengan "${search}".`}
+        />
+      )}
 
-      {students && students.length > 0 && (
+      {filteredStudents.length > 0 && (
+        <>
         <TableContainer>
           <Table>
             <Thead>
@@ -283,7 +329,7 @@ export default function SemuaSiswaPage() {
               </tr>
             </Thead>
             <tbody>
-              {students.map((s) => (
+              {pageStudents.map((s) => (
                 <Tr key={s.id}>
                   <Td className="font-medium text-slate-900">{s.nama}</Td>
                   <Td>{s.school?.nama ?? "-"}</Td>
@@ -308,6 +354,8 @@ export default function SemuaSiswaPage() {
             </tbody>
           </Table>
         </TableContainer>
+        <Pagination page={page} totalPages={totalPages} totalItems={filteredStudents.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

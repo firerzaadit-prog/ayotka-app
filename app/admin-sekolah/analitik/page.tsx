@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { IconChart } from "@/components/ui/empty-state-icons";
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type SubjectOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
@@ -128,6 +129,7 @@ export default function AnalitikPage() {
 
       {!error && kompetensi !== null && ranking !== null && jumlahAttempt === 0 && (
         <EmptyState
+          icon={<IconChart />}
           title="Belum ada data"
           description="Belum ada ujian yang selesai dikerjakan untuk kelas/mapel yang dipilih."
         />

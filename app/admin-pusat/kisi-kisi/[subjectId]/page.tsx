@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconDocument } from "@/components/ui/empty-state-icons";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type BlueprintListItem = {
@@ -124,10 +126,11 @@ export default function KisiKisiSubjectPage({
         </form>
       )}
 
-      {blueprints === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {blueprints === null && <TableSkeleton columns={4} />}
 
       {blueprints?.length === 0 && (
         <EmptyState
+          icon={<IconDocument />}
           title="Belum ada kisi-kisi"
           description="Buat kisi-kisi pertama, lalu tambahkan target soal per kompetensi."
           action={<Button onClick={() => setShowForm(true)}>Buat kisi-kisi</Button>}

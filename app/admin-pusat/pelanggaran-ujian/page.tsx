@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconCheckCircle } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type AttemptRow = {
@@ -52,9 +54,10 @@ export default function PelanggaranUjianPage() {
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
-      {attempts === null && !error && <p className="text-sm text-slate-500">Memuat...</p>}
+      {attempts === null && !error && <TableSkeleton columns={6} />}
       {attempts?.length === 0 && (
         <EmptyState
+          icon={<IconCheckCircle />}
           title="Belum ada pelanggaran tercatat"
           description="Belum ada siswa yang terdeteksi berpindah tab selama ujian berlangsung."
         />

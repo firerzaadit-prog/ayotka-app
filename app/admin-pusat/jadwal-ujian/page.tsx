@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconCalendar } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
 type AssignmentRow = {
@@ -50,9 +52,10 @@ export default function JadwalUjianPage() {
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
-      {assignments === null && !error && <p className="text-sm text-slate-500">Memuat...</p>}
+      {assignments === null && !error && <TableSkeleton columns={7} />}
       {assignments?.length === 0 && (
         <EmptyState
+          icon={<IconCalendar />}
           title="Belum ada penugasan ujian"
           description="Belum ada sekolah yang membuat penugasan ujian."
         />

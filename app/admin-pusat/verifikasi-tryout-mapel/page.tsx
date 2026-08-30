@@ -2,12 +2,20 @@
 
 import { Fragment, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination } from "@/components/ui/pagination";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconWallet, IconSearch } from "@/components/ui/empty-state-icons";
 import { formatWIBDate } from "@/lib/utils/datetime";
+import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/dialog";
+
+const PAGE_SIZE = 15;
 
 type OrderStatus = "menunggu_verifikasi" | "disetujui" | "ditolak" | "kedaluwarsa";
 type Order = {
@@ -46,8 +54,12 @@ const TABS: { value: OrderStatus | "semua"; label: string }[] = [
 
 /** Bagian 7.3 brief: antrean approval order paket try out per mapel - ACC menambah kuota try out mapel terkait. */
 export default function VerifikasiTryOutMapelPage() {
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [tab, setTab] = useState<OrderStatus | "semua">("menunggu_verifikasi");
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [catatan, setCatatan] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -61,7 +73,10 @@ export default function VerifikasiTryOutMapelPage() {
       const qs = tab === "semua" ? "" : `?status=${tab}`;
       const res = await fetch(`/api/admin-pusat/subject-tryout-orders${qs}`);
       const data = await res.json().catch(() => null);
-      if (!ignore && res.ok) setOrders(data.orders ?? []);
+      if (!ignore && res.ok) {
+        setOrders(data.orders ?? []);
+        setPage(1);
+      }
     })();
     return () => {
       ignore = true;
@@ -72,14 +87,18 @@ export default function VerifikasiTryOutMapelPage() {
     const res = await fetch(`/api/admin-pusat/subject-tryout-orders/${orderId}/bukti-url`);
     const data = await res.json().catch(() => null);
     if (!res.ok) {
-      alert(data?.error ?? "Gagal membuka bukti transfer.");
+      toast.error(data?.error ?? "Gagal membuka bukti transfer.");
       return;
     }
     window.open(data.url, "_blank", "noopener,noreferrer");
   }
 
   async function handleSetujui(orderId: string) {
-    if (!window.confirm("ACC order ini? Kuota try out mata pelajaran siswa akan langsung bertambah.")) return;
+    const ok = await confirm({
+      title: "ACC order ini?",
+      description: "Kuota try out mata pelajaran siswa akan langsung bertambah.",
+    });
+    if (!ok) return;
     setBusyId(orderId);
     setActionError(null);
     const res = await fetch(`/api/admin-pusat/subject-tryout-orders/${orderId}`, {
@@ -124,6 +143,14 @@ export default function VerifikasiTryOutMapelPage() {
     setRefreshKey((k) => k + 1);
   }
 
+  const filteredOrders = (orders ?? []).filter((o) => {
+    if (!search.trim()) return true;
+    const q = search.trim().toLowerCase();
+    return o.user.email.toLowerCase().includes(q) || o.mapel.some((m) => m.toLowerCase().includes(q));
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
+  const pageOrders = filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   return (
     <div className="flex flex-col gap-4">
       <PageHeader
@@ -147,14 +174,31 @@ export default function VerifikasiTryOutMapelPage() {
         ))}
       </div>
 
+      <div className="w-64">
+        <Label htmlFor="searchOrder">Cari email/mapel</Label>
+        <Input
+          id="searchOrder"
+          placeholder="Ketik email siswa atau mapel..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+      </div>
+
       {actionError && <Alert variant="danger">{actionError}</Alert>}
 
-      {orders === null && <p className="text-sm text-slate-500">Memuat...</p>}
+      {orders === null && <TableSkeleton columns={7} />}
       {orders?.length === 0 && (
-        <EmptyState title="Tidak ada order" description="Tidak ada order pada kategori ini." />
+        <EmptyState icon={<IconWallet />} title="Tidak ada order" description="Tidak ada order pada kategori ini." />
+      )}
+      {orders && orders.length > 0 && filteredOrders.length === 0 && (
+        <EmptyState icon={<IconSearch />} title="Tidak ditemukan" description={`Tidak ada order yang cocok dengan "${search}".`} />
       )}
 
-      {orders && orders.length > 0 && (
+      {filteredOrders.length > 0 && (
+        <>
         <TableContainer>
           <Table>
             <Thead>
@@ -169,7 +213,7 @@ export default function VerifikasiTryOutMapelPage() {
               </Tr>
             </Thead>
             <tbody>
-              {orders.map((o) => (
+              {pageOrders.map((o) => (
                 <Fragment key={o.id}>
                   <Tr>
                     <Td>{formatWIBDate(o.createdAt)}</Td>
@@ -245,6 +289,8 @@ export default function VerifikasiTryOutMapelPage() {
             </tbody>
           </Table>
         </TableContainer>
+        <Pagination page={page} totalPages={totalPages} totalItems={filteredOrders.length} onPageChange={setPage} />
+        </>
       )}
     </div>
   );

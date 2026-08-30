@@ -8,6 +8,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { TableSkeleton } from "@/components/ui/skeleton";
+import { IconWallet } from "@/components/ui/empty-state-icons";
+import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/dialog";
 
 type ServicePackage = {
   id: string;
@@ -78,6 +82,8 @@ function SkemaPenawaranTable({ pkg }: { pkg: ServicePackage }) {
  * TryOut/mapel). Siswa mandiri memilih paket saat checkout.
  */
 export default function LanggananSettingsPage() {
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [packages, setPackages] = useState<ServicePackage[] | null>(null);
   const [showPkgForm, setShowPkgForm] = useState(false);
   const [pkgForm, setPkgForm] = useState(emptyPkgForm);
@@ -147,11 +153,16 @@ export default function LanggananSettingsPage() {
   }
 
   async function handleDeletePkg(pkg: ServicePackage) {
-    if (!window.confirm(`Hapus paket "${pkg.nama}"? Paket yang sudah dipakai order tidak bisa dihapus.`)) return;
+    const ok = await confirm({
+      title: `Hapus paket "${pkg.nama}"?`,
+      description: "Paket yang sudah dipakai order tidak bisa dihapus.",
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin-pusat/service-packages/${pkg.id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) setRefreshKey((k) => k + 1);
-    else alert(data?.error ?? "Gagal menghapus paket.");
+    else toast.error(data?.error ?? "Gagal menghapus paket.");
   }
 
   async function handleBankSubmit(e: FormEvent) {
@@ -184,7 +195,11 @@ export default function LanggananSettingsPage() {
   }
 
   async function handleDeleteBank(acc: BankAccount) {
-    if (!window.confirm(`Hapus rekening ${acc.namaBank} - ${acc.nomorRekening}?`)) return;
+    const ok = await confirm({
+      title: `Hapus rekening ${acc.namaBank} - ${acc.nomorRekening}?`,
+      danger: true,
+    });
+    if (!ok) return;
     const res = await fetch(`/api/admin-pusat/bank-accounts/${acc.id}`, { method: "DELETE" });
     if (res.ok) setRefreshKey((k) => k + 1);
   }
@@ -294,9 +309,10 @@ export default function LanggananSettingsPage() {
           </form>
         )}
 
-        {packages === null && <p className="text-sm text-slate-500">Memuat...</p>}
+        {packages === null && <TableSkeleton columns={5} />}
         {packages?.length === 0 && (
           <EmptyState
+            icon={<IconWallet />}
             title="Belum ada paket layanan"
             description="Buat paket dulu supaya siswa mandiri bisa checkout. Contoh: Rp20.000/mapel, 3× Try Out."
             action={<Button onClick={() => setShowPkgForm(true)}>Tambah paket</Button>}
@@ -422,9 +438,10 @@ export default function LanggananSettingsPage() {
           </form>
         )}
 
-        {accounts === null && <p className="text-sm text-slate-500">Memuat...</p>}
+        {accounts === null && <TableSkeleton columns={5} />}
         {accounts?.length === 0 && (
           <EmptyState
+            icon={<IconWallet />}
             title="Belum ada rekening"
             description="Tambah rekening tujuan supaya siswa mandiri bisa transfer pembayaran."
             action={<Button onClick={() => setShowBankForm(true)}>Tambah rekening</Button>}

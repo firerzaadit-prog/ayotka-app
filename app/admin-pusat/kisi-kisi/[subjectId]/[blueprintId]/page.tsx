@@ -5,6 +5,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
+import { Alert } from "@/components/ui/alert";
+import { PageSkeleton } from "@/components/ui/skeleton";
+import { IconDocument } from "@/components/ui/empty-state-icons";
+import { useToast } from "@/components/ui/toast";
+import { useDialog } from "@/components/ui/dialog";
 
 type Materi = { id: string; nama: string; tingkat: number };
 type SubMateri = { id: string; nama: string };
@@ -41,6 +46,8 @@ export default function BlueprintDetailPage({
   params: Promise<{ subjectId: string; blueprintId: string }>;
 }) {
   const { subjectId, blueprintId } = use(params);
+  const toast = useToast();
+  const { confirm } = useDialog();
   const [blueprint, setBlueprint] = useState<BlueprintDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -58,7 +65,8 @@ export default function BlueprintDetailPage({
   }, [blueprintId, refreshKey]);
 
   async function handleDeleteItem(itemId: string, label: string) {
-    if (!window.confirm(`Hapus target "${label}" dari kisi-kisi ini?`)) return;
+    const ok = await confirm({ title: `Hapus target "${label}" dari kisi-kisi ini?`, danger: true });
+    if (!ok) return;
     const res = await fetch(`/api/blueprints/${blueprintId}/items/${itemId}`, {
       method: "DELETE",
     });
@@ -66,11 +74,11 @@ export default function BlueprintDetailPage({
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      alert(data?.error ?? "Gagal menghapus item.");
+      toast.error(data?.error ?? "Gagal menghapus item.");
     }
   }
 
-  if (!blueprint) return <p className="text-sm text-slate-500">Memuat...</p>;
+  if (!blueprint) return <PageSkeleton />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -88,7 +96,7 @@ export default function BlueprintDetailPage({
         </p>
       </div>
 
-      {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <Alert variant="danger">{error}</Alert>}
 
       <AddItemForm
         subjectId={subjectId}
@@ -99,6 +107,7 @@ export default function BlueprintDetailPage({
 
       {blueprint.items.length === 0 ? (
         <EmptyState
+          icon={<IconDocument />}
           title="Belum ada target soal"
           description="Tambah target jumlah soal per kompetensi, tingkat kesulitan, dan format di atas."
         />
@@ -131,7 +140,7 @@ export default function BlueprintDetailPage({
                       onClick={() =>
                         handleDeleteItem(item.id, `${item.kompetensi.kode} · ${item.tingkatKesulitan}`)
                       }
-                      className="text-sm font-medium text-red-600 hover:underline"
+                      className="text-sm font-medium text-rose-600 hover:underline"
                     >
                       Hapus
                     </button>

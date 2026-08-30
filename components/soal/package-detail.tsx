@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { IconDocument } from "@/components/ui/empty-state-icons";
 /** Bersihkan simbol LaTeX untuk preview singkat di tabel */
 function stripLatex(text: string): string {
   return text
@@ -505,6 +506,7 @@ export function PackageDetail({
 
       {pkg.questions.length === 0 ? (
         <EmptyState
+          icon={<IconDocument />}
           title="Belum ada soal"
           description="Tambah soal pertama untuk paket ini."
           action={
