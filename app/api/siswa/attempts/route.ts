@@ -177,7 +177,7 @@ export async function POST(request: Request) {
     if (!isExpired(existing)) {
       return NextResponse.json({ attempt: existing });
     }
-    await prisma.$transaction((tx) => finalizeAttempt(tx, existing.id, "kedaluwarsa"));
+    await finalizeAttempt(null, existing.id, "kedaluwarsa");
   }
 
   const packageId = assignment ? assignment.packageId : packageForMandiri!.id;

@@ -42,7 +42,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   if (isExpired(attempt)) {
-    await prisma.$transaction((tx) => finalizeAttempt(tx, attempt.id, "kedaluwarsa"));
+    await finalizeAttempt(null, attempt.id, "kedaluwarsa");
     return NextResponse.json(
       { error: "Waktu attempt ini sudah habis sebelum sempat dijeda." },
       { status: 409 },

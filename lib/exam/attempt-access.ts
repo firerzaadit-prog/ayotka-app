@@ -20,7 +20,7 @@ export async function loadOwnedAttempt(userId: string, attemptId: string): Promi
   if (!attempt || attempt.studentId !== student.id) return null;
 
   if (attempt.status === "berjalan" && isExpired(attempt)) {
-    await prisma.$transaction((tx) => finalizeAttempt(tx, attempt.id, "kedaluwarsa"));
+    await finalizeAttempt(null, attempt.id, "kedaluwarsa");
     return prisma.attempt.findUnique({ where: { id: attemptId } });
   }
 
