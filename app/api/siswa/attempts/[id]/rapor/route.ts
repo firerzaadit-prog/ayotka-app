@@ -25,14 +25,53 @@ async function loadAttemptForRapor(user: CurrentUser, attemptId: string): Promis
   return attempt;
 }
 
-/**
- * Tiket 5.8: export PDF rapor - bisa diakses siswa (rapornya sendiri),
- * admin sekolah (siswa di sekolahnya sendiri saja), dan admin pusat
- * (lintas sekolah - sama seperti akses admin pusat di endpoint analisis
- * AI & jadwal ujian). Datanya dipetik dari buildHasil() yang sama dengan
- * halaman hasil di layar, supaya angkanya selalu konsisten dengan yang
- * tampil di layar (bukan dihitung ulang terpisah).
- */
+async function renderTextWithImages(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  options: { width: number; align?: "center" | "justify" | "left" | "right"; continued?: boolean }
+) {
+  const regex = /!\[.*?\]\((.*?)\)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    const preText = text.substring(lastIndex, match.index);
+    if (preText.trim()) {
+      doc.text(latexToPlainText(preText), options);
+      doc.moveDown(0.5);
+    }
+
+    const url = match[1] as string;
+    try {
+      const res = await fetch(url);
+      if (res.ok) {
+        const arrayBuffer = await res.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        // Ensure image doesn't overflow page bottom
+        // pdfkit will automatically page wrap text, but for images it might be tricky.
+        // Usually doc.image handles basic wrap if we just provide fit.
+        doc.image(buffer, { fit: [options.width, 250], align: "center" });
+        doc.moveDown(0.5);
+      } else {
+        doc.fillColor("#ef4444").text(`[Gambar gagal dimuat]`, options);
+        doc.moveDown(0.5);
+      }
+    } catch (err) {
+      doc.fillColor("#ef4444").text(`[Gambar gagal dimuat]`, options);
+      doc.moveDown(0.5);
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  const postText = text.substring(lastIndex);
+  if (postText.trim()) {
+    doc.text(latexToPlainText(postText), options);
+    doc.moveDown(0.5);
+  }
+}
+
 export async function GET(_request: Request, { params }: RouteParams) {
   let user;
   try {
@@ -52,6 +91,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const hasil = await buildHasil(attempt);
 
+  // Ambil AI Analysis jika ada
+  const aiAnalysis = await prisma.aiAnalysis.findUnique({
+    where: { attemptId: attempt.id },
+  });
+
   const doc = new PDFDocument({ size: "A4", margin: 48 });
   const chunks: Buffer[] = [];
   doc.on("data", (chunk: Buffer) => chunks.push(chunk));
@@ -59,76 +103,146 @@ export async function GET(_request: Request, { params }: RouteParams) {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
   });
 
-  doc.fontSize(18).fillColor("#0f172a").text("Rapor Hasil Ujian - AyoTKA");
-  doc.moveDown(0.3);
-  doc.fontSize(11).fillColor("#475569").text(hasil.package.nama);
-  doc
-    .fontSize(9)
-    .fillColor("#94a3b8")
-    .text(`${hasil.siswa.nama} · ${hasil.siswa.idSamar}`);
-  doc.moveDown(1);
+  const contentWidth = doc.page.width - 96;
 
-  doc.fontSize(11).fillColor("#0f172a").text(`Nilai akhir: ${hasil.attempt.skorAkhir?.toFixed(0) ?? "-"}`);
-  doc.moveDown(1);
+  // --- HEADER ---
+  doc.rect(0, 0, doc.page.width, 120).fill("#1e293b"); // Dark blue background
+  doc.fillColor("#ffffff").fontSize(24).text("Rapor Hasil Ujian", 48, 48);
+  doc.fontSize(12).fillColor("#94a3b8").text("AyoTKA", 48, 80);
+  
+  // Tulis detail di sisi kanan atas
+  doc.fontSize(10).fillColor("#cbd5e1").text(hasil.package.nama, 48, 48, { align: "right", width: contentWidth });
+  doc.fillColor("#94a3b8").text(`${hasil.siswa.nama} · ${hasil.siswa.idSamar}`, { align: "right", width: contentWidth });
+  doc.fillColor("#94a3b8").text(`Skor Akhir: ${hasil.attempt.skorAkhir?.toFixed(1) ?? "-"}`, { align: "right", width: contentWidth });
+  
+  doc.y = 150; // Set starting Y after header
 
+  // --- PETA KOMPETENSI ---
   if (hasil.competencyScores.length > 0) {
-    doc.fontSize(13).fillColor("#0f172a").text("Peta Kompetensi");
-    doc.moveDown(0.3);
+    doc.fontSize(14).fillColor("#0f172a").text("Peta Kompetensi", 48, doc.y);
+    doc.moveDown(0.5);
+    
     for (const c of hasil.competencyScores) {
-      doc
-        .fontSize(9)
-        .fillColor("#475569")
-        .text(`${c.kode}  ${c.deskripsi} — ${c.jmlBenar}/${c.jmlSoal} (${c.persentase.toFixed(0)}%)`);
+      doc.rect(48, doc.y, contentWidth, 30).fill("#f8fafc").stroke("#e2e8f0");
+      doc.fillColor("#334155").fontSize(10).text(`${c.kode}: ${c.deskripsi}`, 58, doc.y + 10, { width: contentWidth - 100, continued: true });
+      doc.fillColor(c.persentase >= 70 ? "#15803d" : "#b91c1c").text(`  ${c.jmlBenar}/${c.jmlSoal} (${c.persentase.toFixed(0)}%)`, { align: "right" });
+      doc.y += 25;
     }
+    doc.moveDown(2);
+  }
+
+  // --- ANALISIS AI ---
+  if (aiAnalysis) {
+    const analysis = aiAnalysis.detailJson as any;
+    
+    // Pastikan AI Analysis tidak terpotong di tengah halaman
+    if (doc.y > doc.page.height - 200) doc.addPage();
+    
+    doc.fontSize(14).fillColor("#0f172a").text("Analisis AI", 48, doc.y);
+    doc.moveDown(0.5);
+    
+    doc.rect(48, doc.y, contentWidth, 5).fill("#6366f1");
+    doc.y += 15;
+
+    doc.fontSize(10).fillColor("#334155").text(analysis.ringkasan, { width: contentWidth, align: "justify" });
+    doc.moveDown(1);
+
+    doc.fontSize(11).fillColor("#1e293b").text("Pola Kesalahan:");
+    doc.fontSize(10).fillColor("#475569").text(analysis.polaKesalahan, { width: contentWidth, align: "justify" });
+    doc.moveDown(1);
+
+    doc.fontSize(11).fillColor("#1e293b").text("Rekomendasi Belajar:");
+    doc.moveDown(0.3);
+    for (const rec of analysis.rekomendasi || []) {
+      doc.fontSize(10).fillColor("#475569").text(`• ${rec}`, { width: contentWidth, align: "justify" });
+    }
+    
+    doc.moveDown(0.5);
+    doc.fontSize(8).fillColor("#94a3b8").text("Analisis ini dibuat otomatis oleh AI sebagai alat bantu belajar, bukan penilaian final.", { align: "center", width: contentWidth });
+    doc.moveDown(2);
+  }
+
+  // --- RINCIAN JAWABAN ---
+  doc.addPage();
+  doc.fontSize(14).fillColor("#0f172a").text("Rincian Jawaban", 48, 48);
+  doc.moveDown(0.5);
+
+  if (!hasil.canShowPembahasan) {
+    doc.fontSize(10).fillColor("#b45309").text("Pembahasan lengkap akan tersedia setelah jendela ujian kelas ditutup.");
     doc.moveDown(1);
   }
 
-  doc.fontSize(13).fillColor("#0f172a").text("Rincian Jawaban");
-  doc.moveDown(0.3);
-  if (!hasil.canShowPembahasan) {
-    doc
-      .fontSize(9)
-      .fillColor("#b45309")
-      .text("Pembahasan lengkap akan tersedia setelah jendela ujian kelas ditutup.");
-    doc.moveDown(0.5);
-  }
-
-  hasil.perSoal.forEach((s, i) => {
-    if (doc.y > doc.page.height - 100) doc.addPage();
+  for (let i = 0; i < hasil.perSoal.length; i++) {
+    const s = hasil.perSoal[i]!;
     const benar = (s.skor ?? 0) >= s.skorMaks;
-    doc
-      .fontSize(10)
-      .fillColor("#0f172a")
-      .text(`${i + 1}. ${latexToPlainText(s.teks)}`, { width: doc.page.width - 96 });
-    doc
-      .fontSize(9)
-      .fillColor(benar ? "#15803d" : "#b91c1c")
-      .text(benar ? "Benar" : "Salah");
+    
+    if (doc.y > doc.page.height - 150) doc.addPage();
+    
+    const startY = doc.y;
+    
+    // Nomor Soal dan Status
+    doc.fontSize(11).fillColor("#1e293b").text(`Soal ${i + 1}`, 48, doc.y, { continued: true });
+    doc.fillColor(benar ? "#15803d" : "#b91c1c").text(`   [${benar ? "Benar" : "Salah"}]`);
+    doc.moveDown(0.5);
+
+    // Teks Soal & Gambar
+    doc.fontSize(10).fillColor("#334155");
+    await renderTextWithImages(doc, s.teks, { width: contentWidth });
+    doc.moveDown(0.5);
+
     if (hasil.canShowPembahasan) {
+      // Jawaban Siswa
       if (s.options) {
-        const kunci = s.options.find((o) => o.isCorrect);
-        if (kunci) {
-          doc
-            .fontSize(9)
-            .fillColor("#475569")
-            .text(`Kunci: ${kunci.label}. ${latexToPlainText(kunci.teks)}`, { width: doc.page.width - 96 });
+        const studentChoices = (s.jawabanJson as string[]) || [];
+        const chosenOptions = s.options.filter(o => studentChoices.includes(o.id));
+        const kunciOptions = s.options.filter(o => o.isCorrect);
+        
+        doc.fontSize(10).fillColor("#0f172a").text("Jawaban Siswa:");
+        if (chosenOptions.length > 0) {
+          for (const opt of chosenOptions) {
+            doc.fillColor(opt.isCorrect ? "#15803d" : "#b91c1c");
+            await renderTextWithImages(doc, `${opt.label}. ${opt.teks}`, { width: contentWidth });
+          }
+        } else {
+          doc.fillColor("#94a3b8").text("Kosong / Tidak dijawab");
+        }
+        
+        doc.moveDown(0.5);
+        
+        // Kunci
+        doc.fontSize(10).fillColor("#0f172a").text("Kunci Jawaban:");
+        doc.fillColor("#15803d");
+        for (const opt of kunciOptions) {
+          await renderTextWithImages(doc, `${opt.label}. ${opt.teks}`, { width: contentWidth });
         }
       }
+      
       if (s.statements) {
-        const rangkuman = s.statements
-          .map((st) => `${latexToPlainText(st.teks)} = ${st.correctLabel}`)
-          .join("; ");
-        doc.fontSize(9).fillColor("#475569").text(`Kunci: ${rangkuman}`, { width: doc.page.width - 96 });
+        // True/False or Matrix
+        const studentChoices = (s.jawabanJson as Record<string, string>) || {};
+        
+        doc.fontSize(10).fillColor("#0f172a").text("Kunci & Jawaban Siswa:");
+        for (const st of s.statements) {
+          const sAns = studentChoices[st.id] || "Kosong";
+          const isCorrect = sAns === st.correctLabel;
+          
+          doc.fillColor("#334155").text(`- ${latexToPlainText(st.teks)}`, { width: contentWidth });
+          doc.fillColor(isCorrect ? "#15803d" : "#b91c1c").text(`  Siswa: ${sAns} (Kunci: ${st.correctLabel})`, { width: contentWidth });
+        }
       }
+
       if (s.pembahasan) {
-        doc
-          .fontSize(9)
-          .fillColor("#64748b")
-          .text(`Pembahasan: ${latexToPlainText(s.pembahasan)}`, { width: doc.page.width - 96 });
+        doc.moveDown(0.5);
+        doc.fontSize(10).fillColor("#0f172a").text("Pembahasan:");
+        doc.fillColor("#475569");
+        await renderTextWithImages(doc, s.pembahasan, { width: contentWidth });
       }
     }
-    doc.moveDown(0.6);
-  });
+    
+    doc.moveDown(1);
+    doc.rect(48, doc.y, contentWidth, 1).fill("#e2e8f0");
+    doc.moveDown(1);
+  }
 
   doc.end();
   const pdfBuffer = await donePromise;

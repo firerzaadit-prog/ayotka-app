@@ -24,6 +24,8 @@ function latexInnerToText(latex: string): string {
     // di luar itu (mis. √, ≤, ≥, ✓) tampil sebagai karakter acak kalau
     // dipaksakan, jadi diganti padanan ASCII yang aman.
     .replace(/\\text\{([^}]*)\}/g, "$1")
+    .replace(/\\textbf\{([^}]*)\}/g, "$1")
+    .replace(/\\textit\{([^}]*)\}/g, "$1")
     .replace(/\\frac\{([^}]*)\}\{([^}]*)\}/g, "($1)/($2)")
     .replace(/\\sqrt\{([^}]*)\}/g, "sqrt($1)")
     .replace(/\\div/g, "÷")
@@ -35,7 +37,13 @@ function latexInnerToText(latex: string): string {
     .replace(/\\neq/g, "!=")
     .replace(/\\approx/g, "~=")
     .replace(/\\checkmark/g, "(v)")
+    .replace(/\\pi/g, "pi")
+    .replace(/\\alpha/g, "alpha")
+    .replace(/\\beta/g, "beta")
+    .replace(/\\theta/g, "theta")
+    .replace(/\^\{([0-9a-zA-Z])\}/g, "^$1") // remove parens for single char, e.g. x^{2} -> x^2
     .replace(/\^\{([^}]*)\}/g, "^($1)")
+    .replace(/_\{([0-9a-zA-Z])\}/g, "_$1") // remove parens for single char, e.g. L_{1} -> L_1
     .replace(/_\{([^}]*)\}/g, "_($1)")
     // jaring pengaman: perintah LaTeX lain yang belum ditangani eksplisit
     // di atas dibuang saja (lebih baik hilang daripada bocor sebagai
