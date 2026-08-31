@@ -30,10 +30,7 @@ export default function RootLayout({
   return (
     <html lang="id" className={`${poppins.variable} ${plexMono.variable}`}>
       <body>
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', fontFamily: 'var(--font-poppins), sans-serif', textAlign: 'center', padding: '20px' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 600, marginBottom: '1rem' }}>Website Sedang Dimatikan Sementara</h1>
-          <p style={{ color: '#666' }}>Kami sedang melakukan perbaikan atau pembaruan sistem. Silakan kembali lagi nanti.</p>
-        </div>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
