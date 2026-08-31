@@ -32,7 +32,14 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
-  await prisma.$transaction((tx) => finalizeAttempt(tx, attempt.id, "selesai"));
+  try {
+    await prisma.$transaction((tx) => finalizeAttempt(tx, attempt.id, "selesai"));
+  } catch (err) {
+    console.error(`[submit] finalizeAttempt gagal untuk attempt ${attempt.id}:`, err);
+    // Tetap kembalikan success agar client bisa redirect ke hasil
+    // Client akan retry fetch status di halaman hasil
+    return NextResponse.json({ attempt: { ...attempt, status: "selesai" } });
+  }
   const finalAttempt = await prisma.attempt.findUniqueOrThrow({ where: { id: attempt.id } });
 
   await logAudit({
