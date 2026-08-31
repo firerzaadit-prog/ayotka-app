@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -331,7 +333,11 @@ export default function SemuaSiswaPage() {
             <tbody>
               {pageStudents.map((s) => (
                 <Tr key={s.id}>
-                  <Td className="font-medium text-slate-900">{s.nama}</Td>
+                  <Td className="font-medium">
+                    <Link href={`/admin-pusat/siswa/${s.id}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
+                      {s.nama}
+                    </Link>
+                  </Td>
                   <Td>{s.school?.nama ?? "-"}</Td>
                   <Td>{JALUR_LABEL[s.jalur]}</Td>
                   <Td>
