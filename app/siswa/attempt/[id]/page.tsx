@@ -95,7 +95,16 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
       for (const a of data.answers) {
         if (a.jawabanJson) map[a.questionId] = { jawabanJson: a.jawabanJson, ragu: a.ragu };
       }
-      setAnswers(map);
+      // Resync berkala (tiap 20 detik) bisa saja menyalip debounce auto-save yang
+      // masih berjalan (600ms) - kalau data server ini dipakai mentah-mentah,
+      // jawaban yang baru saja dipilih tapi belum sempat terkirim bisa "hilang"
+      // sesaat dari layar. Pertahankan nilai lokal untuk soal yang masih pending.
+      setAnswers((prev) => {
+        for (const qid of pendingSaves.current.keys()) {
+          if (prev[qid]) map[qid] = prev[qid];
+        }
+        return map;
+      });
     }
     return data.attempt as AttemptState;
   }, [id, tabToken]);
@@ -210,13 +219,20 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     const interval = setInterval(async () => {
       // Jangan resync jika sudah dalam proses submit
       if (hasSubmitted.current) return;
+      // Jaring pengaman: kalau ada auto-save yang sempat gagal (jaringan/429/500)
+      // dan tidak pernah dicoba lagi karena soal itu tidak disentuh lagi, coba
+      // kirim ulang di sini - jangan tunggu sampai submit di ujian yang panjang.
+      // Ditunggu (bukan fire-and-forget) supaya loadAttempt() di bawah membaca
+      // data server yang sudah termasuk hasil flush ini, bukan data basi yang
+      // bisa menimpa balik jawaban yang baru saja berhasil dikirim.
+      await flushPendingSaves();
       const a = await loadAttempt();
       if (a && (a.status === "selesai" || a.status === "kedaluwarsa")) {
         if (!hasSubmitted.current) router.replace(`/siswa/hasil/${id}`);
       }
     }, RESYNC_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [attempt, id, loadAttempt, router]);
+  }, [attempt, id, loadAttempt, router, flushPendingSaves]);
 
   // Blok copy/paste & klik kanan
   useEffect(() => {
@@ -275,10 +291,21 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
           void saveLocalAnswer(id, questionId, latest.jawabanJson, latest.ragu, true);
         } else {
           const data = await res.json().catch(() => null);
-          if (data?.error === "SESI_DIAMBIL_ALIH") setSessionTakenOver(true);
+          if (data?.error === "SESI_DIAMBIL_ALIH") {
+            setSessionTakenOver(true);
+          } else if (!pendingSaves.current.has(questionId)) {
+            // Gagal (mis. 429/500 sesaat) & belum ada jawaban lebih baru menunggu -
+            // taruh lagi ke pending supaya ikut ter-flush di resync berkala atau saat submit,
+            // bukan hilang diam-diam.
+            pendingSaves.current.set(questionId, latest);
+          }
         }
       } catch {
-        // Gagal (offline) - jawaban tetap aman di IndexedDB
+        // Gagal jaringan (offline) - jawaban tetap aman di IndexedDB. Antre lagi
+        // ke pending (kalau belum ada yang lebih baru) supaya ter-flush nanti.
+        if (!pendingSaves.current.has(questionId)) {
+          pendingSaves.current.set(questionId, latest);
+        }
       }
     }, SAVE_DEBOUNCE_MS);
     saveTimers.current.set(questionId, timer);
