@@ -19,7 +19,7 @@ const plexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_APP_NAME ?? "AyoTKA",
-  description: "Tes Kemampuan Akademik untuk siswa SD & SMP.",
+  description: "Platform Tes Kemampuan Akademik (TKA) unggulan untuk siswa SD dan SMP. Dapatkan evaluasi komprehensif, pembahasan soal berbasis AI, dan pemetaan kompetensi akurat untuk meraih hasil belajar terbaik.",
 };
 
 export default function RootLayout({
