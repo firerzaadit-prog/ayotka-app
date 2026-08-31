@@ -76,56 +76,58 @@ export default async function LandingPage() {
 
   return (
     <main className="min-h-screen bg-white">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <span className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900">
-          <div className="relative h-10 w-10 shrink-0">
-            <Image
-              src="/logo.png"
-              alt="AyoTKA Logo"
-              fill
-              className="object-contain"
-            />
-          </div>
-          AyoTKA
-        </span>
-        <nav className="flex items-center gap-6">
-          <Link
-            href="/"
-            className="hidden text-sm font-medium text-slate-900 sm:inline"
-          >
-            Beranda
-          </Link>
-          <Link
-            href="/kerangka-asesmen"
-            className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
-          >
-            Kerangka Asesmen
-          </Link>
-          <Link
-            href="/registrasi"
-            className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
-          >
-            Daftar
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500"
-          >
-            Masuk
-          </Link>
-        </nav>
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
+          <span className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900">
+            <div className="relative h-10 w-10 shrink-0">
+              <Image
+                src="/logo.png"
+                alt="AyoTKA Logo"
+                fill
+                className="object-contain"
+              />
+            </div>
+            AyoTKA
+          </span>
+          <nav className="flex items-center gap-6">
+            <Link
+              href="/"
+              className="hidden text-sm font-medium text-slate-900 sm:inline"
+            >
+              Beranda
+            </Link>
+            <Link
+              href="/kerangka-asesmen"
+              className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
+            >
+              Kerangka Asesmen
+            </Link>
+            <Link
+              href="/registrasi"
+              className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
+            >
+              Daftar
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500"
+            >
+              Masuk
+            </Link>
+          </nav>
+        </div>
       </header>
 
       <section className="relative overflow-hidden">
         <div
-          className="pointer-events-none absolute inset-0"
+          className="pointer-events-none absolute inset-0 opacity-70"
           style={{
             backgroundImage: "url('/hero-bg.png')",
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
         />
-        <div className="pointer-events-none absolute inset-0 bg-white/80 backdrop-blur-sm" />
+        <div className="pointer-events-none absolute inset-0 bg-white/70 backdrop-blur-sm" />
         <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-6 px-6 py-20 text-center sm:py-28">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">
             Tes Kemampuan Akademik
