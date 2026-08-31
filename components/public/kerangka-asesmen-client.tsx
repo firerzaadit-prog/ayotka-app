@@ -35,42 +35,44 @@ export function KerangkaAsesmenClient() {
 
   return (
     <main className="min-h-screen bg-white">
-      <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
-        <Link
-          href="/"
-          className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900"
-        >
-          <div className="relative h-10 w-10 shrink-0">
-            <Image src="/logo.png" alt="AyoTKA Logo" fill className="object-contain" />
-          </div>
-          AyoTKA
-        </Link>
-        <nav className="flex items-center gap-6">
+      <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
           <Link
             href="/"
-            className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
+            className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900"
           >
-            Beranda
+            <div className="relative h-10 w-10 shrink-0">
+              <Image src="/logo.png" alt="AyoTKA Logo" fill className="object-contain" />
+            </div>
+            AyoTKA
           </Link>
-          <Link
-            href="/kerangka-asesmen"
-            className="hidden text-sm font-medium text-slate-900 sm:inline"
-          >
-            Kerangka Asesmen
-          </Link>
-          <Link
-            href="/registrasi"
-            className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
-          >
-            Daftar
-          </Link>
-          <Link
-            href="/login"
-            className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500"
-          >
-            Masuk
-          </Link>
-        </nav>
+          <nav className="flex items-center gap-6">
+            <Link
+              href="/"
+              className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
+            >
+              Beranda
+            </Link>
+            <Link
+              href="/kerangka-asesmen"
+              className="hidden text-sm font-medium text-slate-900 sm:inline"
+            >
+              Kerangka Asesmen
+            </Link>
+            <Link
+              href="/registrasi"
+              className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
+            >
+              Daftar
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500"
+            >
+              Masuk
+            </Link>
+          </nav>
+        </div>
       </header>
 
       <section className="mx-auto max-w-3xl px-6 pb-2 pt-6 text-center">
