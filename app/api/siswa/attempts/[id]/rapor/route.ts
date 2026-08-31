@@ -27,9 +27,10 @@ async function loadAttemptForRapor(user: CurrentUser, attemptId: string): Promis
 
 async function renderTextWithImages(
   doc: PDFKit.PDFDocument,
-  text: string,
+  text: string | null | undefined,
   options: { width: number; align?: "center" | "justify" | "left" | "right"; continued?: boolean }
 ) {
+  if (!text) return;
   const regex = /!\[.*?\]\((.*?)\)/g;
   let lastIndex = 0;
   let match;
@@ -144,11 +145,11 @@ export async function GET(_request: Request, { params }: RouteParams) {
     doc.rect(48, doc.y, contentWidth, 5).fill("#6366f1");
     doc.y += 15;
 
-    doc.fontSize(10).fillColor("#334155").text(analysis.ringkasan, { width: contentWidth, align: "justify" });
+    doc.fontSize(10).fillColor("#334155").text(analysis.ringkasan || "-", { width: contentWidth, align: "justify" });
     doc.moveDown(1);
 
     doc.fontSize(11).fillColor("#1e293b").text("Pola Kesalahan:");
-    doc.fontSize(10).fillColor("#475569").text(analysis.polaKesalahan, { width: contentWidth, align: "justify" });
+    doc.fontSize(10).fillColor("#475569").text(analysis.polaKesalahan || "-", { width: contentWidth, align: "justify" });
     doc.moveDown(1);
 
     doc.fontSize(11).fillColor("#1e293b").text("Rekomendasi Belajar:");
@@ -193,7 +194,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     if (hasil.canShowPembahasan) {
       // Jawaban Siswa
       if (s.options) {
-        const studentChoices = (s.jawabanJson as string[]) || [];
+        const studentChoices = Array.isArray(s.jawabanJson) ? s.jawabanJson : [];
         const chosenOptions = s.options.filter(o => studentChoices.includes(o.id));
         const kunciOptions = s.options.filter(o => o.isCorrect);
         
@@ -219,7 +220,9 @@ export async function GET(_request: Request, { params }: RouteParams) {
       
       if (s.statements) {
         // True/False or Matrix
-        const studentChoices = (s.jawabanJson as Record<string, string>) || {};
+        const studentChoices = (typeof s.jawabanJson === "object" && s.jawabanJson !== null && !Array.isArray(s.jawabanJson))
+          ? (s.jawabanJson as Record<string, string>)
+          : {};
         
         doc.fontSize(10).fillColor("#0f172a").text("Kunci & Jawaban Siswa:");
         for (const st of s.statements) {
