@@ -6,7 +6,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
-import { IconArrowLeft } from "@tabler/icons-react";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
@@ -43,7 +42,7 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
           href="/admin-pusat/siswa"
           className="mb-4 inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900"
         >
-          <IconArrowLeft className="h-4 w-4" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           Kembali ke Daftar Siswa
         </Link>
         <PageHeader
@@ -67,7 +66,7 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
                       variant={
                         a.status === "selesai" ? "success" :
                         a.status === "berjalan" ? "warning" :
-                        "default"
+                        "neutral"
                       }
                     >
                       {a.status}
