@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Footer } from "@/components/public/footer";
 import {
   KERANGKA_ASESMEN,
   SUMBER_URL,
@@ -305,9 +307,7 @@ export function KerangkaAsesmenClient() {
         </p>
       </section>
 
-      <footer className="border-t border-slate-100 px-6 py-8 text-center text-sm text-slate-400">
-        &copy; {new Date().getFullYear()} AyoTKA — Tes Kemampuan Akademik
-      </footer>
+      <Footer />
     </main>
   );
 }

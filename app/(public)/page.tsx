@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { Footer } from "@/components/public/footer";
 import { prisma } from "@/lib/db/prisma";
 
 export const dynamic = "force-dynamic";
@@ -225,9 +226,8 @@ export default async function LandingPage() {
         </section>
       )}
 
-      <footer className="border-t border-slate-100 px-6 py-8 text-center text-sm text-slate-400">
-        &copy; {new Date().getFullYear()} AyoTKA — Tes Kemampuan Akademik
-      </footer>
+
+      <Footer />
     </main>
   );
 }
