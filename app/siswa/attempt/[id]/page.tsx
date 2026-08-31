@@ -22,7 +22,7 @@ type AttemptState = {
 type AnswerEntry = { jawabanJson: ExamJawaban; ragu: boolean };
 
 const RESYNC_INTERVAL_MS = 20_000;
-const SAVE_DEBOUNCE_MS = 800;
+const SAVE_DEBOUNCE_MS = 600;
 
 function formatSisaWaktu(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
@@ -46,8 +46,14 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   const [sessionTakenOver, setSessionTakenOver] = useState(false);
   const [tabSwitchCount, setTabSwitchCount] = useState(0);
 
+  // Ref untuk membaca jawaban terbaru di dalam async callback tanpa stale closure
+  const answersRef = useRef<Record<string, AnswerEntry>>({});
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  // Pending saves: menyimpan payload terbaru per questionId yang belum dikirim ke server
+  const pendingSaves = useRef<Map<string, { jawabanJson: ExamJawaban; ragu: boolean }>>(new Map());
   const hasSubmitted = useRef(false);
+  const questionsRef = useRef<ExamQuestion[]>([]);
+
   const [tabToken] = useState(() => {
     const generate = () =>
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -63,6 +69,10 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     window.sessionStorage.setItem(storageKey, token);
     return token;
   });
+
+  // Sync refs dengan state terbaru
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { questionsRef.current = questions; }, [questions]);
 
   const loadAttempt = useCallback(async () => {
     const res = await fetch(`/api/siswa/attempts/${id}?tabToken=${tabToken}`);
@@ -102,7 +112,6 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   }, [id, loadAttempt, router]);
 
   // Pulihkan jawaban dari IndexedDB kalau ada yang belum sempat tersimpan ke server
-  // (mis. tab ditutup paksa saat offline lalu dibuka lagi - Tiket 4.8).
   useEffect(() => {
     (async () => {
       const local = await getLocalAnswers(id);
@@ -122,14 +131,40 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     })();
   }, [id]);
 
+  /**
+   * Flush semua pending saves ke server sebelum submit.
+   * Ini memastikan jawaban terakhir yang belum sempat terkirim
+   * (masih dalam debounce window) tetap tersimpan.
+   */
+  const flushPendingSaves = useCallback(async () => {
+    // Batalkan semua debounce timer yang masih antri
+    for (const timer of saveTimers.current.values()) clearTimeout(timer);
+    saveTimers.current.clear();
+
+    // Kirim semua pending jawaban langsung (tanpa debounce) secara paralel
+    const pending = Array.from(pendingSaves.current.entries());
+    pendingSaves.current.clear();
+    if (pending.length === 0) return;
+
+    await Promise.allSettled(
+      pending.map(([questionId, { jawabanJson, ragu }]) =>
+        fetch(`/api/siswa/attempts/${id}/jawaban`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ questionId, jawabanJson, ragu, tabToken }),
+        })
+      )
+    );
+  }, [id, tabToken]);
+
   const handleSubmit = useCallback(
     async (auto: boolean) => {
       if (hasSubmitted.current) return;
       if (!auto) {
-        const terjawab = questions.filter(
-          (q) => !isJawabanKosong(answers[q.id]?.jawabanJson),
+        const terjawab = questionsRef.current.filter(
+          (q) => !isJawabanKosong(answersRef.current[q.id]?.jawabanJson),
         ).length;
-        const unanswered = questions.length - terjawab;
+        const unanswered = questionsRef.current.length - terjawab;
         const msg =
           unanswered > 0
             ? `Masih ada ${unanswered} soal belum dijawab, yakin ingin submit?`
@@ -138,10 +173,19 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
       }
       hasSubmitted.current = true;
       setSubmitting(true);
-      await fetch(`/api/siswa/attempts/${id}/submit`, { method: "POST" });
-      router.replace(`/siswa/hasil/${id}`);
+
+      // Pastikan semua jawaban terakhir sudah terkirim ke server sebelum submit
+      await flushPendingSaves();
+
+      const res = await fetch(`/api/siswa/attempts/${id}/submit`, { method: "POST" });
+      if (res.ok) {
+        router.replace(`/siswa/hasil/${id}`);
+      } else {
+        // Jika submit gagal (misal sudah selesai dari sisi lain), tetap redirect ke hasil
+        router.replace(`/siswa/hasil/${id}`);
+      }
     },
-    [id, questions, answers, router],
+    [id, router, flushPendingSaves],
   );
 
   // Timer lokal (server tetap sumber kebenaran - resync berkala di bawah).
@@ -160,23 +204,21 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     return () => clearInterval(interval);
   }, [attempt, handleSubmit]);
 
-  // Resync berkala ke server - meluruskan drift timer & mendeteksi pause/resume
-  // oleh admin (Tiket 4.9). Tetap jalan selama "paused" juga (bukan cuma
-  // "berjalan") - sesi yang dijeda justru butuh polling ini untuk tahu kapan
-  // admin membuka kembali, kalau tidak halaman paused ini tidak akan pernah
-  // tahu sesinya sudah lanjut.
+  // Resync berkala ke server
   useEffect(() => {
     if (!attempt || attempt.status === "selesai" || attempt.status === "kedaluwarsa") return;
     const interval = setInterval(async () => {
+      // Jangan resync jika sudah dalam proses submit
+      if (hasSubmitted.current) return;
       const a = await loadAttempt();
       if (a && (a.status === "selesai" || a.status === "kedaluwarsa")) {
-        router.replace(`/siswa/hasil/${id}`);
+        if (!hasSubmitted.current) router.replace(`/siswa/hasil/${id}`);
       }
     }, RESYNC_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [attempt, id, loadAttempt, router]);
 
-  // Tiket 4.13 (dasar): blok copy/paste & klik kanan selama ujian berlangsung.
+  // Blok copy/paste & klik kanan
   useEffect(() => {
     if (!attempt || attempt.status !== "berjalan") return;
     const block = (e: Event) => e.preventDefault();
@@ -192,10 +234,7 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     };
   }, [attempt]);
 
-  // Tiket 4.13: deteksi pindah tab (basic - dicatat & ditampilkan sebagai
-  // peringatan ke siswa, tidak otomatis menggagalkan ujian). Dikirim juga ke
-  // server (fire-and-forget) supaya admin sekolah & admin pusat bisa
-  // memantaunya - sebelumnya cuma di state lokal, hilang tiap refresh.
+  // Deteksi pindah tab
   useEffect(() => {
     if (!attempt || attempt.status !== "berjalan") return;
     function onVisibilityChange() {
@@ -212,23 +251,34 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     setAnswers((prev) => ({ ...prev, [questionId]: { jawabanJson, ragu } }));
     void saveLocalAnswer(id, questionId, jawabanJson, ragu, false);
 
+    // Catat payload terbaru untuk questionId ini (overwrite jika ada yang lama belum dikirim)
+    pendingSaves.current.set(questionId, { jawabanJson, ragu });
+
+    // Debounce: batalkan timer lama untuk questionId ini lalu buat yang baru
     const existingTimer = saveTimers.current.get(questionId);
     if (existingTimer) clearTimeout(existingTimer);
+
     const timer = setTimeout(async () => {
+      // Ambil payload terbaru (bukan closure lama) saat timer akhirnya jalan
+      const latest = pendingSaves.current.get(questionId);
+      if (!latest) return; // sudah dihandle flushPendingSaves
+      pendingSaves.current.delete(questionId);
+      saveTimers.current.delete(questionId);
+
       try {
         const res = await fetch(`/api/siswa/attempts/${id}/jawaban`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questionId, jawabanJson, ragu, tabToken }),
+          body: JSON.stringify({ questionId, jawabanJson: latest.jawabanJson, ragu: latest.ragu, tabToken }),
         });
         if (res.ok) {
-          void saveLocalAnswer(id, questionId, jawabanJson, ragu, true);
+          void saveLocalAnswer(id, questionId, latest.jawabanJson, latest.ragu, true);
         } else {
           const data = await res.json().catch(() => null);
           if (data?.error === "SESI_DIAMBIL_ALIH") setSessionTakenOver(true);
         }
       } catch {
-        // Gagal (offline) - jawaban tetap aman di IndexedDB, dicoba lagi saat soal berikutnya disimpan.
+        // Gagal (offline) - jawaban tetap aman di IndexedDB
       }
     }, SAVE_DEBOUNCE_MS);
     saveTimers.current.set(questionId, timer);
