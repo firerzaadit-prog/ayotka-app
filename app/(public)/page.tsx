@@ -106,12 +106,14 @@ export default async function LandingPage() {
 
       <section className="relative overflow-hidden">
         <div
-          className="pointer-events-none absolute inset-0 opacity-[0.06]"
+          className="pointer-events-none absolute inset-0"
           style={{
-            backgroundImage:
-              "radial-gradient(circle at 15% 20%, #4f46e5 0, transparent 40%), radial-gradient(circle at 85% 15%, #7c3aed 0, transparent 40%)",
+            backgroundImage: "url('/hero-bg.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
           }}
         />
+        <div className="pointer-events-none absolute inset-0 bg-white/80 backdrop-blur-sm" />
         <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-6 px-6 py-20 text-center sm:py-28">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">
             Tes Kemampuan Akademik
