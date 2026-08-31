@@ -35,9 +35,11 @@ type Hasil = {
     teks: string;
     skor: number | null;
     skorMaks: number;
+    jawabanJson?: Record<string, unknown> | null;
     pembahasan?: string | null;
     options?: { id: string; label: string; teks: string; isCorrect: boolean }[];
     statements?: { id: string; teks: string; correctLabel: string }[];
+    categories?: { id: string; label: string }[];
   }[];
   competencyScores: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
 };
@@ -181,29 +183,61 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
               <p className="mb-2 text-sm">
                 <RichText text={s.teks} />
               </p>
-              {hasil.canShowPembahasan && s.options && (
-                <ul className="mb-2 flex flex-col gap-1 text-sm">
-                  {s.options.map((o) => (
-                    <li
-                      key={o.id}
-                      className={o.isCorrect ? "font-medium text-emerald-700" : "text-slate-600"}
-                    >
-                      {o.label}. <RichText text={o.teks} />
-                      {o.isCorrect && " (kunci)"}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {hasil.canShowPembahasan && s.statements && (
-                <ul className="mb-2 flex flex-col gap-1 text-sm">
-                  {s.statements.map((st) => (
-                    <li key={st.id} className="text-slate-600">
-                      <RichText text={st.teks} />{" "}
-                      <span className="font-medium text-emerald-700">— {st.correctLabel}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {hasil.canShowPembahasan && s.options && (() => {
+                const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
+                const selectedId = jawaban?.option_id;
+                const selectedIds = new Set(jawaban?.option_ids ?? []);
+                return (
+                  <ul className="mb-2 flex flex-col gap-1 text-sm">
+                    {s.options.map((o) => {
+                      const isSelected = s.format === "pg" ? o.id === selectedId : selectedIds.has(o.id);
+                      const isCorrect = o.isCorrect;
+                      return (
+                        <li
+                          key={o.id}
+                          className={[
+                            "flex items-start gap-2 rounded-lg px-2 py-1",
+                            isCorrect && isSelected ? "bg-emerald-50 font-medium text-emerald-700" :
+                            isCorrect ? "bg-emerald-50 font-medium text-emerald-700" :
+                            isSelected ? "bg-rose-50 font-medium text-rose-600" :
+                            "text-slate-500"
+                          ].filter(Boolean).join(" ")}
+                        >
+                          <span className="shrink-0">{o.label}.</span>
+                          <span className="flex-1"><RichText text={o.teks} /></span>
+                          <span className="shrink-0 text-xs">
+                            {isCorrect && isSelected && "✓ Jawaban kamu (benar)"}
+                            {isCorrect && !isSelected && "✓ Kunci"}
+                            {!isCorrect && isSelected && "✗ Jawaban kamu"}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                );
+              })()}
+              {hasil.canShowPembahasan && s.statements && (() => {
+                const jawaban = s.jawabanJson as Record<string, string> | null;
+                return (
+                  <ul className="mb-2 flex flex-col gap-1 text-sm">
+                    {s.statements.map((st) => {
+                      const siswaJawab = s.categories?.find((c) => c.id === (jawaban?.[st.id]))?.label ?? null;
+                      const benar = siswaJawab === st.correctLabel;
+                      return (
+                        <li key={st.id} className="rounded-lg px-2 py-1">
+                          <span className="text-slate-600"><RichText text={st.teks} /></span>
+                          <div className="mt-1 flex gap-4 text-xs">
+                            <span className={siswaJawab ? (benar ? "font-medium text-emerald-700" : "font-medium text-rose-600") : "text-slate-400"}>
+                              Jawaban kamu: {siswaJawab ?? "—"}{!benar && siswaJawab ? " ✗" : benar ? " ✓" : ""}
+                            </span>
+                            {!benar && <span className="font-medium text-emerald-700">Kunci: {st.correctLabel} ✓</span>}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                );
+              })()}
               {hasil.canShowPembahasan && s.pembahasan && (
                 <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
                   <span className="font-medium">Pembahasan: </span>

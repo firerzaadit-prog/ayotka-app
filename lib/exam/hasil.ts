@@ -76,6 +76,7 @@ export async function buildHasil(attempt: Attempt) {
       ...(canShowPembahasan
         ? {
             pembahasan: q.pembahasan,
+            categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
             options: orderedOptions.map((o, idx) => ({
               id: o.id,
               label: String.fromCharCode(65 + idx),
