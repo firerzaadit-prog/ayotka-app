@@ -194,8 +194,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
     if (hasil.canShowPembahasan) {
       // Jawaban Siswa
       if (s.options) {
-        const studentChoices = Array.isArray(s.jawabanJson) ? s.jawabanJson : [];
-        const chosenOptions = s.options.filter(o => studentChoices.includes(o.id));
+        const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
+        const selectedId = jawaban?.option_id;
+        const selectedIds = new Set(jawaban?.option_ids ?? []);
+        const chosenOptions = s.options.filter(o => s.format === "pg" ? o.id === selectedId : selectedIds.has(o.id));
         const kunciOptions = s.options.filter(o => o.isCorrect);
         
         doc.fontSize(10).fillColor("#0f172a").text("Jawaban Siswa:");
