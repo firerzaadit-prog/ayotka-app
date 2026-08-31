@@ -62,19 +62,35 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    (async () => {
-      const res = await fetch(`/api/siswa/attempts/${id}`);
+    let retryCount = 0;
+    const MAX_RETRIES = 10; // tunggu hingga 10 × 800ms = ~8 detik
+    const RETRY_DELAY_MS = 800;
+
+    async function tryLoad() {
+      const res = await fetch(`/api/siswa/attempts/${id}`, {
+        headers: { "Cache-Control": "no-cache" },
+      });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error ?? "Gagal memuat hasil.");
         return;
       }
-      if (data.attempt.status === "berjalan") {
-        router.replace(`/siswa/attempt/${id}`);
+      // Jika ujian masih berjalan, kemungkinan finalize belum selesai di server.
+      // Coba beberapa kali sebelum menyerah dan redirect.
+      if (data.attempt.status === "berjalan" || data.attempt.status === "paused") {
+        retryCount++;
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(tryLoad, RETRY_DELAY_MS);
+        } else {
+          // Setelah MAX_RETRIES tetap belum selesai, kembalikan ke halaman ujian
+          router.replace(`/siswa/attempt/${id}`);
+        }
         return;
       }
       setHasil(data);
-    })();
+    }
+
+    void tryLoad();
   }, [id, router]);
 
   if (error) {
