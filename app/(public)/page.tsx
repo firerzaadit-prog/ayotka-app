@@ -90,6 +90,12 @@ export default async function LandingPage() {
         </span>
         <nav className="flex items-center gap-6">
           <Link
+            href="/"
+            className="hidden text-sm font-medium text-slate-900 sm:inline"
+          >
+            Beranda
+          </Link>
+          <Link
             href="/kerangka-asesmen"
             className="hidden text-sm font-medium text-slate-600 hover:text-slate-900 sm:inline"
           >
