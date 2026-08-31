@@ -95,31 +95,71 @@ function drawBadge(doc: PDFKit.PDFDocument, text: string, x: number, y: number, 
   return width;
 }
 
-/** Baris kompetensi bergaya progress bar. Mengembalikan Y setelah baris ini. */
-function drawCompetencyRow(
+type CompetencyScore = { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number };
+
+function competencyChartHeight(count: number): number {
+  return count * 27 + 18;
+}
+
+/**
+ * Grafik batang horizontal untuk peta kompetensi (gridline + sumbu 0-100%).
+ * Digambar sebagai satu blok atom (bukan loop per-baris dengan addPage()
+ * sendiri-sendiri) dan setiap teks dipasang di koordinat eksplisit - tidak
+ * ada continued-chain atau ambil-doc.y-ambient sama sekali. Pola itu (lihat
+ * catatan di drawWatermark) pernah menyebabkan kursor pdfkit nyangkut di
+ * posisi tidak valid lalu memicu puluhan halaman kosong berantai begitu ada
+ * baris yang perlu pindah halaman - jadi dihindari total di sini.
+ */
+function drawCompetencyChart(
   doc: PDFKit.PDFDocument,
-  c: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number },
+  scores: CompetencyScore[],
   x: number,
   y: number,
   width: number,
 ): number {
-  const good = c.persentase >= 70;
-  const accent = good ? COLOR.success : COLOR.danger;
-  const desc = c.deskripsi.length > 62 ? `${c.deskripsi.slice(0, 61)}…` : c.deskripsi;
+  const labelW = 165;
+  const pctLabelW = 40;
+  const barX = x + labelW + 8;
+  const barW = width - labelW - 8 - pctLabelW;
+  const rowH = 27;
+  const barH = 11;
+  const chartH = scores.length * rowH;
 
-  doc.fontSize(9.5).font("Helvetica-Bold").fillColor(COLOR.ink)
-    .text(c.kode, x, y, { continued: true, lineBreak: false });
-  doc.font("Helvetica").fillColor(COLOR.muted).text(`  ${desc}`, { continued: true, lineBreak: false });
-  doc.fillColor(accent).font("Helvetica-Bold")
-    .text(`  ${c.jmlBenar}/${c.jmlSoal} · ${c.persentase.toFixed(0)}%`, x, y, { width, align: "right" });
+  doc.lineWidth(0.5);
+  for (const pct of [0, 25, 50, 75, 100]) {
+    const gx = barX + (barW * pct) / 100;
+    doc.moveTo(gx, y).lineTo(gx, y + chartH).strokeColor(COLOR.border).stroke();
+  }
+
+  scores.forEach((c, i) => {
+    const rowY = y + i * rowH;
+    const good = c.persentase >= 70;
+    const accent = good ? COLOR.success : COLOR.danger;
+    const desc = c.deskripsi.length > 46 ? `${c.deskripsi.slice(0, 45)}…` : c.deskripsi;
+
+    doc.fontSize(8.5).font("Helvetica-Bold").fillColor(COLOR.ink)
+      .text(c.kode, x, rowY, { width: labelW, lineBreak: false });
+    doc.fontSize(7).font("Helvetica").fillColor(COLOR.faint)
+      .text(desc, x, rowY + 11, { width: labelW, lineBreak: false });
+
+    const barY = rowY + 6;
+    doc.roundedRect(barX, barY, barW, barH, 2.5).fill(COLOR.cardBg);
+    const fillW = Math.max(3, (barW * Math.min(100, c.persentase)) / 100);
+    doc.roundedRect(barX, barY, fillW, barH, 2.5).fill(accent);
+
+    doc.fontSize(8).font("Helvetica-Bold").fillColor(accent)
+      .text(`${c.persentase.toFixed(0)}%`, barX + barW + 6, barY + 1.5, { width: pctLabelW, lineBreak: false });
+  });
   doc.font("Helvetica");
 
-  const barY = y + 15;
-  doc.roundedRect(x, barY, width, 7, 3.5).fill(COLOR.border);
-  const fillW = Math.max(6, (width * Math.min(100, c.persentase)) / 100);
-  doc.roundedRect(x, barY, fillW, 7, 3.5).fill(accent);
+  const axisY = y + chartH + 4;
+  doc.fontSize(7).fillColor(COLOR.faint);
+  for (const pct of [0, 25, 50, 75, 100]) {
+    const gx = barX + (barW * pct) / 100;
+    doc.text(`${pct}%`, gx - 10, axisY, { width: 20, align: "center", lineBreak: false });
+  }
 
-  return barY + 7 + 11;
+  return axisY + 16;
 }
 
 /** Watermark identitas siswa diulang di seluruh halaman - jejak anti-bocor
@@ -127,6 +167,16 @@ function drawCompetencyRow(
  * cetak/download ini justru paling butuh proteksi ini, sama seperti yang
  * sudah dipasang di halaman web hasil - Tiket 5.9). */
 function drawWatermark(doc: PDFKit.PDFDocument, label: string) {
+  // doc.save()/restore() cuma menyimpan graphics state (rotasi, opacity, dst) -
+  // BUKAN posisi kursor doc.x/doc.y. Tiap doc.text() dalam loop ubin di bawah
+  // ikut menggeser doc.x/doc.y ke titik ubin terakhir (jauh di luar halaman,
+  // dalam ruang koordinat yang sudah dirotasi). Watermark ini digambar ulang
+  // tiap ada halaman baru (event "pageAdded") - kalau posisi kursor yang rusak
+  // ini dibiarkan, panggilan .text() berikutnya di konten asli mengira halaman
+  // sudah meluap dan menambah halaman baru lagi, yang memicu watermark digambar
+  // ulang lagi, dst - satu blok konten bisa menghasilkan puluhan halaman kosong.
+  const savedX = doc.x;
+  const savedY = doc.y;
   doc.save();
   doc.rotate(-28, { origin: [doc.page.width / 2, doc.page.height / 2] });
   doc.fontSize(9).font("Helvetica").fillColor(COLOR.ink).opacity(0.06);
@@ -140,6 +190,8 @@ function drawWatermark(doc: PDFKit.PDFDocument, label: string) {
   }
   doc.opacity(1);
   doc.restore();
+  doc.x = savedX;
+  doc.y = savedY;
 }
 
 function drawPageNumber(doc: PDFKit.PDFDocument, page: number) {
@@ -229,15 +281,17 @@ export async function renderRaporPdf(
 
   // --- PETA KOMPETENSI ---
   if (hasil.competencyScores.length > 0) {
+    const chartH = competencyChartHeight(hasil.competencyScores.length);
+    // Chart digambar sebagai satu blok - kalau tidak cukup muat di sisa
+    // halaman ini, pindah halaman DULU (bukan di tengah-tengah menggambar).
+    if (doc.y + 30 + chartH > doc.page.height - 48) doc.addPage();
+
     doc.fontSize(14).font("Helvetica-Bold").fillColor(COLOR.ink).text("Peta Kompetensi", 48, doc.y);
     doc.font("Helvetica");
-    doc.moveDown(0.6);
+    doc.moveDown(0.8);
 
-    for (const c of hasil.competencyScores) {
-      if (doc.y > doc.page.height - 90) doc.addPage();
-      doc.y = drawCompetencyRow(doc, c, 48, doc.y, contentWidth);
-    }
-    doc.moveDown(1);
+    doc.y = drawCompetencyChart(doc, hasil.competencyScores, 48, doc.y, contentWidth);
+    doc.moveDown(0.6);
   }
 
   // --- ANALISIS AI ---
