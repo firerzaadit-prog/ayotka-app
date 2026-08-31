@@ -10,6 +10,13 @@ export function latexToPlainText(text: string): string {
   return text
     .replace(/\$\$([^$]+)\$\$/g, (_, inner: string) => latexInnerToText(inner))
     .replace(/\$([^$]+)\$/g, (_, inner: string) => latexInnerToText(inner))
+    // Markup lain yang dikenal RichText (components/soal/rich-text.tsx,
+    // dipakai di layar siswa) tapi tidak dimengerti pdfkit sama sekali -
+    // dilucuti jadi teks polos (isinya dipertahankan), bukan dibiarkan
+    // bocor mentah seperti "[center]...[/center]" atau "**tebal**" ke rapor.
+    .replace(/\[(left|center|right|justify)\]([\s\S]*?)\[\/\1\]/gi, "$2")
+    .replace(/\*\*([\s\S]*?)\*\*/g, "$1")
+    .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, "$1")
     .replace(/<[^>]+>/g, "")
     // spasi ganda sering muncul setelah \text{ ... } dilepas (mis. "$X
     // \text{ m}$" - ada spasi di dua sisi) - dirapikan jadi satu spasi.

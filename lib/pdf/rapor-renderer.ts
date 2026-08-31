@@ -65,7 +65,14 @@ async function renderTextWithImages(
     const url = match[1] as string;
     const buffer = await fetchImageBuffer(url);
     if (buffer) {
-      doc.image(buffer, { fit: [options.width, 250], align: "center" });
+      // doc.image() tidak auto-pindah halaman seperti .text() - kalau tidak
+      // cukup ruang, gambar digambar apa adanya lalu terpotong rata batas
+      // bawah halaman. Cek dulu terhadap tinggi maksimum yang dipakai fit[].
+      const maxImageHeight = 250;
+      if (doc.y + maxImageHeight > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+      }
+      doc.image(buffer, { fit: [options.width, maxImageHeight], align: "center" });
       doc.moveDown(0.4);
     } else {
       doc.fillColor(COLOR.danger).text("[Gambar gagal dimuat]", options);
@@ -277,7 +284,25 @@ export async function renderRaporPdf(
   });
   doc.font("Helvetica");
 
-  doc.y = summaryY + summaryH + 26;
+  doc.y = summaryY + summaryH + 10;
+
+  // "Nilai Akhir" adalah skor tertimbang (tiap soal punya bobot sendiri,
+  // penjumlahan skor/skor-maks × 100 - lihat lib/exam/scoring.ts), BUKAN
+  // sekadar persentase jumlah-benar/total-soal seperti stat "Jawaban Benar"
+  // di sebelahnya. Kalau bobot antar soal seragam kedua angka ini otomatis
+  // sama, tapi kalau tidak, angkanya bisa terpaut cukup jauh dan terlihat
+  // seperti salah hitung padahal bukan - beri catatan hanya saat itu terjadi.
+  const naivePct = hasil.perSoal.length > 0 ? (totalBenar / hasil.perSoal.length) * 100 : 0;
+  if (Math.abs(naivePct - (hasil.attempt.skorAkhir ?? 0)) > 1) {
+    doc.fontSize(8).fillColor(COLOR.faint).text(
+      "Catatan: Nilai Akhir adalah skor tertimbang (tiap soal bisa punya bobot berbeda), bukan sekadar persentase jumlah soal benar.",
+      48,
+      doc.y,
+      { width: contentWidth },
+    );
+    doc.moveDown(0.6);
+  }
+  doc.moveDown(0.8);
 
   // --- PETA KOMPETENSI ---
   if (hasil.competencyScores.length > 0) {
@@ -398,7 +423,14 @@ export async function renderRaporPdf(
     doc.moveDown(0.3);
 
     if (hasil.canShowPembahasan) {
-      if (s.options) {
+      // s.options dan s.statements SELALU array (bisa kosong []), tidak pernah
+      // undefined - lihat lib/exam/hasil.ts. Array kosong itu truthy di JS,
+      // jadi cek panjang eksplisit; kalau tidak, kedua blok ini sama-sama
+      // renders untuk tiap soal (mis. soal pg_kategori ikut menampilkan
+      // "Jawaban Siswa:"/"Kunci Jawaban:" kosong dari cabang options, dan
+      // soal pg/pg_kompleks ikut menampilkan "Kunci & Jawaban Siswa:" kosong
+      // dari cabang statements).
+      if (s.options && s.options.length > 0) {
         const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
         const selectedId = jawaban?.option_id;
         const selectedIds = new Set(jawaban?.option_ids ?? []);
@@ -431,7 +463,7 @@ export async function renderRaporPdf(
         }
       }
 
-      if (s.statements) {
+      if (s.statements && s.statements.length > 0) {
         // Nilai di jawabanJson untuk format pg_kategori adalah categoryId (UUID),
         // BUKAN label - harus di-resolve lewat s.categories dulu, sama seperti
         // halaman web (app/siswa/hasil/[id]/page.tsx). Versi sebelumnya
