@@ -73,30 +73,35 @@ export async function PUT(request: Request, { params }: RouteParams) {
   const jawaban = parsed.data.jawabanJson;
   const isKategori = !("option_id" in jawaban) && !("option_ids" in jawaban);
 
-  await prisma.$transaction(async (tx) => {
-    await tx.attemptAnswer.update({
-      where: { id: answer.id },
-      data: {
-        jawabanJson: jawaban,
-        ragu: parsed.data.ragu ?? answer.ragu,
-        answeredAt: new Date(),
-      },
-    });
-
-    if (isKategori) {
-      await tx.attemptAnswerStatement.deleteMany({ where: { attemptAnswerId: answer.id } });
-      const entries = Object.entries(jawaban as Record<string, string>);
-      if (entries.length > 0) {
-        await tx.attemptAnswerStatement.createMany({
-          data: entries.map(([statementId, categoryId]) => ({
-            attemptAnswerId: answer.id,
-            statementId,
-            categoryId,
-          })),
-        });
-      }
-    }
+  // Tidak pakai $transaction interaktif di sini - Supabase pgBouncer (port 6543)
+  // dalam transaction mode tidak mendukung prepared statements yang dibuat
+  // Prisma untuk transaksi multi-query, menyebabkan error intermiten "prepared
+  // statement does not exist" di lingkungan serverless (Vercel). Ini akar
+  // masalah yang sama yang sudah diperbaiki di lib/exam/finalize.ts - lihat
+  // catatan di sana. Dipanggil sequential (bukan Promise.all) supaya urutan
+  // delete->create untuk attempt_answer_statements tetap konsisten.
+  await prisma.attemptAnswer.update({
+    where: { id: answer.id },
+    data: {
+      jawabanJson: jawaban,
+      ragu: parsed.data.ragu ?? answer.ragu,
+      answeredAt: new Date(),
+    },
   });
+
+  if (isKategori) {
+    await prisma.attemptAnswerStatement.deleteMany({ where: { attemptAnswerId: answer.id } });
+    const entries = Object.entries(jawaban as Record<string, string>);
+    if (entries.length > 0) {
+      await prisma.attemptAnswerStatement.createMany({
+        data: entries.map(([statementId, categoryId]) => ({
+          attemptAnswerId: answer.id,
+          statementId,
+          categoryId,
+        })),
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

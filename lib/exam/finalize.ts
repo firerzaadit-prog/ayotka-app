@@ -3,6 +3,31 @@ import { prisma } from "@/lib/db/prisma";
 import { aggregateCompetency, computeSkorAkhir, scoreQuestion } from "@/lib/exam/scoring";
 
 /**
+ * Jalankan semua task dengan batas konkurensi, bukan Promise.all tanpa batas.
+ * Paket soal bisa berisi 40-50 soal - menembak semuanya sekaligus ke Supabase
+ * lewat pgBouncer serverless bisa menghabiskan pool koneksi (baik pool
+ * pgBouncer maupun connection_limit Prisma sendiri yang kecil di serverless),
+ * membuat sebagian update gagal/timeout pas submit ujian yang soalnya banyak.
+ */
+async function runWithConcurrencyLimit<T>(
+  tasks: (() => Promise<T>)[],
+  limit: number,
+): Promise<T[]> {
+  const results: T[] = new Array(tasks.length);
+  let nextIndex = 0;
+  async function worker() {
+    while (nextIndex < tasks.length) {
+      const current = nextIndex++;
+      const task = tasks[current];
+      if (!task) continue;
+      results[current] = await task();
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker));
+  return results;
+}
+
+/**
  * Tiket 4.10/4.11: submit + skoring + agregasi kompetensi, dipakai dua
  * jalur - submit eksplisit (siswa klik Submit) dan auto-submit saat waktu
  * habis (dicek lazy di setiap request yang menyentuh attempt ini, lihat
@@ -55,22 +80,23 @@ export async function finalizeAttempt(
     perKompetensi.push({ kompetensiId: answer.question.kompetensiId, skor, skorMaks });
   }
 
-  // Update skor per jawaban secara paralel (tanpa transaction, idempotent)
-  await Promise.all(
-    answerUpdates.map(({ id, skor, skorMaks }) =>
+  // Update skor per jawaban paralel dengan batas konkurensi (tanpa transaction, idempoten)
+  await runWithConcurrencyLimit(
+    answerUpdates.map(({ id, skor, skorMaks }) => () =>
       prisma.attemptAnswer.update({
         where: { id },
         data: { skor, skorMaks },
       })
-    )
+    ),
+    8,
   );
 
   const skorAkhir = computeSkorAkhir(skorMentah, skorMaksTotal);
 
-  // Upsert competency scores secara paralel
+  // Upsert competency scores paralel dengan batas konkurensi
   const aggregated = aggregateCompetency(perKompetensi);
-  await Promise.all(
-    aggregated.map((agg) =>
+  await runWithConcurrencyLimit(
+    aggregated.map((agg) => () =>
       prisma.competencyScore.upsert({
         where: { attemptId_kompetensiId: { attemptId, kompetensiId: agg.kompetensiId } },
         create: {
@@ -82,7 +108,8 @@ export async function finalizeAttempt(
         },
         update: { jmlBenar: agg.jmlBenar, jmlSoal: agg.jmlSoal, persentase: agg.persentase },
       })
-    )
+    ),
+    8,
   );
 
   // Update status attempt TERAKHIR - ini menjadi sinyal bahwa finalize selesai
