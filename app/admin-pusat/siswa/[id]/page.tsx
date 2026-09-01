@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
+import { RincianJawaban } from "@/components/hasil/rincian-jawaban";
+import { buildHasil } from "@/lib/exam/hasil";
 import Link from "next/link";
 import { revalidatePath } from "next/cache";
 
@@ -32,6 +34,17 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
   if (!student) {
     notFound();
   }
+
+  // buildHasil() = sumber data yang sama persis dipakai endpoint rapor PDF
+  // (app/api/siswa/attempts/[id]/rapor) - dipanggil di sini juga supaya admin
+  // bisa lihat rincian jawaban langsung di web, bukan cuma lewat unduh PDF.
+  const hasilByAttempt = new Map(
+    await Promise.all(
+      student.attempts
+        .filter((a) => a.status === "selesai")
+        .map(async (a) => [a.id, await buildHasil(a)] as const),
+    ),
+  );
 
   const JALUR_LABEL: Record<string, string> = { A: "Jalur A (sekolah)", B: "Jalur B (mandiri)" };
 
@@ -97,6 +110,20 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
                     <AnalisisAiPanel attemptId={a.id} canTrigger={true} />
                   </div>
                 )}
+
+                {a.status === "selesai" && hasilByAttempt.get(a.id) && (() => {
+                  const h = hasilByAttempt.get(a.id)!;
+                  return (
+                    <details className="border-t border-slate-100 pt-4">
+                      <summary className="cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900">
+                        Rincian Jawaban ({h.perSoal.length} soal)
+                      </summary>
+                      <div className="mt-3">
+                        <RincianJawaban perSoal={h.perSoal} canShowPembahasan={h.canShowPembahasan} />
+                      </div>
+                    </details>
+                  );
+                })()}
               </Card>
             ))}
           </div>
