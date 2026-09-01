@@ -33,7 +33,7 @@ type TryOutOrder = {
 
 type TryOutSubject = { id: string; nama: string; sisaTryOut: number; totalTryOut: number };
 type TryOutData =
-  | { jalur: "A" }
+  | { jalur: "A"; sekolah: { nama: string } | null }
   | { jalur: "B"; servicePackages: ServicePackage[]; subjects: TryOutSubject[] };
 
 function formatRupiah(n: number): string {
@@ -150,8 +150,16 @@ export default function LanggananSiswaPage() {
         <PageHeader title="Langganan" />
         <Card>
           <p className="text-sm text-slate-600">
-            Akunmu terdaftar lewat sekolah. Akses Try Out ditanggung oleh sekolahmu — kamu tidak
-            perlu membeli paket sendiri.
+            Akunmu terdaftar lewat sekolah
+            {tryOut.sekolah ? (
+              <>
+                {" "}
+                <span className="font-semibold text-slate-900">{tryOut.sekolah.nama}</span>
+              </>
+            ) : (
+              ""
+            )}
+            . Akses Try Out ditanggung oleh sekolahmu — kamu tidak perlu membeli paket sendiri.
           </p>
         </Card>
       </div>
@@ -164,7 +172,7 @@ export default function LanggananSiswaPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Paket Try Out"
-        description="Beli paket Try Out per mata pelajaran. Pilih paket, pilih mata pelajaran yang ingin dilatih, lalu transfer sesuai nominal."
+        description="Kamu terdaftar sebagai siswa mandiri (bukan lewat sekolah) — beli paket Try Out per mata pelajaran sendiri di bawah ini. Pilih paket, pilih mata pelajaran yang ingin dilatih, lalu transfer sesuai nominal."
       />
 
       {/* ─── Info kuota sisa ─── */}

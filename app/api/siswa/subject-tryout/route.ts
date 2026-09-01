@@ -18,12 +18,18 @@ export async function GET() {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  const student = await prisma.student.findFirst({ where: { userId: user.id } });
+  const student = await prisma.student.findFirst({
+    where: { userId: user.id },
+    include: { school: { select: { nama: true } } },
+  });
   if (!student) {
     return NextResponse.json({ error: "Profil siswa tidak ditemukan." }, { status: 404 });
   }
   if (student.jalur !== "B") {
-    return NextResponse.json({ jalur: "A" as const });
+    return NextResponse.json({
+      jalur: "A" as const,
+      sekolah: student.school ? { nama: student.school.nama } : null,
+    });
   }
 
   const [subjects, quotas, servicePackages] = await Promise.all([
