@@ -5,7 +5,16 @@ export type PromptInput = {
   kompetensi: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
   levelKognitif: { level: string; jmlBenar: number; jmlSoal: number }[];
   format: { format: string; jmlBenar: number; jmlSoal: number }[];
-  salahDijawab: { teksSoal: string; kompetensi: string; levelBloom: string }[];
+  soal: {
+    nomor: number;
+    benar: boolean;
+    teksSoal: string;
+    kompetensi: string;
+    levelBloom: string;
+    jawabanSiswa: string;
+    kunciJawaban: string;
+    pembahasan: string | null;
+  }[];
 };
 
 /**
@@ -48,9 +57,25 @@ ${levelLines || "(tidak ada data)"}
 PER FORMAT SOAL:
 ${formatLines || "(tidak ada data)"}
 
-SAMPEL SOAL YANG SALAH DIJAWAB OLEH SISWA:
-(Analisis teks soal berikut untuk mencari letak miskonsepsi atau pola kesalahan berulang. Jangan bahas satu-satu secara literal, tapi tarik kesimpulan polanya)
-${input.salahDijawab.slice(0, 10).map((s, i) => `${i + 1}. [${s.kompetensi} - ${s.levelBloom}] ${s.teksSoal.replace(/\s+/g, ' ').slice(0, 300)}${s.teksSoal.length > 300 ? '...' : ''}`).join("\n") || "(tidak ada atau berhasil menjawab semua)"}
+RINCIAN SEMUA SOAL (jawaban siswa sudah diterjemahkan dari pilihan/kategori yang
+dipilih ke teks aslinya, bukan ID mentah - bandingkan langsung dengan kunci jawaban
+untuk memahami APA yang salah dipahami siswa, bukan cuma BAHWA soal itu salah):
+${
+  input.soal
+    .map((s) => {
+      const status = s.benar ? "BENAR" : "SALAH";
+      const lines = [
+        `${s.nomor}. [${status}] [${s.kompetensi} - ${s.levelBloom}] ${s.teksSoal.replace(/\s+/g, " ")}`,
+        `   Jawaban siswa: ${s.jawabanSiswa}`,
+      ];
+      if (!s.benar) {
+        lines.push(`   Kunci jawaban: ${s.kunciJawaban}`);
+        if (s.pembahasan) lines.push(`   Pembahasan: ${s.pembahasan.replace(/\s+/g, " ")}`);
+      }
+      return lines.join("\n");
+    })
+    .join("\n") || "(tidak ada soal)"
+}
 
-Buat narasi: ringkasan umum, narasi singkat per kompetensi di atas, narasi kekuatan/kelemahan level kognitif, narasi pola miskonsepsi/kesalahan (didasarkan pada sampel soal yang salah dijawab), dan 3-5 rekomendasi sub materi prioritas untuk dipelajari ulang beserta alasannya.`;
+Buat narasi: ringkasan umum, narasi singkat per kompetensi di atas, narasi kekuatan/kelemahan level kognitif, narasi pola miskonsepsi/kesalahan (bandingkan jawaban siswa vs kunci pada soal yang salah untuk menjelaskan konsep spesifik apa yang tertukar/kurang dipahami, jangan cuma menyebut nama kompetensinya), dan 3-5 rekomendasi sub materi prioritas untuk dipelajari ulang beserta alasannya.`;
 }

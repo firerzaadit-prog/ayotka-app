@@ -12,11 +12,26 @@ describe("buildAnalisisPrompt", () => {
     ],
     levelKognitif: [{ level: "L1", jmlBenar: 3, jmlSoal: 3 }],
     format: [{ format: "pg", jmlBenar: 4, jmlSoal: 5 }],
-    salahDijawab: [
+    soal: [
       {
+        nomor: 1,
+        benar: false,
         teksSoal: "Soal cerita panjang tentang bilangan bulat",
         kompetensi: "K1",
         levelBloom: "L3",
+        jawabanSiswa: "12 (hasil penjumlahan tanpa memperhatikan tanda negatif)",
+        kunciJawaban: "-4",
+        pembahasan: "Perhatikan tanda bilangan sebelum dijumlahkan.",
+      },
+      {
+        nomor: 2,
+        benar: true,
+        teksSoal: "5 + 3 = ?",
+        kompetensi: "K1",
+        levelBloom: "L1",
+        jawabanSiswa: "8",
+        kunciJawaban: "8",
+        pembahasan: null,
       },
     ],
   };
@@ -27,6 +42,18 @@ describe("buildAnalisisPrompt", () => {
     expect(prompt).toContain("Nilai akhir: 85");
     expect(prompt).toContain("K1 (Operasi bilangan bulat): 4/5 benar (80%)");
     expect(prompt).toContain("L1: 3/3 benar");
+  });
+
+  it("menyertakan jawaban siswa untuk SEMUA soal, dan kunci/pembahasan untuk soal yang salah", () => {
+    const prompt = buildAnalisisPrompt(input);
+    // Soal salah: jawaban siswa, kunci, dan pembahasan harus ada
+    expect(prompt).toContain("Jawaban siswa: 12 (hasil penjumlahan tanpa memperhatikan tanda negatif)");
+    expect(prompt).toContain("Kunci jawaban: -4");
+    expect(prompt).toContain("Perhatikan tanda bilangan sebelum dijumlahkan.");
+    // Soal benar: jawaban siswa tetap tampil, kunci tidak perlu diulang
+    expect(prompt).toContain("5 + 3 = ?");
+    expect(prompt).toContain("[BENAR]");
+    expect(prompt).toContain("[SALAH]");
   });
 
   it("secara eksplisit melarang AI menghitung ulang atau menyebut ranking", () => {

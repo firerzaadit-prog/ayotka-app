@@ -5,6 +5,62 @@ import { buildAnalisisPrompt } from "@/lib/ai/prompt";
 import { PROMPT_VERSION } from "@/lib/ai/version";
 import type { Attempt } from "@prisma/client";
 
+const TIDAK_DIJAWAB = "(tidak dijawab)";
+
+type AnswerQuestion = {
+  teks: string;
+  format: string;
+  levelBloom: string;
+  pembahasan: string | null;
+  kompetensi: { kode: string; deskripsi: string };
+  options: { id: string; teks: string; isCorrect: boolean }[];
+  statements: { id: string; teks: string; correctCategoryId: string }[];
+  categories: { id: string; label: string }[];
+};
+
+/**
+ * Resolusi jawabanJson (option_id / option_ids / {statementId: categoryId})
+ * jadi teks yang bisa dibaca AI - jawabanJson mentah cuma berisi ID/UUID yang
+ * tidak berarti apa-apa buat model bahasa. Dipisah dari lib/exam/hasil.ts
+ * (bukan reuse buildHasil) karena analisis AI HARUS selalu lihat opsi/kunci/
+ * pembahasan lengkap terlepas dari canShowPembahasan - gerbang itu murni
+ * soal kapan siswa BOLEH LIHAT pembahasan di layar (anti-bocor antar siswa
+ * sekelas), bukan soal kapan sistem boleh MEMPROSESNYA untuk analisis.
+ */
+function jawabanKeTeks(q: AnswerQuestion, jawabanJson: unknown): string {
+  if (q.format === "pg") {
+    const j = jawabanJson as { option_id?: string } | null;
+    const opt = q.options.find((o) => o.id === j?.option_id);
+    return opt ? opt.teks : TIDAK_DIJAWAB;
+  }
+  if (q.format === "pg_kompleks") {
+    const j = jawabanJson as { option_ids?: string[] } | null;
+    const chosen = q.options.filter((o) => j?.option_ids?.includes(o.id));
+    return chosen.length > 0 ? chosen.map((o) => o.teks).join("; ") : TIDAK_DIJAWAB;
+  }
+  // pg_kategori
+  const j = jawabanJson as Record<string, string> | null;
+  if (!j || Object.keys(j).length === 0) return TIDAK_DIJAWAB;
+  return q.statements
+    .map((s) => {
+      const label = q.categories.find((c) => c.id === j[s.id])?.label ?? "(kosong)";
+      return `"${s.teks}" -> ${label}`;
+    })
+    .join("; ");
+}
+
+function kunciKeTeks(q: AnswerQuestion): string {
+  if (q.format === "pg" || q.format === "pg_kompleks") {
+    return q.options.filter((o) => o.isCorrect).map((o) => o.teks).join("; ");
+  }
+  return q.statements
+    .map((s) => {
+      const label = q.categories.find((c) => c.id === s.correctCategoryId)?.label ?? "-";
+      return `"${s.teks}" -> ${label}`;
+    })
+    .join("; ");
+}
+
 /**
  * Tiket 5.4/5.5 (Brief Bagian 8.1): agregasi level kognitif & per-format
  * SELALU dihitung ulang di sini dari attempt_answers (bukan cache) -
@@ -25,17 +81,22 @@ export async function runAnalisisAi(attempt: Attempt) {
     }),
     prisma.attemptAnswer.findMany({
       where: { attemptId: attempt.id },
-      select: { 
-        skor: true, 
-        skorMaks: true, 
-        question: { 
-          select: { 
+      select: {
+        skor: true,
+        skorMaks: true,
+        jawabanJson: true,
+        question: {
+          select: {
             teks: true,
-            format: true, 
+            format: true,
             levelBloom: true,
-            kompetensi: { select: { kode: true } }
-          } 
-        } 
+            pembahasan: true,
+            kompetensi: { select: { kode: true, deskripsi: true } },
+            options: { select: { id: true, teks: true, isCorrect: true } },
+            statements: { select: { id: true, teks: true, correctCategoryId: true } },
+            categories: { select: { id: true, label: true } },
+          },
+        },
       },
     }),
   ]);
@@ -68,13 +129,21 @@ export async function runAnalisisAi(attempt: Attempt) {
     })),
     levelKognitif: Array.from(levelMap.entries()).map(([level, v]) => ({ level, ...v })),
     format: Array.from(formatMap.entries()).map(([format, v]) => ({ format, ...v })),
-    salahDijawab: answers
-      .filter((a) => (a.skor ?? 0) < a.skorMaks)
-      .map((a) => ({
-        teksSoal: a.question.teks,
-        kompetensi: a.question.kompetensi.kode,
-        levelBloom: a.question.levelBloom,
-      })),
+    // Semua soal dikirim (bukan cuma yang salah, bukan dipotong jumlah/panjang
+    // teksnya) - lengkap dengan jawaban siswa vs kunci vs pembahasan, supaya
+    // AI bisa menarik pola miskonsepsi yang spesifik, bukan cuma generik dari
+    // judul kompetensi. Aturan "jangan mengarang angka" di prompt tetap
+    // berlaku - detail per-soal ini konteks kualitatif, bukan sumber angka.
+    soal: answers.map((a, i) => ({
+      nomor: i + 1,
+      benar: (a.skor ?? 0) >= a.skorMaks,
+      teksSoal: a.question.teks,
+      kompetensi: a.question.kompetensi.kode,
+      levelBloom: a.question.levelBloom,
+      jawabanSiswa: jawabanKeTeks(a.question, a.jawabanJson),
+      kunciJawaban: kunciKeTeks(a.question),
+      pembahasan: a.question.pembahasan,
+    })),
   });
 
   const hasil = await generateAnalisis(prompt);
