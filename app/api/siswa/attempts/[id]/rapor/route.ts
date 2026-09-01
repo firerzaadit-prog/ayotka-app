@@ -72,6 +72,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `attachment; filename="rapor-${hasil.siswa.nama.replace(/\s+/g, "-")}.pdf"`,
+      // PDF dirender ulang dari DB tiap request (termasuk aiAnalysis terbaru) -
+      // no-store supaya klik "Unduh Rapor" lagi tidak disajikan dari cache
+      // browser dengan analisis AI yang sudah usang.
+      "Cache-Control": "no-store",
     },
   });
 }

@@ -44,7 +44,7 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/attempts/${attemptId}/analisis-ai`);
+      const res = await fetch(`/api/attempts/${attemptId}/analisis-ai`, { cache: "no-store" });
       const json = await res.json().catch(() => null);
       if (ignore) return;
       if (!res.ok) {
@@ -67,6 +67,24 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
     }, POLL_MS);
     return () => clearTimeout(timer);
   }, [data]);
+
+  // Kalau status sudah "ready", effect polling di atas berhenti - tab yang
+  // sudah lama terbuka (mis. siswa buka halaman hasil sebelum admin klik
+  // "Analisis ulang") tidak akan pernah tahu ada hasil baru tanpa ini.
+  // Refetch tiap tab jadi aktif lagi supaya selalu sinkron dengan server.
+  useEffect(() => {
+    function refetchOnVisible() {
+      if (document.visibilityState === "visible") {
+        setPollTick((t) => t + 1);
+      }
+    }
+    document.addEventListener("visibilitychange", refetchOnVisible);
+    window.addEventListener("focus", refetchOnVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", refetchOnVisible);
+      window.removeEventListener("focus", refetchOnVisible);
+    };
+  }, []);
 
   async function handleTrigger() {
     pollCountRef.current = 0;
