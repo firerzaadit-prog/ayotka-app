@@ -40,3 +40,21 @@ export async function assertOwnsPackage(
 
   return pkg.ownerType === scope.ownerType && pkg.ownerId === scope.ownerId;
 }
+
+/**
+ * Cegah owner (pusat/sekolah) menggabungkan paketnya ke grup_paralel_id yang
+ * anggotanya sudah ada tapi dimiliki owner LAIN - lib/exam/distribution.ts
+ * memilih otomatis salah satu paket segrup untuk siswa mana pun yang pakai
+ * grup itu, jadi bergabung ke grup asing = menyusupkan soal/kunci jawaban
+ * ke ujian pihak lain. Grup yang belum punya anggota (baru) selalu boleh.
+ */
+export async function assertGrupParalelOwnedBySelf(
+  scope: { ownerType: "pusat" | "sekolah"; ownerId: string },
+  grupParalelId: string,
+): Promise<boolean> {
+  const members = await prisma.package.findMany({
+    where: { grupParalelId },
+    select: { ownerType: true, ownerId: true },
+  });
+  return members.every((m) => m.ownerType === scope.ownerType && m.ownerId === scope.ownerId);
+}

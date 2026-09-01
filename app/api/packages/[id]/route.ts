@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { assertOwnsPackage } from "@/lib/packages/scope";
+import { assertOwnsPackage, getOwnerScope, assertGrupParalelOwnedBySelf } from "@/lib/packages/scope";
 import { packageCreateSchema } from "@/lib/validations/question";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -60,10 +60,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const before = await prisma.package.findUnique({ where: { id } });
   const { blueprintId, grupParalelId, visibilityMode, visibilitySchoolIds, visibilityEntries, ...rest } = parsed.data;
 
-  // Siapkan data visibility jika ada perubahan
+  // Distribusi lintas sekolah (visibility) cuma konsep milik paket pusat
+  // (Tiket 2.8) - field ini diabaikan diam-diam kalau tetap dikirim
+  // admin_sekolah, sama seperti visibility/route.ts (assertOwnedByPusat).
+  const isPusat = user.role === "admin_pusat";
   let visibilityUpdate: Prisma.PackageUpdateInput["visibility"] = undefined;
 
-  if (visibilityEntries && visibilityEntries.length > 0) {
+  if (isPusat && visibilityEntries && visibilityEntries.length > 0) {
     // Mode dual-target: gunakan entries langsung (sekolah + mandiri sekaligus)
     visibilityUpdate = {
       deleteMany: {},
@@ -72,7 +75,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         ...(e.schoolId ? { schoolId: e.schoolId } : {}),
       })),
     };
-  } else if (visibilityMode) {
+  } else if (isPusat && visibilityMode) {
     if (visibilityMode === "privat") {
       visibilityUpdate = { deleteMany: {} };
     } else if (visibilityMode === "semua" || visibilityMode === "publik") {
@@ -88,6 +91,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
   }
 
+  // grup_paralel_id dipakai lib/exam/distribution.ts memilih otomatis paket
+  // segrup ke siswa mana pun yang pakai grup itu - cegah bergabung ke grup
+  // yang anggotanya sudah dimiliki owner lain (lihat assertGrupParalelOwnedBySelf).
+  let resolvedGrupParalelId: string | null | undefined;
+  if (grupParalelId !== undefined) {
+    resolvedGrupParalelId = grupParalelId.length > 0 ? grupParalelId : null;
+    if (resolvedGrupParalelId) {
+      const scope = await getOwnerScope(user);
+      if (!scope || !(await assertGrupParalelOwnedBySelf(scope, resolvedGrupParalelId))) {
+        return NextResponse.json(
+          { error: "Grup paralel ini milik pihak lain, tidak bisa digabungkan." },
+          { status: 403 },
+        );
+      }
+    }
+  }
+
   const pkg = await prisma.package.update({
     where: { id },
     data: {
@@ -95,9 +115,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       ...(blueprintId !== undefined
         ? { blueprintId: blueprintId.length > 0 ? blueprintId : null }
         : {}),
-      ...(grupParalelId !== undefined
-        ? { grupParalelId: grupParalelId.length > 0 ? grupParalelId : null }
-        : {}),
+      ...(resolvedGrupParalelId !== undefined ? { grupParalelId: resolvedGrupParalelId } : {}),
       ...(visibilityUpdate ? { visibility: visibilityUpdate } : {}),
     },
   });

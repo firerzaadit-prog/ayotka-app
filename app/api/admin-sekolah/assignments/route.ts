@@ -60,16 +60,19 @@ export async function POST(request: Request) {
   }
 
   const pkg = await prisma.package.findUnique({ where: { id: parsed.data.packageId } });
+  // ownerType "pusat" eksplisit di cabang visibility - lihat komentar serupa
+  // di app/api/admin-sekolah/paket-tersedia/route.ts.
   const bolehDipakai =
     pkg?.status === "published" &&
     (
       (pkg.ownerType === "sekolah" && pkg.ownerId === schoolId) ||
-      (await prisma.packageVisibility.findFirst({
-        where: {
-          packageId: pkg.id,
-          OR: [{ targetType: "semua" }, { targetType: "sekolah", schoolId }],
-        },
-      })) !== null
+      (pkg.ownerType === "pusat" &&
+        (await prisma.packageVisibility.findFirst({
+          where: {
+            packageId: pkg.id,
+            OR: [{ targetType: "semua" }, { targetType: "sekolah", schoolId }],
+          },
+        })) !== null)
     );
   if (!pkg || !bolehDipakai) {
     return NextResponse.json({ error: "Paket soal tidak ditemukan atau tidak tersedia." }, { status: 404 });

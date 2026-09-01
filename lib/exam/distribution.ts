@@ -20,8 +20,17 @@ export async function pickPackageForAttempt(
     return assignment.package;
   }
 
+  // ownerType/ownerId eksplisit sebagai lapis pertahanan terakhir - titik ini
+  // yang benar-benar menentukan soal apa dilihat siswa, jadi jangan cuma
+  // bergantung pada gerbang di titik-titik sebelumnya (lihat perbaikan
+  // keamanan di lib/packages/scope.ts assertGrupParalelOwnedBySelf).
   const grupPackages = await tx.package.findMany({
-    where: { grupParalelId: assignment.package.grupParalelId, status: "published" },
+    where: {
+      grupParalelId: assignment.package.grupParalelId,
+      status: "published",
+      ownerType: assignment.package.ownerType,
+      ownerId: assignment.package.ownerId,
+    },
     orderBy: { id: "asc" },
   });
   if (grupPackages.length === 0) return assignment.package;

@@ -12,6 +12,16 @@ export const ALLOWED_BUKTI_TYPES = ["image/png", "image/jpeg", "image/webp", "ap
 
 const BUCKET = "bukti-transfer";
 
+/** Sama seperti lib/supabase/storage.ts (Tiket 8.2): ekstensi diturunkan dari
+ * MIME type yang SUDAH divalidasi, bukan dari file.name (bisa dipalsukan
+ * klien) - mencegah nilai aneh masuk ke object key di Storage. */
+const EXT_BY_MIME: Record<string, string> = {
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "application/pdf": "pdf",
+};
+
 async function ensureBucketExists(): Promise<void> {
   const admin = createAdminClient();
   const { data: buckets } = await admin.storage.listBuckets();
@@ -37,8 +47,7 @@ export async function uploadBuktiTransfer(
   await ensureBucketExists();
 
   const admin = createAdminClient();
-  const ext = file.name.split(".").pop() ?? "bin";
-  const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+  const path = `${userId}/${crypto.randomUUID()}.${EXT_BY_MIME[file.type]}`;
 
   const { error } = await admin.storage.from(BUCKET).upload(path, file, {
     contentType: file.type,

@@ -30,6 +30,11 @@ export async function GET() {
       OR: [
         { ownerType: "sekolah", ownerId: schoolId },
         {
+          // Distribusi lintas sekolah (visibility) cuma konsep milik paket
+          // pusat (Tiket 2.8) - ownerType eksplisit di sini supaya baris
+          // package_visibility yatim/tidak seharusnya ada di paket sekolah
+          // tetap tidak pernah membuatnya "tersedia" di sekolah lain.
+          ownerType: "pusat",
           visibility: {
             some: { OR: [{ targetType: "semua" }, { targetType: "sekolah", schoolId }] },
           },
