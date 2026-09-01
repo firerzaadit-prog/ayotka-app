@@ -86,8 +86,8 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
                     </p>
                   </div>
                   {a.status === "selesai" && (
-                    <a href={`/siswa/hasil/${a.id}`} target="_blank" rel="noreferrer" className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
-                      Lihat Lembar Hasil →
+                    <a href={`/api/siswa/attempts/${a.id}/rapor`} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                      Unduh Rapor (PDF) →
                     </a>
                   )}
                 </div>

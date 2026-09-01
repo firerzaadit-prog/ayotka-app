@@ -15,6 +15,18 @@ import type { Attempt } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
+/**
+ * GET di bawah ini di-poll berkala oleh AnalisisAiPanel buat cek status
+ * terbaru - no-store eksplisit di response supaya CDN/proxy di depan
+ * Vercel (kalau ada, mis. lewat domain custom ayotka.id) tidak pernah
+ * menyimpan snapshot lama. Fetch di client sudah cache:"no-store" juga,
+ * tapi itu cuma kontrol sisi browser - header response ini yang menutup
+ * kemungkinan cache di layer manapun di antara server dan browser.
+ */
+function noStoreJson(body: unknown, status?: number) {
+  return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
+}
+
 async function loadAttemptForAdmin(user: CurrentUser, attemptId: string): Promise<Attempt | null> {
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
@@ -80,26 +92,26 @@ export async function GET(_request: Request, { params }: RouteParams) {
   try {
     user = await requireRole("siswa", "admin_sekolah", "admin_pusat");
   } catch {
-    return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+    return noStoreJson({ error: "Tidak diizinkan." }, 403);
   }
 
   const { id } = await params;
   const attempt =
     user.role === "siswa" ? await loadOwnedAttempt(user.id, id) : await loadAttemptForAdmin(user, id);
   if (!attempt) {
-    return NextResponse.json({ error: "Attempt tidak ditemukan." }, { status: 404 });
+    return noStoreJson({ error: "Attempt tidak ditemukan." }, 404);
   }
 
   const analysis = await prisma.aiAnalysis.findUnique({ where: { attemptId: id } });
   if (analysis) {
-    return NextResponse.json({ status: "ready", analysis: analysis.detailJson, generatedAt: analysis.generatedAt });
+    return noStoreJson({ status: "ready", analysis: analysis.detailJson, generatedAt: analysis.generatedAt });
   }
   if (isProcessing(id)) {
-    return NextResponse.json({ status: "processing" });
+    return noStoreJson({ status: "processing" });
   }
   const failure = getLastError(id);
   if (failure) {
-    return NextResponse.json({ status: "error", error: failure });
+    return noStoreJson({ status: "error", error: failure });
   }
-  return NextResponse.json({ status: "none" });
+  return noStoreJson({ status: "none" });
 }
