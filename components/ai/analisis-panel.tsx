@@ -22,6 +22,11 @@ type StatusResponse =
 const POLL_MS = 5000;
 const MAX_POLLS = 24; // ~2 menit (10s + 20s + 40s backoff internal + overhead)
 
+const FORMAT_TANGGAL = new Intl.DateTimeFormat("id-ID", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
 /**
  * Tiket 5.3-5.5: dipakai dua tempat - halaman monitoring admin sekolah
  * (canTrigger=true, ada tombol) dan halaman hasil siswa (canTrigger=false,
@@ -113,6 +118,10 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
       )}
       {data.status === "ready" && (
         <div className="flex flex-col gap-3 text-sm">
+          <p className="text-xs text-slate-400">
+            Dianalisis pada {FORMAT_TANGGAL.format(new Date(data.generatedAt))}
+            {canTrigger && " — klik \"Analisis ulang\" lalu cek tanggal ini berubah untuk memastikan hasilnya baru."}
+          </p>
           <p className="text-slate-700">{data.analysis.ringkasan}</p>
 
           <div>
