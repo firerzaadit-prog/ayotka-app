@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
@@ -56,6 +57,10 @@ export async function POST(request: Request) {
     after: pkg,
     ip: getClientIp(request),
   });
+
+  // Landing page nge-cache query ini lewat unstable_cache (revalidate: 3600) -
+  // segarkan segera begitu ada paket baru, jangan tunggu jendela berikutnya.
+  revalidateTag("service-packages", { expire: 0 });
 
   return NextResponse.json({ package: pkg }, { status: 201 });
 }

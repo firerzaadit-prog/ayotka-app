@@ -1,9 +1,27 @@
 import Link from "next/link";
 import Image from "next/image";
+import { unstable_cache } from "next/cache";
 import { Footer } from "@/components/public/footer";
 import { prisma } from "@/lib/db/prisma";
 
+// force-dynamic dipertahankan (bukan static/ISR) supaya build TIDAK butuh
+// koneksi DB - build Vercel tidak selalu bisa reach Postgres. Query paket
+// layanan sendiri di-cache lewat unstable_cache (bukan Full Route Cache)
+// supaya tetap 1x query per jam per instance, bukan per request - rute
+// admin paket layanan panggil revalidateTag("service-packages") tiap ada
+// perubahan (lihat app/api/admin-pusat/service-packages) supaya tetap segar.
 export const dynamic = "force-dynamic";
+
+const getActivePackages = unstable_cache(
+  async () =>
+    prisma.servicePackage.findMany({
+      where: { isActive: true },
+      orderBy: { hargaPerMapel: "asc" },
+      select: { id: true, nama: true, hargaPerMapel: true, tryOutPerMapel: true, deskripsi: true },
+    }),
+  ["landing-active-service-packages"],
+  { tags: ["service-packages"], revalidate: 3600 },
+);
 
 function formatRupiah(n: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
@@ -69,11 +87,7 @@ const FEATURES = [
 ];
 
 export default async function LandingPage() {
-  const packages = await prisma.servicePackage.findMany({
-    where: { isActive: true },
-    orderBy: { hargaPerMapel: "asc" },
-    select: { id: true, nama: true, hargaPerMapel: true, tryOutPerMapel: true, deskripsi: true },
-  });
+  const packages = await getActivePackages();
 
   return (
     <main className="min-h-screen bg-white">
@@ -85,6 +99,7 @@ export default async function LandingPage() {
                 src="/logo.png"
                 alt="AyoTKA Logo"
                 fill
+                sizes="40px"
                 className="object-contain"
               />
             </div>
@@ -120,13 +135,13 @@ export default async function LandingPage() {
       </header>
 
       <section className="relative overflow-hidden">
-        <div
-          className="pointer-events-none absolute inset-0 opacity-70"
-          style={{
-            backgroundImage: "url('/hero-bg.png')",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
+        <Image
+          src="/hero-bg.png"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="pointer-events-none object-cover opacity-70"
         />
         <div className="pointer-events-none absolute inset-0 bg-white/70 backdrop-blur-sm" />
         <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-6 px-6 py-20 text-center sm:py-28">
