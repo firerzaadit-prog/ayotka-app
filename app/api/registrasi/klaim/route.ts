@@ -34,6 +34,18 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
 
+  // Rate limit per-IP di atas tidak cukup: verifikasi tanggalLahir (satu
+  // tanggal kalender) bisa ditebak habis dengan rotasi IP sederhana kalau
+  // studentId targetnya sudah diketahui (lihat audit keamanan). Dikunci per
+  // studentId supaya limitnya tetap berlaku siapa pun/dari mana pun
+  // percobaannya datang, sebelum sentuh DB sama sekali.
+  if (!checkRateLimit(`klaim:student:${data.studentId}`, 5, 5 * 60_000)) {
+    return NextResponse.json(
+      { error: "Terlalu banyak percobaan untuk data ini. Coba lagi nanti atau hubungi admin sekolah." },
+      { status: 429 },
+    );
+  }
+
   const school = await findActiveSchoolByCode(data.kodeSekolah.toUpperCase());
   if (!school) {
     return NextResponse.json({ error: "Kode sekolah tidak valid." }, { status: 403 });
