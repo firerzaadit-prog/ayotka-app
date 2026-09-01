@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { buttonClassName } from "@/components/ui/button";
-import { ListSkeleton } from "@/components/ui/skeleton";
+import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 import { IconClipboardCheck } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
@@ -33,7 +33,7 @@ type AttemptSummary = {
 export default function SiswaUjianPage() {
   const [jalur, setJalur] = useState<"A" | "B" | null>(null);
   const [assignments, setAssignments] = useState<AssignmentItem[] | null>(null);
-  const [packages, setPackages] = useState<PackageItem[]>([]);
+  const [packages, setPackages] = useState<PackageItem[] | null>(null);
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
 
   useEffect(() => {
@@ -73,6 +73,13 @@ export default function SiswaUjianPage() {
     }
     const qs = assignmentId ? `assignmentId=${assignmentId}` : `packageId=${packageId}`;
     return `/siswa/ujian/mulai?${qs}`;
+  }
+
+  // jalur masih null sebelum fetch selesai - tanpa gerbang ini, render di
+  // bawah jatuh ke tampilan "Jalur B" secara default (bukan skeleton) untuk
+  // SEMUA siswa termasuk Jalur A, sampai terbukti keliru sesaat kemudian.
+  if (jalur === null) {
+    return <PageSkeleton />;
   }
 
   // Jalur A: hanya Ujian Ditugaskan
@@ -129,9 +136,11 @@ export default function SiswaUjianPage() {
         description="Paket try out yang tersedia untukmu."
       />
       <div>
-        {packages.length === 0 ? (
+        {packages === null && <ListSkeleton items={3} />}
+        {packages?.length === 0 && (
           <EmptyState icon={<IconClipboardCheck />} title="Belum ada paket tersedia" description="Belum ada paket try out yang tersedia untuk tingkatmu saat ini." />
-        ) : (
+        )}
+        {packages && packages.length > 0 && (
           <div className="flex flex-col gap-2">
             {packages.map((p) => {
               const attempt = attemptFor(null, p.id);
