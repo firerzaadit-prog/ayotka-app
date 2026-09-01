@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
@@ -49,6 +50,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     ip: getClientIp(request),
   });
 
+  revalidateTag("service-packages", { expire: 0 });
+
   return NextResponse.json({ package: pkg });
 }
 
@@ -86,6 +89,8 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     before,
     ip: getClientIp(request),
   });
+
+  revalidateTag("service-packages", { expire: 0 });
 
   return NextResponse.json({ ok: true });
 }
