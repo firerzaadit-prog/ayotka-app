@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins, IBM_Plex_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { APP_URL } from "@/lib/site-url";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -17,9 +18,36 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "AyoTKA";
+const DESCRIPTION =
+  "Platform Tes Kemampuan Akademik (TKA) unggulan untuk siswa SD dan SMP. Dapatkan evaluasi komprehensif, pembahasan soal berbasis AI, dan pemetaan kompetensi akurat untuk meraih hasil belajar terbaik.";
+
 export const metadata: Metadata = {
-  title: process.env.NEXT_PUBLIC_APP_NAME ?? "AyoTKA",
-  description: "Platform Tes Kemampuan Akademik (TKA) unggulan untuk siswa SD dan SMP. Dapatkan evaluasi komprehensif, pembahasan soal berbasis AI, dan pemetaan kompetensi akurat untuk meraih hasil belajar terbaik.",
+  metadataBase: new URL(APP_URL),
+  title: APP_NAME,
+  description: DESCRIPTION,
+  keywords: [
+    "TKA",
+    "Tes Kemampuan Akademik",
+    "tryout TKA",
+    "TKA SD",
+    "TKA SMP",
+    "latihan soal TKA",
+    "AyoTKA",
+  ],
+  openGraph: {
+    title: APP_NAME,
+    description: DESCRIPTION,
+    url: "/",
+    siteName: APP_NAME,
+    locale: "id_ID",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: APP_NAME,
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
