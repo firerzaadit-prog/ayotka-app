@@ -24,7 +24,7 @@ export default function RegistrasiPage() {
       >
         <p className="font-medium text-slate-900">Siswa mandiri</p>
         <p className="text-sm text-slate-500">
-          Sekolahmu belum berlangganan, atau kamu belajar sendiri. Berbayar (1 paket gratis untuk coba).
+          Sekolahmu belum berlangganan, atau kamu belajar sendiri. Berbayar per mata pelajaran, termasuk beberapa kali Try Out.
         </p>
       </Link>
 
