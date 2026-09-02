@@ -32,7 +32,7 @@ const FEATURES = [
   {
     title: "Tes Kemampuan Akademik",
     description:
-      "Tes Kemampuan Akademik yang berisi mata pelajaran Bahasa Indonesia dan Matematika yang disesuaikan dengan kerangka asesmen ",
+      "Mencakup mata pelajaran Bahasa Indonesia dan Matematika, disesuaikan dengan kerangka asesmen TKA.",
     icon: (
       <path
         d="M9 11.5 11 13.5 15.5 9M12 3l7 3v5c0 4.6-3 8.7-7 10-4-1.3-7-5.4-7-10V6l7-3Z"
@@ -60,7 +60,7 @@ const FEATURES = [
   {
     title: "Dashboard Lengkap",
     description:
-      "Admin sekolah dilengkapi dengan fitur penjadwalan ujian yang bisa diatur kapan saja dan bisa melihat hasil tes kemampuan akademik siswanya dan siswa bisa melihat riwayat nilai dan mendapatkan rekomendasi belajar",
+      "Admin sekolah bisa menjadwalkan ujian kapan saja dan memantau hasil siswa, sementara siswa bisa melihat riwayat nilai dan mendapatkan rekomendasi belajar.",
     icon: (
       <path
         d="M4 19V10M10 19V5M16 19v-7M4 19h16"
@@ -74,7 +74,7 @@ const FEATURES = [
   {
     title: "Kerja Sama Sekolah",
     description:
-      "Sekolah bisa bekerja sama dengan platform ayotka untuk mengadakan tes kemampuan akademik bagi siswa-siswinya",
+      "Sekolah bisa bekerja sama dengan platform AyoTKA untuk mengadakan Tes Kemampuan Akademik bagi siswa-siswinya.",
     icon: (
       <path
         d="M4 21V8l8-4 8 4v13M4 21h16M9 21v-6h6v6"
@@ -115,10 +115,8 @@ export default async function LandingPage() {
             </span>
           </h1>
           <p className="max-w-md text-base leading-relaxed text-slate-600 sm:max-w-xl sm:text-lg">
-            Platform Tes Kemampuan Akademik untuk siswa SD &amp; SMP 
-          </p>
-           <p className="max-w-md text-base leading-relaxed text-slate-600 sm:max-w-xl sm:text-lg">
-            Platform Tes Kemampuan Akademik dilengkapi sistem learning analytics yang mampu mendeteksi kelebihan dan kekurangan siswa, sehingga siswa lebih siap untuk menghadapi Tes Kemampuan Akademik.
+            Platform untuk siswa SD &amp; SMP, dilengkapi sistem learning analytics
+            yang mendeteksi kelebihan dan kekurangan siswa agar lebih siap menghadapi TKA.
           </p>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
             <Link
