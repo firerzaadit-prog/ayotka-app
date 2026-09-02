@@ -94,21 +94,12 @@ export default async function LandingPage() {
     <main className="min-h-screen bg-white">
       <PublicHeader active="/" />
 
-      <section className="relative overflow-hidden">
-        <Image
-          src="/hero-bg.png"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="pointer-events-none object-cover opacity-70"
-        />
-        <div className="pointer-events-none absolute inset-0 bg-white/70 backdrop-blur-sm" />
-        <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-6 px-6 py-20 text-center sm:py-28">
+      <section className="mx-auto max-w-5xl px-6 pb-20 pt-20 sm:pb-28 sm:pt-28">
+        <div className="flex flex-col items-center gap-7 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-900">
             ayotka.id
           </p>
-          <h1 className="text-4xl font-bold leading-tight text-balance text-slate-900 sm:text-5xl">
+          <h1 className="max-w-3xl text-4xl font-bold leading-tight text-balance text-slate-900 sm:text-5xl">
             Tes Kemampuan Akademik{" "}
             <span className="bg-gradient-to-br from-indigo-600 to-violet-600 bg-clip-text text-transparent">
               raih hasil terbaikmu
@@ -133,22 +124,34 @@ export default async function LandingPage() {
             </Link>
           </div>
         </div>
+
+        <div className="mx-auto mt-16 max-w-4xl overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/5 sm:mt-20">
+          <Image
+            src="/hero-bg.png"
+            alt=""
+            width={1024}
+            height={512}
+            priority
+            sizes="(min-width: 896px) 896px, 100vw"
+            className="h-auto w-full object-cover"
+          />
+        </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 pb-24">
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((feature) => (
             <div
               key={feature.title}
-              className="rounded-xl border border-slate-200 p-5 transition-shadow hover:shadow-md"
+              className="rounded-xl border border-slate-200 p-6 transition-all hover:border-indigo-200 hover:shadow-md"
             >
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
                 <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
                   {feature.icon}
                 </svg>
               </div>
               <h3 className="font-semibold text-slate-900">{feature.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
+              <p className="mt-2 text-sm leading-relaxed text-slate-500">
                 {feature.description}
               </p>
             </div>
@@ -157,8 +160,8 @@ export default async function LandingPage() {
       </section>
 
       {packages.length > 0 && (
-        <section className="mx-auto max-w-6xl px-6 pb-24">
-          <div className="mx-auto mb-10 max-w-xl text-center">
+        <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+          <div className="mx-auto mb-14 max-w-xl text-center">
             <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">
               Paket Layanan
             </p>
@@ -170,11 +173,11 @@ export default async function LandingPage() {
               beberapa kali kesempatan Try Out TKA per mata pelajaran.
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {packages.map((pkg) => (
               <div
                 key={pkg.id}
-                className="flex flex-col rounded-xl border border-slate-200 p-6 shadow-sm transition-shadow hover:shadow-md"
+                className="flex flex-col rounded-xl border border-slate-200 p-7 shadow-sm transition-all hover:border-indigo-200 hover:shadow-md"
               >
                 <h3 className="font-semibold text-slate-900">{pkg.nama}</h3>
                 <p className="mt-3">
@@ -191,7 +194,7 @@ export default async function LandingPage() {
                 )}
                 <Link
                   href="/registrasi"
-                  className="mt-6 rounded-lg border border-slate-200 bg-white px-4 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
+                  className="mt-7 rounded-lg border border-slate-200 bg-white px-4 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
                 >
                   Daftar sebagai siswa
                 </Link>
@@ -200,7 +203,6 @@ export default async function LandingPage() {
           </div>
         </section>
       )}
-
 
       <Footer />
     </main>
