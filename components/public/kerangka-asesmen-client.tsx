@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
+import { Reveal } from "@/components/ui/reveal";
 import { Footer } from "@/components/public/footer";
 import { PublicHeader } from "@/components/public/header";
 import {
@@ -39,23 +40,31 @@ export function KerangkaAsesmenClient() {
       <PublicHeader active="/kerangka-asesmen" />
 
       <section className="mx-auto max-w-3xl px-6 pb-4 pt-20 text-center sm:pt-24">
-        <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
-          <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-            <path
-              d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15Z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-        <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">Panduan Resmi</p>
-        <h1 className="mt-3 text-4xl font-bold text-balance text-slate-900">Kerangka Asesmen TKA</h1>
-        <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
-          Cakupan materi dan kompetensi yang diujikan pada Tes Kemampuan Akademik, disusun berdasarkan
-          kerangka resmi Pusat Asesmen Pendidikan, Kementerian Pendidikan Dasar dan Menengah RI.
-        </p>
+        <Reveal className="mx-auto mb-6 flex h-12 w-12 items-center justify-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+            <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
+              <path
+                d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15Z"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        </Reveal>
+        <Reveal delay={100}>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">Panduan Resmi</p>
+        </Reveal>
+        <Reveal delay={200}>
+          <h1 className="mt-3 text-4xl font-bold text-balance text-slate-900">Kerangka Asesmen TKA</h1>
+        </Reveal>
+        <Reveal delay={300}>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
+            Cakupan materi dan kompetensi yang diujikan pada Tes Kemampuan Akademik, disusun berdasarkan
+            kerangka resmi Pusat Asesmen Pendidikan, Kementerian Pendidikan Dasar dan Menengah RI.
+          </p>
+        </Reveal>
       </section>
 
       <section className="mx-auto max-w-4xl px-6 pb-24">
@@ -112,7 +121,7 @@ export function KerangkaAsesmenClient() {
           ))}
         </div>
 
-        <div className="mt-10">
+        <Reveal key={tab} className="mt-10">
           {tab === "definisi" && (
             <p className="text-base leading-relaxed text-slate-700">{content.definisi}</p>
           )}
@@ -264,7 +273,7 @@ export function KerangkaAsesmenClient() {
               </table>
             </div>
           )}
-        </div>
+        </Reveal>
 
         <p className="mt-14 text-center text-xs text-slate-400">
           Sumber: Kementerian Pendidikan Dasar dan Menengah Republik Indonesia — Pusat Asesmen Pendidikan.{" "}
