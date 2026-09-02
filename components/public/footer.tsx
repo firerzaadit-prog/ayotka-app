@@ -12,7 +12,7 @@ export function Footer() {
             <h4 className="text-2xl font-bold">AyoTKA</h4>
           </div>
           <p className="text-white/80 text-sm leading-relaxed">
-            Website untuk melatih Peserta didik Jenjang SMP Untuk Menghadapi Tes Kemampuan Akademik
+            Website untuk melatih Peserta didik Jenjang SD dan SMP Untuk Menghadapi Tes Kemampuan Akademik
           </p>
           <div className="flex gap-3 text-white/80 text-sm mt-2">
             <MapPin className="w-5 h-5 text-[#6c7cff] shrink-0" />
