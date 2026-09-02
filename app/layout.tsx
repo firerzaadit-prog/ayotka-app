@@ -20,7 +20,7 @@ const plexMono = IBM_Plex_Mono({
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "AyoTKA";
 const DESCRIPTION =
-  "Platform Tes Kemampuan Akademik (TKA) unggulan untuk siswa SD dan SMP. Dapatkan evaluasi komprehensif, pembahasan soal berbasis AI, dan pemetaan kompetensi akurat untuk meraih hasil belajar terbaik.";
+  "Platform Tes Kemampuan Akademik (TKA) unggulan untuk siswa SD dan SMP. Dilengkapi sistem learning analytics yang mendeteksi kelebihan dan kekuranganmu, dengan pemetaan kompetensi akurat untuk persiapan TKA yang lebih efektif.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),

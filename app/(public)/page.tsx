@@ -44,9 +44,9 @@ const FEATURES = [
     ),
   },
   {
-    title: "Pembahasan Berbasis AI",
+    title: "Learning Analytics",
     description:
-      "Tiap jawaban dianalisis dan dipetakan ke materi, sub materi, dan kompetensi — bukan cuma nilai.",
+      "Tiap jawaban dianalisis untuk mendeteksi kelebihan dan kekuranganmu, dipetakan ke materi, sub materi, dan kompetensi — supaya persiapan TKA lebih tepat sasaran.",
     icon: (
       <path
         d="M12 3v2.5M12 18.5V21M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M3 12h2.5M18.5 12H21M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8M9 12a3 3 0 1 1 3 3v2"
@@ -115,8 +115,9 @@ export default async function LandingPage() {
             </span>
           </h1>
           <p className="max-w-md text-base leading-relaxed text-slate-600 sm:max-w-xl sm:text-lg">
-            Platform TKA untuk siswa SD &amp; SMP — nilai, pembahasan, dan analisis
-            berbasis AI yang dipetakan ke materi, sub materi, dan kompetensi.
+            Platform TKA untuk siswa SD &amp; SMP — nilai, pembahasan, dan sistem
+            learning analytics yang mendeteksi kelebihan &amp; kekuranganmu, dipetakan
+            ke materi, sub materi, dan kompetensi.
           </p>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
             <Link
