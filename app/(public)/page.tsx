@@ -30,9 +30,9 @@ function formatRupiah(n: number): string {
 
 const FEATURES = [
   {
-    title: "Tes Kemampuan Akademik",
+    title: "Tes Terstruktur",
     description:
-      "Tes Kemampuan Akademik yang berisi mata pelajaran Bahasa Indonesia dan Matematika yang disesuaikan dengan kerangka asesmen ",
+      "Tiga format soal, timer server-side, dan auto-save — ujian tetap aman meski koneksi terputus.",
     icon: (
       <path
         d="M9 11.5 11 13.5 15.5 9M12 3l7 3v5c0 4.6-3 8.7-7 10-4-1.3-7-5.4-7-10V6l7-3Z"
@@ -44,9 +44,9 @@ const FEATURES = [
     ),
   },
   {
-    title: "Pembahasan Berbasis Learning Analytics",
+    title: "Pembahasan Berbasis AI",
     description:
-      "Tiap jawaban siswa dianalisis untuk mengetahui kelebihan dan kekurangan siswa, sehingga siswa lebih siap untuk menghadapi Tes Kemampuan Akademik.",
+      "Tiap jawaban dianalisis dan dipetakan ke materi, sub materi, dan kompetensi — bukan cuma nilai.",
     icon: (
       <path
         d="M12 3v2.5M12 18.5V21M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M3 12h2.5M18.5 12H21M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8M9 12a3 3 0 1 1 3 3v2"
@@ -60,7 +60,7 @@ const FEATURES = [
   {
     title: "Dashboard Lengkap",
     description:
-      "Admin sekolah dilengkapi dengan fitur penjadwalan ujian yang bisa diatur kapan saja dan bisa melihat hasil tes kemampuan akademik siswanya dan siswa bisa melihat riwayat nilai dan mendapatkan rekomendasi belajar",
+      "Admin sekolah pantau kelasnya, admin pusat pantau seluruh jaringan sekolah — real-time.",
     icon: (
       <path
         d="M4 19V10M10 19V5M16 19v-7M4 19h16"
@@ -72,9 +72,9 @@ const FEATURES = [
     ),
   },
   {
-    title: "Kerja Sama Sekolah",
+    title: "Multi Sekolah",
     description:
-      "Sekolah bisa bekerja sama dengan platform ayotka untuk mengadakan tes kemampuan akademik bagi siswa-siswinya",
+      "Satu platform untuk banyak sekolah, masing-masing dengan langganan dan data yang terpisah aman.",
     icon: (
       <path
         d="M4 21V8l8-4 8 4v13M4 21h16M9 21v-6h6v6"
@@ -105,20 +105,18 @@ export default async function LandingPage() {
         />
         <div className="pointer-events-none absolute inset-0 bg-white/70 backdrop-blur-sm" />
         <div className="relative mx-auto flex max-w-4xl flex-col items-center gap-6 px-6 py-20 text-center sm:py-28">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-900">
-            ayotka.id
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-600">
+            Tes Kemampuan Akademik
           </p>
           <h1 className="text-4xl font-bold leading-tight text-balance text-slate-900 sm:text-5xl">
-            Tes Kemampuan Akademik{" "}
+            Uji kemampuan akademikmu,{" "}
             <span className="bg-gradient-to-br from-indigo-600 to-violet-600 bg-clip-text text-transparent">
               raih hasil terbaikmu
             </span>
           </h1>
           <p className="max-w-md text-base leading-relaxed text-slate-600 sm:max-w-xl sm:text-lg">
-            Platform Tes Kemampuan Akademik untuk siswa SD &amp; SMP 
-          </p>
-           <p className="max-w-md text-base leading-relaxed text-slate-600 sm:max-w-xl sm:text-lg">
-            Platform Tes Kemampuan Akademik dilengkapi sistem learning analytics yang mampu mendeteksi kelebihan dan kekurangan siswa, sehingga siswa lebih siap untuk menghadapi Tes Kemampuan Akademik.
+            Platform TKA untuk siswa SD &amp; SMP — nilai, pembahasan, dan analisis
+            berbasis AI yang dipetakan ke materi, sub materi, dan kompetensi.
           </p>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row">
             <Link
@@ -186,7 +184,7 @@ export default async function LandingPage() {
                   <span className="text-sm text-slate-500"> / mata pelajaran</span>
                 </p>
                 <p className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
-                  {pkg.tryOutPerMapel}× Try Out TKA per mata pelajaran
+                  {pkg.tryOutPerMapel} Try Out TKA per mata pelajaran
                 </p>
                 {pkg.deskripsi && (
                   <p className="mt-3 text-sm leading-relaxed text-slate-500">{pkg.deskripsi}</p>
