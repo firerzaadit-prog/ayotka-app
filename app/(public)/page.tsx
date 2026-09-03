@@ -4,6 +4,7 @@ import { unstable_cache } from "next/cache";
 import { Footer } from "@/components/public/footer";
 import { PublicHeader } from "@/components/public/header";
 import { Reveal } from "@/components/ui/reveal";
+import { Tilt3DCard } from "@/components/ui/animated-3d-card";
 import { prisma } from "@/lib/db/prisma";
 
 // force-dynamic dipertahankan (bukan static/ISR) supaya build TIDAK butuh
@@ -157,18 +158,20 @@ export default async function LandingPage() {
         </Reveal>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((feature, i) => (
-            <Reveal key={feature.title} delay={i * 80}>
-              <div className="rounded-xl border border-slate-200 p-6 transition-all hover:-translate-y-1 hover:border-indigo-200 hover:shadow-md">
-                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-                  <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-                    {feature.icon}
-                  </svg>
+            <Reveal key={feature.title} delay={i * 80} className="h-full">
+              <Tilt3DCard className="min-h-72">
+                <div className="flex h-full flex-col p-6">
+                  <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
+                    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                      {feature.icon}
+                    </svg>
+                  </div>
+                  <h3 className="font-semibold text-white">{feature.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-white/80">
+                    {feature.description}
+                  </p>
                 </div>
-                <h3 className="font-semibold text-slate-900">{feature.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                  {feature.description}
-                </p>
-              </div>
+              </Tilt3DCard>
             </Reveal>
           ))}
         </div>
@@ -192,28 +195,30 @@ export default async function LandingPage() {
           </Reveal>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {packages.map((pkg, i) => (
-              <Reveal key={pkg.id} delay={i * 80}>
-                <div className="flex flex-col rounded-xl border border-slate-200 p-7 shadow-sm transition-all hover:-translate-y-1 hover:border-indigo-200 hover:shadow-md">
-                  <h3 className="font-semibold text-slate-900">{pkg.nama}</h3>
-                  <p className="mt-3">
-                    <span className="text-3xl font-bold tracking-tight text-slate-900">
-                      {formatRupiah(pkg.hargaPerMapel)}
-                    </span>
-                    <span className="text-sm text-slate-500"> / mata pelajaran</span>
-                  </p>
-                  <p className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-700">
-                    {pkg.tryOutPerMapel}× Try Out TKA per mata pelajaran
-                  </p>
-                  {pkg.deskripsi && (
-                    <p className="mt-3 text-sm leading-relaxed text-slate-500">{pkg.deskripsi}</p>
-                  )}
-                  <Link
-                    href="/registrasi"
-                    className="mt-7 rounded-lg border border-slate-200 bg-white px-4 py-2 text-center text-sm font-medium text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
-                  >
-                    Daftar sebagai siswa
-                  </Link>
-                </div>
+              <Reveal key={pkg.id} delay={i * 80} className="h-full">
+                <Tilt3DCard gradient="from-violet-600 via-indigo-700 to-indigo-900">
+                  <div className="flex h-full flex-col p-7">
+                    <h3 className="font-semibold text-white">{pkg.nama}</h3>
+                    <p className="mt-3">
+                      <span className="text-3xl font-bold tracking-tight text-white">
+                        {formatRupiah(pkg.hargaPerMapel)}
+                      </span>
+                      <span className="text-sm text-white/70"> / mata pelajaran</span>
+                    </p>
+                    <p className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                      {pkg.tryOutPerMapel}× Try Out TKA per mata pelajaran
+                    </p>
+                    {pkg.deskripsi && (
+                      <p className="mt-3 text-sm leading-relaxed text-white/80">{pkg.deskripsi}</p>
+                    )}
+                    <Link
+                      href="/registrasi"
+                      className="mt-7 rounded-lg bg-white px-4 py-2 text-center text-sm font-medium text-indigo-700 shadow-sm transition-colors hover:bg-white/90"
+                    >
+                      Daftar sebagai siswa
+                    </Link>
+                  </div>
+                </Tilt3DCard>
               </Reveal>
             ))}
           </div>
