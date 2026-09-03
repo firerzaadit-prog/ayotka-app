@@ -1,10 +1,30 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion, useReducedMotion, type Variants } from "framer-motion";
 import { Globe, Phone, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+
+/**
+ * Diagonal clip-path pada gambar cuma didesain buat panel tinggi (desktop) -
+ * di layar sempit rasio panelnya jadi hampir persegi dan potongan diagonal
+ * itu terlihat seperti notch janggal, bukan reveal yang elegan. Default
+ * false (mode mobile: tanpa diagonal) supaya render server & first paint
+ * client tetap sama - begitu mount, kalau layarnya memang lebar, langsung
+ * upgrade ke mode diagonal.
+ */
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isDesktop;
+}
 
 type ContactInfo = Partial<{
   website: string;
@@ -48,6 +68,9 @@ const HeroSection = React.forwardRef<HTMLElement, HeroSectionProps>(
     ref,
   ) => {
     const reduceMotion = useReducedMotion();
+    const isDesktop = useIsDesktop();
+    const diagonalReveal = isDesktop && !reduceMotion;
+    const fadeReveal = !isDesktop && !reduceMotion;
     const contactEntries = (Object.keys(CONTACT_ICON) as (keyof ContactInfo)[])
       .map((key) => ({ key, value: contactInfo?.[key] }))
       .filter((entry): entry is { key: keyof ContactInfo; value: string } => Boolean(entry.value));
@@ -78,10 +101,10 @@ const HeroSection = React.forwardRef<HTMLElement, HeroSectionProps>(
         variants={containerVariants}
       >
         {/* Kiri: konten */}
-        <div className="flex w-full flex-col justify-between p-8 md:w-1/2 md:p-12 lg:w-3/5 lg:p-16">
+        <div className="flex w-full flex-col justify-between p-6 sm:p-8 md:w-1/2 md:p-12 lg:w-3/5 lg:p-16">
           <div>
             {logo && (
-              <motion.header className="mb-12" variants={itemVariants}>
+              <motion.header className="mb-8 md:mb-12" variants={itemVariants}>
                 <div className="flex items-center gap-3">
                   <div className="relative h-9 w-9 shrink-0">
                     <Image src={logo.url} alt={logo.alt} fill sizes="36px" className="object-contain" />
@@ -104,10 +127,13 @@ const HeroSection = React.forwardRef<HTMLElement, HeroSectionProps>(
                 {title}
               </motion.h1>
               <motion.div
-                className="my-6 h-1 w-20 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600"
+                className="my-5 h-1 w-20 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600 md:my-6"
                 variants={itemVariants}
               />
-              <motion.p className="mb-8 max-w-md text-base leading-relaxed text-slate-600" variants={itemVariants}>
+              <motion.p
+                className="mb-6 max-w-md text-base leading-relaxed text-slate-600 md:mb-8"
+                variants={itemVariants}
+              >
                 {subtitle}
               </motion.p>
               <motion.div className="flex flex-col gap-3 sm:flex-row" variants={itemVariants}>
@@ -130,7 +156,7 @@ const HeroSection = React.forwardRef<HTMLElement, HeroSectionProps>(
           </div>
 
           {contactEntries.length > 0 && (
-            <motion.footer className="mt-12 w-full" variants={itemVariants}>
+            <motion.footer className="mt-8 w-full md:mt-12" variants={itemVariants}>
               <div className="flex flex-wrap gap-x-8 gap-y-3 text-xs text-slate-500">
                 {contactEntries.map(({ key, value }) => {
                   const Icon = CONTACT_ICON[key];
@@ -146,16 +172,38 @@ const HeroSection = React.forwardRef<HTMLElement, HeroSectionProps>(
           )}
         </div>
 
-        {/* Kanan: gambar dengan reveal clip-path diagonal */}
+        {/* Kanan (desktop): panel penuh dengan reveal clip-path diagonal.
+            Mobile: kartu membulat dengan rasio tetap + fade-in, potongan
+            diagonal dilepas karena panelnya jadi hampir persegi (lihat
+            useIsDesktop di atas). */}
         <motion.div
-          className="relative min-h-[300px] w-full overflow-hidden md:min-h-full md:w-1/2 lg:w-2/5"
+          className={cn(
+            "relative mx-6 mb-2 aspect-[4/3] overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/10 sm:mx-8",
+            "md:mx-0 md:mb-0 md:aspect-auto md:w-1/2 md:min-h-full md:rounded-none md:border-0 md:shadow-none lg:w-2/5",
+          )}
           initial={
-            reduceMotion
-              ? { clipPath: "polygon(25% 0, 100% 0, 100% 100%, 0% 100%)" }
-              : { clipPath: "polygon(100% 0, 100% 0, 100% 100%, 100% 100%)" }
+            diagonalReveal
+              ? { clipPath: "polygon(100% 0, 100% 0, 100% 100%, 100% 100%)", opacity: 1, scale: 1 }
+              : {
+                  clipPath: "polygon(0% 0, 100% 0, 100% 100%, 0% 100%)",
+                  opacity: fadeReveal ? 0 : 1,
+                  scale: fadeReveal ? 0.96 : 1,
+                }
           }
-          animate={{ clipPath: "polygon(25% 0, 100% 0, 100% 100%, 0% 100%)" }}
-          transition={reduceMotion ? { duration: 0 } : { duration: 1.2, ease: "circOut" }}
+          animate={{
+            clipPath: diagonalReveal
+              ? "polygon(25% 0, 100% 0, 100% 100%, 0% 100%)"
+              : "polygon(0% 0, 100% 0, 100% 100%, 0% 100%)",
+            opacity: 1,
+            scale: 1,
+          }}
+          transition={
+            diagonalReveal
+              ? { duration: 1.2, ease: "circOut" }
+              : fadeReveal
+                ? { duration: 0.6, ease: "easeOut" }
+                : { duration: 0 }
+          }
         >
           <Image
             src={backgroundImage}
