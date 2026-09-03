@@ -1,10 +1,10 @@
 import Link from "next/link";
-import Image from "next/image";
 import { unstable_cache } from "next/cache";
 import { Footer } from "@/components/public/footer";
 import { PublicHeader } from "@/components/public/header";
 import { Reveal } from "@/components/ui/reveal";
 import { Tilt3DCard } from "@/components/ui/animated-3d-card";
+import { HeroSection } from "@/components/ui/hero-section-2";
 import { prisma } from "@/lib/db/prisma";
 
 // force-dynamic dipertahankan (bukan static/ISR) supaya build TIDAK butuh
@@ -96,59 +96,23 @@ export default async function LandingPage() {
     <main className="min-h-screen bg-white">
       <PublicHeader active="/" />
 
-      <section className="mx-auto max-w-5xl px-6 pb-20 pt-20 sm:pb-28 sm:pt-28">
-        <div className="flex flex-col items-center gap-7 text-center">
-          <Reveal>
-            <p className="font-mono text-xs uppercase tracking-[0.2em] text-indigo-900">
-              ayotka.id
-            </p>
-          </Reveal>
-          <Reveal delay={100}>
-            <h1 className="max-w-3xl text-4xl font-bold leading-tight text-balance text-slate-900 sm:text-5xl">
-              Tes Kemampuan Akademik{" "}
-              <span className="bg-gradient-to-br from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-                raih hasil terbaikmu
-              </span>
-            </h1>
-          </Reveal>
-          <Reveal delay={200}>
-            <p className="max-w-md text-base leading-relaxed text-slate-600 sm:max-w-xl sm:text-lg">
-              Platform untuk siswa SD &amp; SMP, dilengkapi sistem learning analytics
-              yang mendeteksi kelebihan dan kekurangan siswa agar lebih siap menghadapi TKA.
-            </p>
-          </Reveal>
-          <Reveal delay={300}>
-            <div className="mt-2 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
-                className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-6 py-3 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:scale-[1.02] hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500"
-              >
-                Masuk ke akunmu
-              </Link>
-              <Link
-                href="/registrasi"
-                className="rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 shadow-sm transition-all hover:scale-[1.02] hover:border-slate-300 hover:bg-slate-50"
-              >
-                Daftar sebagai siswa
-              </Link>
-            </div>
-          </Reveal>
-        </div>
-
-        <Reveal delay={400} className="mx-auto mt-16 max-w-4xl sm:mt-20">
-          <div className="overflow-hidden rounded-2xl border border-slate-200 shadow-xl shadow-slate-900/5">
-            <Image
-              src="/hero-bg.png"
-              alt=""
-              width={1024}
-              height={512}
-              priority
-              sizes="(min-width: 896px) 896px, 100vw"
-              className="h-auto w-full object-cover"
-            />
-          </div>
-        </Reveal>
-      </section>
+      <HeroSection
+        logo={{ url: "/logo.png", alt: "AyoTKA Logo", text: "AyoTKA" }}
+        slogan="ayotka.id"
+        title={
+          <>
+            Tes Kemampuan Akademik{" "}
+            <span className="bg-gradient-to-br from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+              raih hasil terbaikmu
+            </span>
+          </>
+        }
+        subtitle="Platform untuk siswa SD & SMP, dilengkapi sistem learning analytics yang mendeteksi kelebihan dan kekurangan siswa agar lebih siap menghadapi TKA."
+        callToAction={{ text: "Daftar sebagai siswa", href: "/registrasi" }}
+        secondaryCallToAction={{ text: "Masuk ke akunmu", href: "/login" }}
+        backgroundImage="/hero-bg.png"
+        contactInfo={{ website: "ayotka.id" }}
+      />
 
       <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
         <Reveal className="mx-auto mb-12 max-w-2xl text-center">
