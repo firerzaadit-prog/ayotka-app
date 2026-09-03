@@ -83,7 +83,7 @@ export default function RegistrasiMandiriPage() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <h1 className="text-lg font-semibold text-slate-900">Daftar - Siswa Mandiri</h1>
-        <p className="text-sm text-slate-500">1 paket gratis untuk coba, langganan bulanan setelahnya.</p>
+        <p className="text-sm text-slate-500">Berbayar per mata pelajaran, termasuk beberapa kali Try Out TKA.</p>
       </div>
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

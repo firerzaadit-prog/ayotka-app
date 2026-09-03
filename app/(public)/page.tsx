@@ -150,6 +150,11 @@ export default async function LandingPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+        <Reveal className="mx-auto mb-12 max-w-2xl text-center">
+          <h2 className="text-3xl font-bold text-balance text-slate-900">
+            Apa yang Membuat Platform Ini Berbeda?
+          </h2>
+        </Reveal>
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((feature, i) => (
             <Reveal key={feature.title} delay={i * 80}>
