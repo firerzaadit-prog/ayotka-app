@@ -4,15 +4,26 @@ import { PrismaClient } from "@prisma/client";
 const db = new PrismaClient();
 const ATTEMPT_ID = "a4fac53e-fc0a-45b2-baeb-97340301a4a3";
 
-function scoreQ(format: string, bobot: number, options: any[], statements: any[], jawaban: any) {
+type OptionRow = { id: string; isCorrect: boolean };
+type StatementRow = { id: string; correctCategoryId: string };
+
+function scoreQ(
+  format: string,
+  bobot: number,
+  options: OptionRow[],
+  statements: StatementRow[],
+  jawaban: unknown,
+) {
   if (!jawaban) return { skor: 0, skorMaks: bobot };
   if (format === "pg") {
-    const correct = options.find((o: any) => o.isCorrect);
-    return { skor: correct && jawaban.option_id === correct.id ? bobot : 0, skorMaks: bobot };
+    const j = jawaban as { option_id?: string };
+    const correct = options.find((o) => o.isCorrect);
+    return { skor: correct && j.option_id === correct.id ? bobot : 0, skorMaks: bobot };
   }
   if (format === "pg_kompleks") {
-    const correctIds = new Set(options.filter((o: any) => o.isCorrect).map((o: any) => o.id));
-    const sel: string[] = jawaban.option_ids ?? [];
+    const j = jawaban as { option_ids?: string[] };
+    const correctIds = new Set(options.filter((o) => o.isCorrect).map((o) => o.id));
+    const sel: string[] = j.option_ids ?? [];
     const ok = sel.length === correctIds.size && sel.every((id) => correctIds.has(id));
     return { skor: ok ? bobot : 0, skorMaks: bobot };
   }
@@ -20,7 +31,7 @@ function scoreQ(format: string, bobot: number, options: any[], statements: any[]
     const ans = jawaban as Record<string, string>;
     const total = statements.length;
     if (!total) return { skor: 0, skorMaks: bobot };
-    const correct = statements.filter((s: any) => ans[s.id] === s.correctCategoryId).length;
+    const correct = statements.filter((s) => ans[s.id] === s.correctCategoryId).length;
     return { skor: correct === total ? bobot : 0, skorMaks: bobot };
   }
   return { skor: 0, skorMaks: bobot };
