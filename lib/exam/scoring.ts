@@ -117,3 +117,40 @@ export function aggregateCompetency(
     persentase: b.skorMaksTotal > 0 ? (b.skorTotal / b.skorMaksTotal) * 100 : 0,
   }));
 }
+
+export type KategoriKesiapan = "kurang" | "memadai" | "baik" | "istimewa";
+
+/**
+ * Batas nilai kategori capaian TKA, sumber: infografis resmi Kemendikdasmen
+ * "Deskripsi Capaian TKA SMP/MTs/Sederajat 2026" (Badan Kebijakan Pendidikan
+ * Dasar dan Menengah). Angka SD tidak dipublikasikan resmi (dokumen setara
+ * SD cuma berisi deskripsi kualitatif tanpa rentang nilai) - atas persetujuan
+ * pemilik produk, angka SMP dipakai juga untuk SD supaya sistemnya konsisten,
+ * BUKAN klaim bahwa ini angka resmi khusus SD (lihat catatan di UI kesiapan).
+ * Predikat Istimewa (nilai >= 95 per mata pelajaran) berlaku sama di kedua
+ * jenjang dan didahulukan di atas "Baik" - lihat klasifikasiKesiapan.
+ */
+const KESIAPAN_THRESHOLDS: Record<string, { memadai: number; baik: number }> = {
+  Matematika: { memadai: 33.33, baik: 56.67 },
+  "Bahasa Indonesia": { memadai: 50, baik: 76.67 },
+};
+
+const KESIAPAN_ISTIMEWA_MIN = 95;
+
+/** Mata pelajaran yang cakupan kategori kesiapannya sudah didukung (di luar ini, mis. IPA/Bahasa Inggris, belum ada standarnya). */
+export function isSubjectKesiapanDidukung(subjectNama: string): boolean {
+  return Object.prototype.hasOwnProperty.call(KESIAPAN_THRESHOLDS, subjectNama);
+}
+
+/**
+ * Klasifikasikan skor akhir (0-100) ke kategori capaian resmi TKA. Null
+ * kalau mata pelajarannya di luar cakupan (bukan Matematika/Bahasa Indonesia).
+ */
+export function klasifikasiKesiapan(subjectNama: string, skorAkhir: number): KategoriKesiapan | null {
+  const t = KESIAPAN_THRESHOLDS[subjectNama];
+  if (!t) return null;
+  if (skorAkhir >= KESIAPAN_ISTIMEWA_MIN) return "istimewa";
+  if (skorAkhir >= t.baik) return "baik";
+  if (skorAkhir >= t.memadai) return "memadai";
+  return "kurang";
+}

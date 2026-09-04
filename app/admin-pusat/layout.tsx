@@ -34,6 +34,7 @@ export default async function AdminPusatLayout({
             <SidebarLink href="/admin-pusat/siswa-mandiri">Siswa Mandiri</SidebarLink>
             <SidebarLink href="/admin-pusat/siswa/pindah">Pindah Sekolah</SidebarLink>
             <SidebarLink href="/admin-pusat/verifikasi-sekolah">Verifikasi Sekolah</SidebarLink>
+            <SidebarLink href="/admin-pusat/dinas-pendidikan">Dinas Pendidikan</SidebarLink>
           </SidebarSection>
 
           <SidebarSection label="Bank Soal">

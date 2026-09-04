@@ -22,22 +22,25 @@ const ROLE_HOME: Record<string, string> = {
   siswa: "/siswa/dashboard",
   admin_sekolah: "/admin-sekolah/dashboard",
   admin_pusat: "/admin-pusat/dashboard",
+  dinas_pendidikan: "/dinas-pendidikan/dashboard",
 };
 
 const ROLE_PREFIXES: Record<string, string> = {
   "/siswa": "siswa",
   "/admin-sekolah": "admin_sekolah",
   "/admin-pusat": "admin_pusat",
+  "/dinas-pendidikan": "dinas_pendidikan",
 };
 
 // Pintu masuk login beda per role (lihat app/login, app/admin/admin-pusat,
-// app/admin/admin-sekolah) - dipakai untuk redirect pengunjung yang belum
-// login DAN untuk tahu path mana yang harus dianggap "halaman auth publik"
-// di bawah.
+// app/admin/admin-sekolah, app/admin/dinas-pendidikan) - dipakai untuk
+// redirect pengunjung yang belum login DAN untuk tahu path mana yang harus
+// dianggap "halaman auth publik" di bawah.
 const ROLE_LOGIN_PATH: Record<string, string> = {
   siswa: "/login",
   admin_sekolah: "/admin/admin-sekolah",
   admin_pusat: "/admin/admin-pusat",
+  dinas_pendidikan: "/admin/dinas-pendidikan",
 };
 
 // "/reset-password" SENGAJA tidak dimasukkan ke sini. Kalau dimasukkan,

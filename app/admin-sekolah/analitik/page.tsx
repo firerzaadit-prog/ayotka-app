@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { IconChart } from "@/components/ui/empty-state-icons";
+import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
+import type { KesiapanRingkasan } from "@/lib/analytics/kesiapan";
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type SubjectOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
@@ -27,6 +29,7 @@ export default function AnalitikPage() {
   const [ranking, setRanking] = useState<RankingRow[] | null>(null);
   const [jumlahAttempt, setJumlahAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [kesiapan, setKesiapan] = useState<KesiapanRingkasan | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -41,6 +44,21 @@ export default function AnalitikPage() {
         setClasses(classData?.classes ?? []);
         setSubjects(subjectData?.subjects ?? []);
       }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  // Kesiapan TKA tidak dipengaruhi filter kelas/mapel di atas (selalu
+  // gabungan Matematika + Bahasa Indonesia untuk seluruh sekolah) - diambil
+  // sekali saat halaman dibuka, bukan di dalam effect filter di bawah.
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      const res = await fetch("/api/admin-sekolah/kesiapan");
+      const data = await res.json().catch(() => null);
+      if (!ignore && res.ok) setKesiapan(data.kesiapan ?? null);
     })();
     return () => {
       ignore = true;
@@ -90,6 +108,23 @@ export default function AnalitikPage() {
           )
         }
       />
+
+      {kesiapan && (
+        <div>
+          <h2 className="mb-2 text-lg font-semibold text-slate-900">Kesiapan TKA</h2>
+          <p className="mb-3 text-sm text-slate-500">
+            Berdasarkan skor terbaik tiap siswa & kategori capaian resmi Kemendikdasmen (Kurang/
+            Memadai/Baik/Istimewa). Angka SD memakai standar SMP karena Kemendikdasmen belum
+            merilis rentang nilai resmi khusus SD.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <KesiapanCard title="Gabungan (kedua mapel)" breakdown={kesiapan.gabungan} />
+            {kesiapan.perMapel.map((m) => (
+              <KesiapanCard key={m.subjectNama} title={m.subjectNama} breakdown={m.breakdown} />
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-4">
         <div>

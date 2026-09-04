@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
+import { KESIAPAN_SUBJECTS, ambilSkorTerbaikPerSiswaMapel, ringkasKesiapan } from "@/lib/analytics/kesiapan";
 
 /**
  * Tiket 5.7/5.8: agregasi analitik admin sekolah, dipakai bersama oleh
@@ -98,4 +99,38 @@ export async function buildAnalitikSekolah(
     .sort((a, b) => b.rataRata - a.rataRata);
 
   return { jumlahAttempt: attempts.length, kompetensi, ranking };
+}
+
+/**
+ * Kesiapan TKA 1 sekolah: gabungan (Matematika + Bahasa Indonesia dicampur)
+ * + rincian per mapel, berdasarkan skor TERBAIK tiap siswa (bukan attempt
+ * terakhir/rata-rata - siswa yang sudah 3x try out dinilai dari usaha
+ * terbaiknya). Kategori & angka batas: lihat lib/exam/scoring.ts.
+ */
+export async function buildKesiapanSekolah(schoolId: string) {
+  const attempts = await prisma.attempt.findMany({
+    where: {
+      status: { in: ["selesai", "kedaluwarsa"] },
+      skorAkhir: { not: null },
+      student: { schoolId, deletedAt: null },
+      package: { subject: { nama: { in: [...KESIAPAN_SUBJECTS] } } },
+    },
+    select: {
+      studentId: true,
+      skorAkhir: true,
+      package: { select: { subject: { select: { nama: true } } } },
+    },
+  });
+
+  const bestSkorPerSiswaMapel = ambilSkorTerbaikPerSiswaMapel(
+    attempts
+      .filter((a): a is typeof a & { skorAkhir: number } => a.skorAkhir != null)
+      .map((a) => ({
+        studentId: a.studentId,
+        subjectNama: a.package.subject.nama,
+        skorAkhir: a.skorAkhir,
+      })),
+  );
+
+  return ringkasKesiapan(bestSkorPerSiswaMapel);
 }

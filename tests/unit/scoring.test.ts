@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateCompetency,
   computeSkorAkhir,
+  isSubjectKesiapanDidukung,
+  klasifikasiKesiapan,
   scorePg,
   scorePgKategori,
   scorePgKompleks,
@@ -134,5 +136,55 @@ describe("aggregateCompetency", () => {
 
     const k2 = result.find((r) => r.kompetensiId === "k2")!;
     expect(k2.persentase).toBeCloseTo(100);
+  });
+});
+
+describe("isSubjectKesiapanDidukung", () => {
+  it("cuma Matematika & Bahasa Indonesia yang punya standar kesiapan", () => {
+    expect(isSubjectKesiapanDidukung("Matematika")).toBe(true);
+    expect(isSubjectKesiapanDidukung("Bahasa Indonesia")).toBe(true);
+    expect(isSubjectKesiapanDidukung("IPA")).toBe(false);
+    expect(isSubjectKesiapanDidukung("Bahasa Inggris")).toBe(false);
+  });
+});
+
+describe("klasifikasiKesiapan", () => {
+  it("null untuk mapel yang belum punya standar kesiapan", () => {
+    expect(klasifikasiKesiapan("IPA", 90)).toBeNull();
+  });
+
+  describe("Matematika (Kurang <33,33 / Memadai 33,33-<56,67 / Baik >=56,67 / Istimewa >=95)", () => {
+    it("Kurang", () => {
+      expect(klasifikasiKesiapan("Matematika", 0)).toBe("kurang");
+      expect(klasifikasiKesiapan("Matematika", 33.32)).toBe("kurang");
+    });
+    it("Memadai, termasuk batas bawah tepat 33,33", () => {
+      expect(klasifikasiKesiapan("Matematika", 33.33)).toBe("memadai");
+      expect(klasifikasiKesiapan("Matematika", 56.66)).toBe("memadai");
+    });
+    it("Baik, termasuk batas bawah tepat 56,67", () => {
+      expect(klasifikasiKesiapan("Matematika", 56.67)).toBe("baik");
+      expect(klasifikasiKesiapan("Matematika", 94.99)).toBe("baik");
+    });
+    it("Istimewa mulai tepat 95, mengalahkan Baik meski sama-sama di atas ambang Baik", () => {
+      expect(klasifikasiKesiapan("Matematika", 95)).toBe("istimewa");
+      expect(klasifikasiKesiapan("Matematika", 100)).toBe("istimewa");
+    });
+  });
+
+  describe("Bahasa Indonesia (Kurang <50 / Memadai 50-<76,67 / Baik >=76,67 / Istimewa >=95)", () => {
+    it("Kurang", () => {
+      expect(klasifikasiKesiapan("Bahasa Indonesia", 49.99)).toBe("kurang");
+    });
+    it("Memadai, termasuk batas bawah tepat 50", () => {
+      expect(klasifikasiKesiapan("Bahasa Indonesia", 50)).toBe("memadai");
+      expect(klasifikasiKesiapan("Bahasa Indonesia", 76.66)).toBe("memadai");
+    });
+    it("Baik, termasuk batas bawah tepat 76,67", () => {
+      expect(klasifikasiKesiapan("Bahasa Indonesia", 76.67)).toBe("baik");
+    });
+    it("Istimewa mulai tepat 95", () => {
+      expect(klasifikasiKesiapan("Bahasa Indonesia", 95)).toBe("istimewa");
+    });
   });
 });
