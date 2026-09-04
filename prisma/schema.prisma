@@ -26,6 +26,7 @@ enum Role {
   siswa
   admin_sekolah
   admin_pusat
+  dinas_pendidikan
 }
 
 enum UserStatus {

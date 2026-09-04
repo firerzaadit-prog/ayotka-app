@@ -1,6 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { periodeBulanWIB } from "@/lib/utils/datetime";
+import {
+  KESIAPAN_SUBJECTS,
+  ambilSkorTerbaikPerSiswaMapel,
+  ringkasKesiapan,
+  type KesiapanRingkasan,
+} from "@/lib/analytics/kesiapan";
 
 export type AnalitikGlobalFilter = {
   schoolId?: string | null;
@@ -150,4 +156,79 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
     .sort((a, b) => a.periode.localeCompare(b.periode));
 
   return { jumlahAttempt: attempts.length, perSekolah, kompetensi: kompetensi.slice(0, 10), tren };
+}
+
+export type KesiapanAntarSekolahFilter = {
+  jenjang?: "SD" | "SMP" | null;
+  wilayah?: string | null;
+};
+
+export type KesiapanPerSekolah = {
+  schoolId: string;
+  nama: string;
+  jenjang: "SD" | "SMP";
+} & KesiapanRingkasan;
+
+/**
+ * Kesiapan TKA lintas sekolah (dipakai admin pusat & dinas pendidikan):
+ * sama persis metodenya dengan buildKesiapanSekolah (skor terbaik per
+ * siswa per mapel), cuma dihitung per sekolah sekaligus dalam satu query.
+ * Diurutkan dari persentase kesiapan gabungan tertinggi.
+ */
+export async function buildKesiapanAntarSekolah(
+  filter: KesiapanAntarSekolahFilter,
+): Promise<KesiapanPerSekolah[]> {
+  const schools = await prisma.school.findMany({
+    where: {
+      status: "aktif",
+      ...(filter.jenjang ? { jenjang: filter.jenjang } : {}),
+      ...(filter.wilayah
+        ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
+        : {}),
+    },
+    select: { id: true, nama: true, jenjang: true },
+  });
+  if (schools.length === 0) return [];
+
+  const schoolIds = schools.map((s) => s.id);
+
+  const attempts = await prisma.attempt.findMany({
+    where: {
+      status: { in: ["selesai", "kedaluwarsa"] },
+      skorAkhir: { not: null },
+      student: { schoolId: { in: schoolIds }, deletedAt: null },
+      package: { subject: { nama: { in: [...KESIAPAN_SUBJECTS] } } },
+    },
+    select: {
+      studentId: true,
+      skorAkhir: true,
+      student: { select: { schoolId: true } },
+      package: { select: { subject: { select: { nama: true } } } },
+    },
+  });
+
+  const attemptsPerSchool = new Map<
+    string,
+    { studentId: string; subjectNama: string; skorAkhir: number }[]
+  >();
+  for (const a of attempts) {
+    const schoolId = a.student.schoolId;
+    if (!schoolId || a.skorAkhir == null) continue;
+    const list = attemptsPerSchool.get(schoolId) ?? [];
+    list.push({ studentId: a.studentId, subjectNama: a.package.subject.nama, skorAkhir: a.skorAkhir });
+    attemptsPerSchool.set(schoolId, list);
+  }
+
+  return schools
+    .map((school) => {
+      const schoolAttempts = attemptsPerSchool.get(school.id) ?? [];
+      const bestSkorPerSiswaMapel = ambilSkorTerbaikPerSiswaMapel(schoolAttempts);
+      return {
+        schoolId: school.id,
+        nama: school.nama,
+        jenjang: school.jenjang,
+        ...ringkasKesiapan(bestSkorPerSiswaMapel),
+      };
+    })
+    .sort((a, b) => b.gabungan.persentaseSiap - a.gabungan.persentaseSiap);
 }

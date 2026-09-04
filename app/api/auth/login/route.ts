@@ -10,6 +10,7 @@ const ROLE_HOME: Record<string, string> = {
   siswa: "/siswa/dashboard",
   admin_sekolah: "/admin-sekolah/dashboard",
   admin_pusat: "/admin-pusat/dashboard",
+  dinas_pendidikan: "/dinas-pendidikan/dashboard",
 };
 
 /** Tiket 3.4: NISN adalah 10 digit angka murni - kalau tidak, perlakukan sebagai email. */

@@ -8,6 +8,8 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Alert } from "@/components/ui/alert";
 import { buttonClassName } from "@/components/ui/button";
 import { IconLink } from "@/components/ui/empty-state-icons";
+import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
+import { buildKesiapanSekolah } from "@/lib/analytics/sekolah";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +35,7 @@ export default async function AdminSekolahDashboardPage() {
     prisma.academicYear.findFirst({ where: { isActive: true } }),
   ]);
 
-  const [siswaAktif, belumKlaim, rombel, paketSoal] = await Promise.all([
+  const [siswaAktif, belumKlaim, rombel, paketSoal, kesiapan] = await Promise.all([
     prisma.student.count({ where: { schoolId, jalur: "A", deletedAt: null } }),
     prisma.student.count({
       where: { schoolId, jalur: "A", deletedAt: null, claimStatus: "belum_klaim" },
@@ -44,6 +46,7 @@ export default async function AdminSekolahDashboardPage() {
     prisma.package.count({
       where: { ownerType: "sekolah", ownerId: schoolId, status: { not: "archived" } },
     }),
+    buildKesiapanSekolah(schoolId),
   ]);
 
   return (
@@ -55,6 +58,16 @@ export default async function AdminSekolahDashboardPage() {
         <StatCard label="Rombel (tahun ajaran aktif)" value={rombel} />
         <StatCard label="Siswa belum klaim akun" value={belumKlaim} />
         <StatCard label="Paket soal" value={paketSoal} />
+      </div>
+
+      <div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-slate-700">Kesiapan TKA</h2>
+          <Link href="/admin-sekolah/analitik" className="text-sm font-medium text-indigo-600 hover:text-indigo-700">
+            Lihat rincian per mapel &rarr;
+          </Link>
+        </div>
+        <KesiapanCard title="Kesiapan sekolah (gabungan)" breakdown={kesiapan.gabungan} />
       </div>
 
       {!activeYear && (
