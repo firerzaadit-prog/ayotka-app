@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/session";
-import { buildAnalitikGlobal } from "@/lib/analytics/global";
+import { buildAnalitikGlobal, buildStatistikMataPelajaran } from "@/lib/analytics/global";
 
 /** Tiket 7.1: analitik lintas sekolah - filter sekolah/jenjang/mapel/wilayah, admin pusat saja. */
 export async function GET(request: Request) {
@@ -14,13 +14,17 @@ export async function GET(request: Request) {
   const jenjang = url.searchParams.get("jenjang");
 
   try {
-    const result = await buildAnalitikGlobal({
+    const filter = {
       schoolId: url.searchParams.get("schoolId"),
-      jenjang: jenjang === "SD" || jenjang === "SMP" ? jenjang : null,
+      jenjang: jenjang === "SD" || jenjang === "SMP" ? (jenjang as "SD" | "SMP") : null,
       subjectId: url.searchParams.get("subjectId"),
       wilayah: url.searchParams.get("wilayah"),
-    });
-    return NextResponse.json(result);
+    };
+    const [result, statistikMapel] = await Promise.all([
+      buildAnalitikGlobal(filter),
+      buildStatistikMataPelajaran(filter),
+    ]);
+    return NextResponse.json({ ...result, statistikMapel });
   } catch (error) {
     console.error("Gagal memuat analitik global", error);
     const message = error instanceof Error ? error.message : "unknown error";

@@ -22,6 +22,17 @@ type PerSekolah = {
 };
 type Kompetensi = { kode: string; deskripsi: string; materi: string; jmlBenar: number; jmlSoal: number; persentase: number };
 type Tren = { periode: string; jumlahAttempt: number; rataRata: number };
+type StatistikMapel = {
+  subjectNama: string;
+  jumlahSekolah: number;
+  jumlahSiswa: number;
+  rerata: number;
+  persentil10: number;
+  median: number;
+  persentil90: number;
+  standarDeviasi: number;
+  kategori: { kurang: number; memadai: number; baik: number; istimewa: number };
+};
 
 const selectClassName =
   "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
@@ -38,6 +49,7 @@ export default function AnalitikGlobalPage() {
   const [perSekolah, setPerSekolah] = useState<PerSekolah[] | null>(null);
   const [kompetensi, setKompetensi] = useState<Kompetensi[] | null>(null);
   const [tren, setTren] = useState<Tren[] | null>(null);
+  const [statistikMapel, setStatistikMapel] = useState<StatistikMapel[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -77,6 +89,7 @@ export default function AnalitikGlobalPage() {
           setPerSekolah(data.perSekolah ?? []);
           setKompetensi(data.kompetensi ?? []);
           setTren(data.tren ?? []);
+          setStatistikMapel(data.statistikMapel ?? []);
           setError(null);
         } else {
           setError(data?.error ?? "Gagal memuat analitik.");
@@ -155,6 +168,74 @@ export default function AnalitikGlobalPage() {
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
+
+      {!error && statistikMapel && statistikMapel.length > 0 && (
+        <div>
+          <h2 className="mb-1 text-lg font-semibold text-slate-900">Statistik Mata Pelajaran</h2>
+          <p className="mb-3 text-sm text-slate-500">
+            Berdasarkan skor terbaik tiap siswa dan kategori capaian resmi Kemendikdasmen
+            (Kurang/Memadai/Baik/Istimewa), dari seluruh sekolah yang cocok dengan filter di atas.
+          </p>
+          <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
+            <p className="mb-3 text-sm font-medium text-slate-700">Rata-rata nilai per mata pelajaran</p>
+            <TrendChart
+              data={statistikMapel.map((s) => ({ label: s.subjectNama, value: s.rerata }))}
+              variant="bar"
+              color="#4338ca"
+              valueFormatter={(v) => v.toFixed(1)}
+              height={220}
+            />
+          </div>
+          <TableContainer>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>#</Th>
+                  <Th>Mata Pelajaran</Th>
+                  <Th>Jml Sekolah</Th>
+                  <Th>Jml Siswa</Th>
+                  <Th>Rerata</Th>
+                  <Th>Persentil 10</Th>
+                  <Th>Median</Th>
+                  <Th>Persentil 90</Th>
+                  <Th>Std. Deviasi</Th>
+                  <Th>Istimewa</Th>
+                  <Th>Baik</Th>
+                  <Th>Memadai</Th>
+                  <Th>Kurang</Th>
+                </Tr>
+              </Thead>
+              <tbody>
+                {statistikMapel.map((s, i) => (
+                  <Tr key={s.subjectNama}>
+                    <Td className="text-slate-500">{i + 1}</Td>
+                    <Td className="font-medium text-slate-900">{s.subjectNama}</Td>
+                    <Td>{s.jumlahSekolah}</Td>
+                    <Td>{s.jumlahSiswa}</Td>
+                    <Td>{s.rerata.toFixed(1)}</Td>
+                    <Td>{s.persentil10.toFixed(1)}</Td>
+                    <Td>{s.median.toFixed(1)}</Td>
+                    <Td>{s.persentil90.toFixed(1)}</Td>
+                    <Td>{s.standarDeviasi.toFixed(1)}</Td>
+                    <Td>
+                      <Badge variant="success">{s.kategori.istimewa.toFixed(0)}%</Badge>
+                    </Td>
+                    <Td>
+                      <Badge variant="info">{s.kategori.baik.toFixed(0)}%</Badge>
+                    </Td>
+                    <Td>
+                      <Badge variant="warning">{s.kategori.memadai.toFixed(0)}%</Badge>
+                    </Td>
+                    <Td>
+                      <Badge variant="danger">{s.kategori.kurang.toFixed(0)}%</Badge>
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableContainer>
+        </div>
+      )}
 
       {!error && jumlahAttempt === 0 && perSekolah !== null && (
         <EmptyState
