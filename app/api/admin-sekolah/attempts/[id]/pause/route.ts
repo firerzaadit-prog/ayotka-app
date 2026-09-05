@@ -5,6 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { getRemainingSeconds, isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
+import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -64,5 +65,5 @@ export async function POST(request: Request, { params }: RouteParams) {
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ attempt: updated });
+  return NextResponse.json({ attempt: sanitizeAttemptForClient(updated) });
 }

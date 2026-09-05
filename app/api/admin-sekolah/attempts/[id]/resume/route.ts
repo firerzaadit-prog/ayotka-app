@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
+import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -53,5 +54,5 @@ export async function POST(request: Request, { params }: RouteParams) {
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ attempt: updated });
+  return NextResponse.json({ attempt: sanitizeAttemptForClient(updated) });
 }

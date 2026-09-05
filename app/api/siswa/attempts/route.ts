@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { pickPackageForAttempt } from "@/lib/exam/distribution";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
+import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
 import { canStartViaSubjectQuota, consumeSubjectTryOut } from "@/lib/billing/subject-tryout";
@@ -175,7 +176,7 @@ export async function POST(request: Request) {
       );
     }
     if (!isExpired(existing)) {
-      return NextResponse.json({ attempt: existing });
+      return NextResponse.json({ attempt: sanitizeAttemptForClient(existing) });
     }
     await finalizeAttempt(null, existing.id, "kedaluwarsa");
   }
@@ -259,5 +260,5 @@ export async function POST(request: Request) {
     await consumeSubjectTryOut(user.id, subjectIdToConsumeQuota);
   }
 
-  return NextResponse.json({ attempt }, { status: 201 });
+  return NextResponse.json({ attempt: sanitizeAttemptForClient(attempt) }, { status: 201 });
 }

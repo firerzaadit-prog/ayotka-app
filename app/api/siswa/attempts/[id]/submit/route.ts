@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
+import { loadOwnedAttempt, sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { finalizeAttempt } from "@/lib/exam/finalize";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   if (attempt.status === "selesai" || attempt.status === "kedaluwarsa") {
-    return NextResponse.json({ attempt });
+    return NextResponse.json({ attempt: sanitizeAttemptForClient(attempt) });
   }
   if (attempt.status === "paused") {
     return NextResponse.json(
@@ -49,5 +49,5 @@ export async function POST(request: Request, { params }: RouteParams) {
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ attempt: finalAttempt });
+  return NextResponse.json({ attempt: sanitizeAttemptForClient(finalAttempt) });
 }
