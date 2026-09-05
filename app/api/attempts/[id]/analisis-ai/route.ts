@@ -113,7 +113,15 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return noStoreJson({ status: "processing" });
   }
   if (attempt.aiAnalysisLastError) {
-    return noStoreJson({ status: "error", error: attempt.aiAnalysisLastError });
+    // Teks error asli (bisa berisi detail internal/upstream Gemini) cuma
+    // relevan buat admin yang punya tombol "Analisis ulang" - siswa cukup
+    // tahu belum tersedia. AnalisisAiPanel di client sudah menyaring ini
+    // lewat prop canTrigger, tapi itu cuma kontrol tampilan; body response
+    // ini sendiri harus sudah bersih sebelum sampai ke browser siswa.
+    return noStoreJson({
+      status: "error",
+      error: user.role === "siswa" ? "Analisis belum tersedia, coba lagi nanti." : attempt.aiAnalysisLastError,
+    });
   }
   return noStoreJson({ status: "none" });
 }
