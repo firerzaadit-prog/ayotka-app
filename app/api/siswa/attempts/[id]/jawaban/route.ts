@@ -56,7 +56,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Data jawaban tidak valid." }, { status: 400 });
   }
 
-  if (parsed.data.tabToken && !checkAndClaimSession(attempt.id, parsed.data.tabToken)) {
+  if (parsed.data.tabToken && !(await checkAndClaimSession(attempt.id, parsed.data.tabToken))) {
     return NextResponse.json(
       { error: "SESI_DIAMBIL_ALIH", message: "Ujian ini sedang dibuka di tab/perangkat lain." },
       { status: 409 },

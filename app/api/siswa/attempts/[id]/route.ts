@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   // Tiket 4.13: satu sesi aktif per attempt - tab/device lain yang masih
   // aktif mengerjakan attempt yang sama ditolak di sini.
   const tabToken = request.nextUrl.searchParams.get("tabToken");
-  if (tabToken && !checkAndClaimSession(attempt.id, tabToken)) {
+  if (tabToken && !(await checkAndClaimSession(attempt.id, tabToken))) {
     return NextResponse.json(
       { error: "SESI_DIAMBIL_ALIH", message: "Ujian ini sedang dibuka di tab/perangkat lain." },
       { status: 409 },
