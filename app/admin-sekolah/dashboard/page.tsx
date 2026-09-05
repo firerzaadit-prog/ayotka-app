@@ -14,7 +14,7 @@ import { buildKesiapanSekolah } from "@/lib/analytics/sekolah";
 export const dynamic = "force-dynamic";
 
 export default async function AdminSekolahDashboardPage() {
-  const user = await requireRole("admin_sekolah");
+  const user = await requireRole("admin_sekolah", "admin_pusat");
   const schoolId = await resolveSchoolId(user, null);
 
   if (!schoolId) {

@@ -9,11 +9,13 @@ export function DashboardShell({
   title,
   email,
   nav,
+  banner,
   children,
 }: {
   title: string;
   email: string;
   nav?: ReactNode;
+  banner?: ReactNode;
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -102,6 +104,7 @@ export function DashboardShell({
             </button>
           </div>
         </header>
+        {banner}
         <main className="mx-auto w-full max-w-6xl flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>

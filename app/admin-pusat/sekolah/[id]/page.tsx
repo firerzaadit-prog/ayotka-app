@@ -83,6 +83,8 @@ export default function SekolahDetailPage({
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [acting, setActing] = useState(false);
+  const [actingError, setActingError] = useState<string | null>(null);
 
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -177,6 +179,23 @@ export default function SekolahDetailPage({
     setRefreshKey((k) => k + 1);
   }
 
+  async function handleManageSchool() {
+    setActingError(null);
+    setActing(true);
+    const res = await fetch("/api/admin-pusat/act-as-school", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ schoolId: id }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setActing(false);
+      setActingError(data?.error ?? "Gagal masuk mode kelola sekolah.");
+      return;
+    }
+    router.push("/admin-sekolah/dashboard");
+  }
+
   async function handleDeleteSchool() {
     if (!school) return;
     const ok = await confirm({
@@ -227,8 +246,16 @@ export default function SekolahDetailPage({
             {deleteError}
           </Alert>
         )}
+        {actingError && (
+          <Alert variant="danger" className="mt-2">
+            {actingError}
+          </Alert>
+        )}
 
         <div className="mt-2 flex flex-wrap gap-2">
+          <Button onClick={handleManageSchool} disabled={acting}>
+            {acting ? "Membuka..." : "Kelola sekolah ini"}
+          </Button>
           {school.status !== "aktif" ? (
             <Button variant="secondary" onClick={() => handleChangeStatus("aktif")}>
               Aktifkan sekolah
@@ -245,6 +272,11 @@ export default function SekolahDetailPage({
             Hapus sekolah
           </Button>
         </div>
+        <p className="mt-1.5 text-xs text-slate-400">
+          &ldquo;Kelola sekolah ini&rdquo; membuka Kelas/Siswa/Ujian/Analitik sekolah ini persis
+          seperti yang dilihat admin sekolahnya — untuk membantu kalau admin sekolah sedang tidak
+          bisa mengakses akunnya.
+        </p>
 
         {showEditForm && editForm && (
           <form

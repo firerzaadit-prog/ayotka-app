@@ -9,7 +9,7 @@ import { assignmentCreateSchema } from "@/lib/validations/assignment";
 export async function GET() {
   let user;
   try {
-    user = await requireRole("admin_sekolah");
+    user = await requireRole("admin_sekolah", "admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
@@ -35,7 +35,7 @@ export async function GET() {
 export async function POST(request: Request) {
   let user;
   try {
-    user = await requireRole("admin_sekolah");
+    user = await requireRole("admin_sekolah", "admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }

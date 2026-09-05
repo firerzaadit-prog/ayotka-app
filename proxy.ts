@@ -25,11 +25,16 @@ const ROLE_HOME: Record<string, string> = {
   dinas_pendidikan: "/dinas-pendidikan/dashboard",
 };
 
-const ROLE_PREFIXES: Record<string, string> = {
-  "/siswa": "siswa",
-  "/admin-sekolah": "admin_sekolah",
-  "/admin-pusat": "admin_pusat",
-  "/dinas-pendidikan": "dinas_pendidikan",
+// Sebagian besar prefix cuma untuk satu role, tapi /admin-sekolah juga
+// dibuka untuk admin_pusat - mode "Kelola Sekolah" (lihat
+// app/admin-sekolah/layout.tsx & lib/schools/scope.ts) memakai halaman
+// admin sekolah yang sama persis, jadi admin_pusat harus lolos gerbang
+// role di sini juga, bukan cuma di requireRole tiap route API-nya.
+const ROLE_PREFIXES: Record<string, string[]> = {
+  "/siswa": ["siswa"],
+  "/admin-sekolah": ["admin_sekolah", "admin_pusat"],
+  "/admin-pusat": ["admin_pusat"],
+  "/dinas-pendidikan": ["dinas_pendidikan"],
 };
 
 // Pintu masuk login beda per role (lihat app/login, app/admin/admin-pusat,
@@ -89,16 +94,20 @@ export default async function proxy(request: NextRequest) {
   );
 
   if (matchedPrefix) {
-    const requiredRole = ROLE_PREFIXES[matchedPrefix];
+    const requiredRoles = ROLE_PREFIXES[matchedPrefix]!;
 
     if (!user) {
-      const loginPath = requiredRole ? (ROLE_LOGIN_PATH[requiredRole] ?? "/login") : "/login";
+      // Belum login: arahkan ke login role utama prefix ini (elemen
+      // pertama) - untuk /admin-sekolah itu tetap admin_sekolah, karena
+      // admin_pusat masuk ke sini lewat navigasi internal saat sudah
+      // login (tombol "Kelola sekolah ini"), bukan lewat URL langsung.
+      const loginPath = ROLE_LOGIN_PATH[requiredRoles[0]!] ?? "/login";
       const loginUrl = new URL(loginPath, request.url);
       loginUrl.searchParams.set("next", pathname);
       return NextResponse.redirect(loginUrl);
     }
 
-    if (role !== requiredRole) {
+    if (!role || !requiredRoles.includes(role)) {
       const home = role ? (ROLE_HOME[role] ?? "/login") : "/login";
       return NextResponse.redirect(new URL(home, request.url));
     }

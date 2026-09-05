@@ -12,7 +12,7 @@ import { buildAnalitikSekolah } from "@/lib/analytics/sekolah";
 export async function GET(request: Request) {
   let user;
   try {
-    user = await requireRole("admin_sekolah");
+    user = await requireRole("admin_sekolah", "admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }

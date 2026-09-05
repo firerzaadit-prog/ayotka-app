@@ -19,7 +19,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 export async function POST(request: Request, { params }: RouteParams) {
   let user;
   try {
-    user = await requireRole("admin_sekolah");
+    user = await requireRole("admin_sekolah", "admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
