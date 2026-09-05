@@ -121,7 +121,9 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
 
       {data.status === "none" && (
         <p className="text-sm text-slate-500">
-          {canTrigger ? "Belum dianalisis - klik tombol untuk mulai." : "Belum ada analisis untuk hasil ini."}
+          {canTrigger
+            ? "Belum dianalisis - klik tombol untuk mulai."
+            : "Analisis AI belum dilakukan oleh admin pusat."}
         </p>
       )}
       {data.status === "processing" && (
