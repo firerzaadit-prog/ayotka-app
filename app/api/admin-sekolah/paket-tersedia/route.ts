@@ -13,7 +13,7 @@ import { resolveSchoolId } from "@/lib/schools/scope";
 export async function GET() {
   let user;
   try {
-    user = await requireRole("admin_sekolah");
+    user = await requireRole("admin_sekolah", "admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
