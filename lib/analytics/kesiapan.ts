@@ -35,7 +35,16 @@ function buildBreakdown(kategoriList: KategoriKesiapan[]): KesiapanBreakdown {
 export function ringkasKesiapan(
   bestSkorPerSiswaMapel: { subjectNama: string; skorAkhir: number }[],
 ): KesiapanRingkasan {
+  // Filter keanggotaan KESIAPAN_SUBJECTS dicek sendiri di sini, TIDAK cuma
+  // bersandar pada klasifikasiKesiapan mengembalikan null - klasifikasiKesiapan
+  // sekarang juga mendukung IPA/Bahasa Inggris utk keperluan lain (statistik
+  // nasional Analitik Global, lihat lib/analytics/global.ts), jadi fitur
+  // Kesiapan TKA yang lebih sempit ini (cuma Matematika & Bahasa Indonesia)
+  // harus tetap menyaring sendiri supaya tidak diam-diam ikut mencakup mapel
+  // lain kalau suatu saat dipanggil dengan data campuran.
+  const kesiapanSubjectNames: readonly string[] = KESIAPAN_SUBJECTS;
   const classified = bestSkorPerSiswaMapel
+    .filter((s) => kesiapanSubjectNames.includes(s.subjectNama))
     .map(({ subjectNama, skorAkhir }) => ({
       subjectNama,
       kategori: klasifikasiKesiapan(subjectNama, skorAkhir),

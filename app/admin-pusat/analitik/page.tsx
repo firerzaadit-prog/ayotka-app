@@ -172,9 +172,14 @@ export default function AnalitikGlobalPage() {
       {!error && statistikMapel && statistikMapel.length > 0 && (
         <div>
           <h2 className="mb-1 text-lg font-semibold text-slate-900">Statistik Mata Pelajaran</h2>
-          <p className="mb-3 text-sm text-slate-500">
+          <p className="mb-1 text-sm text-slate-500">
             Berdasarkan skor terbaik tiap siswa dan kategori capaian resmi Kemendikdasmen
             (Kurang/Memadai/Baik/Istimewa), dari seluruh sekolah yang cocok dengan filter di atas.
+          </p>
+          <p className="mb-3 text-xs text-slate-400">
+            IPA &amp; Bahasa Inggris (SMP) memakai standar kategori Bahasa Indonesia SMP - kedua
+            mapel ini di luar cakupan resmi TKA, yang hanya menguji Matematika &amp; Bahasa
+            Indonesia.
           </p>
           <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
             <p className="mb-3 text-sm font-medium text-slate-700">Rata-rata nilai per mata pelajaran</p>

@@ -129,15 +129,23 @@ export type KategoriKesiapan = "kurang" | "memadai" | "baik" | "istimewa";
  * BUKAN klaim bahwa ini angka resmi khusus SD (lihat catatan di UI kesiapan).
  * Predikat Istimewa (nilai >= 95 per mata pelajaran) berlaku sama di kedua
  * jenjang dan didahulukan di atas "Baik" - lihat klasifikasiKesiapan.
+ *
+ * IPA dan Bahasa Inggris (mapel SMP di luar cakupan resmi TKA, yang cuma
+ * menguji Matematika & Bahasa Indonesia) memakai angka Bahasa Indonesia SMP
+ * juga - atas permintaan pemilik produk, khusus untuk statistik nasional per
+ * mata pelajaran di Analitik Global (lihat buildStatistikMataPelajaran di
+ * lib/analytics/global.ts), BUKAN klaim angka resmi utk mapel-mapel ini.
  */
 const KESIAPAN_THRESHOLDS: Record<string, { memadai: number; baik: number }> = {
   Matematika: { memadai: 33.33, baik: 56.67 },
   "Bahasa Indonesia": { memadai: 50, baik: 76.67 },
+  "Bahasa Inggris": { memadai: 50, baik: 76.67 },
+  IPA: { memadai: 50, baik: 76.67 },
 };
 
 const KESIAPAN_ISTIMEWA_MIN = 95;
 
-/** Mata pelajaran yang cakupan kategori kesiapannya sudah didukung (di luar ini, mis. IPA/Bahasa Inggris, belum ada standarnya). */
+/** Mata pelajaran yang cakupan kategori kesiapannya sudah didukung. */
 export function isSubjectKesiapanDidukung(subjectNama: string): boolean {
   return Object.prototype.hasOwnProperty.call(KESIAPAN_THRESHOLDS, subjectNama);
 }

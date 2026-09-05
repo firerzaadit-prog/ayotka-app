@@ -140,17 +140,21 @@ describe("aggregateCompetency", () => {
 });
 
 describe("isSubjectKesiapanDidukung", () => {
-  it("cuma Matematika & Bahasa Indonesia yang punya standar kesiapan", () => {
+  it("Matematika, Bahasa Indonesia, IPA, dan Bahasa Inggris punya standar kesiapan", () => {
     expect(isSubjectKesiapanDidukung("Matematika")).toBe(true);
     expect(isSubjectKesiapanDidukung("Bahasa Indonesia")).toBe(true);
-    expect(isSubjectKesiapanDidukung("IPA")).toBe(false);
-    expect(isSubjectKesiapanDidukung("Bahasa Inggris")).toBe(false);
+    expect(isSubjectKesiapanDidukung("IPA")).toBe(true);
+    expect(isSubjectKesiapanDidukung("Bahasa Inggris")).toBe(true);
+  });
+
+  it("mapel di luar keempat itu tidak didukung", () => {
+    expect(isSubjectKesiapanDidukung("Seni Budaya")).toBe(false);
   });
 });
 
 describe("klasifikasiKesiapan", () => {
   it("null untuk mapel yang belum punya standar kesiapan", () => {
-    expect(klasifikasiKesiapan("IPA", 90)).toBeNull();
+    expect(klasifikasiKesiapan("Seni Budaya", 90)).toBeNull();
   });
 
   describe("Matematika (Kurang <33,33 / Memadai 33,33-<56,67 / Baik >=56,67 / Istimewa >=95)", () => {
@@ -185,6 +189,16 @@ describe("klasifikasiKesiapan", () => {
     });
     it("Istimewa mulai tepat 95", () => {
       expect(klasifikasiKesiapan("Bahasa Indonesia", 95)).toBe("istimewa");
+    });
+  });
+
+  describe("IPA & Bahasa Inggris (SMP) memakai standar Bahasa Indonesia SMP persis sama", () => {
+    it.each(["IPA", "Bahasa Inggris"] as const)("%s", (subjectNama) => {
+      expect(klasifikasiKesiapan(subjectNama, 49.99)).toBe("kurang");
+      expect(klasifikasiKesiapan(subjectNama, 50)).toBe("memadai");
+      expect(klasifikasiKesiapan(subjectNama, 76.66)).toBe("memadai");
+      expect(klasifikasiKesiapan(subjectNama, 76.67)).toBe("baik");
+      expect(klasifikasiKesiapan(subjectNama, 95)).toBe("istimewa");
     });
   });
 });
