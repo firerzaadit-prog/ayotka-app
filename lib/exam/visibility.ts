@@ -14,7 +14,7 @@ export async function getSelfSelectPackagesFor(student: Student) {
     status: "published" as const,
     bolehDipilihSiswa: true,
     jenjang: student.jenjang,
-    tingkat: student.tingkat,
+    tingkatList: { has: student.tingkat },
   };
 
   if (student.jalur === "B") {

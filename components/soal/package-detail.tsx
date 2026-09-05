@@ -40,7 +40,7 @@ type PackageDetail = {
   nama: string;
   status: string;
   jenjang: "SD" | "SMP";
-  tingkat: number;
+  tingkatList: number[];
   durasiMenit: number;
   jumlahSoal: number;
   subjectId: string;
@@ -56,7 +56,7 @@ type EditForm = {
   nama: string;
   subjectId: string;
   jenjang: "SD" | "SMP";
-  tingkat: string;
+  tingkatList: number[];
   durasiMenit: string;
   jumlahSoal: string;
   modePembahasan: "langsung" | "setelah_tutup";
@@ -82,6 +82,8 @@ const STATUS_BADGE_VARIANT: Record<string, "neutral" | "success" | "warning"> = 
 const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
+const TINGKAT_OPTIONS = [4, 5, 6, 7, 8, 9];
+
 function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): EditForm {
   const rows: VisibilityRow[] = pkg.visibility ?? [];
   const hasSekolah = rows.some((r) => r.targetType === "sekolah" || r.targetType === "semua");
@@ -91,7 +93,7 @@ function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): Edit
     nama: pkg.nama,
     subjectId: pkg.subjectId,
     jenjang: pkg.jenjang,
-    tingkat: String(pkg.tingkat),
+    tingkatList: pkg.tingkatList,
     durasiMenit: String(pkg.durasiMenit),
     jumlahSoal: String(pkg.jumlahSoal),
     modePembahasan: pkg.modePembahasan,
@@ -215,7 +217,7 @@ export function PackageDetail({
       nama: editForm.nama,
       subjectId: editForm.subjectId,
       jenjang: editForm.jenjang,
-      tingkat: editForm.tingkat,
+      tingkatList: editForm.tingkatList,
       durasiMenit: editForm.durasiMenit,
       jumlahSoal: editForm.jumlahSoal,
       modePembahasan: editForm.modePembahasan,
@@ -286,6 +288,7 @@ export function PackageDetail({
         </div>
         <p className="text-sm text-slate-500">
           {pkg.questions.length}/{pkg.jumlahSoal} soal
+          {" · Tingkat: "}{pkg.tingkatList.join(", ")}
           {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
           {" · Pembahasan: "}
           {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
@@ -342,20 +345,27 @@ export function PackageDetail({
                   </select>
                 </div>
                 <div>
-                  <Label htmlFor="editPkgTingkat">Kelas</Label>
-                  <select
-                    id="editPkgTingkat"
-                    className={selectClassName}
-                    value={editForm.tingkat}
-                    onChange={(e) => setEditForm({ ...editForm, tingkat: e.target.value })}
-                  >
-                    <option value="4">Kelas 4</option>
-                    <option value="5">Kelas 5</option>
-                    <option value="6">Kelas 6</option>
-                    <option value="7">Kelas 7</option>
-                    <option value="8">Kelas 8</option>
-                    <option value="9">Kelas 9</option>
-                  </select>
+                  <Label>Kelas</Label>
+                  <div className="flex flex-wrap gap-3 pt-1">
+                    {TINGKAT_OPTIONS.map((t) => (
+                      <label key={t} className="flex items-center gap-1.5 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={editForm.tingkatList.includes(t)}
+                          onChange={(e) =>
+                            setEditForm({
+                              ...editForm,
+                              tingkatList: e.target.checked
+                                ? [...editForm.tingkatList, t]
+                                : editForm.tingkatList.filter((v) => v !== t),
+                            })
+                          }
+                          className="accent-indigo-600"
+                        />
+                        {t}
+                      </label>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -493,7 +503,14 @@ export function PackageDetail({
                 <Button type="button" variant="secondary" onClick={() => setShowEditForm(false)}>
                   Batal
                 </Button>
-                <Button type="submit" disabled={editSubmitting || (editForm.forSekolah && editForm.sekolahMode === "terpilih" && editForm.visibilitySchoolIds.length === 0)}>
+                <Button
+                  type="submit"
+                  disabled={
+                    editSubmitting ||
+                    editForm.tingkatList.length === 0 ||
+                    (editForm.forSekolah && editForm.sekolahMode === "terpilih" && editForm.visibilitySchoolIds.length === 0)
+                  }
+                >
                   {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}
                 </Button>
               </div>
