@@ -16,6 +16,7 @@ type SubjectOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type PerSekolah = {
   schoolId: string;
   nama: string;
+  jenjang: "SD" | "SMP" | null;
   jumlahSiswaAktif: number;
   jumlahAttempt: number;
   rataRata: number;
@@ -24,6 +25,7 @@ type Kompetensi = { kode: string; deskripsi: string; materi: string; jmlBenar: n
 type Tren = { periode: string; jumlahAttempt: number; rataRata: number };
 type StatistikMapel = {
   subjectNama: string;
+  jenjang: "SD" | "SMP";
   jumlahSekolah: number;
   jumlahSiswa: number;
   rerata: number;
@@ -199,7 +201,7 @@ export function AnalitikGlobalView({
           <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
             <p className="mb-3 text-sm font-medium text-slate-700">Rata-rata nilai per mata pelajaran</p>
             <TrendChart
-              data={statistikMapel.map((s) => ({ label: s.subjectNama, value: s.rerata }))}
+              data={statistikMapel.map((s) => ({ label: `${s.subjectNama} (${s.jenjang})`, value: s.rerata }))}
               variant="bar"
               color="#4338ca"
               valueFormatter={(v) => v.toFixed(1)}
@@ -212,6 +214,7 @@ export function AnalitikGlobalView({
                 <Tr>
                   <Th>#</Th>
                   <Th>Mata Pelajaran</Th>
+                  <Th>Jenjang</Th>
                   <Th>Jml Sekolah</Th>
                   <Th>Jml Siswa</Th>
                   <Th>Rerata</Th>
@@ -227,9 +230,10 @@ export function AnalitikGlobalView({
               </Thead>
               <tbody>
                 {statistikMapel.map((s, i) => (
-                  <Tr key={s.subjectNama}>
+                  <Tr key={`${s.subjectNama}::${s.jenjang}`}>
                     <Td className="text-slate-500">{i + 1}</Td>
                     <Td className="font-medium text-slate-900">{s.subjectNama}</Td>
+                    <Td className="text-slate-500">{s.jenjang}</Td>
                     <Td>{s.jumlahSekolah}</Td>
                     <Td>{s.jumlahSiswa}</Td>
                     <Td>{s.rerata.toFixed(1)}</Td>
@@ -275,6 +279,7 @@ export function AnalitikGlobalView({
                   <Tr>
                     <Th>#</Th>
                     <Th>Sekolah</Th>
+                    <Th>Jenjang</Th>
                     <Th>Siswa aktif</Th>
                     <Th>Jumlah ujian</Th>
                     <Th>Rata-rata nilai</Th>
@@ -285,6 +290,7 @@ export function AnalitikGlobalView({
                     <Tr key={s.schoolId}>
                       <Td className="text-slate-500">{i + 1}</Td>
                       <Td className="font-medium text-slate-900">{s.nama}</Td>
+                      <Td className="text-slate-500">{s.jenjang ?? "-"}</Td>
                       <Td>{s.jumlahSiswaAktif}</Td>
                       <Td>{s.jumlahAttempt}</Td>
                       <Td>{s.rataRata.toFixed(1)}</Td>

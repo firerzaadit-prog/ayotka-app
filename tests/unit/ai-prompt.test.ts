@@ -8,7 +8,15 @@ describe("buildAnalisisPrompt", () => {
     paketNama: "Paket Matematika Kelas 8",
     skorAkhir: 85,
     kompetensi: [
-      { kode: "K1", deskripsi: "Operasi bilangan bulat", jmlBenar: 4, jmlSoal: 5, persentase: 80 },
+      {
+        kode: "K1",
+        deskripsi: "Operasi bilangan bulat",
+        materiNama: "Bilangan",
+        subMateriNama: "Bilangan Bulat",
+        jmlBenar: 4,
+        jmlSoal: 5,
+        persentase: 80,
+      },
     ],
     levelKognitif: [{ level: "L1", jmlBenar: 3, jmlSoal: 3 }],
     format: [{ format: "pg", jmlBenar: 4, jmlSoal: 5 }],
@@ -18,6 +26,8 @@ describe("buildAnalisisPrompt", () => {
         benar: false,
         teksSoal: "Soal cerita panjang tentang bilangan bulat",
         kompetensi: "K1",
+        materiNama: "Bilangan",
+        subMateriNama: "Bilangan Bulat",
         levelBloom: "L3",
         jawabanSiswa: "12 (hasil penjumlahan tanpa memperhatikan tanda negatif)",
         kunciJawaban: "-4",
@@ -28,6 +38,8 @@ describe("buildAnalisisPrompt", () => {
         benar: true,
         teksSoal: "5 + 3 = ?",
         kompetensi: "K1",
+        materiNama: "Bilangan",
+        subMateriNama: "Bilangan Bulat",
         levelBloom: "L1",
         jawabanSiswa: "8",
         kunciJawaban: "8",
@@ -40,8 +52,13 @@ describe("buildAnalisisPrompt", () => {
     const prompt = buildAnalisisPrompt(input);
     expect(prompt).toContain("Budi Santoso");
     expect(prompt).toContain("Nilai akhir: 85");
-    expect(prompt).toContain("K1 (Operasi bilangan bulat): 4/5 benar (80%)");
+    expect(prompt).toContain("K1 (Operasi bilangan bulat) [Materi: Bilangan > Bilangan Bulat]: 4/5 benar (80%)");
     expect(prompt).toContain("L1: 3/3 benar");
+  });
+
+  it("menyertakan nama materi & sub materi di rincian tiap soal, bukan cuma kode kompetensi", () => {
+    const prompt = buildAnalisisPrompt(input);
+    expect(prompt).toContain("[K1 - L3] [Bilangan > Bilangan Bulat]");
   });
 
   it("menyertakan jawaban siswa untuk SEMUA soal, dan kunci/pembahasan untuk soal yang salah", () => {

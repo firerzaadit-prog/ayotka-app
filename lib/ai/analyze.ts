@@ -7,12 +7,18 @@ import type { Attempt } from "@prisma/client";
 
 const TIDAK_DIJAWAB = "(tidak dijawab)";
 
+type KompetensiWithMateri = {
+  kode: string;
+  deskripsi: string;
+  subMateri: { nama: string; materi: { nama: string } };
+};
+
 type AnswerQuestion = {
   teks: string;
   format: string;
   levelBloom: string;
   pembahasan: string | null;
-  kompetensi: { kode: string; deskripsi: string };
+  kompetensi: KompetensiWithMateri;
   options: { id: string; teks: string; isCorrect: boolean }[];
   statements: { id: string; teks: string; correctCategoryId: string }[];
   categories: { id: string; label: string }[];
@@ -77,7 +83,15 @@ export async function runAnalisisAi(attempt: Attempt) {
     prisma.package.findUniqueOrThrow({ where: { id: attempt.packageId }, select: { nama: true } }),
     prisma.competencyScore.findMany({
       where: { attemptId: attempt.id },
-      include: { kompetensi: { select: { kode: true, deskripsi: true } } },
+      include: {
+        kompetensi: {
+          select: {
+            kode: true,
+            deskripsi: true,
+            subMateri: { select: { nama: true, materi: { select: { nama: true } } } },
+          },
+        },
+      },
     }),
     prisma.attemptAnswer.findMany({
       where: { attemptId: attempt.id },
@@ -91,7 +105,13 @@ export async function runAnalisisAi(attempt: Attempt) {
             format: true,
             levelBloom: true,
             pembahasan: true,
-            kompetensi: { select: { kode: true, deskripsi: true } },
+            kompetensi: {
+              select: {
+                kode: true,
+                deskripsi: true,
+                subMateri: { select: { nama: true, materi: { select: { nama: true } } } },
+              },
+            },
             options: { select: { id: true, teks: true, isCorrect: true } },
             statements: { select: { id: true, teks: true, correctCategoryId: true } },
             categories: { select: { id: true, label: true } },
@@ -123,6 +143,8 @@ export async function runAnalisisAi(attempt: Attempt) {
     kompetensi: competencyScores.map((c) => ({
       kode: c.kompetensi.kode,
       deskripsi: c.kompetensi.deskripsi,
+      materiNama: c.kompetensi.subMateri.materi.nama,
+      subMateriNama: c.kompetensi.subMateri.nama,
       jmlBenar: c.jmlBenar,
       jmlSoal: c.jmlSoal,
       persentase: c.persentase,
@@ -139,6 +161,8 @@ export async function runAnalisisAi(attempt: Attempt) {
       benar: (a.skor ?? 0) >= a.skorMaks,
       teksSoal: a.question.teks,
       kompetensi: a.question.kompetensi.kode,
+      materiNama: a.question.kompetensi.subMateri.materi.nama,
+      subMateriNama: a.question.kompetensi.subMateri.nama,
       levelBloom: a.question.levelBloom,
       jawabanSiswa: jawabanKeTeks(a.question, a.jawabanJson),
       kunciJawaban: kunciKeTeks(a.question),

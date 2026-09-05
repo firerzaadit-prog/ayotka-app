@@ -47,9 +47,10 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
         ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
         : {}),
     },
-    select: { id: true, nama: true },
+    select: { id: true, nama: true, jenjang: true },
   });
   const schoolNamaById = new Map(schools.map((s) => [s.id, s.nama]));
+  const schoolJenjangById = new Map(schools.map((s) => [s.id, s.jenjang]));
   const schoolIds = schools.map((s) => s.id);
 
   if (schoolIds.length === 0) {
@@ -86,7 +87,13 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
 
   const sekolahMap = new Map<
     string,
-    { nama: string; totalSkor: number; jumlahAttempt: number; siswaIds: Set<string> }
+    {
+      nama: string;
+      jenjang: "SD" | "SMP" | null;
+      totalSkor: number;
+      jumlahAttempt: number;
+      siswaIds: Set<string>;
+    }
   >();
   const kompetensiMap = new Map<
     string,
@@ -99,6 +106,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
     if (schoolId) {
       const existing = sekolahMap.get(schoolId) ?? {
         nama: schoolNamaById.get(schoolId) ?? "(sekolah tidak dikenal)",
+        jenjang: schoolJenjangById.get(schoolId) ?? null,
         totalSkor: 0,
         jumlahAttempt: 0,
         siswaIds: new Set<string>(),
@@ -139,6 +147,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
     .map(([schoolId, s]) => ({
       schoolId,
       nama: s.nama,
+      jenjang: s.jenjang,
       jumlahSiswaAktif: s.siswaIds.size,
       jumlahAttempt: s.jumlahAttempt,
       rataRata: s.jumlahAttempt > 0 ? s.totalSkor / s.jumlahAttempt : 0,
@@ -162,6 +171,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
 
 export type StatistikMapel = {
   subjectNama: string;
+  jenjang: "SD" | "SMP";
   jumlahSekolah: number;
   jumlahSiswa: number;
   rerata: number;
@@ -173,9 +183,10 @@ export type StatistikMapel = {
   kategori: Record<KategoriKesiapan, number>;
 };
 
-function statistikMapelKosong(subjectNama: string): StatistikMapel {
+function statistikMapelKosong(subjectNama: string, jenjang: "SD" | "SMP"): StatistikMapel {
   return {
     subjectNama,
+    jenjang,
     jumlahSekolah: 0,
     jumlahSiswa: 0,
     rerata: 0,
@@ -192,27 +203,43 @@ function statistikMapelKosong(subjectNama: string): StatistikMapel {
  * jumlah sekolah/siswa, rerata, persentil 10/median/90, standar deviasi, dan
  * persentase kategori capaian - dihitung dari skor TERBAIK tiap siswa
  * (bukan tiap attempt) supaya siswa yang mengulang try out tidak menggeser
- * distribusi lewat percobaan-percobaan awalnya. Selalu mengembalikan semua
- * mata pelajaran di KESIAPAN_SUBJECTS, sama seperti ringkasKesiapan - dipakai
- * SERAGAM di seluruh sistem, lihat komentar KESIAPAN_SUBJECTS di
- * lib/analytics/kesiapan.ts.
+ * distribusi lewat percobaan-percobaan awalnya.
+ *
+ * Baris dikelompokkan per (subjectNama, jenjang), BUKAN cuma subjectNama -
+ * Matematika & Bahasa Indonesia adalah row Subject TERPISAH di SD vs SMP
+ * (nama sama, jenjang beda, lihat scripts/seed-subjects.ts), jadi kalau
+ * cuma dikelompokkan per nama, skor Matematika SD & SMP akan tercampur jadi
+ * satu baris yang menyesatkan (dua populasi siswa & tingkat kesulitan beda)
+ * begitu filter jenjang tidak dipilih. Selalu mengembalikan semua kombinasi
+ * (nama, jenjang) yang ada di KESIAPAN_SUBJECTS sesuai filter jenjang, sama
+ * seperti ringkasKesiapan.
  */
 export async function buildStatistikMataPelajaran(
   filter: AnalitikGlobalFilter,
 ): Promise<StatistikMapel[]> {
-  const schools = await prisma.school.findMany({
-    where: {
-      status: "aktif",
-      ...(filter.schoolId ? { id: filter.schoolId } : {}),
-      ...(filter.jenjang ? { jenjang: filter.jenjang } : {}),
-      ...(filter.wilayah
-        ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
-        : {}),
-    },
-    select: { id: true },
-  });
+  const [schools, subjectRows] = await Promise.all([
+    prisma.school.findMany({
+      where: {
+        status: "aktif",
+        ...(filter.schoolId ? { id: filter.schoolId } : {}),
+        ...(filter.jenjang ? { jenjang: filter.jenjang } : {}),
+        ...(filter.wilayah
+          ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
+          : {}),
+      },
+      select: { id: true },
+    }),
+    prisma.subject.findMany({
+      where: {
+        nama: { in: [...KESIAPAN_SUBJECTS] },
+        ...(filter.jenjang ? { jenjang: filter.jenjang } : {}),
+      },
+      select: { nama: true, jenjang: true },
+      orderBy: [{ nama: "asc" }, { jenjang: "asc" }],
+    }),
+  ]);
   if (schools.length === 0) {
-    return KESIAPAN_SUBJECTS.map(statistikMapelKosong);
+    return subjectRows.map((s) => statistikMapelKosong(s.nama, s.jenjang));
   }
   const schoolIds = schools.map((s) => s.id);
 
@@ -221,13 +248,18 @@ export async function buildStatistikMataPelajaran(
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
       student: { schoolId: { in: schoolIds }, deletedAt: null },
-      package: { subject: { nama: { in: [...KESIAPAN_SUBJECTS] } } },
+      package: {
+        subject: {
+          nama: { in: [...KESIAPAN_SUBJECTS] },
+          ...(filter.jenjang ? { jenjang: filter.jenjang } : {}),
+        },
+      },
     },
     select: {
       studentId: true,
       skorAkhir: true,
       student: { select: { schoolId: true } },
-      package: { select: { subject: { select: { nama: true } } } },
+      package: { select: { subject: { select: { nama: true, jenjang: true } } } },
     },
   });
 
@@ -239,21 +271,23 @@ export async function buildStatistikMataPelajaran(
   for (const a of attempts) {
     const schoolId = a.student.schoolId;
     if (a.skorAkhir == null || !schoolId) continue;
-    const subjectNama = a.package.subject.nama;
+    const { nama: subjectNama, jenjang } = a.package.subject;
+    const key = `${subjectNama}::${jenjang}`;
 
-    const list = rawPerSubject.get(subjectNama) ?? [];
+    const list = rawPerSubject.get(key) ?? [];
     list.push({ studentId: a.studentId, subjectNama, skorAkhir: a.skorAkhir });
-    rawPerSubject.set(subjectNama, list);
+    rawPerSubject.set(key, list);
 
-    const sekolahSet = sekolahPerSubject.get(subjectNama) ?? new Set<string>();
+    const sekolahSet = sekolahPerSubject.get(key) ?? new Set<string>();
     sekolahSet.add(schoolId);
-    sekolahPerSubject.set(subjectNama, sekolahSet);
+    sekolahPerSubject.set(key, sekolahSet);
   }
 
-  return KESIAPAN_SUBJECTS.map((subjectNama) => {
-    const bestPerSiswa = ambilSkorTerbaikPerSiswaMapel(rawPerSubject.get(subjectNama) ?? []);
+  return subjectRows.map(({ nama: subjectNama, jenjang }) => {
+    const key = `${subjectNama}::${jenjang}`;
+    const bestPerSiswa = ambilSkorTerbaikPerSiswaMapel(rawPerSubject.get(key) ?? []);
     const skorTerurut = bestPerSiswa.map((b) => b.skorAkhir).sort((a, b) => a - b);
-    if (skorTerurut.length === 0) return statistikMapelKosong(subjectNama);
+    if (skorTerurut.length === 0) return statistikMapelKosong(subjectNama, jenjang);
 
     const kategoriList = skorTerurut
       .map((skor) => klasifikasiKesiapan(subjectNama, skor))
@@ -264,7 +298,8 @@ export async function buildStatistikMataPelajaran(
 
     return {
       subjectNama,
-      jumlahSekolah: sekolahPerSubject.get(subjectNama)?.size ?? 0,
+      jenjang,
+      jumlahSekolah: sekolahPerSubject.get(key)?.size ?? 0,
       jumlahSiswa: skorTerurut.length,
       rerata: hitungRerata(skorTerurut),
       persentil10: hitungPersentil(skorTerurut, 10),

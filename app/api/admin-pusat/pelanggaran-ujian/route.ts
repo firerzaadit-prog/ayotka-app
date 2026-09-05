@@ -19,7 +19,7 @@ export async function GET() {
     orderBy: { tabSwitchCount: "desc" },
     take: 200,
     include: {
-      student: { select: { nama: true, school: { select: { nama: true } } } },
+      student: { select: { nama: true, jalur: true, school: { select: { nama: true } } } },
       package: { select: { nama: true } },
     },
   });
@@ -28,6 +28,7 @@ export async function GET() {
     attempts: attempts.map((a) => ({
       id: a.id,
       studentNama: a.student.nama,
+      jalur: a.student.jalur,
       sekolahNama: a.student.school?.nama ?? "-",
       paketNama: a.package.nama,
       status: a.status,
