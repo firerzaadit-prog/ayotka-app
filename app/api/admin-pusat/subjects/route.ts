@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth/session";
  */
 export async function GET() {
   try {
-    await requireRole("admin_pusat", "admin_sekolah");
+    await requireRole("admin_pusat", "admin_sekolah", "dinas_pendidikan");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }

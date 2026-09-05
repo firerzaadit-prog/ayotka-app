@@ -31,8 +31,8 @@ describe("ambilSkorTerbaikPerSiswaMapel", () => {
 });
 
 describe("ringkasKesiapan", () => {
-  it("mapel di luar cakupan (mis. IPA) diabaikan, bukan bikin error", () => {
-    const result = ringkasKesiapan([{ subjectNama: "IPA", skorAkhir: 90 }]);
+  it("mapel di luar cakupan (mis. Seni Budaya) diabaikan, bukan bikin error", () => {
+    const result = ringkasKesiapan([{ subjectNama: "Seni Budaya", skorAkhir: 90 }]);
     expect(result.gabungan.total).toBe(0);
     expect(result.gabungan.persentaseSiap).toBe(0);
   });
@@ -64,9 +64,28 @@ describe("ringkasKesiapan", () => {
     expect(bindo.breakdown.persentaseSiap).toBe(100);
   });
 
-  it("perMapel selalu mengembalikan kedua mapel walau salah satunya belum ada data (total 0, bukan hilang dari daftar)", () => {
+  it("IPA & Bahasa Inggris kini ikut masuk gabungan dan perMapel, sama seperti Matematika/Bahasa Indonesia", () => {
+    const result = ringkasKesiapan([
+      { subjectNama: "IPA", skorAkhir: 96 }, // istimewa
+      { subjectNama: "Bahasa Inggris", skorAkhir: 20 }, // kurang
+    ]);
+
+    expect(result.gabungan.total).toBe(2);
+    expect(result.gabungan.istimewa).toBe(1);
+    expect(result.gabungan.kurang).toBe(1);
+
+    const ipa = result.perMapel.find((m) => m.subjectNama === "IPA")!;
+    expect(ipa.breakdown.total).toBe(1);
+    expect(ipa.breakdown.istimewa).toBe(1);
+
+    const inggris = result.perMapel.find((m) => m.subjectNama === "Bahasa Inggris")!;
+    expect(inggris.breakdown.total).toBe(1);
+    expect(inggris.breakdown.kurang).toBe(1);
+  });
+
+  it("perMapel selalu mengembalikan keempat mapel walau sebagian belum ada data (total 0, bukan hilang dari daftar)", () => {
     const result = ringkasKesiapan([{ subjectNama: "Matematika", skorAkhir: 80 }]);
-    expect(result.perMapel).toHaveLength(2);
+    expect(result.perMapel).toHaveLength(4);
     const bindo = result.perMapel.find((m) => m.subjectNama === "Bahasa Indonesia")!;
     expect(bindo.breakdown.total).toBe(0);
     expect(bindo.breakdown.persentaseSiap).toBe(0);

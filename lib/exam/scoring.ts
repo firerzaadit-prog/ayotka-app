@@ -132,9 +132,9 @@ export type KategoriKesiapan = "kurang" | "memadai" | "baik" | "istimewa";
  *
  * IPA dan Bahasa Inggris (mapel SMP di luar cakupan resmi TKA, yang cuma
  * menguji Matematika & Bahasa Indonesia) memakai angka Bahasa Indonesia SMP
- * juga - atas permintaan pemilik produk, khusus untuk statistik nasional per
- * mata pelajaran di Analitik Global (lihat buildStatistikMataPelajaran di
- * lib/analytics/global.ts), BUKAN klaim angka resmi utk mapel-mapel ini.
+ * juga - atas permintaan pemilik produk, supaya cakupan mata pelajaran
+ * fitur Kesiapan TKA seragam di semua tampilan (lihat KESIAPAN_SUBJECTS di
+ * lib/analytics/kesiapan.ts), BUKAN klaim angka resmi utk mapel-mapel ini.
  */
 const KESIAPAN_THRESHOLDS: Record<string, { memadai: number; baik: number }> = {
   Matematika: { memadai: 33.33, baik: 56.67 },

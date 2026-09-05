@@ -188,29 +188,14 @@ function statistikMapelKosong(subjectNama: string): StatistikMapel {
 }
 
 /**
- * Mapel yang dicakup statistik nasional Analitik Global - sengaja LEBIH LUAS
- * daripada KESIAPAN_SUBJECTS (yang cuma 2 mapel resmi TKA, dipakai fitur
- * Kesiapan TKA di dashboard admin sekolah & dinas pendidikan). Atas
- * permintaan pemilik produk, IPA & Bahasa Inggris (mapel SMP di luar cakupan
- * TKA) ikut ditampilkan di sini dengan kategori capaian yang sama persis
- * dengan Bahasa Indonesia SMP (lihat KESIAPAN_THRESHOLDS di
- * lib/exam/scoring.ts) - keputusan ini KHUSUS utk tabel statistik nasional
- * ini, tidak mengubah arti "Kesiapan TKA" di fitur lain.
- */
-const STATISTIK_NASIONAL_SUBJECTS = [
-  "Matematika",
-  "Bahasa Indonesia",
-  "Bahasa Inggris",
-  "IPA",
-] as const;
-
-/**
  * Statistik nasional per mata pelajaran (gaya ringkasan Kemendikdasmen):
  * jumlah sekolah/siswa, rerata, persentil 10/median/90, standar deviasi, dan
  * persentase kategori capaian - dihitung dari skor TERBAIK tiap siswa
  * (bukan tiap attempt) supaya siswa yang mengulang try out tidak menggeser
  * distribusi lewat percobaan-percobaan awalnya. Selalu mengembalikan semua
- * mata pelajaran di STATISTIK_NASIONAL_SUBJECTS, sama seperti ringkasKesiapan.
+ * mata pelajaran di KESIAPAN_SUBJECTS, sama seperti ringkasKesiapan - dipakai
+ * SERAGAM di seluruh sistem, lihat komentar KESIAPAN_SUBJECTS di
+ * lib/analytics/kesiapan.ts.
  */
 export async function buildStatistikMataPelajaran(
   filter: AnalitikGlobalFilter,
@@ -227,7 +212,7 @@ export async function buildStatistikMataPelajaran(
     select: { id: true },
   });
   if (schools.length === 0) {
-    return STATISTIK_NASIONAL_SUBJECTS.map(statistikMapelKosong);
+    return KESIAPAN_SUBJECTS.map(statistikMapelKosong);
   }
   const schoolIds = schools.map((s) => s.id);
 
@@ -236,7 +221,7 @@ export async function buildStatistikMataPelajaran(
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
       student: { schoolId: { in: schoolIds }, deletedAt: null },
-      package: { subject: { nama: { in: [...STATISTIK_NASIONAL_SUBJECTS] } } },
+      package: { subject: { nama: { in: [...KESIAPAN_SUBJECTS] } } },
     },
     select: {
       studentId: true,
@@ -265,7 +250,7 @@ export async function buildStatistikMataPelajaran(
     sekolahPerSubject.set(subjectNama, sekolahSet);
   }
 
-  return STATISTIK_NASIONAL_SUBJECTS.map((subjectNama) => {
+  return KESIAPAN_SUBJECTS.map((subjectNama) => {
     const bestPerSiswa = ambilSkorTerbaikPerSiswaMapel(rawPerSubject.get(subjectNama) ?? []);
     const skorTerurut = bestPerSiswa.map((b) => b.skorAkhir).sort((a, b) => a - b);
     if (skorTerurut.length === 0) return statistikMapelKosong(subjectNama);

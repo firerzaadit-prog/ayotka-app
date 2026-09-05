@@ -10,6 +10,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconChart } from "@/components/ui/empty-state-icons";
 import type { KesiapanPerSekolah } from "@/lib/analytics/global";
+import { KESIAPAN_SUBJECTS } from "@/lib/analytics/kesiapan";
 
 const selectClassName =
   "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
@@ -66,7 +67,9 @@ export default function DinasPendidikanDashboardPage() {
 
       <Alert variant="info">
         Angka SD memakai standar resmi SMP karena Kemendikdasmen belum merilis rentang nilai
-        resmi khusus SD — labelnya sama, cuma dokumen sumbernya masih menunggu terbit.
+        resmi khusus SD — labelnya sama, cuma dokumen sumbernya masih menunggu terbit. IPA &amp;
+        Bahasa Inggris (SMP) memakai standar kategori Bahasa Indonesia SMP - kedua mapel ini di
+        luar cakupan resmi TKA, yang hanya menguji Matematika &amp; Bahasa Indonesia.
       </Alert>
 
       <div className="flex flex-wrap gap-4">
@@ -115,36 +118,26 @@ export default function DinasPendidikanDashboardPage() {
                 <Th>Sekolah</Th>
                 <Th>Jenjang</Th>
                 <Th>Kesiapan Gabungan</Th>
-                <Th>Matematika</Th>
-                <Th>Bahasa Indonesia</Th>
+                {KESIAPAN_SUBJECTS.map((nama) => (
+                  <Th key={nama}>{nama}</Th>
+                ))}
               </Tr>
             </Thead>
             <tbody>
-              {perSekolah.map((s) => {
-                const matematika = s.perMapel.find((m) => m.subjectNama === "Matematika");
-                const bindo = s.perMapel.find((m) => m.subjectNama === "Bahasa Indonesia");
-                return (
-                  <Tr key={s.schoolId}>
-                    <Td className="font-medium text-slate-900">{s.nama}</Td>
-                    <Td>{s.jenjang}</Td>
-                    <Td>
-                      <PersentaseBadge pct={s.gabungan.persentaseSiap} total={s.gabungan.total} />
+              {perSekolah.map((s) => (
+                <Tr key={s.schoolId}>
+                  <Td className="font-medium text-slate-900">{s.nama}</Td>
+                  <Td>{s.jenjang}</Td>
+                  <Td>
+                    <PersentaseBadge pct={s.gabungan.persentaseSiap} total={s.gabungan.total} />
+                  </Td>
+                  {s.perMapel.map((m) => (
+                    <Td key={m.subjectNama}>
+                      <PersentaseBadge pct={m.breakdown.persentaseSiap} total={m.breakdown.total} />
                     </Td>
-                    <Td>
-                      <PersentaseBadge
-                        pct={matematika?.breakdown.persentaseSiap ?? 0}
-                        total={matematika?.breakdown.total ?? 0}
-                      />
-                    </Td>
-                    <Td>
-                      <PersentaseBadge
-                        pct={bindo?.breakdown.persentaseSiap ?? 0}
-                        total={bindo?.breakdown.total ?? 0}
-                      />
-                    </Td>
-                  </Tr>
-                );
-              })}
+                  ))}
+                </Tr>
+              ))}
             </tbody>
           </Table>
         </TableContainer>
