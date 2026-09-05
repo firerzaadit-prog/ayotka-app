@@ -16,7 +16,7 @@ type AnalisisAi = {
 type StatusResponse =
   | { status: "none" }
   | { status: "processing" }
-  | { status: "ready"; analysis: AnalisisAi; generatedAt: string }
+  | { status: "ready"; analysis: AnalisisAi; generatedAt: string; outdated: boolean }
   | { status: "error"; error: string };
 
 const POLL_MS = 5000;
@@ -121,7 +121,9 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
 
       {data.status === "none" && (
         <p className="text-sm text-slate-500">
-          {canTrigger ? "Belum dianalisis - klik tombol untuk mulai." : "Belum ada analisis untuk hasil ini."}
+          {canTrigger
+            ? "Belum dianalisis - klik tombol untuk mulai."
+            : "Analisis AI belum dilakukan oleh admin pusat."}
         </p>
       )}
       {data.status === "processing" && (
@@ -136,9 +138,16 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
       )}
       {data.status === "ready" && (
         <div className="flex flex-col gap-3 text-sm">
+          {data.outdated && (
+            <Alert variant="warning">
+              Hasil ini dibuat dengan versi analisis yang lebih lama.
+              {canTrigger
+                ? " Klik \"Analisis ulang\" untuk memperbarui dengan versi terbaru."
+                : " Sebaiknya minta admin menjalankan \"Analisis ulang\" untuk hasil terbaru."}
+            </Alert>
+          )}
           <p className="text-xs text-slate-400">
             Dianalisis pada {FORMAT_TANGGAL.format(new Date(data.generatedAt))}
-            {canTrigger && " — klik \"Analisis ulang\" lalu cek tanggal ini berubah untuk memastikan hasilnya baru."}
           </p>
           <p className="text-slate-700">{data.analysis.ringkasan}</p>
 

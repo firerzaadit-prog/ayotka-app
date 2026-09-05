@@ -4,13 +4,8 @@ import { requireRole, type CurrentUser } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
 import { runAnalisisAi } from "@/lib/ai/analyze";
-import {
-  isProcessing,
-  tryStartProcessing,
-  finishProcessing,
-  setLastError,
-  getLastError,
-} from "@/lib/ai/analysis-guard";
+import { isProcessing, tryStartProcessing, finishProcessing, setLastError } from "@/lib/ai/analysis-guard";
+import { PROMPT_VERSION } from "@/lib/ai/version";
 import type { Attempt } from "@prisma/client";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -63,7 +58,7 @@ export async function POST(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Ujian belum selesai, belum bisa dianalisis." }, { status: 400 });
   }
 
-  if (!tryStartProcessing(id)) {
+  if (!(await tryStartProcessing(id))) {
     return NextResponse.json({ status: "processing" });
   }
 
@@ -77,9 +72,9 @@ export async function POST(_request: Request, { params }: RouteParams) {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[analisis-ai] gagal untuk attempt ${id}:`, err);
-      setLastError(id, message);
+      await setLastError(id, message);
     } finally {
-      finishProcessing(id);
+      await finishProcessing(id);
     }
   });
 
@@ -104,14 +99,29 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const analysis = await prisma.aiAnalysis.findUnique({ where: { attemptId: id } });
   if (analysis) {
-    return noStoreJson({ status: "ready", analysis: analysis.detailJson, generatedAt: analysis.generatedAt });
+    return noStoreJson({
+      status: "ready",
+      analysis: analysis.detailJson,
+      generatedAt: analysis.generatedAt,
+      // Tandai kalau hasil ini dibuat dengan versi prompt lama (lihat
+      // lib/ai/version.ts) - UI bisa menyarankan "Analisis ulang" tanpa
+      // siswa/admin perlu menebak dari tanggalnya saja.
+      outdated: analysis.versiPrompt !== PROMPT_VERSION,
+    });
   }
-  if (isProcessing(id)) {
+  if (isProcessing(attempt.aiAnalysisProcessingAt)) {
     return noStoreJson({ status: "processing" });
   }
-  const failure = getLastError(id);
-  if (failure) {
-    return noStoreJson({ status: "error", error: failure });
+  if (attempt.aiAnalysisLastError) {
+    // Teks error asli (bisa berisi detail internal/upstream Gemini) cuma
+    // relevan buat admin yang punya tombol "Analisis ulang" - siswa cukup
+    // tahu belum tersedia. AnalisisAiPanel di client sudah menyaring ini
+    // lewat prop canTrigger, tapi itu cuma kontrol tampilan; body response
+    // ini sendiri harus sudah bersih sebelum sampai ke browser siswa.
+    return noStoreJson({
+      status: "error",
+      error: user.role === "siswa" ? "Analisis belum tersedia, coba lagi nanti." : attempt.aiAnalysisLastError,
+    });
   }
   return noStoreJson({ status: "none" });
 }

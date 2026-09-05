@@ -13,6 +13,7 @@ import { formatWIB } from "@/lib/utils/datetime";
 type AttemptRow = {
   id: string;
   studentNama: string;
+  jalur: "A" | "B";
   sekolahNama: string;
   paketNama: string;
   status: "berjalan" | "paused" | "selesai" | "kedaluwarsa";
@@ -26,6 +27,8 @@ const STATUS_LABEL: Record<string, string> = {
   selesai: "Selesai",
   kedaluwarsa: "Waktu habis",
 };
+
+const JALUR_LABEL: Record<string, string> = { A: "Jalur A (sekolah)", B: "Jalur B (mandiri)" };
 
 export default function PelanggaranUjianPage() {
   const [attempts, setAttempts] = useState<AttemptRow[] | null>(null);
@@ -54,7 +57,7 @@ export default function PelanggaranUjianPage() {
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
-      {attempts === null && !error && <TableSkeleton columns={6} />}
+      {attempts === null && !error && <TableSkeleton columns={7} />}
       {attempts?.length === 0 && (
         <EmptyState
           icon={<IconCheckCircle />}
@@ -69,6 +72,7 @@ export default function PelanggaranUjianPage() {
             <Thead>
               <Tr>
                 <Th>Siswa</Th>
+                <Th>Jalur</Th>
                 <Th>Sekolah</Th>
                 <Th>Paket</Th>
                 <Th>Mulai</Th>
@@ -80,6 +84,7 @@ export default function PelanggaranUjianPage() {
               {attempts.map((a) => (
                 <Tr key={a.id}>
                   <Td className="font-medium text-slate-900">{a.studentNama}</Td>
+                  <Td className="text-xs text-slate-500">{JALUR_LABEL[a.jalur]}</Td>
                   <Td>{a.sekolahNama}</Td>
                   <Td>{a.paketNama}</Td>
                   <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>

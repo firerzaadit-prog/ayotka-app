@@ -520,6 +520,15 @@ model Attempt {
   /// attempt ini - dicatat untuk dipantau admin sekolah & admin pusat,
   /// bukan pembatas otomatis (tidak menggagalkan ujian sendirian).
   tabSwitchCount Int           @default(0) @map("tab_switch_count")
+  /// Guard "satu sesi aktif per attempt" (dulu Map in-memory di
+  /// lib/exam/session-guard.ts) - disimpan di DB supaya konsisten lintas
+  /// instance server (deployment serverless bisa multi-instance).
+  activeTabToken    String?   @map("active_tab_token")
+  activeTabLastSeen DateTime? @map("active_tab_last_seen")
+  /// Guard "satu proses analisis AI per attempt" + pesan gagal terakhir
+  /// (dulu Set/Map in-memory di lib/ai/analysis-guard.ts), alasan sama.
+  aiAnalysisProcessingAt DateTime? @map("ai_analysis_processing_at")
+  aiAnalysisLastError    String?   @map("ai_analysis_last_error")
 
   student    Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
   package    Package     @relation(fields: [packageId], references: [id], onDelete: Restrict)

@@ -22,6 +22,7 @@ export default async function DinasPendidikanLayout({
       nav={
         <SidebarSection>
           <SidebarLink href="/dinas-pendidikan/dashboard">Kesiapan TKA</SidebarLink>
+          <SidebarLink href="/dinas-pendidikan/analitik">Analitik Global</SidebarLink>
         </SidebarSection>
       }
     >

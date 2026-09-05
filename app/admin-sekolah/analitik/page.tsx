@@ -51,7 +51,7 @@ export default function AnalitikPage() {
   }, []);
 
   // Kesiapan TKA tidak dipengaruhi filter kelas/mapel di atas (selalu
-  // gabungan Matematika + Bahasa Indonesia untuk seluruh sekolah) - diambil
+  // gabungan semua mapel KESIAPAN_SUBJECTS untuk seluruh sekolah) - diambil
   // sekali saat halaman dibuka, bukan di dalam effect filter di bawah.
   useEffect(() => {
     let ignore = false;
@@ -112,13 +112,18 @@ export default function AnalitikPage() {
       {kesiapan && (
         <div>
           <h2 className="mb-2 text-lg font-semibold text-slate-900">Kesiapan TKA</h2>
-          <p className="mb-3 text-sm text-slate-500">
+          <p className="mb-1 text-sm text-slate-500">
             Berdasarkan skor terbaik tiap siswa & kategori capaian resmi Kemendikdasmen (Kurang/
             Memadai/Baik/Istimewa). Angka SD memakai standar SMP karena Kemendikdasmen belum
             merilis rentang nilai resmi khusus SD.
           </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <KesiapanCard title="Gabungan (kedua mapel)" breakdown={kesiapan.gabungan} />
+          <p className="mb-3 text-xs text-slate-400">
+            IPA &amp; Bahasa Inggris (SMP) memakai standar kategori Bahasa Indonesia SMP - kedua
+            mapel ini di luar cakupan resmi TKA, yang hanya menguji Matematika &amp; Bahasa
+            Indonesia.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <KesiapanCard title="Gabungan (semua mapel)" breakdown={kesiapan.gabungan} />
             {kesiapan.perMapel.map((m) => (
               <KesiapanCard key={m.subjectNama} title={m.subjectNama} breakdown={m.breakdown} />
             ))}

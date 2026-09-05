@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
-import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
+import { loadOwnedAttempt, sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { getRemainingSeconds } from "@/lib/exam/timing";
 import { shuffleWithSeed } from "@/lib/exam/shuffle";
 import { buildHasil } from "@/lib/exam/hasil";
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 
   if (attempt.status === "paused") {
-    return NextResponse.json({ attempt, questions: [], answers: [] });
+    return NextResponse.json({ attempt: sanitizeAttemptForClient(attempt), questions: [], answers: [] });
   }
 
   if (attempt.status === "selesai" || attempt.status === "kedaluwarsa") {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   // Tiket 4.13: satu sesi aktif per attempt - tab/device lain yang masih
   // aktif mengerjakan attempt yang sama ditolak di sini.
   const tabToken = request.nextUrl.searchParams.get("tabToken");
-  if (tabToken && !checkAndClaimSession(attempt.id, tabToken)) {
+  if (tabToken && !(await checkAndClaimSession(attempt.id, tabToken))) {
     return NextResponse.json(
       { error: "SESI_DIAMBIL_ALIH", message: "Ujian ini sedang dibuka di tab/perangkat lain." },
       { status: 409 },
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   });
 
   return NextResponse.json({
-    attempt: { ...attempt, sisaDetik: getRemainingSeconds(attempt) },
+    attempt: { ...sanitizeAttemptForClient(attempt), sisaDetik: getRemainingSeconds(attempt) },
     package: { nama: pkg.nama, durasiMenit: pkg.durasiMenit },
     questions: sanitizedQuestions,
     answers: answers.map((a) => ({

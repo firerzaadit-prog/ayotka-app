@@ -1,7 +1,20 @@
 import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
 
-/** Mata pelajaran yang punya kategori kesiapan resmi - lihat lib/exam/scoring.ts. */
-export const KESIAPAN_SUBJECTS = ["Matematika", "Bahasa Indonesia"] as const;
+/**
+ * Mata pelajaran yang dicakup fitur Kesiapan TKA - dipakai SERAGAM di semua
+ * tampilan (dashboard/analitik admin sekolah, dashboard & Analitik Global
+ * dinas pendidikan, Analitik Global admin pusat) supaya cakupan mata
+ * pelajarannya selalu sama di seluruh sistem, bukan beda-beda per role.
+ * Matematika & Bahasa Indonesia adalah mapel resmi TKA; IPA & Bahasa Inggris
+ * ikut disertakan atas permintaan pemilik produk memakai standar kategori
+ * Bahasa Indonesia SMP (lihat KESIAPAN_THRESHOLDS di lib/exam/scoring.ts).
+ */
+export const KESIAPAN_SUBJECTS = [
+  "Matematika",
+  "Bahasa Indonesia",
+  "Bahasa Inggris",
+  "IPA",
+] as const;
 
 export type KesiapanBreakdown = {
   kurang: number;
@@ -35,7 +48,15 @@ function buildBreakdown(kategoriList: KategoriKesiapan[]): KesiapanBreakdown {
 export function ringkasKesiapan(
   bestSkorPerSiswaMapel: { subjectNama: string; skorAkhir: number }[],
 ): KesiapanRingkasan {
+  // Filter keanggotaan KESIAPAN_SUBJECTS dicek sendiri di sini, TIDAK cuma
+  // bersandar pada klasifikasiKesiapan mengembalikan null - KESIAPAN_THRESHOLDS
+  // di lib/exam/scoring.ts bisa saja suatu saat nambah mapel baru duluan
+  // sebelum KESIAPAN_SUBJECTS ikut diperbarui, jadi filter eksplisit ini
+  // mencegah mapel itu diam-diam ikut masuk hitungan sebelum sengaja
+  // ditambahkan ke KESIAPAN_SUBJECTS juga.
+  const kesiapanSubjectNames: readonly string[] = KESIAPAN_SUBJECTS;
   const classified = bestSkorPerSiswaMapel
+    .filter((s) => kesiapanSubjectNames.includes(s.subjectNama))
     .map(({ subjectNama, skorAkhir }) => ({
       subjectNama,
       kategori: klasifikasiKesiapan(subjectNama, skorAkhir),

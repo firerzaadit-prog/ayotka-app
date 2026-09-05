@@ -51,6 +51,11 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   // Pending saves: menyimpan payload terbaru per questionId yang belum dikirim ke server
   const pendingSaves = useRef<Map<string, { jawabanJson: ExamJawaban; ragu: boolean }>>(new Map());
+  // Save yang timernya SUDAH menyala dan fetch-nya sedang berjalan (bukan lagi
+  // di pendingSaves/saveTimers) - flushPendingSaves harus ikut menunggu ini,
+  // bukan cuma yang masih antri, supaya submit tidak pernah mendahului jawaban
+  // yang sudah "berangkat" tapi belum sempat commit ke database.
+  const inFlightSaves = useRef<Set<Promise<unknown>>>(new Set());
   const hasSubmitted = useRef(false);
   const questionsRef = useRef<ExamQuestion[]>([]);
 
@@ -143,28 +148,42 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   /**
    * Flush semua pending saves ke server sebelum submit.
    * Ini memastikan jawaban terakhir yang belum sempat terkirim
-   * (masih dalam debounce window) tetap tersimpan.
+   * (masih dalam debounce window, ATAU sudah mulai dikirim tapi belum
+   * selesai) tetap tersimpan sebelum submit dilanjutkan.
    */
-  const flushPendingSaves = useCallback(async () => {
+  const flushOnce = useCallback(() => {
     // Batalkan semua debounce timer yang masih antri
     for (const timer of saveTimers.current.values()) clearTimeout(timer);
     saveTimers.current.clear();
 
-    // Kirim semua pending jawaban langsung (tanpa debounce) secara paralel
+    // Kirim semua pending jawaban langsung (tanpa debounce) secara paralel,
+    // DAN tunggu juga save yang timernya sudah menyala duluan (in-flight) -
+    // itu sudah tidak lagi tercatat di pendingSaves/saveTimers begitu fetch-nya
+    // mulai, jadi harus dilacak terpisah lewat inFlightSaves.
     const pending = Array.from(pendingSaves.current.entries());
     pendingSaves.current.clear();
-    if (pending.length === 0) return;
-
-    await Promise.allSettled(
-      pending.map(([questionId, { jawabanJson, ragu }]) =>
+    const tasks: Promise<unknown>[] = Array.from(inFlightSaves.current);
+    for (const [questionId, { jawabanJson, ragu }] of pending) {
+      tasks.push(
         fetch(`/api/siswa/attempts/${id}/jawaban`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ questionId, jawabanJson, ragu, tabToken }),
-        })
-      )
-    );
+        }),
+      );
+    }
+    return Promise.allSettled(tasks);
   }, [id, tabToken]);
+
+  const flushPendingSaves = useCallback(async () => {
+    // Dua putaran: putaran pertama menunggu semua yang pending/in-flight SAAT
+    // flush dipanggil. Putaran kedua menjaring retry yang di-requeue ke
+    // pendingSaves oleh save in-flight yang gagal PAS ditunggu di putaran
+    // pertama (lihat penanganan gagal di persistAnswer) - supaya retry itu
+    // tidak lolos tanpa sempat dikirim ulang sebelum submit dilanjutkan.
+    await flushOnce();
+    await flushOnce();
+  }, [flushOnce]);
 
   const handleSubmit = useCallback(
     async (auto: boolean) => {
@@ -274,39 +293,47 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     const existingTimer = saveTimers.current.get(questionId);
     if (existingTimer) clearTimeout(existingTimer);
 
-    const timer = setTimeout(async () => {
+    const timer = setTimeout(() => {
       // Ambil payload terbaru (bukan closure lama) saat timer akhirnya jalan
       const latest = pendingSaves.current.get(questionId);
       if (!latest) return; // sudah dihandle flushPendingSaves
       pendingSaves.current.delete(questionId);
       saveTimers.current.delete(questionId);
 
-      try {
-        const res = await fetch(`/api/siswa/attempts/${id}/jawaban`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questionId, jawabanJson: latest.jawabanJson, ragu: latest.ragu, tabToken }),
-        });
-        if (res.ok) {
-          void saveLocalAnswer(id, questionId, latest.jawabanJson, latest.ragu, true);
-        } else {
-          const data = await res.json().catch(() => null);
-          if (data?.error === "SESI_DIAMBIL_ALIH") {
-            setSessionTakenOver(true);
-          } else if (!pendingSaves.current.has(questionId)) {
-            // Gagal (mis. 429/500 sesaat) & belum ada jawaban lebih baru menunggu -
-            // taruh lagi ke pending supaya ikut ter-flush di resync berkala atau saat submit,
-            // bukan hilang diam-diam.
+      // Dibungkus IIFE (bukan langsung di body setTimeout) supaya promise-nya
+      // bisa dilacak di inFlightSaves - begitu baris di atas menghapus entry
+      // dari pendingSaves/saveTimers, flushPendingSaves tidak lagi tahu save
+      // ini masih berjalan kecuali lewat inFlightSaves.
+      const savePromise = (async () => {
+        try {
+          const res = await fetch(`/api/siswa/attempts/${id}/jawaban`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ questionId, jawabanJson: latest.jawabanJson, ragu: latest.ragu, tabToken }),
+          });
+          if (res.ok) {
+            void saveLocalAnswer(id, questionId, latest.jawabanJson, latest.ragu, true);
+          } else {
+            const data = await res.json().catch(() => null);
+            if (data?.error === "SESI_DIAMBIL_ALIH") {
+              setSessionTakenOver(true);
+            } else if (!pendingSaves.current.has(questionId)) {
+              // Gagal (mis. 429/500 sesaat) & belum ada jawaban lebih baru menunggu -
+              // taruh lagi ke pending supaya ikut ter-flush di resync berkala atau saat submit,
+              // bukan hilang diam-diam.
+              pendingSaves.current.set(questionId, latest);
+            }
+          }
+        } catch {
+          // Gagal jaringan (offline) - jawaban tetap aman di IndexedDB. Antre lagi
+          // ke pending (kalau belum ada yang lebih baru) supaya ter-flush nanti.
+          if (!pendingSaves.current.has(questionId)) {
             pendingSaves.current.set(questionId, latest);
           }
         }
-      } catch {
-        // Gagal jaringan (offline) - jawaban tetap aman di IndexedDB. Antre lagi
-        // ke pending (kalau belum ada yang lebih baru) supaya ter-flush nanti.
-        if (!pendingSaves.current.has(questionId)) {
-          pendingSaves.current.set(questionId, latest);
-        }
-      }
+      })();
+      inFlightSaves.current.add(savePromise);
+      void savePromise.finally(() => inFlightSaves.current.delete(savePromise));
     }, SAVE_DEBOUNCE_MS);
     saveTimers.current.set(questionId, timer);
   }

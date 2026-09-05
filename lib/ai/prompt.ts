@@ -2,7 +2,15 @@ export type PromptInput = {
   namaSiswa: string;
   paketNama: string;
   skorAkhir: number;
-  kompetensi: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
+  kompetensi: {
+    kode: string;
+    deskripsi: string;
+    materiNama: string;
+    subMateriNama: string;
+    jmlBenar: number;
+    jmlSoal: number;
+    persentase: number;
+  }[];
   levelKognitif: { level: string; jmlBenar: number; jmlSoal: number }[];
   format: { format: string; jmlBenar: number; jmlSoal: number }[];
   soal: {
@@ -10,6 +18,8 @@ export type PromptInput = {
     benar: boolean;
     teksSoal: string;
     kompetensi: string;
+    materiNama: string;
+    subMateriNama: string;
     levelBloom: string;
     jawabanSiswa: string;
     kunciJawaban: string;
@@ -25,7 +35,10 @@ export type PromptInput = {
  */
 export function buildAnalisisPrompt(input: PromptInput): string {
   const kompetensiLines = input.kompetensi
-    .map((k) => `- ${k.kode} (${k.deskripsi}): ${k.jmlBenar}/${k.jmlSoal} benar (${k.persentase.toFixed(0)}%)`)
+    .map(
+      (k) =>
+        `- ${k.kode} (${k.deskripsi}) [Materi: ${k.materiNama} > ${k.subMateriNama}]: ${k.jmlBenar}/${k.jmlSoal} benar (${k.persentase.toFixed(0)}%)`,
+    )
     .join("\n");
   const levelLines = input.levelKognitif
     .map((l) => `- ${l.level}: ${l.jmlBenar}/${l.jmlSoal} benar`)
@@ -65,7 +78,7 @@ ${
     .map((s) => {
       const status = s.benar ? "BENAR" : "SALAH";
       const lines = [
-        `${s.nomor}. [${status}] [${s.kompetensi} - ${s.levelBloom}] ${s.teksSoal.replace(/\s+/g, " ")}`,
+        `${s.nomor}. [${status}] [${s.kompetensi} - ${s.levelBloom}] [${s.materiNama} > ${s.subMateriNama}] ${s.teksSoal.replace(/\s+/g, " ")}`,
         `   Jawaban siswa: ${s.jawabanSiswa}`,
       ];
       if (!s.benar) {

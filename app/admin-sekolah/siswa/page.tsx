@@ -13,6 +13,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconUsers, IconSearch } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
+import { KuotaSummary } from "@/components/sekolah/kuota-summary";
 
 const PAGE_SIZE = 15;
 
@@ -228,6 +229,8 @@ export default function KelolaSiswaPage() {
       />
 
       {importResult && <Alert variant="info">{importResult}</Alert>}
+
+      <KuotaSummary />
 
       <div className="flex flex-wrap gap-3">
         <div className="w-56">

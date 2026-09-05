@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { buttonClassName } from "@/components/ui/button";
 import { IconLink } from "@/components/ui/empty-state-icons";
 import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
+import { KuotaSummary } from "@/components/sekolah/kuota-summary";
 import { buildKesiapanSekolah } from "@/lib/analytics/sekolah";
 
 export const dynamic = "force-dynamic";
@@ -59,6 +60,8 @@ export default async function AdminSekolahDashboardPage() {
         <StatCard label="Siswa belum klaim akun" value={belumKlaim} />
         <StatCard label="Paket soal" value={paketSoal} />
       </div>
+
+      <KuotaSummary />
 
       <div>
         <div className="mb-3 flex items-center justify-between">
