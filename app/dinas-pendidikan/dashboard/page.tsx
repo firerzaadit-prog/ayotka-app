@@ -9,6 +9,7 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconChart } from "@/components/ui/empty-state-icons";
+import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
 import type { KesiapanPerSekolah } from "@/lib/analytics/global";
 import { KESIAPAN_SUBJECTS } from "@/lib/analytics/kesiapan";
 
@@ -142,6 +143,13 @@ export default function DinasPendidikanDashboardPage() {
           </Table>
         </TableContainer>
       )}
+
+      <KesiapanSiswaList
+        endpoint="/api/dinas-pendidikan/kesiapan/siswa"
+        jenjang={jenjang}
+        wilayah={wilayah}
+        showSekolahColumn
+      />
     </div>
   );
 }

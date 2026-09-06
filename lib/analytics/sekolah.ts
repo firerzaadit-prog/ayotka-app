@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { KESIAPAN_SUBJECTS, ambilSkorTerbaikPerSiswaMapel, ringkasKesiapan } from "@/lib/analytics/kesiapan";
+import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
 
 /**
  * Tiket 5.7/5.8: agregasi analitik admin sekolah, dipakai bersama oleh
@@ -133,4 +134,61 @@ export async function buildKesiapanSekolah(schoolId: string) {
   );
 
   return ringkasKesiapan(bestSkorPerSiswaMapel);
+}
+
+export type SiswaKesiapan = {
+  studentId: string;
+  nama: string;
+  nisn: string | null;
+  skorAkhir: number;
+  kategori: KategoriKesiapan;
+};
+
+/**
+ * Daftar siswa 1 sekolah untuk SATU mata pelajaran Kesiapan TKA, berdasarkan
+ * skor TERBAIK tiap siswa (konsisten dengan buildKesiapanSekolah di atas) -
+ * dipakai untuk drill-down dari kartu kesiapan (agregat) ke daftar siswa per
+ * kategori, bukan reduksi baru yang terpisah dari sumber hitungan yang sama.
+ */
+export async function buildDaftarSiswaKesiapanSekolah(
+  schoolId: string,
+  filter: { subjectNama: string; kategori?: KategoriKesiapan | null },
+): Promise<SiswaKesiapan[]> {
+  const attempts = await prisma.attempt.findMany({
+    where: {
+      status: { in: ["selesai", "kedaluwarsa"] },
+      skorAkhir: { not: null },
+      student: { schoolId, deletedAt: null },
+      package: { subject: { nama: filter.subjectNama } },
+    },
+    select: {
+      studentId: true,
+      skorAkhir: true,
+      student: { select: { nama: true, nisn: true } },
+    },
+  });
+
+  const bestSkorPerSiswa = ambilSkorTerbaikPerSiswaMapel(
+    attempts
+      .filter((a): a is typeof a & { skorAkhir: number } => a.skorAkhir != null)
+      .map((a) => ({
+        studentId: a.studentId,
+        subjectNama: filter.subjectNama,
+        skorAkhir: a.skorAkhir,
+        nama: a.student.nama,
+        nisn: a.student.nisn,
+      })),
+  );
+
+  return bestSkorPerSiswa
+    .map((s) => ({
+      studentId: s.studentId,
+      nama: s.nama,
+      nisn: s.nisn,
+      skorAkhir: s.skorAkhir,
+      kategori: klasifikasiKesiapan(filter.subjectNama, s.skorAkhir),
+    }))
+    .filter((s): s is SiswaKesiapan => s.kategori !== null)
+    .filter((s) => !filter.kategori || s.kategori === filter.kategori)
+    .sort((a, b) => a.skorAkhir - b.skorAkhir);
 }
