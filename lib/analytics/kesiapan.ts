@@ -75,25 +75,28 @@ export function ringkasKesiapan(
 }
 
 /**
- * Reduksi umum: dari daftar attempt (skorAkhir + studentId + subjectNama),
- * ambil skor TERBAIK per (studentId, subjectNama). Dipakai sebelum
- * ringkasKesiapan - dipisah supaya query Prisma (beda bentuk untuk 1
- * sekolah vs banyak sekolah) tetap terpisah dari reduksi murninya.
+ * Reduksi umum: dari daftar attempt (skorAkhir + studentId + subjectNama,
+ * boleh bawa field tambahan seperti nama/nisn/schoolId), ambil attempt
+ * dengan skor TERBAIK per (studentId, subjectNama) - generic supaya field
+ * tambahan itu ikut terbawa, bukan cuma {subjectNama, skorAkhir}, karena
+ * daftar siswa per kategori kesiapan butuh identitas siswanya. Dipakai
+ * sebelum ringkasKesiapan - dipisah supaya query Prisma (beda bentuk untuk
+ * 1 sekolah vs banyak sekolah) tetap terpisah dari reduksi murninya.
  */
-export function ambilSkorTerbaikPerSiswaMapel(
-  attempts: { studentId: string; subjectNama: string; skorAkhir: number }[],
-): { subjectNama: string; skorAkhir: number }[] {
-  const bestPerStudent = new Map<string, Map<string, number>>();
+export function ambilSkorTerbaikPerSiswaMapel<
+  T extends { studentId: string; subjectNama: string; skorAkhir: number },
+>(attempts: T[]): T[] {
+  const bestPerStudent = new Map<string, Map<string, T>>();
   for (const a of attempts) {
-    const perStudent = bestPerStudent.get(a.studentId) ?? new Map<string, number>();
+    const perStudent = bestPerStudent.get(a.studentId) ?? new Map<string, T>();
     const current = perStudent.get(a.subjectNama);
-    if (current === undefined || a.skorAkhir > current) {
-      perStudent.set(a.subjectNama, a.skorAkhir);
+    if (current === undefined || a.skorAkhir > current.skorAkhir) {
+      perStudent.set(a.subjectNama, a);
     }
     bestPerStudent.set(a.studentId, perStudent);
   }
 
   return Array.from(bestPerStudent.values()).flatMap((perStudent) =>
-    Array.from(perStudent.entries()).map(([subjectNama, skorAkhir]) => ({ subjectNama, skorAkhir })),
+    Array.from(perStudent.values()),
   );
 }

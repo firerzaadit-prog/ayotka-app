@@ -4,7 +4,10 @@ export const packageCreateSchema = z.object({
   subjectId: z.string().uuid(),
   nama: z.string().trim().min(3, "Nama paket minimal 3 karakter"),
   jenjang: z.enum(["SD", "SMP"]),
-  tingkat: z.coerce.number().int().min(1).max(12),
+  tingkatList: z
+    .array(z.coerce.number().int().min(1).max(12))
+    .min(1, "Pilih minimal satu tingkat kelas")
+    .transform((arr) => [...new Set(arr)].sort((a, b) => a - b)),
   durasiMenit: z.coerce.number().int().min(1, "Durasi wajib diisi"),
   jumlahSoal: z.coerce.number().int().min(1, "Jumlah soal wajib diisi"),
   blueprintId: z.string().uuid().optional().or(z.literal("")),

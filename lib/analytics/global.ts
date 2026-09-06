@@ -390,3 +390,89 @@ export async function buildKesiapanAntarSekolah(
     })
     .sort((a, b) => b.gabungan.persentaseSiap - a.gabungan.persentaseSiap);
 }
+
+export type SiswaKesiapanAntarSekolah = {
+  studentId: string;
+  nama: string;
+  nisn: string | null;
+  schoolId: string;
+  schoolNama: string;
+  skorAkhir: number;
+  kategori: KategoriKesiapan;
+};
+
+/**
+ * Daftar siswa lintas sekolah (dipakai admin pusat & dinas pendidikan) untuk
+ * SATU mata pelajaran Kesiapan TKA - drill-down dari buildKesiapanAntarSekolah
+ * (agregat per sekolah) ke daftar siswa per kategori, memakai sumber
+ * hitungan yang sama (skor TERBAIK tiap siswa). Filter sekolah sama persis
+ * dengan buildKesiapanAntarSekolah, ditambah schoolId opsional untuk
+ * mempersempit ke satu sekolah saja.
+ */
+export async function buildDaftarSiswaKesiapanAntarSekolah(filter: {
+  subjectNama: string;
+  kategori?: KategoriKesiapan | null;
+  jenjang?: "SD" | "SMP" | null;
+  wilayah?: string | null;
+  schoolId?: string | null;
+}): Promise<SiswaKesiapanAntarSekolah[]> {
+  const schools = await prisma.school.findMany({
+    where: {
+      status: "aktif",
+      ...(filter.schoolId ? { id: filter.schoolId } : {}),
+      ...(filter.jenjang ? { jenjang: filter.jenjang } : {}),
+      ...(filter.wilayah
+        ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
+        : {}),
+    },
+    select: { id: true, nama: true },
+  });
+  if (schools.length === 0) return [];
+
+  const schoolNamaById = new Map(schools.map((s) => [s.id, s.nama]));
+  const schoolIds = schools.map((s) => s.id);
+
+  const attempts = await prisma.attempt.findMany({
+    where: {
+      status: { in: ["selesai", "kedaluwarsa"] },
+      skorAkhir: { not: null },
+      student: { schoolId: { in: schoolIds }, deletedAt: null },
+      package: { subject: { nama: filter.subjectNama } },
+    },
+    select: {
+      studentId: true,
+      skorAkhir: true,
+      student: { select: { nama: true, nisn: true, schoolId: true } },
+    },
+  });
+
+  const bestSkorPerSiswa = ambilSkorTerbaikPerSiswaMapel(
+    attempts
+      .filter(
+        (a): a is typeof a & { skorAkhir: number; student: { schoolId: string } } =>
+          a.skorAkhir != null && a.student.schoolId != null,
+      )
+      .map((a) => ({
+        studentId: a.studentId,
+        subjectNama: filter.subjectNama,
+        skorAkhir: a.skorAkhir,
+        nama: a.student.nama,
+        nisn: a.student.nisn,
+        schoolId: a.student.schoolId,
+      })),
+  );
+
+  return bestSkorPerSiswa
+    .map((s) => ({
+      studentId: s.studentId,
+      nama: s.nama,
+      nisn: s.nisn,
+      schoolId: s.schoolId,
+      schoolNama: schoolNamaById.get(s.schoolId) ?? "(sekolah tidak dikenal)",
+      skorAkhir: s.skorAkhir,
+      kategori: klasifikasiKesiapan(filter.subjectNama, s.skorAkhir),
+    }))
+    .filter((s): s is SiswaKesiapanAntarSekolah => s.kategori !== null)
+    .filter((s) => !filter.kategori || s.kategori === filter.kategori)
+    .sort((a, b) => a.skorAkhir - b.skorAkhir);
+}

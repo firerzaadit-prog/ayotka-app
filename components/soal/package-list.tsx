@@ -18,18 +18,20 @@ type PackageListItem = {
   id: string;
   nama: string;
   jenjang: "SD" | "SMP";
-  tingkat: number;
+  tingkatList: number[];
   status: string;
   jumlahSoal: number;
   subject: Subject;
   _count: { questions: number };
 };
 
+const TINGKAT_OPTIONS = [4, 5, 6, 7, 8, 9];
+
 const emptyForm = {
   subjectId: "",
   nama: "",
   jenjang: "SD" as "SD" | "SMP",
-  tingkat: "",
+  tingkatList: [] as number[],
   durasiMenit: "",
   jumlahSoal: "",
   blueprintId: "",
@@ -172,16 +174,30 @@ export function PackageList({ basePath }: { basePath: string }) {
                 </select>
               </div>
               <div>
-                <Label htmlFor="tingkat">Tingkat kelas</Label>
-                <Input
-                  id="tingkat"
-                  type="number"
-                  min={1}
-                  max={12}
-                  required
-                  value={form.tingkat}
-                  onChange={(e) => setForm({ ...form, tingkat: e.target.value })}
-                />
+                <Label>Tingkat kelas</Label>
+                <div className="flex flex-wrap gap-3 pt-1">
+                  {TINGKAT_OPTIONS.map((t) => (
+                    <label key={t} className="flex items-center gap-1.5 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={form.tingkatList.includes(t)}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            tingkatList: e.target.checked
+                              ? [...form.tingkatList, t]
+                              : form.tingkatList.filter((v) => v !== t),
+                          })
+                        }
+                        className="accent-indigo-600"
+                      />
+                      {t}
+                    </label>
+                  ))}
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Bisa pilih lebih dari satu kalau paket ini dipakai lintas tingkat.
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -218,7 +234,7 @@ export function PackageList({ basePath }: { basePath: string }) {
               >
                 <option value="">Tanpa kisi-kisi</option>
                 {blueprints
-                  .filter((b) => b.jenjang === form.jenjang && String(b.tingkat) === form.tingkat)
+                  .filter((b) => b.jenjang === form.jenjang && form.tingkatList.includes(b.tingkat))
                   .map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.nama}
@@ -257,7 +273,7 @@ export function PackageList({ basePath }: { basePath: string }) {
               (di luar jadwal ujian) - selama paket sudah di-publish dan distribusinya
               (lihat halaman detail paket) mengizinkan siswa tersebut melihatnya.
             </p>
-            <Button type="submit" disabled={submitting} className="w-fit">
+            <Button type="submit" disabled={submitting || form.tingkatList.length === 0} className="w-fit">
               {submitting ? "Menyimpan..." : "Simpan paket"}
             </Button>
           </form>
@@ -297,7 +313,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                     </Link>
                   </Td>
                   <Td>{pkg.subject.nama}</Td>
-                  <Td>{pkg.tingkat}</Td>
+                  <Td>{pkg.tingkatList.join(", ")}</Td>
                   <Td>
                     <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
                   </Td>

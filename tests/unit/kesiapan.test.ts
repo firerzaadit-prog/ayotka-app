@@ -8,7 +8,7 @@ describe("ambilSkorTerbaikPerSiswaMapel", () => {
       { studentId: "s1", subjectNama: "Matematika", skorAkhir: 80 },
       { studentId: "s1", subjectNama: "Matematika", skorAkhir: 60 },
     ]);
-    expect(result).toEqual([{ subjectNama: "Matematika", skorAkhir: 80 }]);
+    expect(result).toEqual([{ studentId: "s1", subjectNama: "Matematika", skorAkhir: 80 }]);
   });
 
   it("mapel berbeda dari siswa yang sama tetap terpisah", () => {
@@ -17,8 +17,8 @@ describe("ambilSkorTerbaikPerSiswaMapel", () => {
       { studentId: "s1", subjectNama: "Bahasa Indonesia", skorAkhir: 85 },
     ]);
     expect(result).toHaveLength(2);
-    expect(result).toContainEqual({ subjectNama: "Matematika", skorAkhir: 70 });
-    expect(result).toContainEqual({ subjectNama: "Bahasa Indonesia", skorAkhir: 85 });
+    expect(result).toContainEqual({ studentId: "s1", subjectNama: "Matematika", skorAkhir: 70 });
+    expect(result).toContainEqual({ studentId: "s1", subjectNama: "Bahasa Indonesia", skorAkhir: 85 });
   });
 
   it("siswa berbeda dihitung terpisah (tidak tercampur)", () => {
@@ -27,6 +27,16 @@ describe("ambilSkorTerbaikPerSiswaMapel", () => {
       { studentId: "s2", subjectNama: "Matematika", skorAkhir: 90 },
     ]);
     expect(result).toHaveLength(2);
+  });
+
+  it("field tambahan (mis. nama) ikut terbawa dari attempt yang menang", () => {
+    const result = ambilSkorTerbaikPerSiswaMapel([
+      { studentId: "s1", subjectNama: "Matematika", skorAkhir: 40, nama: "Budi" },
+      { studentId: "s1", subjectNama: "Matematika", skorAkhir: 80, nama: "Budi" },
+    ]);
+    expect(result).toEqual([
+      { studentId: "s1", subjectNama: "Matematika", skorAkhir: 80, nama: "Budi" },
+    ]);
   });
 });
 

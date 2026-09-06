@@ -9,6 +9,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { IconChart } from "@/components/ui/empty-state-icons";
 import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
+import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
 import type { KesiapanRingkasan } from "@/lib/analytics/kesiapan";
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
@@ -127,6 +128,9 @@ export default function AnalitikPage() {
             {kesiapan.perMapel.map((m) => (
               <KesiapanCard key={m.subjectNama} title={m.subjectNama} breakdown={m.breakdown} />
             ))}
+          </div>
+          <div className="mt-6">
+            <KesiapanSiswaList endpoint="/api/admin-sekolah/kesiapan/siswa" />
           </div>
         </div>
       )}

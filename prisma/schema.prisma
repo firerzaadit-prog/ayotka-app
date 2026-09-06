@@ -344,7 +344,11 @@ model Package {
   ownerId           String         @map("owner_id") @db.Uuid
   subjectId         String         @map("subject_id") @db.Uuid
   jenjang           Jenjang
-  tingkat           Int
+  /// Bisa lebih dari satu tingkat (mis. paket yang sama dipakai kelas 7 & 8
+  /// sekaligus) - dulu kolom "tingkat" Int tunggal, diganti array supaya satu
+  /// paket bisa menjangkau beberapa tingkat tanpa harus diduplikasi jadi
+  /// beberapa paket identik. Selalu non-kosong (divalidasi di packageCreateSchema).
+  tingkatList       Int[]          @map("tingkat_list")
   nama              String
   durasiMenit       Int            @map("durasi_menit")
   jumlahSoal        Int            @map("jumlah_soal")
