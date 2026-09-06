@@ -6,7 +6,6 @@ export const assignmentCreateSchema = z
     classId: z.string().uuid(),
     mulai: z.coerce.date(),
     selesai: z.coerce.date(),
-    metodeDistribusi: z.enum(["otomatis", "manual"]).default("otomatis"),
   })
   .refine((data) => data.selesai > data.mulai, {
     message: "Waktu selesai harus setelah waktu mulai.",

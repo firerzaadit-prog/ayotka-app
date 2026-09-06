@@ -11,7 +11,6 @@ export const packageCreateSchema = z.object({
   durasiMenit: z.coerce.number().int().min(1, "Durasi wajib diisi"),
   jumlahSoal: z.coerce.number().int().min(1, "Jumlah soal wajib diisi"),
   blueprintId: z.string().uuid().optional().or(z.literal("")),
-  grupParalelId: z.string().uuid().optional().or(z.literal("")),
   modePembahasan: z.enum(["langsung", "setelah_tutup"]).optional(),
   bolehDipilihSiswa: z.boolean().optional(),
   visibilityMode: z.enum(["privat", "semua", "sekolah", "publik"]).optional(),

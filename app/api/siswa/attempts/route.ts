@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { pickPackageForAttempt } from "@/lib/exam/distribution";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
 import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { isExpired } from "@/lib/exam/timing";
@@ -210,27 +209,13 @@ export async function POST(request: Request) {
   const userAgent = request.headers.get("user-agent");
 
   const attempt = await prisma.$transaction(async (tx) => {
-    const finalPackage = assignment
-      ? await pickPackageForAttempt(tx, { ...assignment, package: fullPackage })
-      : fullPackage;
-
-    const questions =
-      finalPackage.id === fullPackage.id
-        ? fullPackage.questions
-        : (
-            await tx.package.findUniqueOrThrow({
-              where: { id: finalPackage.id },
-              include: { questions: { where: { deletedAt: null } } },
-            })
-          ).questions;
-
     const created = await tx.attempt.create({
       data: {
         studentId: student.id,
-        packageId: finalPackage.id,
+        packageId: fullPackage.id,
         assignmentId: assignment?.id ?? null,
         mulaiAt: new Date(),
-        sisaDetik: finalPackage.durasiMenit * 60,
+        sisaDetik: fullPackage.durasiMenit * 60,
         status: "berjalan",
         ip,
         userAgent,
@@ -238,7 +223,7 @@ export async function POST(request: Request) {
     });
 
     await tx.attemptAnswer.createMany({
-      data: questions.map((q) => ({
+      data: fullPackage.questions.map((q) => ({
         attemptId: created.id,
         questionId: q.id,
         skorMaks: q.bobot,
