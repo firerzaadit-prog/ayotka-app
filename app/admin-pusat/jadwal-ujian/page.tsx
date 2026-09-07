@@ -18,12 +18,9 @@ type AssignmentRow = {
   kelas: string;
   mulai: string;
   selesai: string;
-  metodeDistribusi: "otomatis" | "manual";
   isActive: boolean;
   jumlahAttempt: number;
 };
-
-const METODE_LABEL: Record<string, string> = { otomatis: "Otomatis (bergilir)", manual: "Manual" };
 
 export default function JadwalUjianPage() {
   const [assignments, setAssignments] = useState<AssignmentRow[] | null>(null);
@@ -52,7 +49,7 @@ export default function JadwalUjianPage() {
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
-      {assignments === null && !error && <TableSkeleton columns={7} />}
+      {assignments === null && !error && <TableSkeleton columns={6} />}
       {assignments?.length === 0 && (
         <EmptyState
           icon={<IconCalendar />}
@@ -70,7 +67,6 @@ export default function JadwalUjianPage() {
                 <Th>Paket</Th>
                 <Th>Rombel</Th>
                 <Th>Jendela waktu</Th>
-                <Th>Distribusi</Th>
                 <Th>Attempt</Th>
                 <Th>Status</Th>
               </Tr>
@@ -88,7 +84,6 @@ export default function JadwalUjianPage() {
                   <Td className="text-xs">
                     {formatWIB(a.mulai)} — {formatWIB(a.selesai)}
                   </Td>
-                  <Td>{METODE_LABEL[a.metodeDistribusi]}</Td>
                   <Td>{a.jumlahAttempt}</Td>
                   <Td>
                     <Badge variant={a.isActive ? "success" : "neutral"}>

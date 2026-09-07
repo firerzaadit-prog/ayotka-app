@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { getOwnerScope, assertGrupParalelOwnedBySelf } from "@/lib/packages/scope";
+import { getOwnerScope } from "@/lib/packages/scope";
 import { packageCreateSchema } from "@/lib/validations/question";
 
 export async function GET() {
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { blueprintId, grupParalelId, visibilityMode, visibilitySchoolIds, ...rest } = parsed.data;
+  const { blueprintId, visibilityMode, visibilitySchoolIds, ...rest } = parsed.data;
 
   // Distribusi lintas sekolah (visibility) cuma konsep milik paket pusat
   // (Tiket 2.8) - paket sekolah tidak punya ini, field ini diabaikan diam-diam
@@ -66,20 +66,11 @@ export async function POST(request: Request) {
     }
   }
 
-  const resolvedGrupParalelId = grupParalelId && grupParalelId.length > 0 ? grupParalelId : null;
-  if (resolvedGrupParalelId && !(await assertGrupParalelOwnedBySelf(scope, resolvedGrupParalelId))) {
-    return NextResponse.json(
-      { error: "Grup paralel ini milik pihak lain, tidak bisa digabungkan." },
-      { status: 403 },
-    );
-  }
-
   const pkg = await prisma.package.create({
     data: {
       ...rest,
       ...scope,
       blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
-      grupParalelId: resolvedGrupParalelId,
       ...(visibilityCreate ? { visibility: visibilityCreate } : {}),
     },
   });

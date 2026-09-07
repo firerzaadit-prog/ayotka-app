@@ -19,14 +19,11 @@ type AssignmentRow = {
   id: string;
   mulai: string;
   selesai: string;
-  metodeDistribusi: "otomatis" | "manual";
   isActive: boolean;
   package: { nama: string; jumlahSoal: number; durasiMenit: number };
   class: { tingkat: number; namaRombel: string } | null;
   _count: { attempts: number };
 };
-
-const METODE_LABEL: Record<string, string> = { otomatis: "Otomatis (bergilir)", manual: "Manual" };
 
 const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
@@ -40,7 +37,6 @@ export default function UjianPage() {
   const [packageId, setPackageId] = useState("");
   const [mulai, setMulai] = useState("");
   const [selesai, setSelesai] = useState("");
-  const [metodeDistribusi, setMetodeDistribusi] = useState<"otomatis" | "manual">("otomatis");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -84,7 +80,7 @@ export default function UjianPage() {
     const res = await fetch("/api/admin-sekolah/assignments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classId, packageId, mulai, selesai, metodeDistribusi }),
+      body: JSON.stringify({ classId, packageId, mulai, selesai }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -98,7 +94,6 @@ export default function UjianPage() {
     setPackageId("");
     setMulai("");
     setSelesai("");
-    setMetodeDistribusi("otomatis");
     setShowForm(false);
     setRefreshKey((k) => k + 1);
   }
@@ -189,25 +184,13 @@ export default function UjianPage() {
               />
             </div>
           </div>
-          <div className="w-64">
-            <Label htmlFor="metodeDistribusi">Metode distribusi</Label>
-            <select
-              id="metodeDistribusi"
-              className={selectClassName}
-              value={metodeDistribusi}
-              onChange={(e) => setMetodeDistribusi(e.target.value as "otomatis" | "manual")}
-            >
-              <option value="otomatis">Otomatis (bergilir antar paket paralel)</option>
-              <option value="manual">Manual (semua siswa dapat paket ini persis)</option>
-            </select>
-          </div>
           <Button type="submit" disabled={submitting} className="w-fit">
             {submitting ? "Menyimpan..." : "Simpan penugasan"}
           </Button>
         </form>
       )}
 
-      {assignments === null && <TableSkeleton columns={7} />}
+      {assignments === null && <TableSkeleton columns={6} />}
       {assignments?.length === 0 && (
         <EmptyState
           icon={<IconCalendar />}
@@ -225,7 +208,6 @@ export default function UjianPage() {
                 <Th>Paket</Th>
                 <Th>Rombel</Th>
                 <Th>Jendela waktu</Th>
-                <Th>Distribusi</Th>
                 <Th>Attempt</Th>
                 <Th>Status</Th>
                 <Th></Th>
@@ -245,7 +227,6 @@ export default function UjianPage() {
                   <Td className="text-xs">
                     {formatWIB(a.mulai)} — {formatWIB(a.selesai)}
                   </Td>
-                  <Td>{METODE_LABEL[a.metodeDistribusi]}</Td>
                   <Td>{a._count.attempts}</Td>
                   <Td>
                     <Badge variant={a.isActive ? "success" : "neutral"}>

@@ -9,6 +9,61 @@ import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
  * diunduh selalu konsisten dengan yang tampil di layar (satu sumber
  * hitungan, bukan dihitung ulang terpisah untuk tiap format output).
  */
+type KompetensiAgg = { kode: string; deskripsi: string; materi: string; jmlBenar: number; jmlSoal: number };
+type StudentAgg = { nama: string; nisn: string | null; totalSkor: number; jumlahAttempt: number };
+
+function addKompetensi(
+  map: Map<string, KompetensiAgg>,
+  k: { id: string; kode: string; deskripsi: string; subMateri: { materi: { nama: string } } },
+  jmlBenar: number,
+  jmlSoal: number,
+) {
+  const existing = map.get(k.id) ?? {
+    kode: k.kode,
+    deskripsi: k.deskripsi,
+    materi: k.subMateri.materi.nama,
+    jmlBenar: 0,
+    jmlSoal: 0,
+  };
+  existing.jmlBenar += jmlBenar;
+  existing.jmlSoal += jmlSoal;
+  map.set(k.id, existing);
+}
+
+function addSkor(
+  map: Map<string, StudentAgg>,
+  student: { id: string; nama: string; nisn: string | null },
+  skor: number,
+) {
+  const existing = map.get(student.id) ?? {
+    nama: student.nama,
+    nisn: student.nisn,
+    totalSkor: 0,
+    jumlahAttempt: 0,
+  };
+  existing.totalSkor += skor;
+  existing.jumlahAttempt += 1;
+  map.set(student.id, existing);
+}
+
+function toKompetensiList(map: Map<string, KompetensiAgg>) {
+  return Array.from(map.values())
+    .map((k) => ({ ...k, persentase: k.jmlSoal > 0 ? (k.jmlBenar / k.jmlSoal) * 100 : 0 }))
+    .sort((a, b) => a.persentase - b.persentase);
+}
+
+function toRankingList(map: Map<string, StudentAgg>) {
+  return Array.from(map.entries())
+    .map(([studentId, s]) => ({
+      studentId,
+      nama: s.nama,
+      nisn: s.nisn,
+      rataRata: s.totalSkor / s.jumlahAttempt,
+      jumlahAttempt: s.jumlahAttempt,
+    }))
+    .sort((a, b) => b.rataRata - a.rataRata);
+}
+
 export async function buildAnalitikSekolah(
   schoolId: string,
   filter: { classId?: string | null; subjectId?: string | null },
@@ -31,6 +86,7 @@ export async function buildAnalitikSekolah(
       id: true,
       skorAkhir: true,
       student: { select: { id: true, nama: true, nisn: true } },
+      package: { select: { subjectId: true, subject: { select: { nama: true } } } },
       competencyScores: {
         select: {
           jmlBenar: true,
@@ -48,58 +104,50 @@ export async function buildAnalitikSekolah(
     },
   });
 
-  const kompetensiMap = new Map<
+  const kompetensiMap = new Map<string, KompetensiAgg>();
+  const studentMap = new Map<string, StudentAgg>();
+
+  // Rincian yang sama, dikelompokkan lagi per mapel - satu lintasan data yang
+  // sama dipakai untuk gabungan MAUPUN per mapel, supaya keduanya selalu
+  // konsisten (bukan dua query/reduksi terpisah yang bisa diam-diam beda).
+  const perMapelAcc = new Map<
     string,
-    { kode: string; deskripsi: string; materi: string; jmlBenar: number; jmlSoal: number }
-  >();
-  const studentMap = new Map<
-    string,
-    { nama: string; nisn: string | null; totalSkor: number; jumlahAttempt: number }
+    { subjectNama: string; kompetensi: Map<string, KompetensiAgg>; ranking: Map<string, StudentAgg> }
   >();
 
   for (const a of attempts) {
+    const subjectId = a.package.subjectId;
+    const bucket = perMapelAcc.get(subjectId) ?? {
+      subjectNama: a.package.subject.nama,
+      kompetensi: new Map<string, KompetensiAgg>(),
+      ranking: new Map<string, StudentAgg>(),
+    };
+    perMapelAcc.set(subjectId, bucket);
+
     if (a.skorAkhir != null) {
-      const existing = studentMap.get(a.student.id) ?? {
-        nama: a.student.nama,
-        nisn: a.student.nisn,
-        totalSkor: 0,
-        jumlahAttempt: 0,
-      };
-      existing.totalSkor += a.skorAkhir;
-      existing.jumlahAttempt += 1;
-      studentMap.set(a.student.id, existing);
+      addSkor(studentMap, a.student, a.skorAkhir);
+      addSkor(bucket.ranking, a.student, a.skorAkhir);
     }
 
     for (const cs of a.competencyScores) {
-      const k = cs.kompetensi;
-      const existing = kompetensiMap.get(k.id) ?? {
-        kode: k.kode,
-        deskripsi: k.deskripsi,
-        materi: k.subMateri.materi.nama,
-        jmlBenar: 0,
-        jmlSoal: 0,
-      };
-      existing.jmlBenar += cs.jmlBenar;
-      existing.jmlSoal += cs.jmlSoal;
-      kompetensiMap.set(k.id, existing);
+      addKompetensi(kompetensiMap, cs.kompetensi, cs.jmlBenar, cs.jmlSoal);
+      addKompetensi(bucket.kompetensi, cs.kompetensi, cs.jmlBenar, cs.jmlSoal);
     }
   }
 
-  const kompetensi = Array.from(kompetensiMap.values())
-    .map((k) => ({ ...k, persentase: k.jmlSoal > 0 ? (k.jmlBenar / k.jmlSoal) * 100 : 0 }))
-    .sort((a, b) => a.persentase - b.persentase);
+  const kompetensi = toKompetensiList(kompetensiMap);
+  const ranking = toRankingList(studentMap);
 
-  const ranking = Array.from(studentMap.entries())
-    .map(([studentId, s]) => ({
-      studentId,
-      nama: s.nama,
-      nisn: s.nisn,
-      rataRata: s.totalSkor / s.jumlahAttempt,
-      jumlahAttempt: s.jumlahAttempt,
+  const perMapel = Array.from(perMapelAcc.entries())
+    .map(([subjectId, bucket]) => ({
+      subjectId,
+      subjectNama: bucket.subjectNama,
+      kompetensi: toKompetensiList(bucket.kompetensi),
+      ranking: toRankingList(bucket.ranking),
     }))
-    .sort((a, b) => b.rataRata - a.rataRata);
+    .sort((a, b) => a.subjectNama.localeCompare(b.subjectNama));
 
-  return { jumlahAttempt: attempts.length, kompetensi, ranking };
+  return { jumlahAttempt: attempts.length, kompetensi, ranking, perMapel };
 }
 
 /**

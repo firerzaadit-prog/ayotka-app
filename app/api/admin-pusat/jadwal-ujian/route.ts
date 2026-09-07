@@ -33,7 +33,6 @@ export async function GET() {
       kelas: a.class ? `${a.class.tingkat}${a.class.namaRombel}` : "-",
       mulai: a.mulai,
       selesai: a.selesai,
-      metodeDistribusi: a.metodeDistribusi,
       isActive: a.isActive,
       jumlahAttempt: a._count.attempts,
     })),

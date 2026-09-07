@@ -5,7 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { assignmentCreateSchema } from "@/lib/validations/assignment";
 
-/** Tiket 4.2: penugasan ujian oleh admin sekolah - pilih paket, kelas, jendela waktu, metode distribusi. */
+/** Tiket 4.2: penugasan ujian oleh admin sekolah - pilih paket, kelas, jendela waktu. */
 export async function GET() {
   let user;
   try {
@@ -85,7 +85,6 @@ export async function POST(request: Request) {
       schoolId,
       mulai: parsed.data.mulai,
       selesai: parsed.data.selesai,
-      metodeDistribusi: parsed.data.metodeDistribusi,
     },
   });
 

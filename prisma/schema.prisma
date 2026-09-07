@@ -356,7 +356,6 @@ model Package {
   acakOpsi          Boolean        @default(true) @map("acak_opsi")
   maxAttempt        Int?           @map("max_attempt")
   tipePaket         TipePaket      @default(paralel) @map("tipe_paket")
-  grupParalelId     String?        @map("grup_paralel_id") @db.Uuid
   blueprintId       String?        @map("blueprint_id") @db.Uuid
   bolehDipilihSiswa Boolean        @default(false) @map("boleh_dipilih_siswa")
   targetSiswa       TargetSiswa    @default(semua) @map("target_siswa")
@@ -477,20 +476,14 @@ model QuestionStatement {
 // ai_analyses
 // ---------------------------------------------------------------------------
 
-enum MetodeDistribusi {
-  otomatis
-  manual
-}
-
 model Assignment {
-  id               String           @id @default(uuid()) @db.Uuid
-  packageId        String           @map("package_id") @db.Uuid
-  classId          String?          @map("class_id") @db.Uuid
-  schoolId         String?          @map("school_id") @db.Uuid
-  mulai            DateTime
-  selesai          DateTime
-  metodeDistribusi MetodeDistribusi @default(otomatis) @map("metode_distribusi")
-  isActive         Boolean          @default(true) @map("is_active")
+  id        String    @id @default(uuid()) @db.Uuid
+  packageId String    @map("package_id") @db.Uuid
+  classId   String?   @map("class_id") @db.Uuid
+  schoolId  String?   @map("school_id") @db.Uuid
+  mulai     DateTime
+  selesai   DateTime
+  isActive  Boolean   @default(true) @map("is_active")
 
   package  Package   @relation(fields: [packageId], references: [id], onDelete: Restrict)
   class    Class?    @relation(fields: [classId], references: [id], onDelete: Restrict)
