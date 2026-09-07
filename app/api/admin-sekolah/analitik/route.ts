@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
-  const { jumlahAttempt, kompetensi, ranking } = await buildAnalitikSekolah(schoolId, {
+  const { jumlahAttempt, kompetensi, ranking, perMapel } = await buildAnalitikSekolah(schoolId, {
     classId: url.searchParams.get("classId"),
     subjectId: url.searchParams.get("subjectId"),
   });
@@ -32,5 +32,6 @@ export async function GET(request: Request) {
     jumlahAttempt,
     kompetensiTerlemah: kompetensi.slice(0, 10),
     ranking,
+    perMapel: perMapel.map((m) => ({ ...m, kompetensi: m.kompetensi.slice(0, 10) })),
   });
 }
