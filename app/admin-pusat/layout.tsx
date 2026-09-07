@@ -57,6 +57,7 @@ export default async function AdminPusatLayout({
           </SidebarSection>
 
           <SidebarSection label="Monitoring">
+            <SidebarLink href="/admin-pusat/kesiapan">Kesiapan TKA</SidebarLink>
             <SidebarLink href="/admin-pusat/analitik">Analitik Global</SidebarLink>
             <SidebarLink href="/admin-pusat/sesi">Sesi Aktif</SidebarLink>
             <SidebarLink href="/admin-pusat/audit-log">Audit Log</SidebarLink>
