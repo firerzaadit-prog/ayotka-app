@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ambilSkorTerbaikPerSiswaMapel, ringkasKesiapan } from "@/lib/analytics/kesiapan";
+import { ambilSkorTerbaikPerSiswaMapel, ringkasKesiapan, ringkasKesiapanSiswa } from "@/lib/analytics/kesiapan";
 
 describe("ambilSkorTerbaikPerSiswaMapel", () => {
   it("ambil skor TERTINGGI per (siswa, mapel), bukan terakhir atau rata-rata", () => {
@@ -105,5 +105,40 @@ describe("ringkasKesiapan", () => {
     const result = ringkasKesiapan([]);
     expect(result.gabungan.persentaseSiap).toBe(0);
     expect(Number.isNaN(result.gabungan.persentaseSiap)).toBe(false);
+  });
+});
+
+describe("ringkasKesiapanSiswa", () => {
+  it("selalu mengembalikan keempat mapel walau siswa belum pernah mengerjakan sebagian (skorTerbaik/kategori null)", () => {
+    const result = ringkasKesiapanSiswa([{ subjectNama: "Matematika", skorAkhir: 80 }]);
+    expect(result).toHaveLength(4);
+    const bindo = result.find((m) => m.subjectNama === "Bahasa Indonesia")!;
+    expect(bindo.skorTerbaik).toBeNull();
+    expect(bindo.kategori).toBeNull();
+  });
+
+  it("ambil skor TERBAIK siswa di satu mapel dari beberapa attempt, bukan attempt terakhir/rata-rata", () => {
+    const result = ringkasKesiapanSiswa([
+      { subjectNama: "Matematika", skorAkhir: 40 },
+      { subjectNama: "Matematika", skorAkhir: 80 },
+      { subjectNama: "Matematika", skorAkhir: 60 },
+    ]);
+    const matematika = result.find((m) => m.subjectNama === "Matematika")!;
+    expect(matematika.skorTerbaik).toBe(80);
+    expect(matematika.kategori).toBe("baik");
+  });
+
+  it("mapel di luar cakupan (mis. Seni Budaya) diabaikan, tidak muncul di hasil", () => {
+    const result = ringkasKesiapanSiswa([{ subjectNama: "Seni Budaya", skorAkhir: 100 }]);
+    expect(result.every((m) => m.skorTerbaik === null)).toBe(true);
+  });
+
+  it("tiap mapel dihitung terpisah dari skor terbaiknya masing-masing", () => {
+    const result = ringkasKesiapanSiswa([
+      { subjectNama: "Matematika", skorAkhir: 20 }, // kurang
+      { subjectNama: "Bahasa Indonesia", skorAkhir: 96 }, // istimewa
+    ]);
+    expect(result.find((m) => m.subjectNama === "Matematika")!.kategori).toBe("kurang");
+    expect(result.find((m) => m.subjectNama === "Bahasa Indonesia")!.kategori).toBe("istimewa");
   });
 });
