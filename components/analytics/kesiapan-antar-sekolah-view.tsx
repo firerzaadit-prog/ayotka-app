@@ -35,7 +35,12 @@ function PersentaseBadge({ pct, total }: { pct: number; total: number }) {
  * /api/dinas-pendidikan/kesiapan* sudah mengizinkan kedua role, jadi tidak
  * perlu endpoint terpisah per role seperti AnalitikGlobalView).
  */
-export function KesiapanAntarSekolahView() {
+export function KesiapanAntarSekolahView({
+  studentDetailHrefBase,
+}: {
+  /** Kalau diisi, nama siswa di "Daftar Siswa per Kategori Kesiapan" jadi tautan ke halaman detail riwayatnya. */
+  studentDetailHrefBase?: string;
+} = {}) {
   const [jenjang, setJenjang] = useState("");
   const [wilayah, setWilayah] = useState("");
   const [perSekolah, setPerSekolah] = useState<KesiapanPerSekolah[] | null>(null);
@@ -154,6 +159,7 @@ export function KesiapanAntarSekolahView() {
         jenjang={jenjang}
         wilayah={wilayah}
         showSekolahColumn
+        studentDetailHrefBase={studentDetailHrefBase}
       />
     </div>
   );

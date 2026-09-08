@@ -188,7 +188,10 @@ export default function AnalitikPage() {
             ))}
           </div>
           <div className="mt-6">
-            <KesiapanSiswaList endpoint="/api/admin-sekolah/kesiapan/siswa" />
+            <KesiapanSiswaList
+              endpoint="/api/admin-sekolah/kesiapan/siswa"
+              studentDetailHrefBase="/admin-sekolah/siswa"
+            />
           </div>
         </div>
       )}

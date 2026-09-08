@@ -28,7 +28,10 @@ async function loadAttemptForAdmin(user: CurrentUser, attemptId: string): Promis
     include: { student: true },
   });
   if (!attempt) return null;
-  if (user.role === "admin_pusat") return attempt;
+  // dinas_pendidikan: akses baca saja lintas sekolah, sama seperti Kesiapan
+  // TKA & Analitik Global (endpoint ini cuma dipanggil lewat GET untuk role
+  // ini - lihat requireRole di GET di bawah, POST tetap admin_sekolah/admin_pusat saja).
+  if (user.role === "admin_pusat" || user.role === "dinas_pendidikan") return attempt;
   const schoolId = await resolveSchoolId(user, null);
   return schoolId && attempt.student.schoolId === schoolId ? attempt : null;
 }
@@ -81,11 +84,11 @@ export async function POST(_request: Request, { params }: RouteParams) {
   return NextResponse.json({ status: "processing" });
 }
 
-/** Status/hasil analisis - siswa pemilik attempt, admin sekolahnya, atau admin pusat. */
+/** Status/hasil analisis - siswa pemilik attempt, admin sekolahnya, admin pusat, atau dinas pendidikan (baca saja). */
 export async function GET(_request: Request, { params }: RouteParams) {
   let user;
   try {
-    user = await requireRole("siswa", "admin_sekolah", "admin_pusat");
+    user = await requireRole("siswa", "admin_sekolah", "admin_pusat", "dinas_pendidikan");
   } catch {
     return noStoreJson({ error: "Tidak diizinkan." }, 403);
   }

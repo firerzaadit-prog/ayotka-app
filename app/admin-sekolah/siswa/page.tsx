@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -326,7 +327,14 @@ export default function KelolaSiswaPage() {
             <tbody>
               {pageStudents.map((s) => (
                 <Tr key={s.id}>
-                  <Td className="font-medium text-slate-900">{s.nama}</Td>
+                  <Td className="font-medium text-slate-900">
+                    <Link
+                      href={`/admin-sekolah/siswa/${s.id}`}
+                      className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                    >
+                      {s.nama}
+                    </Link>
+                  </Td>
                   <Td className="font-mono text-xs">{s.nisn ?? "-"}</Td>
                   <Td className="font-mono text-xs">
                     {s.claimStatus === "belum_klaim" ? s.claimToken : "-"}

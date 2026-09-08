@@ -1,13 +1,20 @@
 import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { resolveSchoolId } from "@/lib/schools/scope";
 import { notFound } from "next/navigation";
 import { buildHasil } from "@/lib/exam/hasil";
 import { ringkasKesiapanSiswa } from "@/lib/analytics/kesiapan";
 import { RiwayatSiswaView } from "@/components/siswa/riwayat-siswa-view";
 
-export default async function DetailSiswaPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole("admin_pusat");
+/** admin_pusat juga diizinkan lewat mode "Kelola Sekolah" (schoolId dari cookie acting-as-school). */
+export default async function DetailSiswaAdminSekolahPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireRole("admin_sekolah", "admin_pusat");
   const { id } = await params;
+
+  const schoolId = await resolveSchoolId(user, null);
+  if (!schoolId) {
+    notFound();
+  }
 
   const student = await prisma.student.findUnique({
     where: { id },
@@ -20,13 +27,10 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
     },
   });
 
-  if (!student) {
+  if (!student || student.deletedAt || student.schoolId !== schoolId) {
     notFound();
   }
 
-  // buildHasil() = sumber data yang sama persis dipakai endpoint rapor PDF
-  // (app/api/siswa/attempts/[id]/rapor) - dipanggil di sini juga supaya admin
-  // bisa lihat rincian jawaban langsung di web, bukan cuma lewat unduh PDF.
   const hasilByAttempt = new Map(
     await Promise.all(
       student.attempts
@@ -49,7 +53,7 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
       student={student}
       kesiapanPerMapel={kesiapanPerMapel}
       hasilByAttempt={hasilByAttempt}
-      backHref="/admin-pusat/siswa"
+      backHref="/admin-sekolah/siswa"
       backLabel="Kembali ke Daftar Siswa"
       canTrigger={true}
     />

@@ -7,5 +7,5 @@ import { KesiapanAntarSekolahView } from "@/components/analytics/kesiapan-antar-
  * Lihat components/analytics/kesiapan-antar-sekolah-view.tsx.
  */
 export default function AdminPusatKesiapanPage() {
-  return <KesiapanAntarSekolahView />;
+  return <KesiapanAntarSekolahView studentDetailHrefBase="/admin-pusat/siswa" />;
 }
