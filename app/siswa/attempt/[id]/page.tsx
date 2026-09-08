@@ -372,7 +372,12 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   const question = questions[currentIndex];
   if (!question) return <p className="p-6 text-sm text-slate-500">Memuat soal...</p>;
 
-  const answeredIds = new Set(Object.keys(answers));
+  const answeredIds = new Set(
+    Object.entries(answers)
+      .filter(([, v]) => !isJawabanKosong(v.jawabanJson))
+      .map(([k]) => k)
+  );
+
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pb-24">
