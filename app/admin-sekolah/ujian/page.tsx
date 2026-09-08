@@ -234,12 +234,20 @@ export default function UjianPage() {
                     </Badge>
                   </Td>
                   <Td className="text-right">
-                    <button
-                      onClick={() => handleToggleActive(a)}
-                      className="text-sm font-medium text-slate-600 hover:text-slate-900"
-                    >
-                      {a.isActive ? "Nonaktifkan" : "Aktifkan"}
-                    </button>
+                    <span className="inline-flex items-center gap-3">
+                      <Link
+                        href={`/admin-sekolah/ujian/${a.id}`}
+                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                      >
+                        Pantau
+                      </Link>
+                      <button
+                        onClick={() => handleToggleActive(a)}
+                        className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                      >
+                        {a.isActive ? "Nonaktifkan" : "Aktifkan"}
+                      </button>
+                    </span>
                   </Td>
                 </Tr>
               ))}

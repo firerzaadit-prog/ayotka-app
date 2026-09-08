@@ -52,18 +52,22 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/admin-sekolah/assignments/${id}/attempts`);
-      const data = await res.json();
-      if (!ignore) {
-        if (res.ok) {
-          const a = data.assignment;
-          setAssignmentNama(
-            a ? `${a.package.nama}${a.class ? ` — ${a.class.tingkat}${a.class.namaRombel}` : ""}` : "",
-          );
-          setAttempts(data.attempts ?? []);
-        } else {
-          setError(data.error ?? "Gagal memuat data.");
+      try {
+        const res = await fetch(`/api/admin-sekolah/assignments/${id}/attempts`);
+        const data = await res.json();
+        if (!ignore) {
+          if (res.ok) {
+            const a = data.assignment;
+            setAssignmentNama(
+              a ? `${a.package.nama}${a.class ? ` — ${a.class.tingkat}${a.class.namaRombel}` : ""}` : "",
+            );
+            setAttempts(data.attempts ?? []);
+          } else {
+            setError(data.error ?? "Gagal memuat data.");
+          }
         }
+      } catch {
+        if (!ignore) setError("Gagal memuat data. Silakan muat ulang halaman.");
       }
     })();
     return () => {
