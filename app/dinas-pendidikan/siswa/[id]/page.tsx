@@ -5,8 +5,14 @@ import { buildHasil } from "@/lib/exam/hasil";
 import { ringkasKesiapanSiswa } from "@/lib/analytics/kesiapan";
 import { RiwayatSiswaView } from "@/components/siswa/riwayat-siswa-view";
 
-export default async function DetailSiswaPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole("admin_pusat");
+/**
+ * Detail riwayat siswa untuk dinas pendidikan - akses baca saja lintas
+ * sekolah (tidak dibatasi satu sekolah seperti admin sekolah, sama seperti
+ * halaman Kesiapan TKA Antar Sekolah), canTrigger=false supaya tombol
+ * "Analisis ulang" AI (aksi tulis) tidak muncul di role ini.
+ */
+export default async function DetailSiswaDinasPendidikanPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireRole("dinas_pendidikan");
   const { id } = await params;
 
   const student = await prisma.student.findUnique({
@@ -20,13 +26,10 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
     },
   });
 
-  if (!student) {
+  if (!student || student.deletedAt) {
     notFound();
   }
 
-  // buildHasil() = sumber data yang sama persis dipakai endpoint rapor PDF
-  // (app/api/siswa/attempts/[id]/rapor) - dipanggil di sini juga supaya admin
-  // bisa lihat rincian jawaban langsung di web, bukan cuma lewat unduh PDF.
   const hasilByAttempt = new Map(
     await Promise.all(
       student.attempts
@@ -49,9 +52,9 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
       student={student}
       kesiapanPerMapel={kesiapanPerMapel}
       hasilByAttempt={hasilByAttempt}
-      backHref="/admin-pusat/siswa"
-      backLabel="Kembali ke Daftar Siswa"
-      canTrigger={true}
+      backHref="/dinas-pendidikan/dashboard"
+      backLabel="Kembali ke Kesiapan TKA Antar Sekolah"
+      canTrigger={false}
     />
   );
 }

@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconChart } from "@/components/ui/empty-state-icons";
-import { KESIAPAN_SUBJECTS } from "@/lib/analytics/kesiapan";
+import { KESIAPAN_SUBJECTS, KATEGORI_LABEL, KATEGORI_BADGE_VARIANT } from "@/lib/analytics/kesiapan";
 import type { KategoriKesiapan } from "@/lib/exam/scoring";
 
 type SiswaKesiapanRow = {
@@ -17,20 +18,6 @@ type SiswaKesiapanRow = {
   skorAkhir: number;
   kategori: KategoriKesiapan;
   schoolNama?: string;
-};
-
-const KATEGORI_LABEL: Record<KategoriKesiapan, string> = {
-  kurang: "Kurang",
-  memadai: "Memadai",
-  baik: "Baik",
-  istimewa: "Istimewa",
-};
-
-const KATEGORI_BADGE_VARIANT: Record<KategoriKesiapan, "danger" | "warning" | "success" | "info"> = {
-  kurang: "danger",
-  memadai: "warning",
-  baik: "success",
-  istimewa: "info",
 };
 
 const selectClassName =
@@ -50,12 +37,15 @@ export function KesiapanSiswaList({
   wilayah,
   schoolId,
   showSekolahColumn = false,
+  studentDetailHrefBase,
 }: {
   endpoint: string;
   jenjang?: string;
   wilayah?: string;
   schoolId?: string;
   showSekolahColumn?: boolean;
+  /** Kalau diisi, nama siswa jadi tautan ke halaman detail riwayatnya (mis. "/admin-sekolah/siswa"). */
+  studentDetailHrefBase?: string;
 }) {
   const [mapel, setMapel] = useState<string>(KESIAPAN_SUBJECTS[0]);
   const [kategori, setKategori] = useState<KategoriKesiapan | "">("");
@@ -151,7 +141,18 @@ export function KesiapanSiswaList({
             <tbody>
               {siswa.map((s) => (
                 <Tr key={s.studentId}>
-                  <Td className="font-medium text-slate-900">{s.nama}</Td>
+                  <Td className="font-medium text-slate-900">
+                    {studentDetailHrefBase ? (
+                      <Link
+                        href={`${studentDetailHrefBase}/${s.studentId}`}
+                        className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                      >
+                        {s.nama}
+                      </Link>
+                    ) : (
+                      s.nama
+                    )}
+                  </Td>
                   <Td className="text-slate-500">{s.nisn ?? "—"}</Td>
                   {showSekolahColumn && <Td className="text-slate-500">{s.schoolNama ?? "—"}</Td>}
                   <Td>{s.skorAkhir.toFixed(1)}</Td>

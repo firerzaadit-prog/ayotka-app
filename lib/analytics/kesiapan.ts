@@ -16,6 +16,20 @@ export const KESIAPAN_SUBJECTS = [
   "IPA",
 ] as const;
 
+export const KATEGORI_LABEL: Record<KategoriKesiapan, string> = {
+  kurang: "Kurang",
+  memadai: "Memadai",
+  baik: "Baik",
+  istimewa: "Istimewa",
+};
+
+export const KATEGORI_BADGE_VARIANT: Record<KategoriKesiapan, "danger" | "warning" | "success" | "info"> = {
+  kurang: "danger",
+  memadai: "warning",
+  baik: "success",
+  istimewa: "info",
+};
+
 export type KesiapanBreakdown = {
   kurang: number;
   memadai: number;
@@ -99,4 +113,43 @@ export function ambilSkorTerbaikPerSiswaMapel<
   return Array.from(bestPerStudent.values()).flatMap((perStudent) =>
     Array.from(perStudent.values()),
   );
+}
+
+export type KesiapanSiswaPerMapel = {
+  subjectNama: string;
+  skorTerbaik: number | null;
+  kategori: KategoriKesiapan | null;
+};
+
+/**
+ * Kesiapan SATU siswa, dipecah per mata pelajaran (skor TERBAIK dari semua
+ * attempt-nya di mapel itu + kategori) - dipakai halaman detail riwayat
+ * siswa (admin sekolah/admin pusat/dinas pendidikan) supaya kategori resmi
+ * per mapel tampil berdampingan dengan riwayat attempt individualnya,
+ * memakai sumber hitungan (skor terbaik) yang sama persis dengan
+ * ringkasKesiapan/buildDaftarSiswaKesiapan* di atas - bukan reduksi baru.
+ * Selalu mengembalikan semua KESIAPAN_SUBJECTS (skorTerbaik/kategori null
+ * kalau siswa belum pernah mengerjakan mapel itu).
+ */
+export function ringkasKesiapanSiswa(
+  skorPerMapel: { subjectNama: string; skorAkhir: number }[],
+): KesiapanSiswaPerMapel[] {
+  const kesiapanSubjectNames: readonly string[] = KESIAPAN_SUBJECTS;
+  const bestPerMapel = new Map<string, number>();
+  for (const s of skorPerMapel) {
+    if (!kesiapanSubjectNames.includes(s.subjectNama)) continue;
+    const current = bestPerMapel.get(s.subjectNama);
+    if (current === undefined || s.skorAkhir > current) {
+      bestPerMapel.set(s.subjectNama, s.skorAkhir);
+    }
+  }
+
+  return KESIAPAN_SUBJECTS.map((subjectNama) => {
+    const skorTerbaik = bestPerMapel.get(subjectNama) ?? null;
+    return {
+      subjectNama,
+      skorTerbaik,
+      kategori: skorTerbaik !== null ? klasifikasiKesiapan(subjectNama, skorTerbaik) : null,
+    };
+  });
 }
