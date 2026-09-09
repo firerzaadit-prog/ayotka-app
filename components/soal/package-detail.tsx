@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 /** Bersihkan simbol LaTeX untuk preview singkat di tabel */
 function stripLatex(text: string): string {
@@ -139,6 +140,8 @@ export function PackageDetail({
   basePath: string;
 }) {
   const [pkg, setPkg] = useState<PackageDetail & { visibility?: VisibilityRow[] } | null>(null);
+  const [questionPage, setQuestionPage] = useState(1);
+  const [questionPageSize, setQuestionPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [allSchools, setAllSchools] = useState<{ id: string; nama: string }[]>([]);
   const [publishError, setPublishError] = useState<string | null>(null);
@@ -532,71 +535,91 @@ export function PackageDetail({
             </Link>
           }
         />
-      ) : (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <tr>
-                <Th>No</Th>
-                <Th>Teks Soal</Th>
-                <Th>Format</Th>
-                <Th>Kesulitan</Th>
-                <Th>Kompetensi</Th>
-                <Th></Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {pkg.questions.map((q, idx) => (
-                <Tr key={q.id}>
-                  <Td className="w-10 text-center text-slate-400 text-xs font-medium">
-                    {idx + 1}
-                  </Td>
-                  <Td className="max-w-sm">
-                    <span className="line-clamp-2 text-sm text-slate-800 leading-relaxed">
-                      {stripLatex(q.teks)}
-                    </span>
-                  </Td>
-                  <Td>
-                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
-                      FORMAT_COLOR[q.format] ?? "bg-slate-100 text-slate-600"
-                    }`}>
-                      {FORMAT_LABEL[q.format] ?? q.format}
-                    </span>
-                  </Td>
-                  <Td>
-                    <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ${
-                      KESULITAN_COLOR[q.tingkatKesulitan] ?? "bg-slate-100 text-slate-600"
-                    }`}>
-                      {q.tingkatKesulitan}
-                    </span>
-                  </Td>
-                  <Td>
-                    <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-mono font-medium text-indigo-700 ring-1 ring-indigo-200">
-                      {q.kompetensi.kode}
-                    </span>
-                  </Td>
-                  <Td className="text-right">
-                    <div className="flex items-center justify-end gap-3">
-                      <Link
-                        href={`${basePath}/${packageId}/soal/${q.id}`}
-                        className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
-                      >
-                        {q._count.attemptAnswers > 0 ? "Lihat" : "Edit"}
-                      </Link>
-                      <button
-                        onClick={() => handleDeleteQuestion(q.id)}
-                        className="text-sm font-medium text-rose-500 hover:text-rose-700 transition-colors"
-                      >
-                        Hapus
-                      </button>
-                    </div>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      ) : (() => {
+        const totalPages = Math.max(1, Math.ceil(pkg.questions.length / questionPageSize));
+        const pageQuestions = pkg.questions.slice(
+          (questionPage - 1) * questionPageSize,
+          questionPage * questionPageSize,
+        );
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>No</Th>
+                    <Th>Teks Soal</Th>
+                    <Th>Format</Th>
+                    <Th>Kesulitan</Th>
+                    <Th>Kompetensi</Th>
+                    <Th></Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {pageQuestions.map((q, idx) => (
+                    <Tr key={q.id}>
+                      <Td className="w-10 text-center text-slate-400 text-xs font-medium">
+                        {(questionPage - 1) * questionPageSize + idx + 1}
+                      </Td>
+                      <Td className="max-w-sm">
+                        <span className="line-clamp-2 text-sm text-slate-800 leading-relaxed">
+                          {stripLatex(q.teks)}
+                        </span>
+                      </Td>
+                      <Td>
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
+                          FORMAT_COLOR[q.format] ?? "bg-slate-100 text-slate-600"
+                        }`}>
+                          {FORMAT_LABEL[q.format] ?? q.format}
+                        </span>
+                      </Td>
+                      <Td>
+                        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ${
+                          KESULITAN_COLOR[q.tingkatKesulitan] ?? "bg-slate-100 text-slate-600"
+                        }`}>
+                          {q.tingkatKesulitan}
+                        </span>
+                      </Td>
+                      <Td>
+                        <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-mono font-medium text-indigo-700 ring-1 ring-indigo-200">
+                          {q.kompetensi.kode}
+                        </span>
+                      </Td>
+                      <Td className="text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <Link
+                            href={`${basePath}/${packageId}/soal/${q.id}`}
+                            className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+                          >
+                            {q._count.attemptAnswers > 0 ? "Lihat" : "Edit"}
+                          </Link>
+                          <button
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            className="text-sm font-medium text-rose-500 hover:text-rose-700 transition-colors"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={questionPage}
+              totalPages={totalPages}
+              totalItems={pkg.questions.length}
+              onPageChange={setQuestionPage}
+              pageSize={questionPageSize}
+              onPageSizeChange={(size) => {
+                setQuestionPageSize(size);
+                setQuestionPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

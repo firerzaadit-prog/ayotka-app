@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconUsers } from "@/components/ui/empty-state-icons";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
@@ -45,6 +46,8 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
   const [attempts, setAttempts] = useState<AttemptRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -88,7 +91,11 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
         <EmptyState icon={<IconUsers />} title="Belum ada siswa yang mulai" description="Belum ada siswa yang mengerjakan penugasan ini." />
       )}
 
-      {attempts && attempts.length > 0 && (
+      {attempts && attempts.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(attempts.length / pageSize));
+        const pageAttempts = attempts.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
         <TableContainer>
           <Table>
             <Thead>
@@ -102,7 +109,7 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
               </Tr>
             </Thead>
             <tbody>
-              {attempts.map((a) => (
+              {pageAttempts.map((a) => (
                 <Fragment key={a.id}>
                   <Tr>
                     <Td className="font-medium text-slate-900">{a.studentNama}</Td>
@@ -151,7 +158,20 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
             </tbody>
           </Table>
         </TableContainer>
-      )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={attempts.length}
+          onPageChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
+          </div>
+        );
+      })()}
     </div>
   );
 }

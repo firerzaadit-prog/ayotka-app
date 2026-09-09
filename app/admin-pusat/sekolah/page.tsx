@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconSchool } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
@@ -54,6 +55,8 @@ export default function SekolahPage() {
   const [createdCode, setCreatedCode] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -197,56 +200,73 @@ export default function SekolahPage() {
         />
       )}
 
-      {schools && schools.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <tr>
-                <Th>Nama</Th>
-                <Th>Jenjang</Th>
-                <Th>Kode Sekolah</Th>
-                <Th>Status</Th>
-                <Th>Admin</Th>
-                <Th>Siswa</Th>
-                <Th></Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {schools.map((school) => (
-                <Tr key={school.id}>
-                  <Td>
-                    <Link
-                      href={`/admin-pusat/sekolah/${school.id}`}
-                      className="font-medium text-slate-900 hover:underline"
-                    >
-                      {school.nama}
-                    </Link>
-                  </Td>
-                  <Td>{school.jenjang}</Td>
-                  <Td className="font-mono">{school.kodeSekolah}</Td>
-                  <Td>
-                    <Badge variant={STATUS_BADGE_VARIANT[school.status]}>
-                      {STATUS_LABEL[school.status]}
-                    </Badge>
-                  </Td>
-                  <Td>{school._count.schoolUsers}</Td>
-                  <Td>
-                    {school._count.students}
-                  </Td>
-                  <Td className="text-right">
-                    <button
-                      onClick={() => handleDelete(school.id, school.nama)}
-                      className="text-sm font-medium text-rose-600 hover:underline"
-                    >
-                      Hapus
-                    </button>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {schools && schools.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(schools.length / pageSize));
+        const pageRows = schools.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>Nama</Th>
+                    <Th>Jenjang</Th>
+                    <Th>Kode Sekolah</Th>
+                    <Th>Status</Th>
+                    <Th>Admin</Th>
+                    <Th>Siswa</Th>
+                    <Th></Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((school) => (
+                    <Tr key={school.id}>
+                      <Td>
+                        <Link
+                          href={`/admin-pusat/sekolah/${school.id}`}
+                          className="font-medium text-slate-900 hover:underline"
+                        >
+                          {school.nama}
+                        </Link>
+                      </Td>
+                      <Td>{school.jenjang}</Td>
+                      <Td className="font-mono">{school.kodeSekolah}</Td>
+                      <Td>
+                        <Badge variant={STATUS_BADGE_VARIANT[school.status]}>
+                          {STATUS_LABEL[school.status]}
+                        </Badge>
+                      </Td>
+                      <Td>{school._count.schoolUsers}</Td>
+                      <Td>
+                        {school._count.students}
+                      </Td>
+                      <Td className="text-right">
+                        <button
+                          onClick={() => handleDelete(school.id, school.nama)}
+                          className="text-sm font-medium text-rose-600 hover:underline"
+                        >
+                          Hapus
+                        </button>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={schools.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

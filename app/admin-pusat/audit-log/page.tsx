@@ -6,6 +6,7 @@ import { Input, Label } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
@@ -36,6 +37,8 @@ export default function AuditLogPage() {
   const [capped, setCapped] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -64,6 +67,7 @@ export default function AuditLogPage() {
           setLogs(data.logs ?? []);
           setCapped(Boolean(data.capped));
           setError(null);
+          setPage(1);
         } else {
           setError(data?.error ?? "Gagal memuat audit log.");
         }
@@ -164,7 +168,7 @@ export default function AuditLogPage() {
                 </Tr>
               </Thead>
               <tbody>
-                {logs.map((log) => (
+                {logs.slice((page - 1) * pageSize, page * pageSize).map((log) => (
                   <Fragment key={log.id}>
                     <Tr>
                       <Td className="whitespace-nowrap text-slate-500">
@@ -214,6 +218,17 @@ export default function AuditLogPage() {
               </tbody>
             </Table>
           </TableContainer>
+          <Pagination
+            page={page}
+            totalPages={Math.max(1, Math.ceil(logs.length / pageSize))}
+            totalItems={logs.length}
+            onPageChange={setPage}
+            pageSize={pageSize}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+          />
         </>
       )}
     </div>

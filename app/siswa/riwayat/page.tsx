@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconClipboardCheck } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
@@ -46,6 +47,8 @@ function hrefFor(item: RiwayatItem) {
 export default function RiwayatPage() {
   const [attempts, setAttempts] = useState<RiwayatItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -84,40 +87,57 @@ export default function RiwayatPage() {
         />
       )}
 
-      {attempts && attempts.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Paket</Th>
-                <Th>Kelas</Th>
-                <Th>Mulai</Th>
-                <Th>Status</Th>
-                <Th>Nilai</Th>
-                <Th></Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {attempts.map((a) => (
-                <Tr key={a.id}>
-                  <Td className="font-medium text-slate-900">{a.paketNama}</Td>
-                  <Td>{a.kelas ?? "Mandiri"}</Td>
-                  <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
-                  <Td>
-                    <Badge variant={STATUS_VARIANT[a.status]}>{STATUS_LABEL[a.status]}</Badge>
-                  </Td>
-                  <Td>{a.skorAkhir?.toFixed(0) ?? "-"}</Td>
-                  <Td className="text-right">
-                    <Link href={hrefFor(a)} className="text-sm font-medium text-slate-600 hover:text-slate-900">
-                      {a.status === "berjalan" || a.status === "paused" ? "Lanjutkan" : "Lihat hasil"}
-                    </Link>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {attempts && attempts.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(attempts.length / pageSize));
+        const pageRows = attempts.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Paket</Th>
+                    <Th>Kelas</Th>
+                    <Th>Mulai</Th>
+                    <Th>Status</Th>
+                    <Th>Nilai</Th>
+                    <Th></Th>
+                  </Tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((a) => (
+                    <Tr key={a.id}>
+                      <Td className="font-medium text-slate-900">{a.paketNama}</Td>
+                      <Td>{a.kelas ?? "Mandiri"}</Td>
+                      <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
+                      <Td>
+                        <Badge variant={STATUS_VARIANT[a.status]}>{STATUS_LABEL[a.status]}</Badge>
+                      </Td>
+                      <Td>{a.skorAkhir?.toFixed(0) ?? "-"}</Td>
+                      <Td className="text-right">
+                        <Link href={hrefFor(a)} className="text-sm font-medium text-slate-600 hover:text-slate-900">
+                          {a.status === "berjalan" || a.status === "paused" ? "Lanjutkan" : "Lihat hasil"}
+                        </Link>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={attempts.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

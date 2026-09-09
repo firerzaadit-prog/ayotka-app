@@ -1,7 +1,11 @@
+"use client";
+
+import { useState } from "react";
 import { RichText } from "@/components/soal/rich-text";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 
 const FORMAT_LABEL: Record<string, string> = {
   pg: "PG",
@@ -40,6 +44,11 @@ export function RincianJawaban({
   perSoal: PerSoal[];
   canShowPembahasan: boolean;
 }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(perSoal.length / pageSize));
+  const pageSoal = perSoal.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div>
       {!canShowPembahasan && (
@@ -48,11 +57,11 @@ export function RincianJawaban({
         </Alert>
       )}
       <div className="flex flex-col gap-3">
-        {perSoal.map((s, i) => (
+        {pageSoal.map((s, i) => (
           <Card key={s.questionId}>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium text-slate-500">
-                Soal {i + 1} · {FORMAT_LABEL[s.format] ?? s.format}
+                Soal {(page - 1) * pageSize + i + 1} · {FORMAT_LABEL[s.format] ?? s.format}
               </span>
               <Badge variant={(s.skor ?? 0) >= s.skorMaks ? "success" : "danger"}>
                 {(s.skor ?? 0) >= s.skorMaks ? "Benar" : "Salah"}
@@ -124,6 +133,19 @@ export function RincianJawaban({
             )}
           </Card>
         ))}
+      </div>
+      <div className="mt-3">
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={perSoal.length}
+          onPageChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
       </div>
     </div>
   );

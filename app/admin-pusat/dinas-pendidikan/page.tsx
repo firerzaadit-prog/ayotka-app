@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconLink } from "@/components/ui/empty-state-icons";
 
@@ -25,6 +26,8 @@ export default function DinasPendidikanPage() {
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState<{ email: string; tempPassword: string } | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -139,30 +142,47 @@ export default function DinasPendidikanPage() {
         />
       )}
 
-      {dinasAdmins && dinasAdmins.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <tr>
-                <Th>Email</Th>
-                <Th>Status</Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {dinasAdmins.map((d) => (
-                <Tr key={d.id}>
-                  <Td className="font-medium text-slate-900">{d.email}</Td>
-                  <Td>
-                    <Badge variant={d.status === "aktif" ? "success" : "danger"}>
-                      {d.status === "aktif" ? "Aktif" : "Nonaktif"}
-                    </Badge>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {dinasAdmins && dinasAdmins.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(dinasAdmins.length / pageSize));
+        const pageRows = dinasAdmins.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>Email</Th>
+                    <Th>Status</Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((d) => (
+                    <Tr key={d.id}>
+                      <Td className="font-medium text-slate-900">{d.email}</Td>
+                      <Td>
+                        <Badge variant={d.status === "aktif" ? "success" : "danger"}>
+                          {d.status === "aktif" ? "Aktif" : "Nonaktif"}
+                        </Badge>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={dinasAdmins.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { buttonClassName } from "@/components/ui/button";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconChart } from "@/components/ui/empty-state-icons";
 import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
 import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
@@ -21,64 +22,100 @@ const selectClassName =
   "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 function KompetensiTable({ kompetensi }: { kompetensi: Kompetensi[] }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(kompetensi.length / pageSize));
+  const pageRows = kompetensi.slice((page - 1) * pageSize, page * pageSize);
+
   return (
-    <TableContainer>
-      <Table>
-        <Thead>
-          <Tr>
-            <Th>Kompetensi</Th>
-            <Th>Materi</Th>
-            <Th>Benar</Th>
-            <Th>Persentase</Th>
-          </Tr>
-        </Thead>
-        <tbody>
-          {kompetensi.map((k) => (
-            <Tr key={k.kode}>
-              <Td>
-                <span className="font-mono text-xs">{k.kode}</span> {k.deskripsi}
-              </Td>
-              <Td className="text-slate-500">{k.materi}</Td>
-              <Td>
-                {k.jmlBenar}/{k.jmlSoal}
-              </Td>
-              <Td>
-                <Badge variant={k.persentase < 60 ? "danger" : k.persentase < 80 ? "warning" : "success"}>
-                  {k.persentase.toFixed(0)}%
-                </Badge>
-              </Td>
+    <div className="flex flex-col gap-3">
+      <TableContainer>
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>Kompetensi</Th>
+              <Th>Materi</Th>
+              <Th>Benar</Th>
+              <Th>Persentase</Th>
             </Tr>
-          ))}
-        </tbody>
-      </Table>
-    </TableContainer>
+          </Thead>
+          <tbody>
+            {pageRows.map((k) => (
+              <Tr key={k.kode}>
+                <Td>
+                  <span className="font-mono text-xs">{k.kode}</span> {k.deskripsi}
+                </Td>
+                <Td className="text-slate-500">{k.materi}</Td>
+                <Td>
+                  {k.jmlBenar}/{k.jmlSoal}
+                </Td>
+                <Td>
+                  <Badge variant={k.persentase < 60 ? "danger" : k.persentase < 80 ? "warning" : "success"}>
+                    {k.persentase.toFixed(0)}%
+                  </Badge>
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableContainer>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={kompetensi.length}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
+    </div>
   );
 }
 
 function RankingTable({ ranking }: { ranking: RankingRow[] }) {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(ranking.length / pageSize));
+  const pageRows = ranking.slice((page - 1) * pageSize, page * pageSize);
+
   return (
-    <TableContainer>
-      <Table>
-        <Thead>
-          <Tr>
-            <Th>#</Th>
-            <Th>Siswa</Th>
-            <Th>Rata-rata nilai</Th>
-            <Th>Jumlah ujian</Th>
-          </Tr>
-        </Thead>
-        <tbody>
-          {ranking.map((r, i) => (
-            <Tr key={r.studentId}>
-              <Td className="text-slate-500">{i + 1}</Td>
-              <Td className="font-medium text-slate-900">{r.nama}</Td>
-              <Td>{r.rataRata.toFixed(1)}</Td>
-              <Td>{r.jumlahAttempt}</Td>
+    <div className="flex flex-col gap-3">
+      <TableContainer>
+        <Table>
+          <Thead>
+            <Tr>
+              <Th>#</Th>
+              <Th>Siswa</Th>
+              <Th>Rata-rata nilai</Th>
+              <Th>Jumlah ujian</Th>
             </Tr>
-          ))}
-        </tbody>
-      </Table>
-    </TableContainer>
+          </Thead>
+          <tbody>
+            {pageRows.map((r, i) => (
+              <Tr key={r.studentId}>
+                <Td className="text-slate-500">{(page - 1) * pageSize + i + 1}</Td>
+                <Td className="font-medium text-slate-900">{r.nama}</Td>
+                <Td>{r.rataRata.toFixed(1)}</Td>
+                <Td>{r.jumlahAttempt}</Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableContainer>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        totalItems={ranking.length}
+        onPageChange={setPage}
+        pageSize={pageSize}
+        onPageSizeChange={(size) => {
+          setPageSize(size);
+          setPage(1);
+        }}
+      />
+    </div>
   );
 }
 
