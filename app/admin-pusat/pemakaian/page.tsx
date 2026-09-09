@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Input } from "@/components/ui/input";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconChart } from "@/components/ui/empty-state-icons";
 
@@ -26,6 +27,8 @@ function currentPeriode(): string {
 export default function PemakaianPage() {
   const [periode, setPeriode] = useState(currentPeriode());
   const [data, setData] = useState<UsageResponse | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -33,7 +36,10 @@ export default function PemakaianPage() {
       setData(null);
       const res = await fetch(`/api/admin-pusat/usage-counters?periode=${periode}`);
       const json = await res.json().catch(() => null);
-      if (!ignore && res.ok) setData(json);
+      if (!ignore && res.ok) {
+        setData(json);
+        setPage(1);
+      }
     })();
     return () => {
       ignore = true;
@@ -65,32 +71,49 @@ export default function PemakaianPage() {
         <EmptyState icon={<IconChart />} title="Belum ada data" description="Belum ada pemakaian tercatat pada bulan ini." />
       )}
 
-      {data && data.counters.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Siswa</Th>
-                <Th>Jalur</Th>
-                <Th>Jml attempt</Th>
-                <Th>Jml analisis AI</Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {data.counters.map((c) => (
-                <Tr key={c.id}>
-                  <Td>{c.user.studentProfile?.nama ?? c.user.email}</Td>
-                  <Td>
-                    {c.user.studentProfile?.jalur === "B" ? "Mandiri" : c.user.studentProfile?.jalur === "A" ? "Sekolah" : "-"}
-                  </Td>
-                  <Td>{c.jmlAttempt}</Td>
-                  <Td>{c.jmlAnalisisAi}</Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {data && data.counters.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(data.counters.length / pageSize));
+        const pageRows = data.counters.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Siswa</Th>
+                    <Th>Jalur</Th>
+                    <Th>Jml attempt</Th>
+                    <Th>Jml analisis AI</Th>
+                  </Tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((c) => (
+                    <Tr key={c.id}>
+                      <Td>{c.user.studentProfile?.nama ?? c.user.email}</Td>
+                      <Td>
+                        {c.user.studentProfile?.jalur === "B" ? "Mandiri" : c.user.studentProfile?.jalur === "A" ? "Sekolah" : "-"}
+                      </Td>
+                      <Td>{c.jmlAttempt}</Td>
+                      <Td>{c.jmlAnalisisAi}</Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={data.counters.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

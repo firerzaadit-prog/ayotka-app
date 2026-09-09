@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TrendChart } from "@/components/ui/trend-chart";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { IconWallet } from "@/components/ui/empty-state-icons";
@@ -42,6 +43,8 @@ function formatRupiahRingkas(n: number): string {
 /** Tiket 6.10: dashboard pendapatan - total = SUM(jumlah) order disetujui, dihitung server (aggregate DB). */
 export default function PendapatanPage() {
   const [data, setData] = useState<Pendapatan | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -85,35 +88,52 @@ export default function PendapatanPage() {
         <h2 className="text-lg font-semibold text-slate-900">Daftar Transaksi</h2>
         {data.transaksi.length === 0 ? (
           <EmptyState icon={<IconWallet />} title="Belum ada transaksi" description="Belum ada order yang disetujui." />
-        ) : (
-          <TableContainer>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>Tanggal disetujui</Th>
-                  <Th>Siswa</Th>
-                  <Th>Paket</Th>
-                  <Th>Jumlah</Th>
-                </Tr>
-              </Thead>
-              <tbody>
-                {data.transaksi.map((t) => (
-                  <Tr key={t.id}>
-                    <Td>{t.disetujuiAt ? formatWIBDate(t.disetujuiAt) : "-"}</Td>
-                    <Td>{t.userEmail}</Td>
-                    <Td>
-                      {t.paket}
-                      {t.mapel.length > 0 && (
-                        <span className="text-slate-400"> — {t.mapel.join(", ")}</span>
-                      )}
-                    </Td>
-                    <Td>{formatRupiah(t.jumlah)}</Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
-          </TableContainer>
-        )}
+        ) : (() => {
+          const totalPages = Math.max(1, Math.ceil(data.transaksi.length / pageSize));
+          const pageRows = data.transaksi.slice((page - 1) * pageSize, page * pageSize);
+          return (
+            <div className="flex flex-col gap-3">
+              <TableContainer>
+                <Table>
+                  <Thead>
+                    <Tr>
+                      <Th>Tanggal disetujui</Th>
+                      <Th>Siswa</Th>
+                      <Th>Paket</Th>
+                      <Th>Jumlah</Th>
+                    </Tr>
+                  </Thead>
+                  <tbody>
+                    {pageRows.map((t) => (
+                      <Tr key={t.id}>
+                        <Td>{t.disetujuiAt ? formatWIBDate(t.disetujuiAt) : "-"}</Td>
+                        <Td>{t.userEmail}</Td>
+                        <Td>
+                          {t.paket}
+                          {t.mapel.length > 0 && (
+                            <span className="text-slate-400"> — {t.mapel.join(", ")}</span>
+                          )}
+                        </Td>
+                        <Td>{formatRupiah(t.jumlah)}</Td>
+                      </Tr>
+                    ))}
+                  </tbody>
+                </Table>
+              </TableContainer>
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalItems={data.transaksi.length}
+                onPageChange={setPage}
+                pageSize={pageSize}
+                onPageSizeChange={(size) => {
+                  setPageSize(size);
+                  setPage(1);
+                }}
+              />
+            </div>
+          );
+        })()}
       </section>
     </div>
   );

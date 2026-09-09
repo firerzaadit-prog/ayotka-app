@@ -8,14 +8,12 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
-import { Pagination } from "@/components/ui/pagination";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconWallet, IconSearch } from "@/components/ui/empty-state-icons";
 import { formatWIBDate } from "@/lib/utils/datetime";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
-
-const PAGE_SIZE = 15;
 
 type OrderStatus = "menunggu_verifikasi" | "disetujui" | "ditolak" | "kedaluwarsa";
 type Order = {
@@ -60,6 +58,7 @@ export default function VerifikasiTryOutMapelPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [catatan, setCatatan] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -148,8 +147,8 @@ export default function VerifikasiTryOutMapelPage() {
     const q = search.trim().toLowerCase();
     return o.user.email.toLowerCase().includes(q) || o.mapel.some((m) => m.toLowerCase().includes(q));
   });
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / PAGE_SIZE));
-  const pageOrders = filteredOrders.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / pageSize));
+  const pageOrders = filteredOrders.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="flex flex-col gap-4">
@@ -289,7 +288,17 @@ export default function VerifikasiTryOutMapelPage() {
             </tbody>
           </Table>
         </TableContainer>
-        <Pagination page={page} totalPages={totalPages} totalItems={filteredOrders.length} onPageChange={setPage} />
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={filteredOrders.length}
+          onPageChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
         </>
       )}
     </div>

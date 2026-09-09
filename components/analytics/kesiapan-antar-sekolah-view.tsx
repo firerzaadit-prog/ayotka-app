@@ -6,6 +6,7 @@ import { Label, Input } from "@/components/ui/input";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconChart } from "@/components/ui/empty-state-icons";
@@ -45,6 +46,8 @@ export function KesiapanAntarSekolahView({
   const [wilayah, setWilayah] = useState("");
   const [perSekolah, setPerSekolah] = useState<KesiapanPerSekolah[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -58,6 +61,7 @@ export function KesiapanAntarSekolahView({
         if (res.ok) {
           setPerSekolah(data.perSekolah ?? []);
           setError(null);
+          setPage(1);
         } else {
           setError(data?.error ?? "Gagal memuat data kesiapan.");
         }
@@ -121,38 +125,55 @@ export function KesiapanAntarSekolahView({
         />
       )}
 
-      {perSekolah && perSekolah.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Sekolah</Th>
-                <Th>Jenjang</Th>
-                <Th>Kesiapan Gabungan</Th>
-                {KESIAPAN_SUBJECTS.map((nama) => (
-                  <Th key={nama}>{nama}</Th>
-                ))}
-              </Tr>
-            </Thead>
-            <tbody>
-              {perSekolah.map((s) => (
-                <Tr key={s.schoolId}>
-                  <Td className="font-medium text-slate-900">{s.nama}</Td>
-                  <Td>{s.jenjang}</Td>
-                  <Td>
-                    <PersentaseBadge pct={s.gabungan.persentaseSiap} total={s.gabungan.total} />
-                  </Td>
-                  {s.perMapel.map((m) => (
-                    <Td key={m.subjectNama}>
-                      <PersentaseBadge pct={m.breakdown.persentaseSiap} total={m.breakdown.total} />
-                    </Td>
+      {perSekolah && perSekolah.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(perSekolah.length / pageSize));
+        const pageRows = perSekolah.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Sekolah</Th>
+                    <Th>Jenjang</Th>
+                    <Th>Kesiapan Gabungan</Th>
+                    {KESIAPAN_SUBJECTS.map((nama) => (
+                      <Th key={nama}>{nama}</Th>
+                    ))}
+                  </Tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((s) => (
+                    <Tr key={s.schoolId}>
+                      <Td className="font-medium text-slate-900">{s.nama}</Td>
+                      <Td>{s.jenjang}</Td>
+                      <Td>
+                        <PersentaseBadge pct={s.gabungan.persentaseSiap} total={s.gabungan.total} />
+                      </Td>
+                      {s.perMapel.map((m) => (
+                        <Td key={m.subjectNama}>
+                          <PersentaseBadge pct={m.breakdown.persentaseSiap} total={m.breakdown.total} />
+                        </Td>
+                      ))}
+                    </Tr>
                   ))}
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={perSekolah.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
 
       <KesiapanSiswaList
         endpoint="/api/dinas-pendidikan/kesiapan/siswa"

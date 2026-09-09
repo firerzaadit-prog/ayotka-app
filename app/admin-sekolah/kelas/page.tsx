@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconUsers } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
@@ -42,6 +43,8 @@ export default function KelolaKelasPage() {
   const [naikKelasResult, setNaikKelasResult] = useState<string | null>(null);
   const [naikKelasBusy, setNaikKelasBusy] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const activeYear = academicYears.find((y) => y.isActive);
   const isViewingActiveYear = !selectedYearId || selectedYearId === activeYear?.id;
@@ -76,7 +79,10 @@ export default function KelolaKelasPage() {
       }
       const res = await fetch(`/api/admin-sekolah/kelas?academicYearId=${selectedYearId}`);
       const data = await res.json();
-      if (!ignore) setClasses(data.classes ?? []);
+      if (!ignore) {
+        setClasses(data.classes ?? []);
+        setPage(1);
+      }
     })();
     return () => {
       ignore = true;
@@ -253,41 +259,58 @@ export default function KelolaKelasPage() {
         />
       )}
 
-      {classes && classes.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Tingkat</Th>
-                <Th>Rombel</Th>
-                <Th>Wali kelas</Th>
-                <Th>Siswa</Th>
-                <Th></Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {classes.map((c) => (
-                <Tr key={c.id}>
-                  <Td>{c.tingkat}</Td>
-                  <Td className="font-medium text-slate-900">{c.namaRombel}</Td>
-                  <Td>{c.waliKelas ? (c.waliKelas.username ?? c.waliKelas.email) : "-"}</Td>
-                  <Td>{c._count.studentEnrollments}</Td>
-                  <Td className="text-right">
-                    {isViewingActiveYear && (
-                      <button
-                        onClick={() => handleDelete(c.id, `${c.tingkat}${c.namaRombel}`)}
-                        className="text-sm font-medium text-rose-600 hover:underline"
-                      >
-                        Hapus
-                      </button>
-                    )}
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {classes && classes.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(classes.length / pageSize));
+        const pageRows = classes.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Tingkat</Th>
+                    <Th>Rombel</Th>
+                    <Th>Wali kelas</Th>
+                    <Th>Siswa</Th>
+                    <Th></Th>
+                  </Tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((c) => (
+                    <Tr key={c.id}>
+                      <Td>{c.tingkat}</Td>
+                      <Td className="font-medium text-slate-900">{c.namaRombel}</Td>
+                      <Td>{c.waliKelas ? (c.waliKelas.username ?? c.waliKelas.email) : "-"}</Td>
+                      <Td>{c._count.studentEnrollments}</Td>
+                      <Td className="text-right">
+                        {isViewingActiveYear && (
+                          <button
+                            onClick={() => handleDelete(c.id, `${c.tingkat}${c.namaRombel}`)}
+                            className="text-sm font-medium text-rose-600 hover:underline"
+                          >
+                            Hapus
+                          </button>
+                        )}
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={classes.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

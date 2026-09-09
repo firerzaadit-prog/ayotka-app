@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconCheckCircle } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
@@ -33,6 +34,8 @@ const JALUR_LABEL: Record<string, string> = { A: "Jalur A (sekolah)", B: "Jalur 
 export default function PelanggaranUjianPage() {
   const [attempts, setAttempts] = useState<AttemptRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -66,38 +69,55 @@ export default function PelanggaranUjianPage() {
         />
       )}
 
-      {attempts && attempts.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Siswa</Th>
-                <Th>Jalur</Th>
-                <Th>Sekolah</Th>
-                <Th>Paket</Th>
-                <Th>Mulai</Th>
-                <Th>Status</Th>
-                <Th>Pindah tab</Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {attempts.map((a) => (
-                <Tr key={a.id}>
-                  <Td className="font-medium text-slate-900">{a.studentNama}</Td>
-                  <Td className="text-xs text-slate-500">{JALUR_LABEL[a.jalur]}</Td>
-                  <Td>{a.sekolahNama}</Td>
-                  <Td>{a.paketNama}</Td>
-                  <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
-                  <Td>{STATUS_LABEL[a.status]}</Td>
-                  <Td>
-                    <Badge variant="danger">{a.tabSwitchCount}x</Badge>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {attempts && attempts.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(attempts.length / pageSize));
+        const pageRows = attempts.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Siswa</Th>
+                    <Th>Jalur</Th>
+                    <Th>Sekolah</Th>
+                    <Th>Paket</Th>
+                    <Th>Mulai</Th>
+                    <Th>Status</Th>
+                    <Th>Pindah tab</Th>
+                  </Tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((a) => (
+                    <Tr key={a.id}>
+                      <Td className="font-medium text-slate-900">{a.studentNama}</Td>
+                      <Td className="text-xs text-slate-500">{JALUR_LABEL[a.jalur]}</Td>
+                      <Td>{a.sekolahNama}</Td>
+                      <Td>{a.paketNama}</Td>
+                      <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
+                      <Td>{STATUS_LABEL[a.status]}</Td>
+                      <Td>
+                        <Badge variant="danger">{a.tabSwitchCount}x</Badge>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={attempts.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

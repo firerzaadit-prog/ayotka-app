@@ -6,13 +6,11 @@ import { Input, Label } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
-import { Pagination } from "@/components/ui/pagination";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconInbox, IconSearch } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
-
-const PAGE_SIZE = 15;
 
 type SessionRow = {
   id: string;
@@ -39,6 +37,7 @@ export default function SesiAktifPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -86,8 +85,8 @@ export default function SesiAktifPage() {
     const q = search.trim().toLowerCase();
     return (row.nama ?? "").toLowerCase().includes(q) || row.email.toLowerCase().includes(q);
   });
-  const totalPages = Math.max(1, Math.ceil(filteredSessions.length / PAGE_SIZE));
-  const pageSessions = filteredSessions.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
+  const pageSessions = filteredSessions.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="flex flex-col gap-6">
@@ -164,7 +163,17 @@ export default function SesiAktifPage() {
             </tbody>
           </Table>
         </TableContainer>
-        <Pagination page={page} totalPages={totalPages} totalItems={filteredSessions.length} onPageChange={setPage} />
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={filteredSessions.length}
+          onPageChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
         </>
       )}
     </div>

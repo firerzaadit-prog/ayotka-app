@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TrendChart } from "@/components/ui/trend-chart";
 import { IconChart } from "@/components/ui/empty-state-icons";
 import { labelPeriodeBulan } from "@/lib/utils/datetime";
@@ -68,6 +69,10 @@ export function AnalitikGlobalView({
   const [tren, setTren] = useState<Tren[] | null>(null);
   const [statistikMapel, setStatistikMapel] = useState<StatistikMapel[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sekolahPage, setSekolahPage] = useState(1);
+  const [sekolahPageSize, setSekolahPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [kompetensiPage, setKompetensiPage] = useState(1);
+  const [kompetensiPageSize, setKompetensiPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -108,6 +113,8 @@ export function AnalitikGlobalView({
           setTren(data.tren ?? []);
           setStatistikMapel(data.statistikMapel ?? []);
           setError(null);
+          setSekolahPage(1);
+          setKompetensiPage(1);
         } else {
           setError(data?.error ?? "Gagal memuat analitik.");
         }
@@ -271,8 +278,8 @@ export function AnalitikGlobalView({
 
       {jumlahAttempt > 0 && (
         <>
-          <div>
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">Perbandingan Antar Sekolah</h2>
+          <div className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Perbandingan Antar Sekolah</h2>
             <TableContainer>
               <Table>
                 <Thead>
@@ -286,23 +293,36 @@ export function AnalitikGlobalView({
                   </Tr>
                 </Thead>
                 <tbody>
-                  {perSekolah?.map((s, i) => (
-                    <Tr key={s.schoolId}>
-                      <Td className="text-slate-500">{i + 1}</Td>
-                      <Td className="font-medium text-slate-900">{s.nama}</Td>
-                      <Td className="text-slate-500">{s.jenjang ?? "-"}</Td>
-                      <Td>{s.jumlahSiswaAktif}</Td>
-                      <Td>{s.jumlahAttempt}</Td>
-                      <Td>{s.rataRata.toFixed(1)}</Td>
-                    </Tr>
-                  ))}
+                  {(perSekolah ?? [])
+                    .slice((sekolahPage - 1) * sekolahPageSize, sekolahPage * sekolahPageSize)
+                    .map((s, i) => (
+                      <Tr key={s.schoolId}>
+                        <Td className="text-slate-500">{(sekolahPage - 1) * sekolahPageSize + i + 1}</Td>
+                        <Td className="font-medium text-slate-900">{s.nama}</Td>
+                        <Td className="text-slate-500">{s.jenjang ?? "-"}</Td>
+                        <Td>{s.jumlahSiswaAktif}</Td>
+                        <Td>{s.jumlahAttempt}</Td>
+                        <Td>{s.rataRata.toFixed(1)}</Td>
+                      </Tr>
+                    ))}
                 </tbody>
               </Table>
             </TableContainer>
+            <Pagination
+              page={sekolahPage}
+              totalPages={Math.max(1, Math.ceil((perSekolah?.length ?? 0) / sekolahPageSize))}
+              totalItems={perSekolah?.length ?? 0}
+              onPageChange={setSekolahPage}
+              pageSize={sekolahPageSize}
+              onPageSizeChange={(size) => {
+                setSekolahPageSize(size);
+                setSekolahPage(1);
+              }}
+            />
           </div>
 
-          <div>
-            <h2 className="mb-2 text-lg font-semibold text-slate-900">Kompetensi Terlemah</h2>
+          <div className="flex flex-col gap-3">
+            <h2 className="text-lg font-semibold text-slate-900">Kompetensi Terlemah</h2>
             <TableContainer>
               <Table>
                 <Thead>
@@ -314,25 +334,38 @@ export function AnalitikGlobalView({
                   </Tr>
                 </Thead>
                 <tbody>
-                  {kompetensi?.map((k) => (
-                    <Tr key={k.kode}>
-                      <Td>
-                        <span className="font-mono text-xs">{k.kode}</span> {k.deskripsi}
-                      </Td>
-                      <Td className="text-slate-500">{k.materi}</Td>
-                      <Td>
-                        {k.jmlBenar}/{k.jmlSoal}
-                      </Td>
-                      <Td>
-                        <Badge variant={k.persentase < 60 ? "danger" : k.persentase < 80 ? "warning" : "success"}>
-                          {k.persentase.toFixed(0)}%
-                        </Badge>
-                      </Td>
-                    </Tr>
-                  ))}
+                  {(kompetensi ?? [])
+                    .slice((kompetensiPage - 1) * kompetensiPageSize, kompetensiPage * kompetensiPageSize)
+                    .map((k) => (
+                      <Tr key={k.kode}>
+                        <Td>
+                          <span className="font-mono text-xs">{k.kode}</span> {k.deskripsi}
+                        </Td>
+                        <Td className="text-slate-500">{k.materi}</Td>
+                        <Td>
+                          {k.jmlBenar}/{k.jmlSoal}
+                        </Td>
+                        <Td>
+                          <Badge variant={k.persentase < 60 ? "danger" : k.persentase < 80 ? "warning" : "success"}>
+                            {k.persentase.toFixed(0)}%
+                          </Badge>
+                        </Td>
+                      </Tr>
+                    ))}
                 </tbody>
               </Table>
             </TableContainer>
+            <Pagination
+              page={kompetensiPage}
+              totalPages={Math.max(1, Math.ceil((kompetensi?.length ?? 0) / kompetensiPageSize))}
+              totalItems={kompetensi?.length ?? 0}
+              onPageChange={setKompetensiPage}
+              pageSize={kompetensiPageSize}
+              onPageSizeChange={(size) => {
+                setKompetensiPageSize(size);
+                setKompetensiPage(1);
+              }}
+            />
           </div>
 
           <div>

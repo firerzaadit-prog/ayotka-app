@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
@@ -57,6 +58,8 @@ export function PackageList({ basePath }: { basePath: string }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -291,49 +294,66 @@ export function PackageList({ basePath }: { basePath: string }) {
         />
       )}
 
-      {packages && packages.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <tr>
-                <Th>Nama</Th>
-                <Th>Mapel</Th>
-                <Th>Tingkat</Th>
-                <Th>Status</Th>
-                <Th>Soal</Th>
-                <Th></Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {packages.map((pkg) => (
-                <Tr key={pkg.id}>
-                  <Td>
-                    <Link href={`${basePath}/${pkg.id}`} className="font-medium text-slate-900 hover:underline">
-                      {pkg.nama}
-                    </Link>
-                  </Td>
-                  <Td>{pkg.subject.nama}</Td>
-                  <Td>{pkg.tingkatList.join(", ")}</Td>
-                  <Td>
-                    <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
-                  </Td>
-                  <Td>
-                    {pkg._count.questions}/{pkg.jumlahSoal}
-                  </Td>
-                  <Td className="text-right">
-                    <button
-                      onClick={() => handleDelete(pkg.id, pkg.nama)}
-                      className="text-sm font-medium text-rose-600 hover:underline"
-                    >
-                      Hapus
-                    </button>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {packages && packages.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(packages.length / pageSize));
+        const pageRows = packages.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <tr>
+                    <Th>Nama</Th>
+                    <Th>Mapel</Th>
+                    <Th>Tingkat</Th>
+                    <Th>Status</Th>
+                    <Th>Soal</Th>
+                    <Th></Th>
+                  </tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((pkg) => (
+                    <Tr key={pkg.id}>
+                      <Td>
+                        <Link href={`${basePath}/${pkg.id}`} className="font-medium text-slate-900 hover:underline">
+                          {pkg.nama}
+                        </Link>
+                      </Td>
+                      <Td>{pkg.subject.nama}</Td>
+                      <Td>{pkg.tingkatList.join(", ")}</Td>
+                      <Td>
+                        <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
+                      </Td>
+                      <Td>
+                        {pkg._count.questions}/{pkg.jumlahSoal}
+                      </Td>
+                      <Td className="text-right">
+                        <button
+                          onClick={() => handleDelete(pkg.id, pkg.nama)}
+                          className="text-sm font-medium text-rose-600 hover:underline"
+                        >
+                          Hapus
+                        </button>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={packages.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

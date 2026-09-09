@@ -9,14 +9,12 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
-import { Pagination } from "@/components/ui/pagination";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconUsers, IconSearch } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
 import { KuotaSummary } from "@/components/sekolah/kuota-summary";
-
-const PAGE_SIZE = 15;
 
 type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type StudentRow = {
@@ -46,6 +44,7 @@ export default function KelolaSiswaPage() {
   const [students, setStudents] = useState<StudentRow[] | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [showForm, setShowForm] = useState(false);
   const [nama, setNama] = useState("");
   const [nisn, setNisn] = useState("");
@@ -196,8 +195,8 @@ export default function KelolaSiswaPage() {
     const q = search.trim().toLowerCase();
     return s.nama.toLowerCase().includes(q) || (s.nisn ?? "").toLowerCase().includes(q);
   });
-  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / PAGE_SIZE));
-  const pageStudents = filteredStudents.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+  const pageStudents = filteredStudents.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="flex flex-col gap-6">
@@ -373,7 +372,17 @@ export default function KelolaSiswaPage() {
             </tbody>
           </Table>
         </TableContainer>
-        <Pagination page={page} totalPages={totalPages} totalItems={filteredStudents.length} onPageChange={setPage} />
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={filteredStudents.length}
+          onPageChange={setPage}
+          pageSize={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+        />
         </>
       )}
     </div>

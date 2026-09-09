@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconChart } from "@/components/ui/empty-state-icons";
@@ -51,6 +52,8 @@ export function KesiapanSiswaList({
   const [kategori, setKategori] = useState<KategoriKesiapan | "">("");
   const [siswa, setSiswa] = useState<SiswaKesiapanRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -59,6 +62,7 @@ export function KesiapanSiswaList({
     const timeout = setTimeout(async () => {
       setSiswa(null);
       setError(null);
+      setPage(1);
       const qs = new URLSearchParams({ mapel });
       if (kategori) qs.set("kategori", kategori);
       if (jenjang) qs.set("jenjang", jenjang);
@@ -126,45 +130,62 @@ export function KesiapanSiswaList({
         />
       )}
 
-      {!error && siswa !== null && siswa.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Siswa</Th>
-                <Th>NISN</Th>
-                {showSekolahColumn && <Th>Sekolah</Th>}
-                <Th>Skor Terbaik</Th>
-                <Th>Kategori</Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {siswa.map((s) => (
-                <Tr key={s.studentId}>
-                  <Td className="font-medium text-slate-900">
-                    {studentDetailHrefBase ? (
-                      <Link
-                        href={`${studentDetailHrefBase}/${s.studentId}`}
-                        className="text-indigo-600 hover:text-indigo-800 hover:underline"
-                      >
-                        {s.nama}
-                      </Link>
-                    ) : (
-                      s.nama
-                    )}
-                  </Td>
-                  <Td className="text-slate-500">{s.nisn ?? "—"}</Td>
-                  {showSekolahColumn && <Td className="text-slate-500">{s.schoolNama ?? "—"}</Td>}
-                  <Td>{s.skorAkhir.toFixed(1)}</Td>
-                  <Td>
-                    <Badge variant={KATEGORI_BADGE_VARIANT[s.kategori]}>{KATEGORI_LABEL[s.kategori]}</Badge>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {!error && siswa !== null && siswa.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(siswa.length / pageSize));
+        const pageRows = siswa.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Siswa</Th>
+                    <Th>NISN</Th>
+                    {showSekolahColumn && <Th>Sekolah</Th>}
+                    <Th>Skor Terbaik</Th>
+                    <Th>Kategori</Th>
+                  </Tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((s) => (
+                    <Tr key={s.studentId}>
+                      <Td className="font-medium text-slate-900">
+                        {studentDetailHrefBase ? (
+                          <Link
+                            href={`${studentDetailHrefBase}/${s.studentId}`}
+                            className="text-indigo-600 hover:text-indigo-800 hover:underline"
+                          >
+                            {s.nama}
+                          </Link>
+                        ) : (
+                          s.nama
+                        )}
+                      </Td>
+                      <Td className="text-slate-500">{s.nisn ?? "—"}</Td>
+                      {showSekolahColumn && <Td className="text-slate-500">{s.schoolNama ?? "—"}</Td>}
+                      <Td>{s.skorAkhir.toFixed(1)}</Td>
+                      <Td>
+                        <Badge variant={KATEGORI_BADGE_VARIANT[s.kategori]}>{KATEGORI_LABEL[s.kategori]}</Badge>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={siswa.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

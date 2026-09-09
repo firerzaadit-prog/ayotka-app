@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
+import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconCalendar } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
@@ -25,6 +26,8 @@ type AssignmentRow = {
 export default function JadwalUjianPage() {
   const [assignments, setAssignments] = useState<AssignmentRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   useEffect(() => {
     let ignore = false;
@@ -58,44 +61,61 @@ export default function JadwalUjianPage() {
         />
       )}
 
-      {assignments && assignments.length > 0 && (
-        <TableContainer>
-          <Table>
-            <Thead>
-              <Tr>
-                <Th>Sekolah</Th>
-                <Th>Paket</Th>
-                <Th>Rombel</Th>
-                <Th>Jendela waktu</Th>
-                <Th>Attempt</Th>
-                <Th>Status</Th>
-              </Tr>
-            </Thead>
-            <tbody>
-              {assignments.map((a) => (
-                <Tr key={a.id}>
-                  <Td className="font-medium text-slate-900">{a.sekolahNama}</Td>
-                  <Td>
-                    <Link href={`/admin-pusat/jadwal-ujian/${a.id}`} className="text-slate-900 hover:underline">
-                      {a.paketNama}
-                    </Link>
-                  </Td>
-                  <Td>{a.kelas}</Td>
-                  <Td className="text-xs">
-                    {formatWIB(a.mulai)} — {formatWIB(a.selesai)}
-                  </Td>
-                  <Td>{a.jumlahAttempt}</Td>
-                  <Td>
-                    <Badge variant={a.isActive ? "success" : "neutral"}>
-                      {a.isActive ? "Aktif" : "Nonaktif"}
-                    </Badge>
-                  </Td>
-                </Tr>
-              ))}
-            </tbody>
-          </Table>
-        </TableContainer>
-      )}
+      {assignments && assignments.length > 0 && (() => {
+        const totalPages = Math.max(1, Math.ceil(assignments.length / pageSize));
+        const pageRows = assignments.slice((page - 1) * pageSize, page * pageSize);
+        return (
+          <div className="flex flex-col gap-3">
+            <TableContainer>
+              <Table>
+                <Thead>
+                  <Tr>
+                    <Th>Sekolah</Th>
+                    <Th>Paket</Th>
+                    <Th>Rombel</Th>
+                    <Th>Jendela waktu</Th>
+                    <Th>Attempt</Th>
+                    <Th>Status</Th>
+                  </Tr>
+                </Thead>
+                <tbody>
+                  {pageRows.map((a) => (
+                    <Tr key={a.id}>
+                      <Td className="font-medium text-slate-900">{a.sekolahNama}</Td>
+                      <Td>
+                        <Link href={`/admin-pusat/jadwal-ujian/${a.id}`} className="text-slate-900 hover:underline">
+                          {a.paketNama}
+                        </Link>
+                      </Td>
+                      <Td>{a.kelas}</Td>
+                      <Td className="text-xs">
+                        {formatWIB(a.mulai)} — {formatWIB(a.selesai)}
+                      </Td>
+                      <Td>{a.jumlahAttempt}</Td>
+                      <Td>
+                        <Badge variant={a.isActive ? "success" : "neutral"}>
+                          {a.isActive ? "Aktif" : "Nonaktif"}
+                        </Badge>
+                      </Td>
+                    </Tr>
+                  ))}
+                </tbody>
+              </Table>
+            </TableContainer>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={assignments.length}
+              onPageChange={setPage}
+              pageSize={pageSize}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }
