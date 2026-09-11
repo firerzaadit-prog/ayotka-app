@@ -27,8 +27,8 @@ export default function LoginPage() {
       <AuthSplitLayout
         accent="siswa"
         eyebrow="Tes Kemampuan Akademik"
-        bannerTitle="Uji kemampuanmu, raih hasil terbaikmu"
-        bannerSubtitle="Kerjakan TKA, lihat pembahasan lengkap tiap soal, dan pantau perkembangan belajarmu lewat analisis berbasis AI."
+        bannerTitle="Tes Kemampuan Akademik, Raih Hasil Terbaikmu"
+        bannerSubtitle="Kerjakan TKA, lihat pembahasan lengkap tiap soal, dan pantau perkembangan belajarmu lewat analisis berbasis Learning Analytics."
         bannerIcon={
           <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7 text-white">
             <path
