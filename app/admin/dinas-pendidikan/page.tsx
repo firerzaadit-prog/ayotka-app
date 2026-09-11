@@ -26,7 +26,7 @@ export default function DinasPendidikanLoginPage() {
         <p className="mt-1 text-sm text-slate-500">Masuk dengan akun yang diberikan Admin Pusat AyoTKA.</p>
       </div>
 
-      <LoginForm identifierLabel="Email" identifierAutoComplete="username" />
+      <LoginForm identifierLabel="Email" identifierAutoComplete="username" expectedRole="dinas_pendidikan" />
 
       <p className="mt-6 text-center text-sm text-slate-500">
         Lupa password?{" "}

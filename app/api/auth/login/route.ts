@@ -94,6 +94,34 @@ export async function POST(request: Request) {
 
   const role = (data.user.app_metadata as { role?: string }).role ?? "siswa";
 
+  // Tiket keamanan portal: kalau pengirim menyertakan field `portal`, pastikan
+  // role akun yang baru login sesuai dengan portal yang digunakan. Misalnya,
+  // akun admin_pusat tidak boleh bisa masuk lewat halaman login siswa (/login).
+  // Error ini aman diungkap karena hanya tercapai setelah password terbukti
+  // benar - sama seperti pola email_not_confirmed & user_banned di atas.
+  const portal = parsed.data.portal;
+  if (portal && role !== portal) {
+    // Khusus /admin-sekolah: admin_pusat memang boleh masuk lewat portal
+    // admin_sekolah (mode "Kelola Sekolah" - lihat proxy.ts ROLE_PREFIXES).
+    const isAdminPusatOnSekolahPortal =
+      portal === "admin_sekolah" && role === "admin_pusat";
+    if (!isAdminPusatOnSekolahPortal) {
+      await supabase.auth.signOut();
+      const PORTAL_LABEL: Record<string, string> = {
+        siswa: "siswa",
+        admin_sekolah: "admin sekolah",
+        admin_pusat: "admin pusat",
+        dinas_pendidikan: "dinas pendidikan",
+      };
+      return NextResponse.json(
+        {
+          error: `Halaman ini hanya untuk ${PORTAL_LABEL[portal] ?? portal}. Silakan gunakan halaman login yang sesuai dengan akun kamu.`,
+        },
+        { status: 403 },
+      );
+    }
+  }
+
   // Beda dari status akun (di atas): ini soal langganan SEKOLAHNYA, bukan
   // akunnya sendiri - kredensialnya valid & akunnya aktif, jadi wajar dikasih
   // alasan jelas (bukan pesan generik) supaya tahu harus hubungi siapa. Cek

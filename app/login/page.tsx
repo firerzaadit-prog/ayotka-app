@@ -34,7 +34,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <LoginForm identifierLabel="Email atau NISN" />
+      <LoginForm identifierLabel="Email atau NISN" expectedRole="siswa" />
 
       <div className="mt-6 flex flex-col items-center gap-2">
         <Link href="/forgot-password" className="text-sm text-slate-500 hover:text-slate-700">

@@ -9,13 +9,19 @@ import { Input, Label, FieldError } from "@/components/ui/input";
  * Form login yang dipakai bersama oleh siswa, admin sekolah, dan admin
  * pusat - ketiganya submit ke endpoint yang sama (role-agnostic, ditentukan
  * dari app_metadata di server) dan cuma beda label field & auto-complete.
+ *
+ * `expectedRole` dipakai untuk memvalidasi di server bahwa role akun yang
+ * login memang sesuai dengan portal halaman ini - mencegah, misalnya, admin
+ * pusat login lewat halaman siswa (lihat app/api/auth/login/route.ts).
  */
 export function LoginForm({
   identifierLabel,
   identifierAutoComplete = "username",
+  expectedRole,
 }: {
   identifierLabel: string;
   identifierAutoComplete?: string;
+  expectedRole?: "siswa" | "admin_sekolah" | "admin_pusat" | "dinas_pendidikan";
 }) {
   const router = useRouter();
   const [emailOrNisn, setEmailOrNisn] = useState("");
@@ -32,7 +38,7 @@ export function LoginForm({
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emailOrNisn, password }),
+        body: JSON.stringify({ emailOrNisn, password, portal: expectedRole }),
       });
       const data = await res.json();
 

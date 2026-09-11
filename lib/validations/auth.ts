@@ -5,9 +5,15 @@ import { z } from "zod";
  * (10 digit angka) - siswa SD tanpa email login pakai NISN, backend yang
  * menerjemahkannya jadi email sintetis (lihat app/api/auth/login/route.ts).
  */
+/**
+ * `portal` menunjukkan halaman login mana yang dipakai user. Divalidasi di
+ * server untuk memastikan role akun yang login sesuai dengan portal-nya -
+ * mencegah admin pusat/sekolah login lewat halaman siswa (atau sebaliknya).
+ */
 export const loginSchema = z.object({
   emailOrNisn: z.string().trim().min(1, "Email atau NISN wajib diisi"),
   password: z.string().min(1, "Password wajib diisi"),
+  portal: z.enum(["siswa", "admin_sekolah", "admin_pusat", "dinas_pendidikan"]).optional(),
 });
 
 export const forgotPasswordSchema = z.object({
