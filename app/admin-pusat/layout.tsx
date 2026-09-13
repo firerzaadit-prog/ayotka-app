@@ -46,6 +46,7 @@ export default async function AdminPusatLayout({
           <SidebarSection label="Ujian">
             <SidebarLink href="/admin-pusat/jadwal-ujian">Jadwal Ujian</SidebarLink>
             <SidebarLink href="/admin-pusat/pelanggaran-ujian">Pelanggaran Ujian</SidebarLink>
+            <SidebarLink href="/admin-pusat/analisis-ai-gagal">Analisis AI Gagal</SidebarLink>
           </SidebarSection>
 
           <SidebarSection label="Monetisasi">

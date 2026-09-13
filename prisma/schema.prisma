@@ -527,6 +527,14 @@ model Attempt {
   /// (dulu Set/Map in-memory di lib/ai/analysis-guard.ts), alasan sama.
   aiAnalysisProcessingAt DateTime? @map("ai_analysis_processing_at")
   aiAnalysisLastError    String?   @map("ai_analysis_last_error")
+  /// Diisi HANYA saat analisis AI OTOMATIS (dipicu finalizeAttempt, bukan
+  /// tombol manual admin) berhasil untuk attempt ini - dipakai menghitung
+  /// jatah "maksimal N kali analisis otomatis per siswa per mata pelajaran"
+  /// (lihat lib/ai/auto-trigger.ts). Sengaja terpisah dari keberadaan baris
+  /// ai_analyses (yang bisa ditimpa ulang oleh trigger manual admin kapan
+  /// saja) - begitu jatah terpakai, tetap terhitung terpakai walau baris
+  /// ai_analyses attempt ini belakangan ditimpa manual oleh admin.
+  aiAutoAnalysisAt DateTime? @map("ai_auto_analysis_at")
 
   student    Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
   package    Package     @relation(fields: [packageId], references: [id], onDelete: Restrict)
@@ -600,6 +608,18 @@ model AiAnalysis {
   attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@map("ai_analyses")
+}
+
+/// Baris tunggal (id selalu "global") untuk pengaturan global yang admin
+/// pusat bisa ubah lewat UI, tanpa perlu redeploy - dimulai dari batas
+/// jatah analisis AI otomatis (lihat lib/ai/auto-trigger.ts). Kalau nanti
+/// ada pengaturan global lain, tambahkan kolom baru di sini, bukan baris baru.
+model AppSetting {
+  id                          String   @id @default("global")
+  aiAutoAnalysisMaxPerSubject Int      @default(3) @map("ai_auto_analysis_max_per_subject")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  @@map("app_settings")
 }
 
 // ---------------------------------------------------------------------------
