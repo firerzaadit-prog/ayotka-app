@@ -8,6 +8,10 @@ import { isProcessing, tryStartProcessing, finishProcessing, setLastError } from
 import { PROMPT_VERSION } from "@/lib/ai/version";
 import type { Attempt } from "@prisma/client";
 
+// Gemini API bisa butuh 30-60 detik - naikkan limit Vercel dari default 10 detik.
+// Berlaku juga untuk after() callback yang menjalankan AI di background.
+export const maxDuration = 300;
+
 type RouteParams = { params: Promise<{ id: string }> };
 
 /**

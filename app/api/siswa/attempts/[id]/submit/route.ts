@@ -5,6 +5,10 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { loadOwnedAttempt, sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { finalizeAttempt } from "@/lib/exam/finalize";
 
+// finalizeAttempt memicu analisis AI otomatis via after() - limit Vercel perlu
+// dinaikkan supaya Gemini (bisa 30-60 detik) tidak di-kill di tengah jalan.
+export const maxDuration = 300;
+
 type RouteParams = { params: Promise<{ id: string }> };
 
 /** Tiket 4.10: submit manual - skoring otomatis (lihat lib/exam/finalize.ts). */

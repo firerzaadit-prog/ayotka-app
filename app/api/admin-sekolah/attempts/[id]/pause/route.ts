@@ -7,6 +7,9 @@ import { getRemainingSeconds, isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
 import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 
+// finalizeAttempt memicu analisis AI via after() - naikkan limit Vercel.
+export const maxDuration = 300;
+
 type RouteParams = { params: Promise<{ id: string }> };
 
 /**

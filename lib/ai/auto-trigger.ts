@@ -57,6 +57,27 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
 
     after(async () => {
       try {
+        // Re-check quota di dalam after() sebagai authoritative check - mengatasi
+        // race condition di Vercel multi-instance: dua instance bisa sama-sama lolos
+        // optimistic check di luar (usedCount dihitung sebelum instance lain selesai
+        // tulis aiAutoAnalysisAt). Check ulang di sini mempersempit window race
+        // dari "antara check dan after()" menjadi "antara dua after() callback",
+        // yang jauh lebih kecil dan hanya terjadi kalau dua attempt selesai
+        // dalam waktu hampir bersamaan untuk siswa+mapel yang sama.
+        const freshCount = await prisma.attempt.count({
+          where: {
+            studentId: attempt.studentId,
+            aiAutoAnalysisAt: { not: null },
+            package: { subjectId: pkg.subjectId },
+          },
+        });
+        if (hasReachedAutoAnalysisQuota(freshCount, settings.aiAutoAnalysisMaxPerSubject)) {
+          console.log(
+            `[auto-trigger] quota terlampaui saat re-check (race condition), skip attempt ${attempt.id}`,
+          );
+          return; // finally block akan memanggil finishProcessing
+        }
+
         await runAnalisisAi(attempt);
         await prisma.attempt.update({
           where: { id: attempt.id },

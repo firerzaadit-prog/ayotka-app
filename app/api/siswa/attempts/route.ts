@@ -9,6 +9,9 @@ import { finalizeAttempt } from "@/lib/exam/finalize";
 import { canStartViaSubjectQuota, consumeSubjectTryOut } from "@/lib/billing/subject-tryout";
 import { z } from "zod";
 
+// POST handler memanggil finalizeAttempt (saat expired) yang memicu AI via after().
+export const maxDuration = 300;
+
 const startAttemptSchema = z
   .object({
     assignmentId: z.string().uuid().optional(),
