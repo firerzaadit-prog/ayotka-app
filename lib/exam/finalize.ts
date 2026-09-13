@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { aggregateCompetency, computeSkorAkhir, scoreQuestion } from "@/lib/exam/scoring";
+import { triggerAutoAnalysis } from "@/lib/ai/auto-trigger";
 
 /**
  * Jalankan semua task dengan batas konkurensi, bukan Promise.all tanpa batas.
@@ -113,7 +114,7 @@ export async function finalizeAttempt(
   );
 
   // Update status attempt TERAKHIR - ini menjadi sinyal bahwa finalize selesai
-  await prisma.attempt.update({
+  const finalAttempt = await prisma.attempt.update({
     where: { id: attemptId },
     data: {
       status: finalStatus,
@@ -122,4 +123,10 @@ export async function finalizeAttempt(
       skorAkhir,
     },
   });
+
+  // Keputusan user: analisis AI kini otomatis terpicu setiap attempt selesai
+  // (lihat lib/ai/auto-trigger.ts untuk jatah & alasannya) - dipanggil di
+  // sini supaya konsisten untuk SEMUA jalur penyelesaian attempt (submit
+  // manual & auto-expiry) yang semuanya lewat finalizeAttempt ini.
+  await triggerAutoAnalysis(finalAttempt);
 }

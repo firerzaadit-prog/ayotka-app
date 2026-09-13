@@ -37,12 +37,15 @@ async function loadAttemptForAdmin(user: CurrentUser, attemptId: string): Promis
 }
 
 /**
- * Tiket 5.3 (keputusan user): analisis AI dipicu manual oleh admin pusat
- * atau admin sekolah lewat tombol - bukan otomatis untuk setiap attempt
- * selesai (jadi cost AI terkendali, sekolah/pusat yang pilih siswa mana
- * yang perlu dianalisis). Proses AI-nya sendiri tetap tidak memblokir:
- * endpoint ini langsung balas "processing" dan pemanggilan Gemini (yang
- * bisa retry sampai puluhan detik) jalan di background.
+ * Endpoint ini SEKARANG jadi jalur manual/pemulihan - sejak analisis AI
+ * dipicu otomatis di finalizeAttempt untuk setiap attempt selesai (lihat
+ * lib/ai/auto-trigger.ts), admin pusat/sekolah pakai tombol ini untuk
+ * "Analisis ulang" atau memproses ulang attempt yang gagal/kena jatah
+ * otomatis (lihat Daftar Analisis AI Gagal). Endpoint ini SENGAJA tidak
+ * dibatasi jatah aiAutoAnalysisMaxPerSubject - itu cuma berlaku untuk
+ * pemicu otomatis, bukan tombol manual admin. Proses AI-nya sendiri tetap
+ * tidak memblokir: endpoint ini langsung balas "processing" dan pemanggilan
+ * Gemini (yang bisa retry sampai puluhan detik) jalan di background.
  */
 export async function POST(_request: Request, { params }: RouteParams) {
   let user;
@@ -123,7 +126,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
     // ini sendiri harus sudah bersih sebelum sampai ke browser siswa.
     return noStoreJson({
       status: "error",
-      error: user.role === "siswa" ? "Analisis belum tersedia, coba lagi nanti." : attempt.aiAnalysisLastError,
+      error:
+        user.role === "siswa"
+          ? "Analisis AI belum berhasil diproses. Silakan hubungi admin pusat untuk memprosesnya kembali."
+          : attempt.aiAnalysisLastError,
     });
   }
   return noStoreJson({ status: "none" });

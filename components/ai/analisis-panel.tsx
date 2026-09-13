@@ -22,6 +22,21 @@ type StatusResponse =
 const POLL_MS = 5000;
 const MAX_POLLS = 24; // ~2 menit (10s + 20s + 40s backoff internal + overhead)
 
+/**
+ * Ditampilkan bergantian selama status "processing" - progres asli tidak
+ * diketahui (waktu respons Gemini bervariasi), jadi sengaja bukan progress
+ * bar persentase, tapi teks yang berganti supaya siswa/admin tahu sistem
+ * masih bekerja. Pesan terakhir (di luar array ini) jadi pesan menetap
+ * untuk penantian yang lebih lama - lihat processingMessage di bawah.
+ */
+const PROCESSING_MESSAGES = [
+  "Membaca jawabanmu...",
+  "Menganalisis pola kompetensi...",
+  "Menyusun rekomendasi belajar...",
+];
+const PROCESSING_MESSAGE_LONG_WAIT = "Masih diproses, hasil akan muncul otomatis di halaman ini...";
+const PROCESSING_MESSAGE_INTERVAL_MS = 3500;
+
 const FORMAT_TANGGAL = new Intl.DateTimeFormat("id-ID", {
   dateStyle: "medium",
   timeStyle: "short",
@@ -40,6 +55,7 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
   const [data, setData] = useState<StatusResponse | null>(null);
   const [pollTick, setPollTick] = useState(0);
   const pollCountRef = useRef(0);
+  const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -68,6 +84,19 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
     return () => clearTimeout(timer);
   }, [data]);
 
+  // Ganti pesan reassurance secara berkala selagi masih "processing" - timer
+  // terpisah dari siklus polling (POLL_MS) supaya perpindahan teksnya terasa
+  // hidup, bukan cuma "melompat" tiap kali fetch status jalan. Reset ke
+  // pesan pertama terjadi di handleTrigger (siklus baru dimulai dari sana),
+  // bukan di effect ini, supaya tidak setState sinkron di badan effect.
+  useEffect(() => {
+    if (data?.status !== "processing") return;
+    const timer = setInterval(() => {
+      setMessageIndex((i) => Math.min(i + 1, PROCESSING_MESSAGES.length));
+    }, PROCESSING_MESSAGE_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [data?.status]);
+
   // Kalau status sudah "ready", effect polling di atas berhenti - tab yang
   // sudah lama terbuka (mis. siswa buka halaman hasil sebelum admin klik
   // "Analisis ulang") tidak akan pernah tahu ada hasil baru tanpa ini.
@@ -88,6 +117,7 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
 
   async function handleTrigger() {
     pollCountRef.current = 0;
+    setMessageIndex(0);
     setData({ status: "processing" });
     const res = await fetch(`/api/attempts/${attemptId}/analisis-ai`, { method: "POST" });
     const json = await res.json().catch(() => null);
@@ -99,6 +129,8 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
   }
 
   if (!data) return null;
+
+  const processingMessage = PROCESSING_MESSAGES[messageIndex] ?? PROCESSING_MESSAGE_LONG_WAIT;
 
   return (
     <Card>
@@ -127,13 +159,25 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
         </p>
       )}
       {data.status === "processing" && (
-        <p className="text-sm text-slate-500">Sedang diproses, biasanya beberapa detik sampai satu menit...</p>
+        <div className="flex items-center gap-4 py-1">
+          <div className="ai-processing-icon" aria-hidden="true">
+            <div className="ai-processing-icon__glow" />
+            <div className="ai-processing-icon__ring" />
+            <div className="ai-processing-icon__core" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <p key={processingMessage} className="ai-processing-message text-sm font-medium text-slate-700">
+              {processingMessage}
+            </p>
+            <p className="text-xs text-slate-400">Biasanya beberapa detik sampai satu menit.</p>
+          </div>
+        </div>
       )}
       {data.status === "error" && (
         <Alert variant="danger">
           {canTrigger
             ? data.error
-            : "Analisis belum tersedia, coba lagi nanti."}
+            : "Analisis AI belum berhasil diproses. Silakan hubungi admin pusat untuk memprosesnya kembali."}
         </Alert>
       )}
       {data.status === "ready" && (

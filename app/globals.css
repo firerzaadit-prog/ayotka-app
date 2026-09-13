@@ -12,3 +12,75 @@ body {
   background: var(--color-background);
   font-family: var(--font-poppins), system-ui, sans-serif;
 }
+
+/*
+ * Indikator "Analisis AI sedang diproses" (lihat AnalisisAiPanel) - sengaja
+ * bukan progress bar persentase karena progres asli tidak diketahui (waktu
+ * Gemini merespons bervariasi), jadi dibuat terasa "hidup"/reassuring lewat
+ * ikon bulat berdenyut + cincin berputar, dikombinasikan dengan teks yang
+ * bergantian di komponennya.
+ */
+@keyframes ai-glow-pulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.4; }
+  50% { transform: scale(1.15); opacity: 0.7; }
+}
+
+@keyframes ai-ring-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ai-core-pulse {
+  0%, 100% { transform: scale(0.85); }
+  50% { transform: scale(1.1); }
+}
+
+@keyframes ai-message-fade {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.ai-processing-icon {
+  position: relative;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+}
+
+.ai-processing-icon__glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.35), transparent 70%);
+  animation: ai-glow-pulse 2.2s ease-in-out infinite;
+}
+
+.ai-processing-icon__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2.5px solid #e0e7ff;
+  border-top-color: #6366f1;
+  border-right-color: #818cf8;
+  animation: ai-ring-spin 1.1s linear infinite;
+}
+
+.ai-processing-icon__core {
+  position: absolute;
+  inset: 30%;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  animation: ai-core-pulse 2.2s ease-in-out infinite;
+}
+
+.ai-processing-message {
+  animation: ai-message-fade 0.35s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-processing-icon__glow,
+  .ai-processing-icon__ring,
+  .ai-processing-icon__core,
+  .ai-processing-message {
+    animation: none;
+  }
+}
