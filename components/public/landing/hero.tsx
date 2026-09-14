@@ -16,18 +16,14 @@ const KOMPETENSI = [
  */
 export function Hero() {
   return (
-    <section className="mx-auto max-w-6xl px-6 py-16 sm:py-20 lg:py-24">
-      <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+    <section className="bg-[#B5C8F4]">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-12 px-6 py-16 sm:py-20 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 lg:py-24">
         <div>
           <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
             AyoTKA.id — Tes Kemampuan Akademik SD &amp; SMP
           </p>
           <h1 className="mt-4 text-4xl font-bold leading-tight text-balance text-slate-900 sm:text-5xl">
-            Nilai Tes Kemampuan Akademik{" "}
-            <span className="bg-gradient-to-br from-indigo-600 to-violet-600 bg-clip-text text-transparent">
-              68
-            </span>
-            . Tapi kelebihan &amp; kelemahan materi di sebelah mana?
+            Nilai Tes Kemampuan Akademik 68. Tapi kelebihan &amp; kelemahan materi di sebelah mana?
           </h1>
           <div className="my-6 h-1.5 w-24 rounded-full bg-gradient-to-r from-indigo-600 to-violet-600" />
           <p className="max-w-lg text-base leading-relaxed text-slate-600">
@@ -38,7 +34,7 @@ export function Hero() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/registrasi"
-              className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-6 py-3 text-center text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:scale-[1.02] hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500"
+              className="rounded-lg bg-gradient-to-r from-indigo-600 to-black px-6 py-3 text-center text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:scale-[1.02] hover:shadow-md hover:shadow-indigo-600/30"
             >
               Daftar sebagai siswa
             </Link>

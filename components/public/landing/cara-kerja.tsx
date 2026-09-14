@@ -31,7 +31,7 @@ export function CaraKerja() {
           {LANGKAH.map((l, i) => (
             <Reveal key={l.judul} delay={i * 80}>
               <div className="flex gap-4">
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 font-mono text-sm font-bold text-white">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-black to-violet-600 font-mono text-sm font-bold text-white">
                   {i + 1}
                 </span>
                 <div>

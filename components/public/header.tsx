@@ -11,11 +11,11 @@ const NAV_LINKS = [
   { href: "/#faq", label: "Tanya Jawab" },
 ] as const;
 
-const CTA_CLASS =
+const MASUK_CLASS =
   "rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500";
 
-const SECONDARY_CTA_CLASS =
-  "rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50";
+const DAFTAR_CLASS =
+  "rounded-lg bg-black px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800";
 
 /**
  * Dipakai di semua halaman publik (landing, Kerangka Asesmen) - sebelumnya
@@ -36,7 +36,7 @@ export function PublicHeader({ active }: { active?: string }) {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 px-6 py-4 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-[#E0D1D1]/90 px-6 py-4 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900">
           <div className="relative h-10 w-10 shrink-0">
@@ -51,16 +51,16 @@ export function PublicHeader({ active }: { active?: string }) {
               {link.label}
             </Link>
           ))}
-          <Link href="/login" className={SECONDARY_CTA_CLASS}>
+          <Link href="/login" className={MASUK_CLASS}>
             Masuk
           </Link>
-          <Link href="/registrasi" className={CTA_CLASS}>
+          <Link href="/registrasi" className={DAFTAR_CLASS}>
             Daftar
           </Link>
         </nav>
 
         <div className="flex items-center gap-2 sm:hidden">
-          <Link href="/registrasi" className={CTA_CLASS}>
+          <Link href="/registrasi" className={DAFTAR_CLASS}>
             Daftar
           </Link>
           <button
