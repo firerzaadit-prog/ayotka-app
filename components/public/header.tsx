@@ -5,13 +5,17 @@ import Link from "next/link";
 import Image from "next/image";
 
 const NAV_LINKS = [
-  { href: "/", label: "Beranda" },
   { href: "/kerangka-asesmen", label: "Kerangka Asesmen" },
-  { href: "/registrasi", label: "Daftar" },
+  { href: "/#cara-kerja", label: "Cara Kerja" },
+  { href: "/#harga", label: "Harga" },
+  { href: "/#faq", label: "Tanya Jawab" },
 ] as const;
 
 const CTA_CLASS =
   "rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500";
+
+const SECONDARY_CTA_CLASS =
+  "rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50";
 
 /**
  * Dipakai di semua halaman publik (landing, Kerangka Asesmen) - sebelumnya
@@ -22,7 +26,7 @@ const CTA_CLASS =
  * halaman publik baru, dan tidak lagi gampang tidak-sinkron antar halaman
  * (pernah kejadian - link "Beranda" ketinggalan di salah satu halaman).
  */
-export function PublicHeader({ active }: { active: (typeof NAV_LINKS)[number]["href"] }) {
+export function PublicHeader({ active }: { active?: string }) {
   const [open, setOpen] = useState(false);
 
   function linkClass(href: (typeof NAV_LINKS)[number]["href"]) {
@@ -47,14 +51,17 @@ export function PublicHeader({ active }: { active: (typeof NAV_LINKS)[number]["h
               {link.label}
             </Link>
           ))}
-          <Link href="/login" className={CTA_CLASS}>
+          <Link href="/login" className={SECONDARY_CTA_CLASS}>
             Masuk
+          </Link>
+          <Link href="/registrasi" className={CTA_CLASS}>
+            Daftar
           </Link>
         </nav>
 
         <div className="flex items-center gap-2 sm:hidden">
-          <Link href="/login" className={CTA_CLASS}>
-            Masuk
+          <Link href="/registrasi" className={CTA_CLASS}>
+            Daftar
           </Link>
           <button
             type="button"
@@ -90,6 +97,13 @@ export function PublicHeader({ active }: { active: (typeof NAV_LINKS)[number]["h
               {link.label}
             </Link>
           ))}
+          <Link
+            href="/login"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+          >
+            Masuk
+          </Link>
         </nav>
       )}
     </header>
