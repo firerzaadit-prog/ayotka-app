@@ -28,6 +28,7 @@ enum Role {
   admin_sekolah
   admin_pusat
   dinas_pendidikan
+  mitra
 }
 
 enum UserStatus {
@@ -47,16 +48,15 @@ model User {
   emailVerifiedAt DateTime?  @map("email_verified_at")
   lastLoginAt     DateTime?  @map("last_login_at")
 
-  schoolUsers            SchoolUser[]
-  studentProfile         Student?
-  waliKelasOf            Class[]              @relation("ClassWaliKelas")
-  createdQuestions       Question[]           @relation("QuestionCreatedBy")
-  subjectTryOutOrders    SubjectTryOutOrder[] @relation("SubjectTryOutOrderCustomer")
-  subjectTryOutApprovals SubjectTryOutOrder[] @relation("SubjectTryOutOrderApprovedBy")
-  subjectTryOutQuotas    SubjectTryOutQuota[]
-  schoolSubjectQuotasCreated SchoolSubjectQuota[] @relation("SchoolSubjectQuotaCreatedBy")
-  loginLogs              LoginLog[]
-  auditLogs              AuditLog[]
+  schoolUsers          SchoolUser[]
+  studentProfile       Student?
+  partnerProfile       Partner?
+  waliKelasOf          Class[]      @relation("ClassWaliKelas")
+  createdQuestions     Question[]   @relation("QuestionCreatedBy")
+  vouchersGenerated    Voucher[]    @relation("VoucherGeneratedBy")
+  schoolSeatsActivated School[]     @relation("SchoolSeatActivatedBy")
+  loginLogs            LoginLog[]
+  auditLogs            AuditLog[]
 
   @@map("users")
 }
@@ -68,20 +68,32 @@ enum SchoolStatus {
 }
 
 model School {
-  id                String       @id @default(uuid()) @db.Uuid
-  npsn              String?      @unique
-  nama              String
-  jenjang           Jenjang
-  alamat            String?
-  kodeSekolah       String       @unique @map("kode_sekolah")
-  status            SchoolStatus @default(pending_verifikasi)
+  id                  String       @id @default(uuid()) @db.Uuid
+  npsn                String?      @unique
+  nama                String
+  jenjang             Jenjang
+  alamat              String?
+  kodeSekolah         String       @unique @map("kode_sekolah")
+  status              SchoolStatus @default(pending_verifikasi)
+  /// Bagian 5 Jalur B: kuota kursi & masa berlaku diaktifkan manual oleh
+  /// admin pusat setelah transfer dikonfirmasi di luar sistem — bukan hasil
+  /// checkout mandiri. seatQuota null berarti belum pernah diaktifkan.
+  seatQuota           Int?         @map("seat_quota")
+  validUntil          DateTime?    @map("valid_until")
+  seatActivatedById   String?      @map("seat_activated_by_id") @db.Uuid
+  /// Bagian 4.1: rujukan mitra WAJIB dicatat sebelum seatQuota diaktifkan,
+  /// bukan sesudah — lihat lib/billing/partner-commission.ts.
+  referredByPartnerId String?      @map("referred_by_partner_id") @db.Uuid
 
-  schoolUsers       SchoolUser[]
-  classes           Class[]
-  students          Student[]
-  packageVisibility PackageVisibility[]
-  assignments       Assignment[]
-  schoolSubjectQuotas SchoolSubjectQuota[]
+  schoolUsers        SchoolUser[]
+  classes            Class[]
+  students           Student[]
+  packageVisibility  PackageVisibility[]
+  assignments        Assignment[]
+  seatActivatedBy    User?               @relation("SchoolSeatActivatedBy", fields: [seatActivatedById], references: [id], onDelete: SetNull)
+  referredByPartner  Partner?            @relation(fields: [referredByPartnerId], references: [id], onDelete: SetNull)
+  entitlements       Entitlement[]
+  partnerCommissions PartnerCommission[]
 
   @@map("schools")
 }
@@ -97,12 +109,11 @@ model Subject {
   nama    String
   jenjang Jenjang
 
-  materi              Materi[]
-  blueprints          Blueprint[]
-  packages            Package[]
-  tryOutOrderItems    SubjectTryOutOrderItem[]
-  tryOutQuotas        SubjectTryOutQuota[]
-  schoolSubjectQuotas SchoolSubjectQuota[]
+  materi     Materi[]
+  blueprints Blueprint[]
+  packages   Package[]
+  plans      Plan[]
+  invoices   Invoice[]
 
   @@map("subjects")
 }
@@ -226,25 +237,34 @@ enum StudentStatus {
 }
 
 model Student {
-  id           String        @id @default(uuid()) @db.Uuid
-  userId       String?       @unique @map("user_id") @db.Uuid
-  schoolId     String?       @map("school_id") @db.Uuid
-  nisn         String?       @unique
-  nama         String
-  jenjang      Jenjang
-  tingkat      Int
-  jalur        Jalur
-  claimToken   String?       @unique @map("claim_token")
-  claimStatus  ClaimStatus   @default(belum_klaim) @map("claim_status")
-  tanggalLahir DateTime?     @map("tanggal_lahir") @db.Date
-  status       StudentStatus @default(pending)
+  id                  String        @id @default(uuid()) @db.Uuid
+  userId              String?       @unique @map("user_id") @db.Uuid
+  schoolId            String?       @map("school_id") @db.Uuid
+  nisn                String?       @unique
+  nama                String
+  jenjang             Jenjang
+  tingkat             Int
+  jalur               Jalur
+  claimToken          String?       @unique @map("claim_token")
+  claimStatus         ClaimStatus   @default(belum_klaim) @map("claim_status")
+  tanggalLahir        DateTime?     @map("tanggal_lahir") @db.Date
+  status              StudentStatus @default(pending)
+  waKontak            String?       @map("wa_kontak")
+  /// Bagian 3 & 6.4: diskon referral 30% hanya berlaku untuk transaksi
+  /// pertama siswa yang direferensikan — lihat lib/billing/referral.ts.
+  referredByStudentId String?       @map("referred_by_student_id") @db.Uuid
   /// Bagian 7.2: soal & siswa tidak boleh dihapus permanen, hanya soft delete.
-  deletedAt    DateTime?     @map("deleted_at")
+  deletedAt           DateTime?     @map("deleted_at")
 
-  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  school      School?             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
-  enrollments StudentEnrollment[]
-  attempts    Attempt[]
+  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  school       School?             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  referredBy   Student?            @relation("StudentReferral", fields: [referredByStudentId], references: [id], onDelete: SetNull)
+  referrals    Student[]           @relation("StudentReferral")
+  enrollments  StudentEnrollment[]
+  attempts     Attempt[]
+  invoices     Invoice[]
+  entitlements Entitlement[]
+  vouchersUsed Voucher[]
 
   @@map("students")
 }
@@ -478,13 +498,13 @@ model QuestionStatement {
 // ---------------------------------------------------------------------------
 
 model Assignment {
-  id        String    @id @default(uuid()) @db.Uuid
-  packageId String    @map("package_id") @db.Uuid
-  classId   String?   @map("class_id") @db.Uuid
-  schoolId  String?   @map("school_id") @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
+  packageId String   @map("package_id") @db.Uuid
+  classId   String?  @map("class_id") @db.Uuid
+  schoolId  String?  @map("school_id") @db.Uuid
   mulai     DateTime
   selesai   DateTime
-  isActive  Boolean   @default(true) @map("is_active")
+  isActive  Boolean  @default(true) @map("is_active")
 
   package  Package   @relation(fields: [packageId], references: [id], onDelete: Restrict)
   class    Class?    @relation(fields: [classId], references: [id], onDelete: Restrict)
@@ -502,31 +522,31 @@ enum AttemptStatus {
 }
 
 model Attempt {
-  id             String        @id @default(uuid()) @db.Uuid
-  studentId      String        @map("student_id") @db.Uuid
-  packageId      String        @map("package_id") @db.Uuid
-  assignmentId   String?       @map("assignment_id") @db.Uuid
-  mulaiAt        DateTime      @map("mulai_at")
-  selesaiAt      DateTime?     @map("selesai_at")
-  status         AttemptStatus @default(berjalan)
-  sisaDetik      Int           @map("sisa_detik")
-  skorMentah     Float?        @map("skor_mentah")
-  skorAkhir      Float?        @map("skor_akhir")
-  ip             String?
-  userAgent      String?       @map("user_agent")
+  id                     String        @id @default(uuid()) @db.Uuid
+  studentId              String        @map("student_id") @db.Uuid
+  packageId              String        @map("package_id") @db.Uuid
+  assignmentId           String?       @map("assignment_id") @db.Uuid
+  mulaiAt                DateTime      @map("mulai_at")
+  selesaiAt              DateTime?     @map("selesai_at")
+  status                 AttemptStatus @default(berjalan)
+  sisaDetik              Int           @map("sisa_detik")
+  skorMentah             Float?        @map("skor_mentah")
+  skorAkhir              Float?        @map("skor_akhir")
+  ip                     String?
+  userAgent              String?       @map("user_agent")
   /// Tiket 4.13: hitung berapa kali siswa pindah tab/aplikasi lain selama
   /// attempt ini - dicatat untuk dipantau admin sekolah & admin pusat,
   /// bukan pembatas otomatis (tidak menggagalkan ujian sendirian).
-  tabSwitchCount Int           @default(0) @map("tab_switch_count")
+  tabSwitchCount         Int           @default(0) @map("tab_switch_count")
   /// Guard "satu sesi aktif per attempt" (dulu Map in-memory di
   /// lib/exam/session-guard.ts) - disimpan di DB supaya konsisten lintas
   /// instance server (deployment serverless bisa multi-instance).
-  activeTabToken    String?   @map("active_tab_token")
-  activeTabLastSeen DateTime? @map("active_tab_last_seen")
+  activeTabToken         String?       @map("active_tab_token")
+  activeTabLastSeen      DateTime?     @map("active_tab_last_seen")
   /// Guard "satu proses analisis AI per attempt" + pesan gagal terakhir
   /// (dulu Set/Map in-memory di lib/ai/analysis-guard.ts), alasan sama.
-  aiAnalysisProcessingAt DateTime? @map("ai_analysis_processing_at")
-  aiAnalysisLastError    String?   @map("ai_analysis_last_error")
+  aiAnalysisProcessingAt DateTime?     @map("ai_analysis_processing_at")
+  aiAnalysisLastError    String?       @map("ai_analysis_last_error")
   /// Diisi HANYA saat analisis AI OTOMATIS (dipicu finalizeAttempt, bukan
   /// tombol manual admin) berhasil untuk attempt ini - dipakai menghitung
   /// jatah "maksimal N kali analisis otomatis per siswa per mata pelajaran"
@@ -534,7 +554,7 @@ model Attempt {
   /// ai_analyses (yang bisa ditimpa ulang oleh trigger manual admin kapan
   /// saja) - begitu jatah terpakai, tetap terhitung terpakai walau baris
   /// ai_analyses attempt ini belakangan ditimpa manual oleh admin.
-  aiAutoAnalysisAt DateTime? @map("ai_auto_analysis_at")
+  aiAutoAnalysisAt       DateTime?     @map("ai_auto_analysis_at")
 
   student    Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
   package    Package     @relation(fields: [packageId], references: [id], onDelete: Restrict)
@@ -623,27 +643,17 @@ model AppSetting {
 }
 
 // ---------------------------------------------------------------------------
-// Grup 18-20: service_packages, bank_accounts, subject tryout orders
+// Grup 18-20: bank_accounts, plans, invoices, entitlements, vouchers,
+// partners, partner_commissions
+//
+// Spesifikasi Perbaikan: Keanggotaan & Pembayaran — AyoTKA. Tiga jalur
+// pembayaran (A siswa individu via Midtrans, B sekolah via transfer manual +
+// aktivasi admin, C mitra/reseller via voucher) masing-masing ditulis
+// terpisah (lib/billing/jalur-a.ts, jalur-b.ts, jalur-c.ts) dan TIDAK saling
+// memanggil fungsi checkout yang sama. entitlements adalah satu-satunya
+// tabel yang dibaca untuk cek akses, lewat getActiveEntitlement()
+// (lib/billing/entitlements.ts) — lihat dokumen rencana untuk detail lengkap.
 // ---------------------------------------------------------------------------
-
-/// Paket layanan TKA: admin pusat bisa buat banyak paket (nama, harga per
-/// mapel, jumlah try out per mapel). Siswa mandiri pilih paket saat checkout.
-/// Bagian 7.3 brief: Rp20.000/siswa/mapel sudah termasuk 3× Try Out — tapi
-/// sekarang dikonfigurasi admin pusat bukan hardcode.
-model ServicePackage {
-  id             String   @id @default(uuid()) @db.Uuid
-  nama           String
-  hargaPerMapel  Int      @map("harga_per_mapel")
-  tryOutPerMapel Int      @default(3) @map("try_out_per_mapel")
-  deskripsi      String?
-  isActive       Boolean  @default(true) @map("is_active")
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  orders SubjectTryOutOrder[]
-
-  @@map("service_packages")
-}
 
 model BankAccount {
   id            String  @id @default(uuid()) @db.Uuid
@@ -655,89 +665,174 @@ model BankAccount {
   @@map("bank_accounts")
 }
 
-enum OrderStatus {
-  menunggu_verifikasi
-  disetujui
-  ditolak
-  kedaluwarsa
+enum PlanKode {
+  free
+  monthly
+  semester
+  school
 }
 
-/// Bagian 7.3 brief: siswa mandiri beli paket try out per mata pelajaran.
-/// Satu order bisa berisi banyak mapel (keranjang). Setiap order harus
-/// mereferensikan ServicePackage yang dipilih — sehingga harga & jumlah
-/// try out yang di-ACC sesuai dengan paket yang berlaku saat transaksi.
-model SubjectTryOutOrder {
-  id                   String      @id @default(uuid()) @db.Uuid
-  userId               String      @map("user_id") @db.Uuid
-  servicePackageId     String      @map("service_package_id") @db.Uuid
-  jumlah               Int
-  status               OrderStatus @default(menunggu_verifikasi)
-  buktiTransferUrl     String?     @map("bukti_transfer_url")
-  catatanAdmin         String?     @map("catatan_admin")
-  disetujuiOlehAdminId String?     @map("disetujui_oleh_admin_id") @db.Uuid
-  disetujuiAt          DateTime?   @map("disetujui_at")
-  createdAt            DateTime    @default(now()) @map("created_at")
+model Plan {
+  id         String   @id @default(uuid()) @db.Uuid
+  kode       PlanKode
+  subjectId  String?  @map("subject_id") @db.Uuid
+  nama       String
+  harga      Int
+  /// null untuk plan `school` — masa berlakunya ikut School.validUntil, bukan durasi tetap.
+  durasiHari Int?     @map("durasi_hari")
+  fitur      Json?
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  user               User                     @relation("SubjectTryOutOrderCustomer", fields: [userId], references: [id], onDelete: Restrict)
-  servicePackage     ServicePackage           @relation(fields: [servicePackageId], references: [id], onDelete: Restrict)
-  disetujuiOlehAdmin User?                    @relation("SubjectTryOutOrderApprovedBy", fields: [disetujuiOlehAdminId], references: [id], onDelete: SetNull)
-  items              SubjectTryOutOrderItem[]
+  subject      Subject?      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  invoices     Invoice[]
+  entitlements Entitlement[]
+  vouchers     Voucher[]
 
-  @@map("subject_tryout_orders")
+  @@map("plans")
 }
 
-/// Mapel-mapel yang dipilih dalam 1 SubjectTryOutOrder - masing-masing selalu
-/// bernilai SUBJECT_TRYOUT_COUNT (3) try out saat order di-ACC (lihat
-/// lib/billing/subject-tryout.ts).
-model SubjectTryOutOrderItem {
-  id        String @id @default(uuid()) @db.Uuid
-  orderId   String @map("order_id") @db.Uuid
-  subjectId String @map("subject_id") @db.Uuid
-
-  order   SubjectTryOutOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  subject Subject            @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-
-  @@unique([orderId, subjectId])
-  @@map("subject_tryout_order_items")
+enum InvoiceStatus {
+  pending
+  paid
+  expired
+  refunded
 }
 
-/// Kuota try out per (siswa, mapel) - kumulatif kalau mapel yang sama dibeli
-/// berkali-kali (total bertambah, tidak pernah diganti). `terpakai` HANYA
-/// bertambah saat kuota inilah yang jadi alasan attempt boleh dimulai (bukan
-/// karena langganan aktif atau uji coba gratis) - lihat consumeSubjectTryOut
-/// di lib/billing/subject-tryout.ts.
-model SubjectTryOutQuota {
-  userId    String @map("user_id") @db.Uuid
-  subjectId String @map("subject_id") @db.Uuid
-  total     Int    @default(0)
-  terpakai  Int    @default(0)
+/// Jalur A saja (siswa individu via payment gateway Midtrans). Jalur B tidak
+/// pernah membuat invoice (aktivasi kursi sekolah = aksi admin langsung ke
+/// entitlements), Jalur C tidak pernah membuat invoice (redeem voucher
+/// langsung ke entitlements) — lihat lib/billing/jalur-b.ts & jalur-c.ts.
+model Invoice {
+  id             String        @id @default(uuid()) @db.Uuid
+  studentId      String        @map("student_id") @db.Uuid
+  planId         String        @map("plan_id") @db.Uuid
+  subjectId      String?       @map("subject_id") @db.Uuid
+  amount         Int
+  status         InvoiceStatus @default(pending)
+  gatewayRef     String?       @unique @map("gateway_ref")
+  paymentChannel String?       @map("payment_channel")
+  expiresAt      DateTime      @map("expires_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  student      Student       @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  plan         Plan          @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subject      Subject?      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  entitlements Entitlement[]
 
-  @@id([userId, subjectId])
-  @@map("subject_tryout_quotas")
+  @@map("invoices")
 }
 
-/// Kuota try out per (sekolah, mapel) - di-set langsung oleh admin pusat
-/// (tanpa payment flow dari sekolah). Setiap siswa sekolah berhak atas
-/// `tryOutPerSiswa` (default 3) try out untuk mapel ini. Pengecekan akses
-/// dihitung dari jumlah attempt selesai per siswa per mapel vs tryOutPerSiswa.
-model SchoolSubjectQuota {
-  id             String   @id @default(uuid()) @db.Uuid
-  schoolId       String   @map("school_id") @db.Uuid
-  subjectId      String   @map("subject_id") @db.Uuid
-  tryOutPerSiswa Int      @default(3) @map("try_out_per_siswa")
-  kuotaSiswa     Int      @map("kuota_siswa")
-  createdBy      String   @map("created_by") @db.Uuid
-  createdAt      DateTime @default(now()) @map("created_at")
+enum EntitlementSource {
+  invoice
+  voucher
+  school_seat
+}
 
-  school    School  @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  createdByUser User @relation("SchoolSubjectQuotaCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+/// Sumber kebenaran tunggal untuk "apakah siswa ini boleh akses tryout
+/// sekarang?" — apa pun jalur pembayarannya. HANYA dibaca lewat
+/// getActiveEntitlement(studentId) di lib/billing/entitlements.ts, tidak ada
+/// logika cek akses lain yang ditulis ulang di tempat lain.
+model Entitlement {
+  id         String            @id @default(uuid()) @db.Uuid
+  studentId  String            @map("student_id") @db.Uuid
+  planId     String            @map("plan_id") @db.Uuid
+  startsAt   DateTime          @map("starts_at")
+  endsAt     DateTime          @map("ends_at")
+  /// Bagian 6.3: selesai ends_at siswa masih boleh lihat riwayat lama sampai
+  /// grace_until, tapi tidak boleh mulai tryout baru.
+  graceUntil DateTime?         @map("grace_until")
+  source     EntitlementSource
+  invoiceId  String?           @map("invoice_id") @db.Uuid
+  voucherId  String?           @map("voucher_id") @db.Uuid
+  schoolId   String?           @map("school_id") @db.Uuid
+  revokedAt  DateTime?         @map("revoked_at")
+  createdAt  DateTime          @default(now()) @map("created_at")
 
-  @@unique([schoolId, subjectId])
-  @@map("school_subject_quotas")
+  student Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  plan    Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  voucher Voucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
+  school  School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+
+  @@index([studentId, revokedAt, startsAt, endsAt])
+  @@map("entitlements")
+}
+
+enum VoucherStatus {
+  unused
+  used
+  void
+}
+
+/// Jalur C saja. Mitra beli batch di luar sistem inti; admin generate N kode
+/// sekaligus (generatedBy). Redeem oleh siswa langsung tulis entitlements,
+/// TIDAK pernah membuat invoice — lihat lib/billing/jalur-c.ts.
+model Voucher {
+  id              String        @id @default(uuid()) @db.Uuid
+  code            String        @unique
+  planId          String        @map("plan_id") @db.Uuid
+  partnerId       String        @map("partner_id") @db.Uuid
+  status          VoucherStatus @default(unused)
+  usedByStudentId String?       @map("used_by_student_id") @db.Uuid
+  usedAt          DateTime?     @map("used_at")
+  generatedById   String        @map("generated_by_id") @db.Uuid
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  plan          Plan          @relation(fields: [planId], references: [id], onDelete: Restrict)
+  partner       Partner       @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  usedByStudent Student?      @relation(fields: [usedByStudentId], references: [id], onDelete: SetNull)
+  generatedBy   User          @relation("VoucherGeneratedBy", fields: [generatedById], references: [id], onDelete: Restrict)
+  entitlements  Entitlement[]
+
+  @@map("vouchers")
+}
+
+/// Mitra/reseller — punya login sendiri (userId, role mitra) dan dashboard
+/// read-only jumlah voucher terpakai per batch. Bagian 6.5: tidak pernah
+/// melihat NISN/nama lengkap siswa yang pakai vouchernya.
+model Partner {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  nama         String
+  kontak       String?
+  referralCode String   @unique @map("referral_code")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user        User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vouchers    Voucher[]
+  schools     School[]
+  commissions PartnerCommission[]
+
+  @@map("partners")
+}
+
+enum CommissionStatus {
+  pending
+  paid
+}
+
+/// Bagian 4.1: sekolah yang datang dari rujukan mitra tetap membayar &
+/// diaktifkan lewat Jalur B tanpa perubahan — baris ini cuma jejak rujukan +
+/// komisi. amount null sampai admin menetapkan nominal manual (tidak bisa
+/// dihitung otomatis karena nilai kontrak sekolah hasil negosiasi per kasus).
+/// Dibuat otomatis begitu School.seatQuota diaktifkan DAN
+/// referredByPartnerId sudah terisi — TIDAK PERNAH retroaktif (Bagian 6.7).
+model PartnerCommission {
+  id        String           @id @default(uuid()) @db.Uuid
+  partnerId String           @map("partner_id") @db.Uuid
+  schoolId  String           @map("school_id") @db.Uuid
+  amount    Int?
+  status    CommissionStatus @default(pending)
+  note      String?
+  createdAt DateTime         @default(now()) @map("created_at")
+  paidAt    DateTime?        @map("paid_at")
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  school  School  @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  @@map("partner_commissions")
 }
 
 // ---------------------------------------------------------------------------

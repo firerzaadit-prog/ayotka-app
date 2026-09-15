@@ -13,7 +13,7 @@ import { z } from "zod";
 export const loginSchema = z.object({
   emailOrNisn: z.string().trim().min(1, "Email atau NISN wajib diisi"),
   password: z.string().min(1, "Password wajib diisi"),
-  portal: z.enum(["siswa", "admin_sekolah", "admin_pusat", "dinas_pendidikan"]).optional(),
+  portal: z.enum(["siswa", "admin_sekolah", "admin_pusat", "dinas_pendidikan", "mitra"]).optional(),
 });
 
 export const forgotPasswordSchema = z.object({

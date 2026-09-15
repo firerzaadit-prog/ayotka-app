@@ -10,14 +10,15 @@ import { TrendChart } from "@/components/ui/trend-chart";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { IconWallet } from "@/components/ui/empty-state-icons";
 import { formatWIBDate, labelPeriodeBulan } from "@/lib/utils/datetime";
+import { useDialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 
 type Transaksi = {
   id: string;
   jumlah: number;
-  disetujuiAt: string | null;
-  userEmail: string;
+  dibayarAt: string;
+  siswaNama: string;
   paket: string;
-  mapel: string[];
 };
 
 type Tren = { periode: string; totalPendapatan: number };
@@ -42,9 +43,13 @@ function formatRupiahRingkas(n: number): string {
 
 /** Tiket 6.10: dashboard pendapatan - total = SUM(jumlah) order disetujui, dihitung server (aggregate DB). */
 export default function PendapatanPage() {
+  const { confirm } = useDialog();
+  const toast = useToast();
   const [data, setData] = useState<Pendapatan | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refundingId, setRefundingId] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -56,7 +61,46 @@ export default function PendapatanPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [refreshKey]);
+
+  async function handleRefund(t: Transaksi) {
+    const ok = await confirm({
+      title: `Refund pembayaran ${t.siswaNama}?`,
+      description: "Invoice akan ditandai refunded dan akses try out siswa ini dicabut.",
+      danger: true,
+    });
+    if (!ok) return;
+
+    setRefundingId(t.id);
+    let res = await fetch(`/api/admin-pusat/invoices/${t.id}/refund`, { method: "POST" });
+    let json = await res.json().catch(() => null);
+
+    if (res.ok && json?.requiresConfirmation) {
+      const proceed = await confirm({
+        title: "Siswa sudah memakai akses ini",
+        description: json.message,
+        danger: true,
+      });
+      if (!proceed) {
+        setRefundingId(null);
+        return;
+      }
+      res = await fetch(`/api/admin-pusat/invoices/${t.id}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force: true }),
+      });
+      json = await res.json().catch(() => null);
+    }
+
+    setRefundingId(null);
+    if (!res.ok) {
+      toast.error(json?.error ?? "Gagal memproses refund.");
+      return;
+    }
+    toast.success("Refund berhasil diproses.");
+    setRefreshKey((k) => k + 1);
+  }
 
   if (!data) {
     return <PageSkeleton />;
@@ -87,7 +131,7 @@ export default function PendapatanPage() {
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold text-slate-900">Daftar Transaksi</h2>
         {data.transaksi.length === 0 ? (
-          <EmptyState icon={<IconWallet />} title="Belum ada transaksi" description="Belum ada order yang disetujui." />
+          <EmptyState icon={<IconWallet />} title="Belum ada transaksi" description="Belum ada invoice yang dibayar." />
         ) : (() => {
           const totalPages = Math.max(1, Math.ceil(data.transaksi.length / pageSize));
           const pageRows = data.transaksi.slice((page - 1) * pageSize, page * pageSize);
@@ -97,24 +141,29 @@ export default function PendapatanPage() {
                 <Table>
                   <Thead>
                     <Tr>
-                      <Th>Tanggal disetujui</Th>
+                      <Th>Tanggal dibayar</Th>
                       <Th>Siswa</Th>
                       <Th>Paket</Th>
                       <Th>Jumlah</Th>
+                      <Th></Th>
                     </Tr>
                   </Thead>
                   <tbody>
                     {pageRows.map((t) => (
                       <Tr key={t.id}>
-                        <Td>{t.disetujuiAt ? formatWIBDate(t.disetujuiAt) : "-"}</Td>
-                        <Td>{t.userEmail}</Td>
-                        <Td>
-                          {t.paket}
-                          {t.mapel.length > 0 && (
-                            <span className="text-slate-400"> — {t.mapel.join(", ")}</span>
-                          )}
-                        </Td>
+                        <Td>{formatWIBDate(t.dibayarAt)}</Td>
+                        <Td>{t.siswaNama}</Td>
+                        <Td>{t.paket}</Td>
                         <Td>{formatRupiah(t.jumlah)}</Td>
+                        <Td className="text-right">
+                          <button
+                            onClick={() => handleRefund(t)}
+                            disabled={refundingId === t.id}
+                            className="text-sm font-medium text-rose-600 hover:underline disabled:opacity-50"
+                          >
+                            {refundingId === t.id ? "Memproses..." : "Refund"}
+                          </button>
+                        </Td>
                       </Tr>
                     ))}
                   </tbody>

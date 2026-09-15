@@ -68,14 +68,14 @@ export default async function AdminPusatDashboardPage() {
     // Batas 40 hari cukup menjangkau seluruh tanggal periode bulan berjalan
     // di zona WIB, dan disaring lagi persis via periodeBulanWIB (bukan batas
     // UTC mentah) supaya batas bulan konsisten dengan /api/admin-pusat/pendapatan.
-    prisma.subjectTryOutOrder.findMany({
-      where: { status: "disetujui", disetujuiAt: { gte: empatPuluhHariLalu() } },
-      select: { jumlah: true, disetujuiAt: true },
+    prisma.invoice.findMany({
+      where: { status: "paid", createdAt: { gte: empatPuluhHariLalu() } },
+      select: { amount: true, createdAt: true },
     }),
   ]);
   const pendapatanBulanIni = orderBulanTerakhir
-    .filter((o) => o.disetujuiAt && periodeBulanWIB(o.disetujuiAt) === periodeIni)
-    .reduce((sum, o) => sum + o.jumlah, 0);
+    .filter((o) => periodeBulanWIB(o.createdAt) === periodeIni)
+    .reduce((sum, o) => sum + o.amount, 0);
 
   return (
     <div className="flex flex-col gap-6">

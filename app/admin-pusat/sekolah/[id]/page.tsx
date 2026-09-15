@@ -10,7 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { isSchoolActive } from "@/lib/schools/active";
-import { SchoolQuotaPanel } from "@/components/sekolah/school-quota-panel";
+import { SchoolSeatPanel } from "@/components/sekolah/school-seat-panel";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { IconUsers } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
@@ -423,7 +423,7 @@ export default function SekolahDetailPage({
       )}
 
       <div className="border-t border-slate-200 pt-6">
-        <SchoolQuotaPanel schoolId={id} />
+        <SchoolSeatPanel schoolId={id} />
       </div>
     </div>
   );

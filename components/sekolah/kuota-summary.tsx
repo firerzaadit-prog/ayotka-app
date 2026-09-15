@@ -1,54 +1,44 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatWIBDate } from "@/lib/utils/datetime";
 
-type Quota = {
-  id: string;
-  tryOutPerSiswa: number;
-  kuotaSiswa: number;
-  subject: { id: string; nama: string; jenjang: string };
-};
+type SeatStatus = { seatQuota: number | null; validUntil: string | null; seatsUsed: number };
 
-/** Ringkasan kuota try out per mapel yang dijatah admin pusat - read-only, dipakai di dashboard & Kelola Siswa admin sekolah. */
+/** Ringkasan kursi (seat) sekolah yang diaktifkan admin pusat - read-only, dipakai di dashboard admin sekolah. */
 export function KuotaSummary() {
-  const [quotas, setQuotas] = useState<Quota[] | null>(null);
+  const [status, setStatus] = useState<SeatStatus | null>(null);
 
   useEffect(() => {
     let ignore = false;
     (async () => {
       const res = await fetch("/api/admin-sekolah/kuota");
       const data = await res.json().catch(() => null);
-      if (!ignore && res.ok) setQuotas(data.quotas ?? []);
+      if (!ignore && res.ok) setStatus(data);
     })();
     return () => {
       ignore = true;
     };
   }, []);
 
-  if (quotas === null) return null;
+  if (status === null) return null;
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-      <h2 className="text-sm font-medium text-slate-700">Kuota Try Out dari Admin Pusat</h2>
-      {quotas.length === 0 ? (
+      <h2 className="text-sm font-medium text-slate-700">Kursi Sekolah dari Admin Pusat</h2>
+      {status.seatQuota == null ? (
         <p className="mt-2 text-sm text-slate-500">
-          Belum ada kuota try out per mata pelajaran yang dijatah admin pusat untuk sekolah ini.
+          Kursi sekolah belum diaktifkan admin pusat. Hubungi admin pusat untuk mengaktifkan.
         </p>
       ) : (
-        <div className="mt-3 flex flex-wrap gap-3">
-          {quotas.map((q) => (
-            <div
-              key={q.id}
-              className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm"
-            >
-              <span className="font-medium text-slate-800">{q.subject.nama}</span>
-              <span className="ml-1.5 text-xs text-slate-400">{q.subject.jenjang}</span>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {q.tryOutPerSiswa}× try out/siswa &middot; maks {q.kuotaSiswa.toLocaleString("id-ID")}{" "}
-                siswa
-              </p>
-            </div>
-          ))}
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+          <span className="font-medium text-slate-800">
+            {status.seatsUsed.toLocaleString("id-ID")}/{status.seatQuota.toLocaleString("id-ID")} kursi
+            terpakai
+          </span>
+          {status.validUntil && (
+            <p className="mt-0.5 text-xs text-slate-500">Berlaku sampai {formatWIBDate(status.validUntil)}</p>
+          )}
         </div>
       )}
     </div>
