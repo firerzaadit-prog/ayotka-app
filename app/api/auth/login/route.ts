@@ -11,6 +11,7 @@ const ROLE_HOME: Record<string, string> = {
   admin_sekolah: "/admin-sekolah/dashboard",
   admin_pusat: "/admin-pusat/dashboard",
   dinas_pendidikan: "/dinas-pendidikan/dashboard",
+  mitra: "/mitra/dashboard",
 };
 
 /** Tiket 3.4: NISN adalah 10 digit angka murni - kalau tidak, perlakukan sebagai email. */
@@ -112,6 +113,7 @@ export async function POST(request: Request) {
         admin_sekolah: "admin sekolah",
         admin_pusat: "admin pusat",
         dinas_pendidikan: "dinas pendidikan",
+        mitra: "mitra",
       };
       return NextResponse.json(
         {

@@ -37,6 +37,8 @@ export const daftarMandiriSchema = z
     tingkat: z.coerce.number().int().min(1).max(12),
     asalSekolahId: z.string().uuid().optional().or(z.literal("")),
     asalSekolahManual: z.string().trim().optional().or(z.literal("")),
+    /** Opsional - kode referral siswa lain, mengisi Student.referredByStudentId (Bagian 6.4). */
+    kodeReferral: z.string().trim().optional().or(z.literal("")),
   })
   .refine(
     (data) => (data.asalSekolahId && data.asalSekolahId.length > 0) || (data.asalSekolahManual && data.asalSekolahManual.length > 0),

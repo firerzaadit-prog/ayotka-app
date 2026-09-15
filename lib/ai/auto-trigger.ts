@@ -14,8 +14,8 @@ import type { Attempt } from "@prisma/client";
  * (submit manual maupun auto-expiry). Dibatasi jatah GLOBAL yang admin pusat
  * atur lewat UI (lihat lib/ai/settings.ts) - "maksimal N kali analisis
  * OTOMATIS per siswa per mata pelajaran", independen dari kuota attempt
- * (SchoolSubjectQuota/SubjectTryOutOrder) supaya biaya Gemini tetap terjamin
- * terkendali apa pun kondisi kuota attempt-nya. Tombol manual admin pusat/
+ * (entitlements — lib/billing/entitlements.ts) supaya biaya Gemini tetap
+ * terjamin terkendali apa pun kondisi kuota attempt-nya. Tombol manual admin pusat/
  * sekolah (app/api/attempts/[id]/analisis-ai/route.ts) SENGAJA tidak lewat
  * fungsi ini - itu tetap tanpa batas seperti sebelumnya.
  *

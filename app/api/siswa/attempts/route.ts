@@ -6,8 +6,27 @@ import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/vi
 import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
-import { canStartViaSubjectQuota, consumeSubjectTryOut } from "@/lib/billing/subject-tryout";
+import { canStartAttempt, type AccessCheckResult } from "@/lib/billing/entitlements";
 import { z } from "zod";
+
+/**
+ * Bagian 9 kasus tepi #6: waiting_for_seat beda dari quota_required biasa -
+ * pesannya menjelaskan bahwa ini otomatis pulih begitu admin menambah
+ * kuota, bukan jalan buntu yang perlu tindakan siswa (mis. beli paket).
+ */
+function accessDeniedResponse(access: Extract<AccessCheckResult, { allowed: false }>, quotaRequiredMessage: string) {
+  if (access.reason === "waiting_for_seat") {
+    return NextResponse.json(
+      {
+        error:
+          "Kuota kursi sekolahmu sedang penuh. Begitu admin pusat menambah kuota, kamu otomatis bisa mulai try out lagi - tidak perlu mendaftar ulang.",
+        code: "WAITING_FOR_SEAT",
+      },
+      { status: 402 },
+    );
+  }
+  return NextResponse.json({ error: quotaRequiredMessage, code: "QUOTA_REQUIRED" }, { status: 402 });
+}
 
 // POST handler memanggil finalizeAttempt (saat expired) yang memicu AI via after().
 export const maxDuration = 300;
@@ -94,7 +113,6 @@ export async function POST(request: Request) {
 
   let assignment = null as Awaited<ReturnType<typeof getActiveAssignmentsFor>>[number] | null;
   let packageForMandiri: Awaited<ReturnType<typeof getSelfSelectPackagesFor>>[number] | null = null;
-  let subjectIdToConsumeQuota: string | null = null;
 
   if (parsed.data.assignmentId) {
     const active = await getActiveAssignmentsFor(student);
@@ -106,35 +124,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Cek kuota try out sekolah (SchoolSubjectQuota) jika sekolah punya quota yang dikonfigurasi
-    if (student.schoolId) {
-      const fullPkg = await prisma.package.findUnique({
-        where: { id: assignment.packageId },
-        select: { subjectId: true },
-      });
-      if (fullPkg) {
-        const schoolQuota = await prisma.schoolSubjectQuota.findUnique({
-          where: { schoolId_subjectId: { schoolId: student.schoolId, subjectId: fullPkg.subjectId } },
-        });
-        if (schoolQuota) {
-          // Hitung berapa kali siswa sudah mengerjakan mapel ini via assignment
-          const doneCount = await prisma.attempt.count({
-            where: {
-              studentId: student.id,
-              status: { in: ["selesai", "kedaluwarsa"] },
-              assignment: { package: { subjectId: fullPkg.subjectId } },
-            },
-          });
-          if (doneCount >= schoolQuota.tryOutPerSiswa) {
-            return NextResponse.json(
-              {
-                error: `Kuota try out untuk mata pelajaran ini sudah habis (${schoolQuota.tryOutPerSiswa}× try out).`,
-                code: "SCHOOL_QUOTA_EXCEEDED",
-              },
-              { status: 402 },
-            );
-          }
-        }
+    const fullPkg = await prisma.package.findUnique({
+      where: { id: assignment.packageId },
+      select: { subjectId: true },
+    });
+    if (fullPkg) {
+      const access = await canStartAttempt(student.id, fullPkg.subjectId, student.schoolId);
+      if (!access.allowed) {
+        return accessDeniedResponse(access, "Kuota try out untuk mata pelajaran ini sudah habis. Hubungi admin sekolahmu.");
       }
     }
   } else {
@@ -147,19 +144,12 @@ export async function POST(request: Request) {
       );
     }
 
-    if (student.jalur === "B") {
-      const quotaAllowed = await canStartViaSubjectQuota(user.id, packageForMandiri.subjectId);
-      if (!quotaAllowed) {
-        return NextResponse.json(
-          {
-            error:
-              "Kamu belum memiliki kuota try out untuk mata pelajaran ini. Beli paket try out untuk membuka akses.",
-            code: "QUOTA_REQUIRED",
-          },
-          { status: 402 },
-        );
-      }
-      subjectIdToConsumeQuota = packageForMandiri.subjectId;
+    const access = await canStartAttempt(student.id, packageForMandiri.subjectId, student.schoolId);
+    if (!access.allowed) {
+      return accessDeniedResponse(
+        access,
+        "Kamu belum memiliki akses try out untuk mata pelajaran ini. Beli paket untuk membuka akses.",
+      );
     }
   }
 
@@ -244,9 +234,5 @@ export async function POST(request: Request) {
     after: attempt,
     ip,
   });
-  if (subjectIdToConsumeQuota) {
-    await consumeSubjectTryOut(user.id, subjectIdToConsumeQuota);
-  }
-
   return NextResponse.json({ attempt: sanitizeAttemptForClient(attempt) }, { status: 201 });
 }

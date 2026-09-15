@@ -2,13 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import Image from "next/image";
 
-type Accent = "siswa" | "admin_sekolah" | "admin_pusat" | "dinas_pendidikan";
+type Accent = "siswa" | "admin_sekolah" | "admin_pusat" | "dinas_pendidikan" | "mitra";
 
 const ACCENT_GRADIENT: Record<Accent, string> = {
   siswa: "from-indigo-600 via-violet-600 to-violet-500",
   admin_sekolah: "from-sky-600 via-cyan-600 to-cyan-500",
   admin_pusat: "from-slate-800 via-indigo-800 to-violet-700",
   dinas_pendidikan: "from-emerald-700 via-teal-700 to-cyan-700",
+  mitra: "from-amber-600 via-orange-600 to-amber-500",
 };
 
 /**

@@ -4,9 +4,10 @@ import { generateReadableCode } from "@/lib/utils/generate-code";
 import type { Jenjang } from "@prisma/client";
 
 /**
- * Sejak redesign billing (Bagian 7.3), kuota siswa tidak lagi disimpan di
- * kolom `kuotaSiswa` di tabel `schools`. Akses siswa Jalur A diatur lewat
- * `SchoolSubjectQuota` yang di-set admin pusat per (sekolah, mapel).
+ * Sejak redesign billing (Bagian 7.3, lalu entitlements Bagian 5), tidak
+ * ada lagi batas jumlah siswa per sekolah di model School. Akses try out
+ * siswa Jalur B (sekolah) diatur lewat seatQuota/validUntil + entitlements
+ * (lib/billing/entitlements.ts), bukan jumlah akun siswa yang terdaftar.
  * KuotaPenuhError dipertahankan untuk kompatibilitas ke depan, tapi
  * assertKuotaTersedia tidak lagi memblokir penambahan siswa.
  */
@@ -25,11 +26,21 @@ async function generateUniqueClaimToken(): Promise<string> {
   throw new Error("Gagal membuat kode klaim unik, coba lagi.");
 }
 
+/** Kode referral siswa (dibagikan ke calon siswa baru) - wajib diisi setiap Student baru dibuat. */
+export async function generateUniqueStudentReferralCode(): Promise<string> {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const code = generateReadableCode(6);
+    const existing = await prisma.student.findUnique({ where: { referralCode: code } });
+    if (!existing) return code;
+  }
+  throw new Error("Gagal membuat kode referral unik, coba lagi.");
+}
+
 /**
  * Tiket 3.7: tidak ada lagi batas kuota dari model School.
  * Fungsi ini dipertahankan agar caller tidak perlu diubah,
  * tapi tidak lagi memblokir — admin pusat mengatur akses
- * lewat SchoolSubjectQuota.
+ * try out lewat seatQuota/validUntil (lib/billing/entitlements.ts).
  */
 export async function assertKuotaTersedia(_schoolId: string, _tambahan: number): Promise<void> {
   // Tidak ada batasan kuota di School model lagi (post billing redesign)
@@ -46,7 +57,10 @@ export async function createStudentWithEnrollment(params: {
   tingkat: number;
   academicYearId: string;
 }) {
-  const claimToken = await generateUniqueClaimToken();
+  const [claimToken, referralCode] = await Promise.all([
+    generateUniqueClaimToken(),
+    generateUniqueStudentReferralCode(),
+  ]);
   return prisma.student.create({
     data: {
       schoolId: params.schoolId,
@@ -57,6 +71,7 @@ export async function createStudentWithEnrollment(params: {
       tanggalLahir: params.tanggalLahir ?? null,
       jalur: "A",
       claimToken,
+      referralCode,
       claimStatus: "belum_klaim",
       status: "pending",
       enrollments: {

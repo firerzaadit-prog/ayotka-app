@@ -21,7 +21,7 @@ export function LoginForm({
 }: {
   identifierLabel: string;
   identifierAutoComplete?: string;
-  expectedRole?: "siswa" | "admin_sekolah" | "admin_pusat" | "dinas_pendidikan";
+  expectedRole?: "siswa" | "admin_sekolah" | "admin_pusat" | "dinas_pendidikan" | "mitra";
 }) {
   const router = useRouter();
   const [emailOrNisn, setEmailOrNisn] = useState("");

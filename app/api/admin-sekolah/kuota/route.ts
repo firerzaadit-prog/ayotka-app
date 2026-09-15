@@ -4,11 +4,10 @@ import { requireRole } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 
 /**
- * Kuota try out per mata pelajaran yang sudah dijatah admin pusat utk
- * sekolah ini - read-only, dipakai dashboard & Kelola Siswa admin sekolah
- * supaya admin sekolah tahu berapa jatahnya tanpa perlu tanya admin pusat.
- * Pengelolaan (tambah/ubah/hapus) kuota tetap cuma lewat admin pusat, lihat
- * /api/admin-pusat/school-subject-quotas/[id].
+ * Status kursi (seat) sekolah - read-only, dipakai dashboard admin sekolah
+ * supaya admin sekolah tahu kuota & masa berlaku tanpa perlu tanya admin
+ * pusat. Pengelolaan (aktivasi/ubah) tetap cuma lewat admin pusat, lihat
+ * /api/admin-pusat/schools/[id]/seat.
  */
 export async function GET() {
   let user;
@@ -23,11 +22,20 @@ export async function GET() {
     return NextResponse.json({ error: "Akun belum terhubung ke sekolah." }, { status: 403 });
   }
 
-  const quotas = await prisma.schoolSubjectQuota.findMany({
-    where: { schoolId },
-    include: { subject: { select: { id: true, nama: true, jenjang: true } } },
-    orderBy: { subject: { nama: "asc" } },
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { seatQuota: true, validUntil: true },
+  });
+  const seatsUsed = await prisma.entitlement.count({
+    where: { schoolId, source: "school_seat", revokedAt: null },
   });
 
-  return NextResponse.json({ quotas });
+  return NextResponse.json({
+    seatQuota: school?.seatQuota ?? null,
+    validUntil: school?.validUntil ?? null,
+    seatsUsed,
+    /** Bagian 9 kasus tepi #6: begitu ini true, siswa baru yang mencoba try
+     * out akan diminta menunggu (otomatis lanjut sendiri saat kuota ditambah). */
+    isFull: school?.seatQuota != null && seatsUsed >= school.seatQuota,
+  });
 }
