@@ -87,7 +87,7 @@ export function KerangkaAsesmenTeaser() {
             <p className="mt-5 border-t border-slate-100 pt-5 text-sm leading-relaxed text-slate-600">
               {definisi}
             </p>
-            <p className="mt-4 text-xs text-slate-400">
+            <p className="mt-4 text-xs text-slate-500">
               Sumber: Kementerian Pendidikan Dasar dan Menengah Republik Indonesia — Pusat Asesmen
               Pendidikan.
             </p>

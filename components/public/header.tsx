@@ -36,7 +36,7 @@ export function PublicHeader({ active }: { active?: string }) {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-[#E0D1D1]/90 px-6 py-4 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/85 px-6 py-4 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
         <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight text-slate-900">
           <div className="relative h-10 w-10 shrink-0">
@@ -66,7 +66,7 @@ export function PublicHeader({ active }: { active?: string }) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="rounded-lg p-2 text-slate-500 hover:bg-slate-100"
+            className="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
             aria-label={open ? "Tutup menu" : "Buka menu"}
             aria-expanded={open}
           >

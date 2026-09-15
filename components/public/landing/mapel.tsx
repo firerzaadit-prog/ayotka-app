@@ -135,7 +135,7 @@ export function Mapel() {
                 {m.jenjang.map((j) => (
                   <span
                     key={j}
-                    className="rounded-full border border-slate-200 px-2 py-0.5 font-mono text-[0.65rem] text-slate-400"
+                    className="rounded-full border border-slate-200 px-2 py-0.5 font-mono text-[0.65rem] text-slate-500"
                   >
                     {j}
                   </span>

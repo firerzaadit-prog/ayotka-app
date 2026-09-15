@@ -48,7 +48,7 @@ export function Harga() {
             <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6">
               <span className="font-mono text-xs uppercase tracking-wide text-slate-400">Coba Dulu</span>
               <p className="mt-1.5 text-2xl font-extrabold text-slate-900">Rp0</p>
-              <span className="text-xs text-slate-400">tanpa batas waktu</span>
+              <span className="text-xs text-slate-500">tanpa batas waktu</span>
               <ListFitur items={["1 tryout per mata pelajaran", "Nilai akhir + peta per materi"]} />
               <Link
                 href="/registrasi"
@@ -116,7 +116,7 @@ export function Harga() {
               <p className="mt-1.5 text-2xl font-extrabold text-slate-900">
                 Rp20–30rb<span className="text-xs font-medium text-slate-400"> /siswa/bulan</span>
               </p>
-              <span className="text-xs text-slate-400">harga berjenjang sesuai jumlah kursi</span>
+              <span className="text-xs text-slate-500">harga berjenjang sesuai jumlah kursi</span>
               <ListFitur
                 items={[
                   "Semua fitur siswa berlangganan",

@@ -65,7 +65,7 @@ export function Hero() {
           </div>
           <div className="px-6 py-5">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-[0.65rem] tracking-wide text-slate-400">HASIL TRYOUT</span>
+              <span className="font-mono text-[0.65rem] tracking-wide text-slate-500">HASIL TRYOUT</span>
               <span className="text-sm font-semibold text-slate-900">Matematika</span>
             </div>
             <p className="mt-1 text-4xl font-extrabold text-slate-900">

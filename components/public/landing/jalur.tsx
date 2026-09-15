@@ -39,7 +39,7 @@ export function Jalur() {
           {JALUR.map((j, i) => (
             <Reveal key={j.judul} delay={i * 80}>
               <div className="h-full overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-100 px-6 py-2.5 font-mono text-[0.68rem] font-medium uppercase tracking-wide text-slate-400">
+                <div className="border-b border-slate-100 px-6 py-2.5 font-mono text-[0.68rem] font-medium uppercase tracking-wide text-slate-500">
                   {j.label}
                 </div>
                 <div className="p-6">
