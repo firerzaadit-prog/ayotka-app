@@ -34,5 +34,8 @@ export async function GET() {
     seatQuota: school?.seatQuota ?? null,
     validUntil: school?.validUntil ?? null,
     seatsUsed,
+    /** Bagian 9 kasus tepi #6: begitu ini true, siswa baru yang mencoba try
+     * out akan diminta menunggu (otomatis lanjut sendiri saat kuota ditambah). */
+    isFull: school?.seatQuota != null && seatsUsed >= school.seatQuota,
   });
 }

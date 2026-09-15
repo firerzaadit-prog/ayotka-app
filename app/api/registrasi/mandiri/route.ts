@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generateReadableCode } from "@/lib/utils/generate-code";
+import { generateUniqueStudentReferralCode } from "@/lib/students/create";
 import { daftarMandiriSchema } from "@/lib/validations/registrasi";
 import { sendViaResendApi } from "@/lib/email/resend";
 
@@ -65,6 +66,18 @@ export async function POST(request: Request) {
     });
     schoolId = pendingSchool.id;
   }
+
+  // Kode referral opsional - kalau tidak ditemukan/salah ketik, daftar tetap
+  // lanjut tanpa referral (bukan alasan untuk memblokir pendaftaran).
+  let referredByStudentId: string | null = null;
+  if (data.kodeReferral && data.kodeReferral.trim().length > 0) {
+    const referrer = await prisma.student.findUnique({
+      where: { referralCode: data.kodeReferral.trim().toUpperCase() },
+      select: { id: true },
+    });
+    referredByStudentId = referrer?.id ?? null;
+  }
+  const newReferralCode = await generateUniqueStudentReferralCode();
 
   const supabaseAdmin = createAdminClient();
 
@@ -136,6 +149,8 @@ export async function POST(request: Request) {
           jalur: "B",
           claimStatus: "sudah_klaim",
           status: "pending",
+          referralCode: newReferralCode,
+          referredByStudentId,
         },
       }),
     ]);

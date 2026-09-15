@@ -7,6 +7,13 @@ import { getActiveEntitlement } from "@/lib/billing/entitlements";
 import { z } from "zod";
 
 const REFERRAL_DISCOUNT = 0.3;
+/**
+ * Kasus tepi #4 (Bagian 9 dokumen rencana): dokumen sumber tidak memberi
+ * angka pasti untuk "batas maksimum per bulan", cuma menyarankan untuk
+ * dipertimbangkan - 10/bulan/referrer dipakai sebagai nilai kerja awal,
+ * bisa diubah admin pusat kalau ada aturan bisnis lain.
+ */
+const MAX_REFERRAL_DISCOUNTS_PER_MONTH = 10;
 
 const checkoutSchema = z.object({ planId: z.string().uuid() });
 
@@ -39,6 +46,7 @@ export async function GET() {
   return NextResponse.json({
     jalur: student.jalur,
     sekolah: student.school,
+    referralCode: student.referralCode,
     entitlement: active
       ? {
           endsAt: active.entitlement.endsAt,
@@ -97,7 +105,16 @@ export async function POST(request: Request) {
   if (student.referredByStudentId) {
     const paidBefore = await prisma.invoice.count({ where: { studentId: student.id, status: "paid" } });
     if (paidBefore === 0) {
-      amount = Math.round(plan.harga * (1 - REFERRAL_DISCOUNT));
+      const startOfMonth = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1));
+      const referralsThisMonth = await prisma.invoice.count({
+        where: {
+          createdAt: { gte: startOfMonth },
+          student: { referredByStudentId: student.referredByStudentId },
+        },
+      });
+      if (referralsThisMonth < MAX_REFERRAL_DISCOUNTS_PER_MONTH) {
+        amount = Math.round(plan.harga * (1 - REFERRAL_DISCOUNT));
+      }
     }
   }
 

@@ -250,8 +250,12 @@ model Student {
   tanggalLahir        DateTime?     @map("tanggal_lahir") @db.Date
   status              StudentStatus @default(pending)
   waKontak            String?       @map("wa_kontak")
+  /// Kode dibagikan siswa ke calon siswa baru, dipakai saat registrasi
+  /// mandiri untuk mengisi referredByStudentId (app/api/registrasi/mandiri).
+  referralCode        String        @unique @map("referral_code")
   /// Bagian 3 & 6.4: diskon referral 30% hanya berlaku untuk transaksi
-  /// pertama siswa yang direferensikan — lihat lib/billing/referral.ts.
+  /// pertama siswa yang direferensikan, dan dibatasi jumlah maksimum per
+  /// bulan per referrer (kasus tepi #4) — lihat app/api/siswa/checkout/route.ts.
   referredByStudentId String?       @map("referred_by_student_id") @db.Uuid
   /// Bagian 7.2: soal & siswa tidak boleh dihapus permanen, hanya soft delete.
   deletedAt           DateTime?     @map("deleted_at")

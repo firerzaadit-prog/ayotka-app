@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { formatWIBDate } from "@/lib/utils/datetime";
+import { Alert } from "@/components/ui/alert";
 
-type SeatStatus = { seatQuota: number | null; validUntil: string | null; seatsUsed: number };
+type SeatStatus = { seatQuota: number | null; validUntil: string | null; seatsUsed: number; isFull: boolean };
 
 /** Ringkasan kursi (seat) sekolah yang diaktifkan admin pusat - read-only, dipakai di dashboard admin sekolah. */
 export function KuotaSummary() {
@@ -40,6 +41,13 @@ export function KuotaSummary() {
             <p className="mt-0.5 text-xs text-slate-500">Berlaku sampai {formatWIBDate(status.validUntil)}</p>
           )}
         </div>
+      )}
+      {status.isFull && (
+        <Alert variant="warning" className="mt-3">
+          Kuota kursi sudah penuh. Siswa baru yang mencoba try out akan diminta menunggu - progresnya tidak
+          hilang, dan otomatis lanjut begitu admin pusat menambah kuota. Hubungi admin pusat kalau perlu
+          menambah kuota sekarang.
+        </Alert>
       )}
     </div>
   );

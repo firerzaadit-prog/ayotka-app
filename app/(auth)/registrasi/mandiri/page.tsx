@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { Suspense, useState, type FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 
 type SchoolOption = { id: string; nama: string; npsn: string | null };
 
-export default function RegistrasiMandiriPage() {
+function RegistrasiMandiriForm() {
+  const searchParams = useSearchParams();
   const [nama, setNama] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [jenjang, setJenjang] = useState<"SD" | "SMP">("SD");
   const [tingkat, setTingkat] = useState("");
+  const [kodeReferral, setKodeReferral] = useState(searchParams.get("ref") ?? "");
 
   const [sekolahQuery, setSekolahQuery] = useState("");
   const [sekolahHasil, setSekolahHasil] = useState<SchoolOption[]>([]);
@@ -52,6 +55,7 @@ export default function RegistrasiMandiriPage() {
         tingkat,
         asalSekolahId: !tidakAdaDiDaftar ? selectedSekolah?.id : "",
         asalSekolahManual: tidakAdaDiDaftar ? asalSekolahManual : "",
+        kodeReferral,
       }),
     });
     const data = await res.json();
@@ -185,6 +189,16 @@ export default function RegistrasiMandiriPage() {
         </div>
       )}
 
+      <div>
+        <Label htmlFor="kodeReferral">Kode referral (opsional)</Label>
+        <Input
+          id="kodeReferral"
+          placeholder="Punya kode dari teman? Isi di sini"
+          value={kodeReferral}
+          onChange={(e) => setKodeReferral(e.target.value)}
+        />
+      </div>
+
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Memproses..." : "Daftar"}
       </Button>
@@ -192,5 +206,13 @@ export default function RegistrasiMandiriPage() {
         Kembali
       </Link>
     </form>
+  );
+}
+
+export default function RegistrasiMandiriPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegistrasiMandiriForm />
+    </Suspense>
   );
 }

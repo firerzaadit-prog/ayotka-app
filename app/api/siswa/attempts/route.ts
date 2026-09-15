@@ -6,8 +6,27 @@ import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/vi
 import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
-import { canStartAttempt } from "@/lib/billing/entitlements";
+import { canStartAttempt, type AccessCheckResult } from "@/lib/billing/entitlements";
 import { z } from "zod";
+
+/**
+ * Bagian 9 kasus tepi #6: waiting_for_seat beda dari quota_required biasa -
+ * pesannya menjelaskan bahwa ini otomatis pulih begitu admin menambah
+ * kuota, bukan jalan buntu yang perlu tindakan siswa (mis. beli paket).
+ */
+function accessDeniedResponse(access: Extract<AccessCheckResult, { allowed: false }>, quotaRequiredMessage: string) {
+  if (access.reason === "waiting_for_seat") {
+    return NextResponse.json(
+      {
+        error:
+          "Kuota kursi sekolahmu sedang penuh. Begitu admin pusat menambah kuota, kamu otomatis bisa mulai try out lagi - tidak perlu mendaftar ulang.",
+        code: "WAITING_FOR_SEAT",
+      },
+      { status: 402 },
+    );
+  }
+  return NextResponse.json({ error: quotaRequiredMessage, code: "QUOTA_REQUIRED" }, { status: 402 });
+}
 
 // POST handler memanggil finalizeAttempt (saat expired) yang memicu AI via after().
 export const maxDuration = 300;
@@ -112,13 +131,7 @@ export async function POST(request: Request) {
     if (fullPkg) {
       const access = await canStartAttempt(student.id, fullPkg.subjectId, student.schoolId);
       if (!access.allowed) {
-        return NextResponse.json(
-          {
-            error: "Kuota try out untuk mata pelajaran ini sudah habis. Hubungi admin sekolahmu.",
-            code: "QUOTA_REQUIRED",
-          },
-          { status: 402 },
-        );
+        return accessDeniedResponse(access, "Kuota try out untuk mata pelajaran ini sudah habis. Hubungi admin sekolahmu.");
       }
     }
   } else {
@@ -133,13 +146,9 @@ export async function POST(request: Request) {
 
     const access = await canStartAttempt(student.id, packageForMandiri.subjectId, student.schoolId);
     if (!access.allowed) {
-      return NextResponse.json(
-        {
-          error:
-            "Kamu belum memiliki akses try out untuk mata pelajaran ini. Beli paket untuk membuka akses.",
-          code: "QUOTA_REQUIRED",
-        },
-        { status: 402 },
+      return accessDeniedResponse(
+        access,
+        "Kamu belum memiliki akses try out untuk mata pelajaran ini. Beli paket untuk membuka akses.",
       );
     }
   }

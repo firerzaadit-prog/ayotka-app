@@ -20,6 +20,7 @@ type Entitlement = {
 type CheckoutData = {
   jalur: "A" | "B";
   sekolah: { nama: string } | null;
+  referralCode: string;
   entitlement: Entitlement | null;
   plans: Plan[];
   pendingInvoiceId: string | null;
@@ -45,6 +46,18 @@ export default function LanggananSiswaPage() {
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [voucherSubmitting, setVoucherSubmitting] = useState(false);
   const [voucherSuccess, setVoucherSuccess] = useState(false);
+
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopyReferral(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API tidak tersedia - kode tetap terlihat untuk disalin manual.
+    }
+  }
 
   useEffect(() => {
     let ignore = false;
@@ -104,7 +117,7 @@ export default function LanggananSiswaPage() {
 
   if (data.jalur === "A") {
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
         <PageHeader title="Langganan" />
         <Card>
           <p className="text-sm text-slate-600">
@@ -119,6 +132,20 @@ export default function LanggananSiswaPage() {
             )}
             . Akses Try Out ditanggung oleh sekolahmu — kamu tidak perlu membeli paket sendiri.
           </p>
+        </Card>
+        <Card>
+          <p className="text-sm text-slate-500">Kode referral kamu</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Bagikan ke temanmu yang daftar mandiri — mereka dapat diskon 30% untuk pembelian pertama.
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="rounded-md bg-slate-100 px-3 py-1.5 font-mono text-sm font-semibold text-slate-900">
+              {data.referralCode}
+            </span>
+            <Button variant="secondary" onClick={() => handleCopyReferral(data.referralCode)}>
+              {copied ? "Disalin!" : "Salin kode"}
+            </Button>
+          </div>
         </Card>
       </div>
     );
@@ -180,6 +207,21 @@ export default function LanggananSiswaPage() {
           </div>
         )}
       </section>
+
+      <Card>
+        <p className="text-sm text-slate-500">Kode referral kamu</p>
+        <p className="mt-1 text-sm text-slate-600">
+          Bagikan ke temanmu yang daftar mandiri — mereka dapat diskon 30% untuk pembelian pertama.
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <span className="rounded-md bg-slate-100 px-3 py-1.5 font-mono text-sm font-semibold text-slate-900">
+            {data.referralCode}
+          </span>
+          <Button variant="secondary" onClick={() => handleCopyReferral(data.referralCode)}>
+            {copied ? "Disalin!" : "Salin kode"}
+          </Button>
+        </div>
+      </Card>
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-slate-900">Punya kode voucher?</h2>

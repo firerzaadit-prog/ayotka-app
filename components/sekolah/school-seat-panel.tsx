@@ -111,6 +111,12 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
               Rujukan mitra: <span className="font-medium text-slate-800">{status.referredByPartner.nama}</span>
             </p>
           )}
+          {status.seatsUsed >= status.seatQuota && (
+            <Alert variant="warning" className="mt-3">
+              Kuota penuh - siswa baru sekolah ini akan diminta menunggu sampai kuota ditambah (progres tidak
+              hilang, otomatis lanjut sendiri).
+            </Alert>
+          )}
         </div>
       ) : (
         <Alert variant="warning">Kursi sekolah ini belum diaktifkan.</Alert>

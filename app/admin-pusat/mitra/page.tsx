@@ -33,7 +33,23 @@ type Voucher = {
   partner: { nama: string };
 };
 
+type Commission = {
+  id: string;
+  amount: number | null;
+  status: "pending" | "paid";
+  note: string | null;
+  partner: { id: string; nama: string };
+  school: { id: string; nama: string };
+};
+
+type SchoolOption = { id: string; nama: string };
+
 const emptyPartnerForm = { email: "", nama: "", kontak: "" };
+const emptyCommissionForm = { partnerId: "", schoolId: "", note: "" };
+
+function formatRupiah(n: number): string {
+  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
+}
 
 /**
  * Jalur C (mitra/reseller, Bagian 5 & 6.5 dokumen rencana): admin pusat
@@ -61,16 +77,31 @@ export default function MitraPage() {
   const [vouchers, setVouchers] = useState<Voucher[] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const [commissions, setCommissions] = useState<Commission[] | null>(null);
+  const [schools, setSchools] = useState<SchoolOption[]>([]);
+  const [showCommissionForm, setShowCommissionForm] = useState(false);
+  const [commissionForm, setCommissionForm] = useState(emptyCommissionForm);
+  const [commissionError, setCommissionError] = useState<string | null>(null);
+  const [commissionSubmitting, setCommissionSubmitting] = useState(false);
+  const [savingCommissionId, setSavingCommissionId] = useState<string | null>(null);
+  const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
+
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const [partnerRes, planRes] = await Promise.all([
+      const [partnerRes, planRes, commissionRes, schoolRes] = await Promise.all([
         fetch("/api/admin-pusat/partners"),
         fetch("/api/admin-pusat/plans"),
+        fetch("/api/admin-pusat/partner-commissions"),
+        fetch("/api/admin-pusat/schools"),
       ]);
       const partnerData = await partnerRes.json().catch(() => null);
       const planData = await planRes.json().catch(() => null);
+      const commissionData = await commissionRes.json().catch(() => null);
+      const schoolData = await schoolRes.json().catch(() => null);
       if (!ignore) {
+        if (commissionRes.ok) setCommissions(commissionData.commissions ?? []);
+        if (schoolRes.ok) setSchools((schoolData.schools ?? []).map((s: SchoolOption) => ({ id: s.id, nama: s.nama })));
         if (partnerRes.ok) setPartners(partnerData.partners ?? []);
         if (planRes.ok) setPlans(planData.plans ?? []);
       }
@@ -145,6 +176,75 @@ export default function MitraPage() {
     setGeneratedCodes(data.vouchers.map((v: Voucher) => v.code));
     setRefreshKey((k) => k + 1);
     toast.success(`${data.vouchers.length} kode voucher berhasil dibuat.`);
+  }
+
+  async function handleCreateCommission(e: FormEvent) {
+    e.preventDefault();
+    setCommissionError(null);
+    if (!commissionForm.partnerId || !commissionForm.schoolId) {
+      setCommissionError("Pilih mitra dan sekolah terlebih dahulu.");
+      return;
+    }
+    setCommissionSubmitting(true);
+    const res = await fetch("/api/admin-pusat/partner-commissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(commissionForm),
+    });
+    const data = await res.json().catch(() => null);
+    setCommissionSubmitting(false);
+    if (!res.ok) {
+      setCommissionError(data?.error ?? "Gagal mencatat komisi.");
+      return;
+    }
+    setCommissionForm(emptyCommissionForm);
+    setShowCommissionForm(false);
+    setRefreshKey((k) => k + 1);
+    toast.success("Rujukan telat berhasil dicatat sebagai komisi pending.");
+  }
+
+  async function handleSetAmount(commission: Commission, rawAmount: string) {
+    const amount = Number(rawAmount.replace(/[^0-9]/g, ""));
+    if (!Number.isFinite(amount) || amount < 0 || rawAmount.trim() === "") {
+      toast.error("Nominal tidak valid.");
+      return;
+    }
+    setSavingCommissionId(commission.id);
+    const res = await fetch(`/api/admin-pusat/partner-commissions/${commission.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount }),
+    });
+    const data = await res.json().catch(() => null);
+    setSavingCommissionId(null);
+    if (!res.ok) {
+      toast.error(data?.error ?? "Gagal menyimpan nominal.");
+      return;
+    }
+    setAmountDrafts((prev) => {
+      const next = { ...prev };
+      delete next[commission.id];
+      return next;
+    });
+    setRefreshKey((k) => k + 1);
+    toast.success("Nominal komisi disimpan.");
+  }
+
+  async function handleMarkPaid(commission: Commission) {
+    setSavingCommissionId(commission.id);
+    const res = await fetch(`/api/admin-pusat/partner-commissions/${commission.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "paid" }),
+    });
+    const data = await res.json().catch(() => null);
+    setSavingCommissionId(null);
+    if (!res.ok) {
+      toast.error(data?.error ?? "Gagal menandai lunas.");
+      return;
+    }
+    setRefreshKey((k) => k + 1);
+    toast.success("Komisi ditandai sudah dibayar.");
   }
 
   return (
@@ -368,6 +468,144 @@ export default function MitraPage() {
               </TableContainer>
             )}
           </>
+        )}
+      </section>
+
+      {/* ─── Komisi Mitra ─── */}
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Komisi Mitra</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Komisi otomatis tercatat saat sekolah rujukan diaktifkan (Jalur B). Klaim rujukan yang telat
+              dicatat bisa ditambah manual di sini setelah diverifikasi terpisah - tidak pernah otomatis.
+            </p>
+          </div>
+          <Button onClick={() => setShowCommissionForm((v) => !v)}>
+            {showCommissionForm ? "Batal" : "Catat rujukan telat"}
+          </Button>
+        </div>
+
+        {showCommissionForm && (
+          <form
+            onSubmit={handleCreateCommission}
+            className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
+          >
+            {commissionError && <Alert variant="danger">{commissionError}</Alert>}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="commissionPartner">Mitra</Label>
+                <select
+                  id="commissionPartner"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  value={commissionForm.partnerId}
+                  onChange={(e) => setCommissionForm({ ...commissionForm, partnerId: e.target.value })}
+                >
+                  <option value="">Pilih mitra</option>
+                  {partners?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="commissionSchool">Sekolah</Label>
+                <select
+                  id="commissionSchool"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  value={commissionForm.schoolId}
+                  onChange={(e) => setCommissionForm({ ...commissionForm, schoolId: e.target.value })}
+                >
+                  <option value="">Pilih sekolah</option>
+                  {schools.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="commissionNote">Catatan verifikasi</Label>
+              <Input
+                id="commissionNote"
+                required
+                placeholder="mis. Dikonfirmasi lewat WhatsApp dengan kepala sekolah tgl ..."
+                value={commissionForm.note}
+                onChange={(e) => setCommissionForm({ ...commissionForm, note: e.target.value })}
+              />
+            </div>
+            <Button type="submit" disabled={commissionSubmitting} className="w-fit">
+              {commissionSubmitting ? "Menyimpan..." : "Catat komisi"}
+            </Button>
+          </form>
+        )}
+
+        {commissions === null && <TableSkeleton columns={5} />}
+        {commissions?.length === 0 && (
+          <EmptyState icon={<IconWallet />} title="Belum ada komisi" description="Komisi muncul otomatis saat sekolah rujukan mitra diaktifkan." />
+        )}
+        {commissions && commissions.length > 0 && (
+          <TableContainer>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Mitra</Th>
+                  <Th>Sekolah</Th>
+                  <Th>Nominal</Th>
+                  <Th>Status</Th>
+                  <Th></Th>
+                </Tr>
+              </Thead>
+              <tbody>
+                {commissions.map((c) => (
+                  <Tr key={c.id}>
+                    <Td className="font-medium text-slate-900">{c.partner.nama}</Td>
+                    <Td>{c.school.nama}</Td>
+                    <Td>
+                      {c.status === "paid" ? (
+                        c.amount != null ? formatRupiah(c.amount) : "-"
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Input
+                            className="w-32"
+                            placeholder="Nominal"
+                            value={amountDrafts[c.id] ?? (c.amount != null ? String(c.amount) : "")}
+                            onChange={(e) => setAmountDrafts({ ...amountDrafts, [c.id]: e.target.value })}
+                          />
+                          <button
+                            onClick={() => handleSetAmount(c, amountDrafts[c.id] ?? String(c.amount ?? ""))}
+                            disabled={savingCommissionId === c.id}
+                            className="text-sm font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
+                          >
+                            Simpan
+                          </button>
+                        </div>
+                      )}
+                    </Td>
+                    <Td>
+                      <Badge variant={c.status === "paid" ? "success" : "warning"}>
+                        {c.status === "paid" ? "Sudah dibayar" : "Menunggu"}
+                      </Badge>
+                    </Td>
+                    <Td className="text-right">
+                      {c.status === "pending" && (
+                        <button
+                          onClick={() => handleMarkPaid(c)}
+                          disabled={savingCommissionId === c.id || c.amount == null}
+                          title={c.amount == null ? "Isi nominal dulu sebelum menandai lunas" : undefined}
+                          className="text-sm font-medium text-emerald-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Tandai lunas
+                        </button>
+                      )}
+                    </Td>
+                  </Tr>
+                ))}
+              </tbody>
+            </Table>
+          </TableContainer>
         )}
       </section>
     </div>

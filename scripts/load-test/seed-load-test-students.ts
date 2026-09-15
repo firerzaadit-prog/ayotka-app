@@ -78,6 +78,7 @@ async function main() {
           jenjang: school.jenjang,
           tingkat: kelas.tingkat,
           jalur: "A",
+          referralCode: nisn,
           claimStatus: "sudah_klaim",
           status: "active",
           enrollments: {

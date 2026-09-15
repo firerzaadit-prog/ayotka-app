@@ -68,22 +68,33 @@ export async function ensureSchoolPlan() {
  * pemanggil (canStartAttempt) tetap membiarkan progres attempt-nya
  * tersimpan sebagai "menunggu kuota", bukan mendaftarkan lalu memblokir.
  */
+export type SeatGrantResult =
+  | { granted: true; entitlement: Entitlement }
+  /** Sekolah belum pernah aktivasi kuota, atau sudah lewat validUntil-nya. */
+  | { granted: false; reason: "not_activated" }
+  /** Bagian 9 kasus tepi #6: kuota aktif tapi penuh - siswa "menunggu kuota",
+   * bukan ditolak permanen. Begitu admin menambah seatQuota, panggilan
+   * canStartAttempt berikutnya otomatis berhasil tanpa aksi lain. */
+  | { granted: false; reason: "seat_full" };
+
 export async function grantSchoolSeatIfAvailable(
   studentId: string,
   schoolId: string,
-): Promise<Entitlement | null> {
+): Promise<SeatGrantResult> {
   const school = await prisma.school.findUnique({ where: { id: schoolId } });
   if (!school || school.seatQuota == null || !school.validUntil || school.validUntil < new Date()) {
-    return null;
+    return { granted: false, reason: "not_activated" };
   }
 
   const seatsUsed = await prisma.entitlement.count({
     where: { schoolId, source: "school_seat", revokedAt: null },
   });
-  if (seatsUsed >= school.seatQuota) return null;
+  if (seatsUsed >= school.seatQuota) {
+    return { granted: false, reason: "seat_full" };
+  }
 
   const plan = await ensureSchoolPlan();
-  return prisma.entitlement.create({
+  const entitlement = await prisma.entitlement.create({
     data: {
       studentId,
       planId: plan.id,
@@ -93,6 +104,7 @@ export async function grantSchoolSeatIfAvailable(
       endsAt: school.validUntil,
     },
   });
+  return { granted: true, entitlement };
 }
 
 /**
@@ -114,6 +126,10 @@ export async function hasUsedFreeTrial(studentId: string, subjectId: string): Pr
 
 export type AccessCheckResult =
   | { allowed: true; reason: "entitlement" | "school_seat" | "free_trial" }
+  /** Bagian 9 kasus tepi #6: kuota sekolah sedang penuh - beda dari
+   * quota_required biasa karena ini otomatis pulih sendiri begitu admin
+   * menambah seatQuota, tanpa siswa perlu melakukan apa pun. */
+  | { allowed: false; reason: "waiting_for_seat" }
   | { allowed: false; reason: "quota_required" };
 
 /**
@@ -129,13 +145,15 @@ export async function canStartAttempt(
   const active = await getActiveEntitlement(studentId);
   if (active?.canStartNewAttempt) return { allowed: true, reason: "entitlement" };
 
+  let seatFull = false;
   if (schoolId) {
-    const granted = await grantSchoolSeatIfAvailable(studentId, schoolId);
-    if (granted) return { allowed: true, reason: "school_seat" };
+    const seatResult = await grantSchoolSeatIfAvailable(studentId, schoolId);
+    if (seatResult.granted) return { allowed: true, reason: "school_seat" };
+    seatFull = seatResult.reason === "seat_full";
   }
 
   const usedFree = await hasUsedFreeTrial(studentId, subjectId);
   if (!usedFree) return { allowed: true, reason: "free_trial" };
 
-  return { allowed: false, reason: "quota_required" };
+  return { allowed: false, reason: seatFull ? "waiting_for_seat" : "quota_required" };
 }
