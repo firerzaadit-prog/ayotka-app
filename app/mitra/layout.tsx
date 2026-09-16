@@ -18,6 +18,7 @@ export default async function MitraLayout({ children }: { children: React.ReactN
       nav={
         <SidebarSection>
           <SidebarLink href="/mitra/dashboard">Voucher Saya</SidebarLink>
+          <SidebarLink href="/mitra/beli-voucher">Beli Voucher</SidebarLink>
         </SidebarSection>
       }
     >

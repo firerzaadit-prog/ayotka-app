@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { generateReadableCode } from "@/lib/utils/generate-code";
+import { generateVoucherBatch } from "@/lib/billing/vouchers";
 import { voucherGenerateSchema } from "@/lib/validations/partner";
 
 /** GET: daftar voucher, opsional difilter per mitra (?partnerId=). */
@@ -21,15 +21,6 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json({ vouchers });
-}
-
-async function generateUniqueVoucherCode(): Promise<string> {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const code = generateReadableCode(10);
-    const existing = await prisma.voucher.findUnique({ where: { code } });
-    if (!existing) return code;
-  }
-  throw new Error("Gagal membuat kode voucher unik, coba lagi.");
 }
 
 /**
@@ -68,25 +59,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Plan tidak ditemukan atau tidak aktif." }, { status: 404 });
   }
 
-  const codes: string[] = [];
-  for (let i = 0; i < jumlah; i++) {
-    codes.push(await generateUniqueVoucherCode());
-  }
-
-  const vouchers = await prisma.$transaction(
-    codes.map((code) =>
-      prisma.voucher.create({
-        data: { code, planId, partnerId, generatedById: actor.id },
-      }),
-    ),
-  );
+  const vouchers = await generateVoucherBatch({
+    count: jumlah,
+    planId,
+    partnerId,
+    generatedById: actor.id,
+  });
 
   await logAudit({
     userId: actor.id,
     aksi: "create",
     entitas: "vouchers",
     entitasId: partnerId,
-    after: { partnerId, planId, jumlah, codes },
+    after: { partnerId, planId, jumlah, codes: vouchers.map((v) => v.code) },
     ip: getClientIp(request),
   });
 

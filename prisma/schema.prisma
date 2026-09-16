@@ -689,10 +689,11 @@ model Plan {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
-  subject      Subject?      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  invoices     Invoice[]
-  entitlements Entitlement[]
-  vouchers     Voucher[]
+  subject       Subject?       @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  invoices      Invoice[]
+  entitlements  Entitlement[]
+  vouchers      Voucher[]
+  voucherOrders VoucherOrder[]
 
   @@map("plans")
 }
@@ -770,9 +771,11 @@ enum VoucherStatus {
   void
 }
 
-/// Jalur C saja. Mitra beli batch di luar sistem inti; admin generate N kode
-/// sekaligus (generatedBy). Redeem oleh siswa langsung tulis entitlements,
-/// TIDAK pernah membuat invoice — lihat lib/billing/jalur-c.ts.
+/// Jalur C: batch dibuat admin pusat manual (generatedBy=admin,
+/// voucherOrderId=null) ATAU mitra beli sendiri lewat Midtrans
+/// (generatedBy=mitra sendiri, voucherOrderId terisi - lihat VoucherOrder).
+/// Redeem oleh siswa langsung tulis entitlements, TIDAK pernah membuat
+/// invoice siswa.
 model Voucher {
   id              String        @id @default(uuid()) @db.Uuid
   code            String        @unique
@@ -782,15 +785,47 @@ model Voucher {
   usedByStudentId String?       @map("used_by_student_id") @db.Uuid
   usedAt          DateTime?     @map("used_at")
   generatedById   String        @map("generated_by_id") @db.Uuid
+  voucherOrderId  String?       @map("voucher_order_id") @db.Uuid
   createdAt       DateTime      @default(now()) @map("created_at")
 
   plan          Plan          @relation(fields: [planId], references: [id], onDelete: Restrict)
   partner       Partner       @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   usedByStudent Student?      @relation(fields: [usedByStudentId], references: [id], onDelete: SetNull)
   generatedBy   User          @relation("VoucherGeneratedBy", fields: [generatedById], references: [id], onDelete: Restrict)
+  voucherOrder  VoucherOrder? @relation(fields: [voucherOrderId], references: [id], onDelete: SetNull)
   entitlements  Entitlement[]
 
   @@map("vouchers")
+}
+
+enum VoucherOrderStatus {
+  pending
+  paid
+  expired
+}
+
+/// Jalur C lewat Midtrans: mitra beli N voucher sekaligus untuk satu plan,
+/// bayar sendiri (harga = plan.harga × jumlah - harga penuh, sama seperti
+/// siswa individu; mitra cari untung dari selisih harga jual mereka sendiri
+/// ke siswa, di luar sistem). Begitu lunas (webhook sama dengan Jalur A di
+/// app/api/webhooks/midtrans), sistem generate N kode voucher otomatis.
+model VoucherOrder {
+  id             String             @id @default(uuid()) @db.Uuid
+  partnerId      String             @map("partner_id") @db.Uuid
+  planId         String             @map("plan_id") @db.Uuid
+  jumlah         Int
+  amount         Int
+  status         VoucherOrderStatus @default(pending)
+  gatewayRef     String?            @unique @map("gateway_ref")
+  paymentChannel String?            @map("payment_channel")
+  expiresAt      DateTime           @map("expires_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+
+  partner  Partner   @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  plan     Plan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  vouchers Voucher[]
+
+  @@map("voucher_orders")
 }
 
 /// Mitra/reseller — punya login sendiri (userId, role mitra) dan dashboard
@@ -804,10 +839,11 @@ model Partner {
   referralCode String   @unique @map("referral_code")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  user        User                @relation(fields: [userId], references: [id], onDelete: Restrict)
-  vouchers    Voucher[]
-  schools     School[]
-  commissions PartnerCommission[]
+  user          User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vouchers      Voucher[]
+  voucherOrders VoucherOrder[]
+  schools       School[]
+  commissions   PartnerCommission[]
 
   @@map("partners")
 }

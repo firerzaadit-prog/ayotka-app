@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconWallet } from "@/components/ui/empty-state-icons";
 import { formatWIBDate } from "@/lib/utils/datetime";
+import Link from "next/link";
+import { buttonClassName } from "@/components/ui/button";
 
 function formatRupiah(n: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
@@ -65,9 +67,23 @@ export default async function MitraDashboardPage() {
       </div>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold text-slate-900">Voucher per Paket</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-900">Voucher per Paket</h2>
+          <Link href="/mitra/beli-voucher" className={buttonClassName("primary")}>
+            Beli voucher
+          </Link>
+        </div>
         {byPlan.size === 0 ? (
-          <EmptyState icon={<IconWallet />} title="Belum ada voucher" description="Hubungi admin pusat untuk membuat batch voucher." />
+          <EmptyState
+            icon={<IconWallet />}
+            title="Belum ada voucher"
+            description="Beli sendiri lewat Midtrans, atau hubungi admin pusat untuk dibuatkan batch."
+            action={
+              <Link href="/mitra/beli-voucher" className={buttonClassName("primary")}>
+                Beli voucher
+              </Link>
+            }
+          />
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {Array.from(byPlan.values()).map((p) => (
