@@ -14,7 +14,7 @@ import { Kontak } from "@/components/public/landing/kontak";
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-card-paper font-card text-card-ink">
+    <main className="min-h-screen bg-white">
       <PublicHeader />
       <Hero />
       <Beda />

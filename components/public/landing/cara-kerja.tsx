@@ -1,5 +1,4 @@
 import { Reveal } from "@/components/ui/reveal";
-import { ExamNumber } from "@/components/public/landing/kit";
 
 const LANGKAH = [
   {
@@ -18,25 +17,26 @@ const LANGKAH = [
 
 export function CaraKerja() {
   return (
-    <section id="cara-kerja" className="card-paper-texture scroll-mt-24 px-4 py-16 sm:px-6 sm:py-20">
-      <div className="mx-auto max-w-4xl">
-        <Reveal className="mx-auto mb-10 max-w-2xl text-center">
-          <h2 className="font-card-serif text-3xl font-semibold text-balance text-card-ink">
+    <section id="cara-kerja" className="scroll-mt-24 bg-slate-50/70 px-6 py-20 sm:py-24">
+      <div className="mx-auto max-w-6xl">
+        <Reveal className="mx-auto mb-12 max-w-2xl text-center">
+          <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
+            Cara kerja
+          </p>
+          <h2 className="mt-2 text-3xl font-bold text-balance text-slate-900">
             Tiga langkah, dari mengerjakan TKA hingga tahu rekomendasi belajarnya
           </h2>
         </Reveal>
-        <div className="border border-card-ink/15 bg-white">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
           {LANGKAH.map((l, i) => (
             <Reveal key={l.judul} delay={i * 80}>
-              <div
-                className={`flex gap-5 px-5 py-5 sm:px-8 ${i > 0 ? "border-t border-card-ink/10" : ""}`}
-              >
-                <ExamNumber className="w-8 shrink-0 text-2xl font-normal text-card-ink/30">
-                  {String(i + 1).padStart(2, "0")}
-                </ExamNumber>
+              <div className="flex gap-4">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-r from-black to-violet-600 font-mono text-sm font-bold text-white">
+                  {i + 1}
+                </span>
                 <div>
-                  <h3 className="font-card text-base font-semibold text-card-ink">{l.judul}</h3>
-                  <p className="mt-1.5 font-card text-sm leading-relaxed text-card-ink/65">{l.deskripsi}</p>
+                  <h3 className="font-semibold text-slate-900">{l.judul}</h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{l.deskripsi}</p>
                 </div>
               </div>
             </Reveal>

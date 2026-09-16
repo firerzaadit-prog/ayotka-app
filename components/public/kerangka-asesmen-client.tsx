@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils/cn";
 import { Reveal } from "@/components/ui/reveal";
 import { Footer } from "@/components/public/footer";
 import { PublicHeader } from "@/components/public/header";
-import { KartuFrame, FieldLabel, ExamNumber } from "@/components/public/landing/kit";
 import {
   KERANGKA_ASESMEN,
   SUMBER_URL,
@@ -28,12 +27,6 @@ const MAPEL_LABEL: Record<MataPelajaran, string> = {
   "bahasa-indonesia": "Bahasa Indonesia",
 };
 
-/**
- * Identitas "Kartu Peserta Ujian" (sama dengan homepage - lihat DESIGN.md),
- * diterapkan dengan tekanan lebih pada keterbacaan karena halaman ini mode
- * Read (dokumentasi), bukan Persuade: Domine cuma untuk H1, sisanya Public
- * Sans supaya daftar/tabel panjang tetap nyaman dibaca.
- */
 export function KerangkaAsesmenClient() {
   const [jenjang, setJenjang] = useState<Jenjang>("SD");
   const [mapel, setMapel] = useState<MataPelajaran>("matematika");
@@ -42,37 +35,41 @@ export function KerangkaAsesmenClient() {
   const content = KERANGKA_ASESMEN[jenjang][mapel];
 
   return (
-    <main className="min-h-screen bg-card-paper font-card text-card-ink">
+    <main className="min-h-screen bg-white">
       <PublicHeader active="/kerangka-asesmen" />
 
-      <section className="card-paper-texture px-4 pb-6 pt-16 text-center sm:px-6 sm:pt-20">
+      <section className="bg-slate-50/70 px-6 pb-6 pt-16 text-center sm:pt-20">
         <Reveal>
-          <FieldLabel>Panduan Resmi &middot; Kemendikdasmen</FieldLabel>
+          <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
+            Panduan Resmi
+          </p>
         </Reveal>
         <Reveal delay={100}>
-          <h1 className="mt-3 font-card-serif text-4xl font-semibold text-balance text-card-ink">
+          <h1 className="mt-2 text-4xl font-bold text-balance text-slate-900 sm:text-5xl">
             Kerangka Asesmen TKA
           </h1>
         </Reveal>
         <Reveal delay={200}>
-          <p className="mx-auto mt-4 max-w-2xl font-card text-base leading-relaxed text-card-ink/65">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-600">
             Cakupan materi dan kompetensi yang diujikan pada Tes Kemampuan Akademik, disusun berdasarkan
             kerangka resmi Pusat Asesmen Pendidikan, Kementerian Pendidikan Dasar dan Menengah RI.
           </p>
         </Reveal>
       </section>
 
-      <section className="mx-auto max-w-4xl px-4 pb-20 sm:px-6">
-        <div className="flex flex-col items-center gap-5 border-b border-card-ink/15 pb-10 pt-8">
-          <div className="inline-flex border border-card-ink/25">
+      <section className="mx-auto max-w-4xl px-6 pb-20">
+        <div className="flex flex-col items-center gap-5 border-b border-slate-200 pb-10 pt-8">
+          <div className="flex gap-2">
             {(["SD", "SMP"] as const).map((j) => (
               <button
                 key={j}
                 type="button"
                 onClick={() => setJenjang(j)}
                 className={cn(
-                  "px-6 py-1.5 font-card-mono text-sm uppercase tracking-wide transition-colors",
-                  jenjang === j ? "bg-card-ink text-card-paper" : "text-card-ink/55 hover:text-card-ink",
+                  "rounded-full px-5 py-2 text-sm font-semibold transition-all",
+                  jenjang === j
+                    ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-600/20"
+                    : "border border-slate-300 text-slate-600 hover:border-slate-400",
                 )}
               >
                 {j}
@@ -86,10 +83,10 @@ export function KerangkaAsesmenClient() {
                 type="button"
                 onClick={() => setMapel(m)}
                 className={cn(
-                  "border px-4 py-2 font-card text-sm font-medium transition-colors",
+                  "rounded-full px-4 py-1.5 text-sm font-semibold transition-all",
                   mapel === m
-                    ? "border-card-ink bg-card-ink text-card-paper"
-                    : "border-card-ink/25 text-card-ink/65 hover:border-card-ink/50",
+                    ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-sm"
+                    : "border border-slate-300 text-slate-600 hover:border-slate-400",
                 )}
               >
                 {MAPEL_LABEL[m]}
@@ -98,15 +95,17 @@ export function KerangkaAsesmenClient() {
           </div>
         </div>
 
-        <div className="mt-10 flex gap-1 overflow-x-auto border-b border-card-ink/15">
+        <div className="mt-10 flex gap-1 overflow-x-auto border-b border-slate-200">
           {TABS.map((t) => (
             <button
               key={t}
               type="button"
               onClick={() => setTab(t)}
               className={cn(
-                "shrink-0 border-b-2 px-5 py-3 font-card text-sm font-medium transition-colors",
-                tab === t ? "border-card-ink text-card-ink" : "border-transparent text-card-ink/50 hover:text-card-ink/80",
+                "shrink-0 border-b-2 px-5 py-3 text-sm font-medium transition-colors",
+                tab === t
+                  ? "border-indigo-600 text-indigo-600 font-semibold"
+                  : "border-transparent text-slate-500 hover:text-slate-700",
               )}
             >
               {TAB_LABEL[t]}
@@ -116,11 +115,11 @@ export function KerangkaAsesmenClient() {
 
         <Reveal key={tab} className="mt-10">
           {tab === "definisi" && (
-            <p className="font-card text-base leading-relaxed text-card-ink/75">{content.definisi}</p>
+            <p className="text-base leading-relaxed text-slate-700">{content.definisi}</p>
           )}
 
           {tab === "muatan" && content.mapel === "Matematika" && (
-            <div className="flex flex-col gap-4 font-card text-base leading-relaxed text-card-ink/75">
+            <div className="flex flex-col gap-4 text-base leading-relaxed text-slate-700">
               <p>{content.muatan.intro}</p>
               <ul className="list-disc space-y-1 pl-5">
                 {content.muatan.elemen.map((e) => (
@@ -132,7 +131,7 @@ export function KerangkaAsesmenClient() {
           )}
 
           {tab === "muatan" && content.mapel === "Bahasa Indonesia" && (
-            <div className="flex flex-col gap-4 font-card text-base leading-relaxed text-card-ink/75">
+            <div className="flex flex-col gap-4 text-base leading-relaxed text-slate-700">
               <p>{content.muatan.intro}</p>
               <ul className="list-disc space-y-2 pl-5">
                 {content.muatan.jenisTeks.map((t) => (
@@ -149,7 +148,7 @@ export function KerangkaAsesmenClient() {
           )}
 
           {tab === "kompetensi" && content.mapel === "Matematika" && content.kompetensi.bentuk === "daftar" && (
-            <div className="flex flex-col gap-4 font-card text-base leading-relaxed text-card-ink/75">
+            <div className="flex flex-col gap-4 text-base leading-relaxed text-slate-700">
               <p>{content.kompetensi.intro}</p>
               <ul className="list-disc space-y-1 pl-5">
                 {content.kompetensi.poin.map((p) => (
@@ -161,31 +160,31 @@ export function KerangkaAsesmenClient() {
 
           {tab === "kompetensi" && content.mapel === "Matematika" && content.kompetensi.bentuk === "level" && (
             <div className="flex flex-col gap-7">
-              <p className="font-card text-base leading-relaxed text-card-ink/75">{content.kompetensi.intro}</p>
+              <p className="text-base leading-relaxed text-slate-700">{content.kompetensi.intro}</p>
               {content.kompetensi.level.map((lvl) => (
-                <KartuFrame key={lvl.label} className="bg-white p-6">
-                  <div className="mb-4 flex flex-wrap items-center gap-3">
-                    <ExamNumber className="border border-card-ink/25 px-2.5 py-1 text-xs uppercase tracking-wide">
+                <div key={lvl.label} className="rounded-xl border border-slate-200 p-6 bg-white shadow-sm">
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 px-3 py-1 text-xs font-semibold text-white">
                       {lvl.label}
-                    </ExamNumber>
-                    <span className="font-card text-base font-semibold text-card-ink">{lvl.nama}</span>
+                    </span>
+                    <span className="font-semibold text-slate-900">{lvl.nama}</span>
                   </div>
                   <dl className="flex flex-col gap-3">
                     {lvl.proses.map((p) => (
                       <div key={p.nama}>
-                        <dt className="font-card text-sm font-semibold text-card-ink/85">{p.nama}</dt>
-                        <dd className="mt-0.5 font-card text-sm leading-relaxed text-card-ink/65">{p.deskripsi}</dd>
+                        <dt className="text-sm font-semibold text-slate-800">{p.nama}</dt>
+                        <dd className="mt-0.5 text-sm leading-relaxed text-slate-600">{p.deskripsi}</dd>
                       </div>
                     ))}
                   </dl>
-                </KartuFrame>
+                </div>
               ))}
             </div>
           )}
 
           {tab === "kompetensi" && content.mapel === "Bahasa Indonesia" && (
             <div className="flex flex-col gap-6">
-              <div className="font-card text-base leading-relaxed text-card-ink/75">
+              <div className="text-base leading-relaxed text-slate-700">
                 <p>{content.kompetensi.aspekIntro}</p>
                 <ul className="mt-2 list-disc space-y-1 pl-5">
                   {content.kompetensi.aspek.map((a) => (
@@ -193,18 +192,12 @@ export function KerangkaAsesmenClient() {
                   ))}
                 </ul>
               </div>
-              <p className="font-card text-base leading-relaxed text-card-ink/75">{content.kompetensi.kelompokIntro}</p>
-              <div className="border border-card-ink/15 bg-white sm:grid sm:grid-cols-3">
-                {content.kompetensi.kelompok.map((k, i) => (
-                  <div
-                    key={k.label}
-                    className={cn(
-                      "p-5",
-                      i > 0 && "border-t border-card-ink/10 sm:border-l sm:border-t-0",
-                    )}
-                  >
-                    <p className="font-card text-sm font-semibold text-card-ink">{k.label}</p>
-                    <p className="mt-2 font-card text-sm leading-relaxed text-card-ink/65">{k.deskripsi}</p>
+              <p className="text-base leading-relaxed text-slate-700">{content.kompetensi.kelompokIntro}</p>
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+                {content.kompetensi.kelompok.map((k) => (
+                  <div key={k.label} className="rounded-xl border border-slate-200 p-5 bg-white shadow-sm">
+                    <p className="font-semibold text-slate-900">{k.label}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{k.deskripsi}</p>
                   </div>
                 ))}
               </div>
@@ -212,33 +205,25 @@ export function KerangkaAsesmenClient() {
           )}
 
           {tab === "matriks" && content.mapel === "Matematika" && (
-            <KartuFrame className="overflow-x-auto bg-white">
-              <table className="w-full text-left font-card text-sm">
-                <thead className="border-b border-card-ink/15">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                   <tr>
-                    <th className="px-5 py-3.5">
-                      <FieldLabel>Elemen</FieldLabel>
-                    </th>
-                    <th className="px-5 py-3.5">
-                      <FieldLabel>Sub-elemen</FieldLabel>
-                    </th>
-                    <th className="px-5 py-3.5">
-                      <FieldLabel>Kompetensi</FieldLabel>
-                    </th>
-                    <th className="px-5 py-3.5">
-                      <FieldLabel>Batasan</FieldLabel>
-                    </th>
+                    <th className="px-5 py-3.5 font-medium">Elemen</th>
+                    <th className="px-5 py-3.5 font-medium">Sub-elemen</th>
+                    <th className="px-5 py-3.5 font-medium">Kompetensi</th>
+                    <th className="px-5 py-3.5 font-medium">Batasan</th>
                   </tr>
                 </thead>
                 <tbody>
                   {content.matriks.map((row, i) => (
                     <tr
                       key={`${row.elemen}-${row.subElemen}-${i}`}
-                      className="border-b border-card-ink/10 align-top last:border-0"
+                      className="border-b border-slate-100 align-top last:border-0"
                     >
-                      <td className="px-5 py-3.5 font-medium text-card-ink">{row.elemen}</td>
-                      <td className="px-5 py-3.5 font-medium text-card-ink/80">{row.subElemen}</td>
-                      <td className="px-5 py-3.5 text-card-ink/70">
+                      <td className="px-5 py-3.5 font-medium text-slate-900">{row.elemen}</td>
+                      <td className="px-5 py-3.5 font-medium text-slate-700">{row.subElemen}</td>
+                      <td className="px-5 py-3.5 text-slate-600">
                         <p>{row.kompetensiIntro}</p>
                         <ul className="mt-1 list-disc space-y-0.5 pl-4">
                           {row.poin.map((p) => (
@@ -246,32 +231,28 @@ export function KerangkaAsesmenClient() {
                           ))}
                         </ul>
                       </td>
-                      <td className="px-5 py-3.5 text-card-ink/50">{row.batasan ?? "-"}</td>
+                      <td className="px-5 py-3.5 text-slate-500">{row.batasan ?? "-"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </KartuFrame>
+            </div>
           )}
 
           {tab === "matriks" && content.mapel === "Bahasa Indonesia" && (
-            <KartuFrame className="overflow-x-auto bg-white">
-              <table className="w-full text-left font-card text-sm">
-                <thead className="border-b border-card-ink/15">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
                   <tr>
-                    <th className="px-5 py-3.5">
-                      <FieldLabel>Kompetensi</FieldLabel>
-                    </th>
-                    <th className="px-5 py-3.5">
-                      <FieldLabel>Subkompetensi</FieldLabel>
-                    </th>
+                    <th className="px-5 py-3.5 font-medium">Kompetensi</th>
+                    <th className="px-5 py-3.5 font-medium">Subkompetensi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {content.matriks.map((row) => (
-                    <tr key={row.kompetensi} className="border-b border-card-ink/10 align-top last:border-0">
-                      <td className="px-5 py-3.5 font-medium text-card-ink">{row.kompetensi}</td>
-                      <td className="px-5 py-3.5 text-card-ink/70">
+                    <tr key={row.kompetensi} className="border-b border-slate-100 align-top last:border-0">
+                      <td className="px-5 py-3.5 font-medium text-slate-900">{row.kompetensi}</td>
+                      <td className="px-5 py-3.5 text-slate-600">
                         <ul className="list-disc space-y-1 pl-4">
                           {row.subkompetensi.map((s) => (
                             <li key={s}>{s}</li>
@@ -282,21 +263,21 @@ export function KerangkaAsesmenClient() {
                   ))}
                 </tbody>
               </table>
-            </KartuFrame>
+            </div>
           )}
         </Reveal>
 
-        <FieldLabel className="mt-14 block text-center normal-case tracking-normal text-card-ink/45">
+        <p className="mt-14 text-center text-xs text-slate-400">
           Sumber: Kementerian Pendidikan Dasar dan Menengah Republik Indonesia — Pusat Asesmen Pendidikan.{" "}
           <a
             href={SUMBER_URL[jenjang]}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline hover:text-card-ink/70"
+            className="underline hover:text-slate-600"
           >
             Lihat kerangka lengkap
           </a>
-        </FieldLabel>
+        </p>
       </section>
 
       <Footer />

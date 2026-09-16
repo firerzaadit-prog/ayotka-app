@@ -1,5 +1,4 @@
 import { Reveal } from "@/components/ui/reveal";
-import { ExamNumber } from "@/components/public/landing/kit";
 
 const strokeProps = { stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
 
@@ -39,36 +38,29 @@ const AUDIENS: { icon: () => React.JSX.Element; judul: string; deskripsi: string
   },
 ];
 
-/** Bukan dua kartu ikon terpisah - satu manifes/daftar bergaya dokumen resmi, dua baris. */
 export function Siapa() {
   return (
-    <section className="card-paper-texture px-4 py-16 sm:px-6 sm:py-20">
-      <div className="mx-auto max-w-4xl">
-        <Reveal className="mx-auto mb-10 max-w-xl text-center">
-          <h2 className="font-card-serif text-3xl font-semibold text-balance text-card-ink">
-            Dua orang melihat layar yang berbeda
-          </h2>
-        </Reveal>
-        <div className="border border-card-ink/15 bg-white">
-          {AUDIENS.map((a, i) => (
-            <Reveal key={a.judul} delay={i * 80}>
-              <div
-                className={`flex items-start gap-5 px-5 py-6 sm:px-8 ${i > 0 ? "border-t border-card-ink/10" : ""}`}
-              >
-                <ExamNumber className="w-6 shrink-0 pt-0.5 text-sm text-card-ink/35">
-                  {String(i + 1).padStart(2, "0")}
-                </ExamNumber>
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center border border-card-ink/20 text-card-ink">
-                  <a.icon />
-                </span>
-                <div>
-                  <h3 className="font-card text-base font-semibold text-card-ink">{a.judul}</h3>
-                  <p className="mt-1.5 font-card text-sm leading-relaxed text-card-ink/65">{a.deskripsi}</p>
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
+    <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
+      <Reveal className="mx-auto mb-12 max-w-xl text-center">
+        <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
+          Siapa yang pakai
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-balance text-slate-900">
+          Dua orang melihat layar yang berbeda
+        </h2>
+      </Reveal>
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        {AUDIENS.map((a, i) => (
+          <Reveal key={a.judul} delay={i * 80}>
+            <div className="h-full rounded-2xl border border-slate-200 bg-white p-6">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white">
+                <a.icon />
+              </span>
+              <h3 className="mt-4 font-semibold text-slate-900">{a.judul}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{a.deskripsi}</p>
+            </div>
+          </Reveal>
+        ))}
       </div>
     </section>
   );

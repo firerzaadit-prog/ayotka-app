@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { Reveal } from "@/components/ui/reveal";
 import { KERANGKA_ASESMEN, type Jenjang, type MataPelajaran } from "@/lib/content/kerangka-asesmen";
-import { KartuFrame, FieldLabel } from "@/components/public/landing/kit";
 
 const MAPEL_LABEL: Record<MataPelajaran, string> = {
   matematika: "Matematika",
@@ -26,8 +25,8 @@ function PillButton({
       onClick={onClick}
       className={
         active
-          ? "border border-card-ink bg-card-ink px-3.5 py-1.5 font-card-mono text-xs uppercase tracking-wide text-card-paper"
-          : "border border-card-ink/25 px-3.5 py-1.5 font-card-mono text-xs uppercase tracking-wide text-card-ink/55 transition-colors hover:border-card-ink/50"
+          ? "rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 px-3.5 py-1.5 text-xs font-semibold text-white"
+          : "rounded-full border border-slate-300 px-3.5 py-1.5 text-xs font-semibold text-slate-500 transition-colors hover:border-slate-400"
       }
     >
       {children}
@@ -35,26 +34,22 @@ function PillButton({
   );
 }
 
-/**
- * Cuma cuplikan/teaser (definisi tiap kombinasi jenjang & mapel) yang
- * mengarahkan ke halaman /kerangka-asesmen yang sudah lengkap (muatan,
- * kompetensi, matriks asesmen penuh) - sumber datanya sama persis dengan
- * halaman itu (lib/content/kerangka-asesmen.ts) supaya tidak ada isi yang
- * beda sendiri/basi di sini.
- */
 export function KerangkaAsesmenTeaser() {
   const [jenjang, setJenjang] = useState<Jenjang>("SD");
   const [mapel, setMapel] = useState<MataPelajaran>("matematika");
   const definisi = KERANGKA_ASESMEN[jenjang][mapel].definisi;
 
   return (
-    <section className="card-paper-texture px-4 py-16 sm:px-6 sm:py-20">
-      <div className="mx-auto max-w-3xl text-center">
+    <section className="bg-slate-50/70 px-6 py-20 sm:py-24">
+      <div className="mx-auto max-w-4xl text-center">
         <Reveal>
-          <h2 className="font-card-serif text-3xl font-semibold text-balance text-card-ink">
+          <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
+            Panduan resmi
+          </p>
+          <h2 className="mt-2 text-3xl font-bold text-balance text-slate-900">
             Kerangka Asesmen TKA
           </h2>
-          <p className="mx-auto mt-3 max-w-2xl font-card text-base leading-relaxed text-card-ink/65">
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-relaxed text-slate-600">
             Cakupan materi dan kompetensi yang diujikan pada Tes Kemampuan Akademik, disusun
             berdasarkan kerangka resmi Pusat Asesmen Pendidikan, Kementerian Pendidikan Dasar dan
             Menengah RI.
@@ -62,7 +57,7 @@ export function KerangkaAsesmenTeaser() {
         </Reveal>
 
         <Reveal delay={100}>
-          <KartuFrame className="mx-auto mt-8 max-w-2xl bg-white p-6 text-left sm:p-8">
+          <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 text-left sm:p-8">
             <div className="flex flex-wrap gap-2">
               <PillButton active={jenjang === "SD"} onClick={() => setJenjang("SD")}>
                 SD
@@ -82,20 +77,20 @@ export function KerangkaAsesmenTeaser() {
                 </PillButton>
               </div>
             </div>
-            <p className="mt-5 border-t border-card-ink/10 pt-5 font-card text-sm leading-relaxed text-card-ink/70">
+            <p className="mt-5 border-t border-slate-100 pt-5 text-sm leading-relaxed text-slate-600">
               {definisi}
             </p>
-            <FieldLabel className="mt-4 block normal-case tracking-normal text-card-ink/45">
+            <p className="mt-4 text-xs text-slate-500">
               Sumber: Kementerian Pendidikan Dasar dan Menengah Republik Indonesia — Pusat Asesmen
               Pendidikan.
-            </FieldLabel>
-          </KartuFrame>
+            </p>
+          </div>
         </Reveal>
 
         <Reveal delay={150}>
           <Link
             href="/kerangka-asesmen"
-            className="mt-8 inline-block border border-card-ink/30 bg-white px-6 py-3 font-card text-sm font-semibold text-card-ink transition-colors hover:border-card-ink/60"
+            className="mt-8 inline-block rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 shadow-sm transition-all hover:border-slate-300 hover:bg-slate-50"
           >
             Lihat kerangka lengkap SD &amp; SMP →
           </Link>

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Reveal } from "@/components/ui/reveal";
-import { KartuFrame, FieldLabel } from "@/components/public/landing/kit";
 import { buildWhatsAppLink } from "@/lib/utils/whatsapp";
 
 type JalurItem = {
@@ -54,33 +53,35 @@ const JALUR: JalurItem[] = [
   },
 ];
 
-/** Bagian "cara berlangganan" - tiga jalur pendaftaran (siswa, sekolah, mitra) sesuai 3 jalur pembayaran di sistem. */
 export function Jalur() {
   return (
-    <section className="px-4 py-16 sm:px-6 sm:py-20">
+    <section className="bg-slate-50/70 px-6 py-20 sm:py-24">
       <div className="mx-auto max-w-6xl">
-        <Reveal className="mx-auto mb-10 max-w-2xl text-center">
-          <h2 className="font-card-serif text-3xl font-semibold text-balance text-card-ink">
+        <Reveal className="mx-auto mb-12 max-w-2xl text-center">
+          <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
+            Jalur Pendaftaran
+          </p>
+          <h2 className="mt-2 text-3xl font-bold text-balance text-slate-900">
             Bagaimana cara berlangganan ke AyoTKA?
           </h2>
-          <p className="mt-3 font-card text-sm leading-relaxed text-card-ink/65">
+          <p className="mt-3 text-base leading-relaxed text-slate-600">
             Pilih jalur sesuai statusmu — siswa, sekolah, atau mitra/reseller.
           </p>
         </Reveal>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
           {JALUR.map((j, i) => (
             <Reveal key={j.judul} delay={i * 80}>
-              <KartuFrame className="flex h-full flex-col bg-white">
-                <div className="border-b border-card-ink/15 px-6 py-3">
-                  <FieldLabel>{j.label}</FieldLabel>
+              <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-100 px-6 py-2.5 font-mono text-[0.68rem] font-semibold uppercase tracking-wide text-indigo-600">
+                  {j.label}
                 </div>
                 <div className="flex flex-1 flex-col p-6">
-                  <h3 className="font-card-serif text-lg font-semibold text-card-ink">{j.judul}</h3>
-                  <p className="mt-2 font-card text-sm text-card-ink/65">{j.deskripsi}</p>
+                  <h3 className="text-lg font-semibold text-slate-900">{j.judul}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{j.deskripsi}</p>
                   <ul className="mt-4 flex flex-1 flex-col gap-2">
                     {j.poin.map((p) => (
-                      <li key={p} className="flex gap-2 font-card text-sm text-card-ink/70">
-                        <span className="mt-0.5 shrink-0 font-card-mono text-card-ink">✓</span>
+                      <li key={p} className="flex gap-2 text-sm text-slate-600">
+                        <span className="mt-0.5 shrink-0 text-emerald-600 font-semibold">✓</span>
                         {p}
                       </li>
                     ))}
@@ -90,20 +91,20 @@ export function Jalur() {
                       href={j.href}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-5 border border-card-ink px-4 py-2.5 text-center font-card text-sm font-semibold text-card-ink transition-colors hover:bg-card-ink hover:text-card-paper"
+                      className="mt-6 rounded-lg border border-slate-300 px-4 py-2.5 text-center text-sm font-semibold text-slate-700 transition-colors hover:border-slate-400 hover:bg-slate-50"
                     >
                       {j.cta}
                     </a>
                   ) : (
                     <Link
                       href={j.href}
-                      className="mt-5 border border-card-ink bg-card-ink px-4 py-2.5 text-center font-card text-sm font-semibold text-card-paper transition-transform hover:-translate-y-0.5"
+                      className="mt-6 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-sm shadow-indigo-600/20 transition-all hover:scale-[1.02] hover:shadow-md hover:shadow-indigo-600/30"
                     >
                       {j.cta}
                     </Link>
                   )}
                 </div>
-              </KartuFrame>
+              </div>
             </Reveal>
           ))}
         </div>

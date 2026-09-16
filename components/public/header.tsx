@@ -12,33 +12,28 @@ const NAV_LINKS = [
 ] as const;
 
 const MASUK_CLASS =
-  "border border-card-ink/30 bg-white px-4 py-2 font-card text-sm font-semibold text-card-ink transition-colors hover:border-card-ink/60";
+  "rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-indigo-600/20 transition-all hover:shadow-md hover:shadow-indigo-600/30 hover:from-indigo-500 hover:to-violet-500";
 
 const DAFTAR_CLASS =
-  "border border-card-ink bg-card-ink px-4 py-2 font-card text-sm font-semibold text-card-paper transition-transform hover:-translate-y-0.5";
+  "rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-slate-800";
 
-/**
- * Dipakai di semua halaman publik (landing, Kerangka Asesmen). Identitas
- * "Kartu Peserta Ujian": tombol jadi persegi rata (bukan pil gradient),
- * wordmark pakai font-card-serif.
- */
 export function PublicHeader({ active }: { active?: string }) {
   const [open, setOpen] = useState(false);
 
   function linkClass(href: (typeof NAV_LINKS)[number]["href"]) {
     return href === active
-      ? "font-card text-sm font-medium text-card-ink"
-      : "font-card text-sm font-medium text-card-ink/60 hover:text-card-ink";
+      ? "text-sm font-semibold text-indigo-600"
+      : "text-sm font-medium text-slate-600 transition-colors hover:text-indigo-600";
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-card-ink/15 bg-card-paper/90 px-6 py-4 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/90 px-6 py-3.5 backdrop-blur-md shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
       <div className="mx-auto flex max-w-6xl items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 font-card-serif text-lg font-semibold tracking-tight text-card-ink">
-          <div className="relative h-10 w-10 shrink-0">
-            <Image src="/logo.png" alt="AyoTKA Logo" fill sizes="40px" className="object-contain" />
+        <Link href="/" className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-slate-900 transition-opacity hover:opacity-90">
+          <div className="relative h-9 w-9 shrink-0">
+            <Image src="/logo.png" alt="AyoTKA Logo" fill sizes="36px" className="object-contain" priority />
           </div>
-          AyoTKA
+          <span>AyoTKA</span>
         </Link>
 
         <nav className="hidden items-center gap-6 sm:flex">
@@ -62,7 +57,7 @@ export function PublicHeader({ active }: { active?: string }) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            className="flex h-11 w-11 items-center justify-center border border-card-ink/20 text-card-ink/70 hover:bg-card-ink/5"
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
             aria-label={open ? "Tutup menu" : "Buka menu"}
             aria-expanded={open}
           >
@@ -78,7 +73,7 @@ export function PublicHeader({ active }: { active?: string }) {
       </div>
 
       {open && (
-        <nav className="mx-auto mt-4 flex max-w-6xl flex-col gap-1 border-t border-card-ink/10 pt-4 sm:hidden">
+        <nav className="mx-auto mt-3 flex max-w-6xl flex-col gap-1 border-t border-slate-100 pt-3 sm:hidden">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -86,8 +81,8 @@ export function PublicHeader({ active }: { active?: string }) {
               onClick={() => setOpen(false)}
               className={
                 link.href === active
-                  ? "bg-card-ink/8 px-3 py-2 font-card text-sm font-medium text-card-ink"
-                  : "px-3 py-2 font-card text-sm font-medium text-card-ink/60 hover:text-card-ink"
+                  ? "rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700"
+                  : "rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               }
             >
               {link.label}
@@ -96,7 +91,7 @@ export function PublicHeader({ active }: { active?: string }) {
           <Link
             href="/login"
             onClick={() => setOpen(false)}
-            className="px-3 py-2 font-card text-sm font-medium text-card-ink/60 hover:text-card-ink"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
           >
             Masuk
           </Link>
