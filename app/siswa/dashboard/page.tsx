@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
+import { RankingWidget } from "@/components/dashboard/ranking-widget";
 
 const QUICK_LINKS = [
   {
@@ -67,6 +68,8 @@ export default function SiswaDashboardPage() {
           </Link>
         ))}
       </div>
+
+      <RankingWidget />
     </div>
   );
 }

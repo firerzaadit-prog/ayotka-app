@@ -22,8 +22,19 @@ type PackageListItem = {
   tingkatList: number[];
   status: string;
   jumlahSoal: number;
+  jenisPaket: "tryout" | "latihan";
   subject: Subject;
+  tryOutGroup: { nama: string } | null;
   _count: { questions: number };
+};
+
+const JENIS_PAKET_BADGE_VARIANT: Record<"tryout" | "latihan", "neutral" | "success"> = {
+  tryout: "success",
+  latihan: "neutral",
+};
+const JENIS_PAKET_LABEL: Record<"tryout" | "latihan", string> = {
+  tryout: "Try Out",
+  latihan: "Latihan",
 };
 
 const TINGKAT_OPTIONS = [4, 5, 6, 7, 8, 9];
@@ -38,6 +49,9 @@ const emptyForm = {
   blueprintId: "",
   modePembahasan: "setelah_tutup" as "langsung" | "setelah_tutup",
   bolehDipilihSiswa: false,
+  jenisPaket: "tryout" as "tryout" | "latihan",
+  bukaMulai: "",
+  bukaSelesai: "",
 };
 
 const STATUS_BADGE_VARIANT: Record<string, "neutral" | "success" | "warning"> = {
@@ -262,6 +276,21 @@ export function PackageList({ basePath }: { basePath: string }) {
                 <option value="langsung">Langsung setelah siswa submit</option>
               </select>
             </div>
+            <div>
+              <Label htmlFor="jenisPaket">Jenis paket</Label>
+              <select
+                id="jenisPaket"
+                className={selectClassName}
+                value={form.jenisPaket}
+                onChange={(e) => setForm({ ...form, jenisPaket: e.target.value as "tryout" | "latihan" })}
+              >
+                <option value="tryout">Try Out (dianalisis AI)</option>
+                <option value="latihan">Latihan (skor + peta kompetensi saja, tanpa AI)</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Latihan tidak pernah memicu analisis AI, apa pun status berlangganan siswanya.
+              </p>
+            </div>
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
@@ -276,6 +305,33 @@ export function PackageList({ basePath }: { basePath: string }) {
               (di luar jadwal ujian) - selama paket sudah di-publish dan distribusinya
               (lihat halaman detail paket) mengizinkan siswa tersebut melihatnya.
             </p>
+            {form.bolehDipilihSiswa && (
+              <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div>
+                  <Label htmlFor="bukaMulai">Buka mulai (opsional)</Label>
+                  <Input
+                    id="bukaMulai"
+                    type="datetime-local"
+                    value={form.bukaMulai}
+                    onChange={(e) => setForm({ ...form, bukaMulai: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="bukaSelesai">Buka selesai (opsional)</Label>
+                  <Input
+                    id="bukaSelesai"
+                    type="datetime-local"
+                    value={form.bukaSelesai}
+                    onChange={(e) => setForm({ ...form, bukaSelesai: e.target.value })}
+                  />
+                </div>
+                <p className="col-span-2 text-xs text-slate-500">
+                  Kosongkan berdua kalau paket ini selalu terbuka. Isi berdua untuk membatasi jendela
+                  pengerjaan (mis. Try Out gelombang Januari dibuka 1 hari untuk serentak, atau
+                  seminggu untuk siswa bebas memilih waktunya sendiri).
+                </p>
+              </div>
+            )}
             <Button type="submit" disabled={submitting || form.tingkatList.length === 0} className="w-fit">
               {submitting ? "Menyimpan..." : "Simpan paket"}
             </Button>
@@ -305,6 +361,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                   <tr>
                     <Th>Nama</Th>
                     <Th>Mapel</Th>
+                    <Th>Jenis</Th>
                     <Th>Tingkat</Th>
                     <Th>Status</Th>
                     <Th>Soal</Th>
@@ -318,8 +375,16 @@ export function PackageList({ basePath }: { basePath: string }) {
                         <Link href={`${basePath}/${pkg.id}`} className="font-medium text-slate-900 hover:underline">
                           {pkg.nama}
                         </Link>
+                        {pkg.tryOutGroup && (
+                          <p className="text-xs text-slate-400">Variasi dari: {pkg.tryOutGroup.nama}</p>
+                        )}
                       </Td>
                       <Td>{pkg.subject.nama}</Td>
+                      <Td>
+                        <Badge variant={JENIS_PAKET_BADGE_VARIANT[pkg.jenisPaket]}>
+                          {JENIS_PAKET_LABEL[pkg.jenisPaket]}
+                        </Badge>
+                      </Td>
                       <Td>{pkg.tingkatList.join(", ")}</Td>
                       <Td>
                         <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>

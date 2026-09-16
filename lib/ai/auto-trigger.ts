@@ -44,9 +44,14 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
 
     const pkg = await prisma.package.findUnique({
       where: { id: attempt.packageId },
-      select: { subjectId: true },
+      select: { subjectId: true, jenisPaket: true },
     });
     if (!pkg) return;
+
+    // Bagian 8/10 (permintaan user): paket Latihan tidak pernah dianalisis
+    // AI, berlaku di semua jalur - independen dari status free-trial/
+    // berlangganan di bawah ini.
+    if (pkg.jenisPaket === "latihan") return;
 
     if (await wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt)) return;
 

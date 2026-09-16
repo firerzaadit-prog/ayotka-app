@@ -2,6 +2,8 @@ export type PromptInput = {
   namaSiswa: string;
   paketNama: string;
   skorAkhir: number;
+  /** Bagian 8.2 brief: ringkasan kerangka asesmen resmi (kalau tersedia untuk mapel ini) - lihat lib/content/kerangka-asesmen.ts. */
+  kerangkaAsesmen?: string | null;
   kompetensi: {
     kode: string;
     deskripsi: string;
@@ -47,6 +49,13 @@ export function buildAnalisisPrompt(input: PromptInput): string {
     .map((f) => `- ${f.format}: ${f.jmlBenar}/${f.jmlSoal} benar`)
     .join("\n");
 
+  const kerangkaBlock = input.kerangkaAsesmen
+    ? `\nSTANDAR KOMPETENSI RESMI (Kerangka Asesmen TKA - Kemendikdasmen, untuk konteks BACAAN saja, BUKAN sumber angka):\n${input.kerangkaAsesmen}\n`
+    : "";
+  const kerangkaAturan = input.kerangkaAsesmen
+    ? "\n- Gunakan STANDAR KOMPETENSI RESMI di bawah sebagai acuan pembanding saat menarasikan tiap kompetensi (mis. kompetensi APA dari standar itu yang belum dikuasai berdasarkan persentase yang diberikan) - jangan mengarang cakupan standar yang tidak disebutkan di sana."
+    : "";
+
   return `Kamu adalah asisten yang menerjemahkan data hasil ujian siswa menjadi narasi yang mudah dipahami, dalam Bahasa Indonesia yang suportif dan membangun.
 
 ATURAN WAJIB:
@@ -54,8 +63,8 @@ ATURAN WAJIB:
 - Tugasmu HANYA menerjemahkan angka-angka ini menjadi narasi. Kalau kamu menyebut angka, angka itu HARUS persis sama dengan yang diberikan di bawah.
 - Jangan menyinggung ranking/peringkat terhadap siswa lain - data itu sengaja tidak diberikan ke kamu dan tidak relevan untuk siswa ini.
 - Nada: suportif dan membangun, bukan menghakimi. Ini bantu belajar, bukan vonis.
-- Keluarkan HANYA JSON sesuai skema yang diminta, tanpa teks lain di luar JSON.
-
+- Keluarkan HANYA JSON sesuai skema yang diminta, tanpa teks lain di luar JSON.${kerangkaAturan}
+${kerangkaBlock}
 DATA SISWA:
 Nama: ${input.namaSiswa}
 Paket ujian: ${input.paketNama}

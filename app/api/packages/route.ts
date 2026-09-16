@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { getOwnerScope } from "@/lib/packages/scope";
-import { packageCreateSchema } from "@/lib/validations/question";
+import { packageCreateSchema, toNullableDate } from "@/lib/validations/question";
 
 export async function GET() {
   let user;
@@ -22,7 +22,11 @@ export async function GET() {
   const packages = await prisma.package.findMany({
     where: { ownerType: scope.ownerType, ownerId: scope.ownerId, status: { not: "archived" } },
     orderBy: { nama: "asc" },
-    include: { subject: true, _count: { select: { questions: { where: { deletedAt: null } } } } },
+    include: {
+      subject: true,
+      tryOutGroup: { select: { nama: true } },
+      _count: { select: { questions: { where: { deletedAt: null } } } },
+    },
   });
 
   return NextResponse.json({ packages });
@@ -50,7 +54,56 @@ export async function POST(request: Request) {
     );
   }
 
-  const { blueprintId, visibilityMode, visibilitySchoolIds, ...rest } = parsed.data;
+  const { blueprintId, visibilityMode, visibilitySchoolIds, bukaMulai, bukaSelesai, tryOutGroupId, ...rest } =
+    parsed.data;
+
+  // Bagian 8/10 (permintaan user): paket VARIASI dari TryOutGroup - mapel/
+  // jenjang/tingkat/durasi/jumlah soal WAJIB sama dengan grupnya (diturunkan
+  // di sini, mengabaikan apa pun yang dikirim client untuk field itu) supaya
+  // tiap variasi tidak bisa diam-diam beda dari saudara-saudaranya. Variasi
+  // tidak pernah tampil sendiri ke siswa (bolehDipilihSiswa dipaksa false) -
+  // hanya grupnya yang tampil, lihat getSelfSelectTryOutGroupsFor.
+  if (tryOutGroupId) {
+    const group = await prisma.tryOutGroup.findUnique({ where: { id: tryOutGroupId } });
+    if (!group || group.ownerType !== scope.ownerType || group.ownerId !== scope.ownerId) {
+      return NextResponse.json({ error: "Try out tidak ditemukan." }, { status: 404 });
+    }
+
+    const pkg = await prisma.package.create({
+      data: {
+        nama: rest.nama,
+        subjectId: group.subjectId,
+        jenjang: group.jenjang,
+        tingkatList: group.tingkatList,
+        durasiMenit: group.durasiMenit,
+        jumlahSoal: group.jumlahSoal,
+        maxAttempt: group.maxAttempt,
+        modePembahasan: group.modePembahasan,
+        blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
+        jenisPaket: "tryout",
+        bolehDipilihSiswa: false,
+        tryOutGroupId: group.id,
+        ...scope,
+      },
+    });
+
+    await logAudit({
+      userId: user.id,
+      aksi: "create",
+      entitas: "packages",
+      entitasId: pkg.id,
+      after: pkg,
+      ip: getClientIp(request),
+    });
+
+    return NextResponse.json({ package: pkg }, { status: 201 });
+  }
+
+  const bukaMulaiDate = toNullableDate(bukaMulai);
+  const bukaSelesaiDate = toNullableDate(bukaSelesai);
+  if (bukaMulaiDate && bukaSelesaiDate && bukaSelesaiDate <= bukaMulaiDate) {
+    return NextResponse.json({ error: "Waktu selesai harus setelah waktu mulai." }, { status: 400 });
+  }
 
   // Distribusi lintas sekolah (visibility) cuma konsep milik paket pusat
   // (Tiket 2.8) - paket sekolah tidak punya ini, field ini diabaikan diam-diam
@@ -71,6 +124,8 @@ export async function POST(request: Request) {
       ...rest,
       ...scope,
       blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
+      bukaMulai: bukaMulaiDate ?? null,
+      bukaSelesai: bukaSelesaiDate ?? null,
       ...(visibilityCreate ? { visibility: visibilityCreate } : {}),
     },
   });

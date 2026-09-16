@@ -25,6 +25,7 @@ function InstruksiContent() {
   const searchParams = useSearchParams();
   const assignmentId = searchParams.get("assignmentId");
   const packageId = searchParams.get("packageId");
+  const tryOutGroupId = searchParams.get("tryOutGroupId");
 
   const [info, setInfo] = useState<Info>(undefined as unknown as Info);
   const [starting, setStarting] = useState(false);
@@ -37,12 +38,15 @@ function InstruksiContent() {
       if (assignmentId) {
         const a = (data.assignments ?? []).find((x: { id: string }) => x.id === assignmentId);
         setInfo(a ? { ...a.package, selesai: a.selesai } : null);
+      } else if (tryOutGroupId) {
+        const g = (data.tryOutGroups ?? []).find((x: { id: string }) => x.id === tryOutGroupId);
+        setInfo(g ?? null);
       } else {
         const p = (data.packages ?? []).find((x: { id: string }) => x.id === packageId);
         setInfo(p ?? null);
       }
     })();
-  }, [assignmentId, packageId]);
+  }, [assignmentId, packageId, tryOutGroupId]);
 
   async function handleMulai() {
     setError(null);
@@ -50,7 +54,9 @@ function InstruksiContent() {
     const res = await fetch("/api/siswa/attempts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(assignmentId ? { assignmentId } : { packageId }),
+      body: JSON.stringify(
+        assignmentId ? { assignmentId } : tryOutGroupId ? { tryOutGroupId } : { packageId },
+      ),
     });
     const data = await res.json();
     setStarting(false);
@@ -89,6 +95,9 @@ function InstruksiContent() {
       <Alert variant="warning">
         <p className="font-medium">Sebelum mulai:</p>
         <ul className="mt-1 list-disc pl-5">
+          {tryOutGroupId && (
+            <li>Soal untuk try out ini dipilih secara acak dari beberapa variasi - hasil kamu tetap dirangking bersama semua peserta try out ini, apa pun variasi soal yang kamu dapat.</li>
+          )}
           <li>Timer mulai berjalan begitu kamu klik &quot;Mulai&quot; dan dihitung di server — tidak bisa dicurangi lewat jam HP.</li>
           <li>Jawabanmu tersimpan otomatis tiap kali kamu menjawab.</li>
           <li>Waktu habis = jawaban yang sudah ada otomatis tersubmit.</li>

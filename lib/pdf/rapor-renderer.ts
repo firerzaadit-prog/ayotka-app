@@ -1,6 +1,7 @@
 import "server-only";
 import type { buildHasil } from "@/lib/exam/hasil";
 import { latexToPlainText } from "@/lib/pdf/latex-to-text";
+import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color";
 
 type Hasil = Awaited<ReturnType<typeof buildHasil>>;
 type AiAnalysisDetail = {
@@ -102,24 +103,27 @@ function drawBadge(doc: PDFKit.PDFDocument, text: string, x: number, y: number, 
   return width;
 }
 
-type CompetencyScore = { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number };
+type MateriScoreRow = { materiNama: string; jmlBenar: number; jmlSoal: number; persentase: number };
 
 function competencyChartHeight(count: number): number {
-  return count * 27 + 18;
+  return count * 24 + 18;
 }
 
 /**
- * Grafik batang horizontal untuk peta kompetensi (gridline + sumbu 0-100%).
- * Digambar sebagai satu blok atom (bukan loop per-baris dengan addPage()
- * sendiri-sendiri) dan setiap teks dipasang di koordinat eksplisit - tidak
- * ada continued-chain atau ambil-doc.y-ambient sama sekali. Pola itu (lihat
- * catatan di drawWatermark) pernah menyebabkan kursor pdfkit nyangkut di
- * posisi tidak valid lalu memicu puluhan halaman kosong berantai begitu ada
- * baris yang perlu pindah halaman - jadi dihindari total di sini.
+ * Grafik batang horizontal 3 warna per Materi (gridline + sumbu 0-100%) -
+ * Bagian 8.7 brief. Ambang warna SAMA persis dengan versi web (lihat
+ * lib/exam/competency-color.ts) supaya siswa tidak melihat warna berbeda
+ * untuk persentase yang sama di dua tempat. Digambar sebagai satu blok atom
+ * (bukan loop per-baris dengan addPage() sendiri-sendiri) dan setiap teks
+ * dipasang di koordinat eksplisit - tidak ada continued-chain atau
+ * ambil-doc.y-ambient sama sekali. Pola itu (lihat catatan di drawWatermark)
+ * pernah menyebabkan kursor pdfkit nyangkut di posisi tidak valid lalu
+ * memicu puluhan halaman kosong berantai begitu ada baris yang perlu pindah
+ * halaman - jadi dihindari total di sini.
  */
 function drawCompetencyChart(
   doc: PDFKit.PDFDocument,
-  scores: CompetencyScore[],
+  scores: MateriScoreRow[],
   x: number,
   y: number,
   width: number,
@@ -128,8 +132,8 @@ function drawCompetencyChart(
   const pctLabelW = 40;
   const barX = x + labelW + 8;
   const barW = width - labelW - 8 - pctLabelW;
-  const rowH = 27;
-  const barH = 11;
+  const rowH = 24;
+  const barH = 13;
   const chartH = scores.length * rowH;
 
   doc.lineWidth(0.5);
@@ -138,24 +142,21 @@ function drawCompetencyChart(
     doc.moveTo(gx, y).lineTo(gx, y + chartH).strokeColor(COLOR.border).stroke();
   }
 
-  scores.forEach((c, i) => {
+  scores.forEach((s, i) => {
     const rowY = y + i * rowH;
-    const good = c.persentase >= 70;
-    const accent = good ? COLOR.success : COLOR.danger;
-    const desc = c.deskripsi.length > 46 ? `${c.deskripsi.slice(0, 45)}…` : c.deskripsi;
+    const accent = COMPETENCY_TIER_HEX[competencyTier(s.persentase)];
+    const label = s.materiNama.length > 32 ? `${s.materiNama.slice(0, 31)}…` : s.materiNama;
 
     doc.fontSize(8.5).font("Helvetica-Bold").fillColor(COLOR.ink)
-      .text(c.kode, x, rowY, { width: labelW, lineBreak: false });
-    doc.fontSize(7).font("Helvetica").fillColor(COLOR.faint)
-      .text(desc, x, rowY + 11, { width: labelW, lineBreak: false });
+      .text(label, x, rowY + 3, { width: labelW, lineBreak: false });
 
-    const barY = rowY + 6;
-    doc.roundedRect(barX, barY, barW, barH, 2.5).fill(COLOR.cardBg);
-    const fillW = Math.max(3, (barW * Math.min(100, c.persentase)) / 100);
-    doc.roundedRect(barX, barY, fillW, barH, 2.5).fill(accent);
+    const barY = rowY + 3;
+    doc.roundedRect(barX, barY, barW, barH, 3).fill(COLOR.cardBg);
+    const fillW = Math.max(3, (barW * Math.min(100, s.persentase)) / 100);
+    doc.roundedRect(barX, barY, fillW, barH, 3).fill(accent);
 
     doc.fontSize(8).font("Helvetica-Bold").fillColor(accent)
-      .text(`${c.persentase.toFixed(0)}%`, barX + barW + 6, barY + 1.5, { width: pctLabelW, lineBreak: false });
+      .text(`${s.persentase.toFixed(0)}%`, barX + barW + 6, barY + 2, { width: pctLabelW, lineBreak: false });
   });
   doc.font("Helvetica");
 
@@ -305,17 +306,23 @@ export async function renderRaporPdf(
   doc.moveDown(0.8);
 
   // --- PETA KOMPETENSI ---
-  if (hasil.competencyScores.length > 0) {
-    const chartH = competencyChartHeight(hasil.competencyScores.length);
+  if (hasil.materiScores.length > 0) {
+    const chartH = competencyChartHeight(hasil.materiScores.length);
     // Chart digambar sebagai satu blok - kalau tidak cukup muat di sisa
     // halaman ini, pindah halaman DULU (bukan di tengah-tengah menggambar).
-    if (doc.y + 30 + chartH > doc.page.height - 48) doc.addPage();
+    if (doc.y + 44 + chartH > doc.page.height - 48) doc.addPage();
 
     doc.fontSize(14).font("Helvetica-Bold").fillColor(COLOR.ink).text("Peta Kompetensi", 48, doc.y);
     doc.font("Helvetica");
     doc.moveDown(0.8);
 
-    doc.y = drawCompetencyChart(doc, hasil.competencyScores, 48, doc.y, contentWidth);
+    doc.y = drawCompetencyChart(doc, hasil.materiScores, 48, doc.y, contentWidth);
+
+    const legendY = doc.y;
+    doc.fontSize(7.5).fillColor(COMPETENCY_TIER_HEX.baik).text("● Baik (≥70%)", 48, legendY, { continued: true, lineBreak: false });
+    doc.fillColor(COMPETENCY_TIER_HEX.cukup).text("   ● Cukup (50-69%)", { continued: true, lineBreak: false });
+    doc.fillColor(COMPETENCY_TIER_HEX.kurang).text("   ● Perlu latihan (<50%)", { lineBreak: false });
+    doc.y = legendY + 14;
     doc.moveDown(0.6);
   }
 

@@ -9,7 +9,10 @@
  * kunci vs pembahasan (sebelumnya cuma sampel soal salah yang dipotong).
  * 2026-09-v3: prompt sekarang menyertakan nama materi & sub materi (dulu
  * cuma kode+deskripsi kompetensi) di peta kompetensi & tiap rincian soal.
+ * 2026-09-v4 (Bagian 8.2 brief): prompt menyertakan ringkasan Kerangka
+ * Asesmen TKA resmi (kalau tersedia untuk mapel paket ujian ini) sebagai
+ * acuan pembanding narasi per kompetensi - lihat lib/content/kerangka-asesmen.ts.
  * Baris ai_analyses lama masih ber-versiPrompt lama sampai di-"Analisis
  * ulang".
  */
-export const PROMPT_VERSION = "2026-09-v3";
+export const PROMPT_VERSION = "2026-09-v4";

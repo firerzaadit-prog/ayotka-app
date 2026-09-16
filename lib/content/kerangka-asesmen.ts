@@ -411,3 +411,38 @@ export const SUMBER_URL: Record<Jenjang, string> = {
   SD: "https://pusmendik.kemendikdasmen.go.id/tka/tka/view/mata-pelajaran-wajib/sd",
   SMP: "https://pusmendik.kemendikdasmen.go.id/tka/tka/view/mata-pelajaran-wajib/smp",
 };
+
+/**
+ * Nama Subject di DB -> kunci Kerangka Asesmen. Sengaja return null untuk
+ * mapel yang belum ada kerangka resminya di atas (IPA, Bahasa Inggris) -
+ * pemanggil harus melewati bagian ini di prompt AI, bukan memaksakan.
+ */
+export function mataPelajaranFromSubjectNama(subjectNama: string): MataPelajaran | null {
+  const n = subjectNama.toLowerCase();
+  if (n.includes("matematika")) return "matematika";
+  if (n.includes("bahasa indonesia")) return "bahasa-indonesia";
+  return null;
+}
+
+/**
+ * Ringkasan teks kerangka asesmen resmi (Bagian 8.2 brief: analisis AI
+ * dipatok ke standar resmi, bukan cuma menarasikan angka mentah) - dipakai
+ * sebagai konteks BACAAN untuk AI, bukan sumber angka (angka tetap 100%
+ * dari competency_scores, lihat aturan wajib di lib/ai/prompt.ts).
+ */
+export function renderKerangkaAsesmenRingkas(jenjang: Jenjang, mapel: MataPelajaran): string {
+  const content = KERANGKA_ASESMEN[jenjang][mapel];
+
+  if (content.mapel === "Matematika") {
+    const baris = content.matriks
+      .map((m) => `- ${m.elemen} > ${m.subElemen}: ${m.poin.join(" ")}`)
+      .join("\n");
+    return `${content.definisi}\n\nCakupan kompetensi resmi per elemen materi:\n${baris}`;
+  }
+
+  const baris = content.matriks
+    .map((m) => `- ${m.kompetensi}: ${m.subkompetensi.join(" ")}`)
+    .join("\n");
+  const kelompok = content.kompetensi.kelompok.map((k) => `- ${k.label}: ${k.deskripsi}`).join("\n");
+  return `${content.definisi}\n\nTiga kelompok kompetensi resmi:\n${kelompok}\n\nCakupan kompetensi resmi per kelompok:\n${baris}`;
+}
