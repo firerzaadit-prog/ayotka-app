@@ -29,21 +29,21 @@ const FAQ = [
 
 export function Faq() {
   return (
-    <section id="faq" className="scroll-mt-24 mx-auto max-w-3xl px-6 py-20 sm:py-24">
+    <section id="faq" className="scroll-mt-24 mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
       <Reveal>
-        <h2 className="text-3xl font-bold text-balance text-slate-900">Pertanyaan umum</h2>
+        <h2 className="font-card-serif text-3xl font-semibold text-balance text-card-ink">Pertanyaan umum</h2>
       </Reveal>
       <div className="mt-8 flex flex-col">
         {FAQ.map((item, i) => (
           <Reveal key={item.q} delay={Math.min(i * 40, 200)}>
-            <details className="group border-b border-slate-200 py-4" open={i === 0}>
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold text-slate-900 marker:content-none [&::-webkit-details-marker]:hidden">
+            <details className="group border-b border-card-ink/15 py-4" open={i === 0}>
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-card font-semibold text-card-ink marker:content-none [&::-webkit-details-marker]:hidden">
                 {item.q}
-                <span className="shrink-0 font-mono text-lg text-indigo-600 transition-transform group-open:rotate-45">
+                <span className="shrink-0 font-card-mono text-lg text-card-ink/50 transition-transform group-open:rotate-45">
                   +
                 </span>
               </summary>
-              <p className="mt-3 max-w-xl text-sm leading-relaxed text-slate-600">{item.a}</p>
+              <p className="mt-3 max-w-xl font-card text-sm leading-relaxed text-card-ink/65">{item.a}</p>
             </details>
           </Reveal>
         ))}

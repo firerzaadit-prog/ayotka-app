@@ -1,4 +1,5 @@
 import { Reveal } from "@/components/ui/reveal";
+import { KartuFrame, FieldLabel } from "@/components/public/landing/kit";
 
 const JALUR = [
   {
@@ -25,36 +26,33 @@ const JALUR = [
 
 export function Jalur() {
   return (
-    <section className="bg-slate-50/70 px-6 py-20 sm:py-24">
-      <div className="mx-auto max-w-6xl">
-        <Reveal className="mx-auto mb-12 max-w-xl text-center">
-          <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
-            Ada dua jalur pendaftaran
-          </p>
-          <h2 className="mt-2 text-3xl font-bold text-balance text-slate-900">
+    <section className="px-4 py-16 sm:px-6 sm:py-20">
+      <div className="mx-auto max-w-5xl">
+        <Reveal className="mx-auto mb-10 max-w-xl text-center">
+          <h2 className="font-card-serif text-3xl font-semibold text-balance text-card-ink">
             Lewat sekolah, atau langsung sebagai siswa mandiri
           </h2>
         </Reveal>
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {JALUR.map((j, i) => (
             <Reveal key={j.judul} delay={i * 80}>
-              <div className="h-full overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                <div className="border-b border-slate-100 px-6 py-2.5 font-mono text-[0.68rem] font-medium uppercase tracking-wide text-slate-500">
-                  {j.label}
+              <KartuFrame className="h-full bg-white">
+                <div className="border-b border-card-ink/15 px-6 py-3">
+                  <FieldLabel>{j.label}</FieldLabel>
                 </div>
                 <div className="p-6">
-                  <h3 className="text-lg font-bold text-slate-900">{j.judul}</h3>
-                  <p className="mt-2 text-sm text-slate-600">{j.deskripsi}</p>
+                  <h3 className="font-card-serif text-lg font-semibold text-card-ink">{j.judul}</h3>
+                  <p className="mt-2 font-card text-sm text-card-ink/65">{j.deskripsi}</p>
                   <ul className="mt-4 flex flex-col gap-2">
                     {j.poin.map((p) => (
-                      <li key={p} className="flex gap-2 text-sm text-slate-600">
-                        <span className="mt-0.5 shrink-0 font-bold text-indigo-600">✓</span>
+                      <li key={p} className="flex gap-2 font-card text-sm text-card-ink/70">
+                        <span className="mt-0.5 shrink-0 font-card-mono text-card-ink">✓</span>
                         {p}
                       </li>
                     ))}
                   </ul>
                 </div>
-              </div>
+              </KartuFrame>
             </Reveal>
           ))}
         </div>

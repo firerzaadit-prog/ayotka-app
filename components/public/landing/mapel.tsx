@@ -95,56 +95,57 @@ export function Mapel() {
   const daftar = MAPEL.filter((m) => filter === "Semua" || m.jenjang.includes(filter));
 
   return (
-    <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-      <Reveal className="mb-8 max-w-2xl">
-        <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
-          Mata pelajaran
-        </p>
-        <h2 className="mt-2 text-3xl font-bold text-balance text-slate-900">
-          Disusun per jenjang, bukan satu paket untuk semua
-        </h2>
-      </Reveal>
-      <Reveal delay={60} className="mb-8 flex gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f}
-            type="button"
-            onClick={() => setFilter(f)}
-            className={
-              f === filter
-                ? "rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white"
-                : "rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-400"
-            }
-          >
-            {f}
-          </button>
-        ))}
-      </Reveal>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {daftar.map((m) => (
-          <div
-            key={m.nama}
-            className="flex gap-4 rounded-2xl border border-slate-200 bg-white p-5"
-          >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white">
-              <m.icon />
-            </span>
-            <div>
-              <h3 className="font-semibold text-slate-900">{m.nama}</h3>
-              <div className="mt-1 flex gap-1.5">
-                {m.jenjang.map((j) => (
-                  <span
-                    key={j}
-                    className="rounded-full border border-slate-200 px-2 py-0.5 font-mono text-[0.65rem] text-slate-500"
-                  >
-                    {j}
-                  </span>
-                ))}
+    <section className="px-4 py-16 sm:px-6 sm:py-20">
+      <div className="mx-auto max-w-4xl">
+        <Reveal className="mb-6 max-w-2xl">
+          <h2 className="font-card-serif text-3xl font-semibold text-balance text-card-ink">
+            Disusun per jenjang, bukan satu paket untuk semua
+          </h2>
+        </Reveal>
+        <Reveal delay={60} className="mb-6 flex gap-2">
+          {FILTERS.map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFilter(f)}
+              className={
+                f === filter
+                  ? "border border-card-ink bg-card-ink px-4 py-1.5 font-card-mono text-xs uppercase tracking-wide text-card-paper"
+                  : "border border-card-ink/25 px-4 py-1.5 font-card-mono text-xs uppercase tracking-wide text-card-ink/60 transition-colors hover:border-card-ink/50"
+              }
+            >
+              {f}
+            </button>
+          ))}
+        </Reveal>
+        <div className="border border-card-ink/15 bg-white">
+          {daftar.map((m, i) => (
+            <div
+              key={m.nama}
+              className={`flex gap-5 px-5 py-5 sm:px-8 ${i > 0 ? "border-t border-card-ink/10" : ""}`}
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center border border-card-ink/20 text-card-ink">
+                <m.icon />
+              </span>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-card text-base font-semibold text-card-ink">{m.nama}</h3>
+                  <div className="flex gap-1">
+                    {m.jenjang.map((j) => (
+                      <span
+                        key={j}
+                        className="border border-card-ink/20 px-1.5 py-0.5 font-card-mono text-[0.65rem] text-card-ink/55"
+                      >
+                        {j}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-1.5 font-card text-sm text-card-ink/65">{m.deskripsi}</p>
               </div>
-              <p className="mt-2 text-sm text-slate-600">{m.deskripsi}</p>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   );
