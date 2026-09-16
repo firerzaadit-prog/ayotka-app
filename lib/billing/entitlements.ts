@@ -114,6 +114,28 @@ export async function grantSchoolSeatIfAvailable(
  * cuma yang selesai) supaya jatah tidak bisa "direset" dengan meninggalkan
  * attempt menggantung.
  */
+/**
+ * Rincian Biaya AyoTKA - "Free trial TIDAK mendapat Analisis AI": dipakai
+ * SETELAH attempt dibuat (auto-trigger AI, halaman hasil) untuk menentukan
+ * apakah attempt tsb lahir dari akses berbayar/sekolah atau dari jatah
+ * gratis. Tidak ada kolom tersendiri di Attempt yang mencatat ini - dicek
+ * ulang dari ada/tidaknya entitlement yang mencakup waktu mulai attempt,
+ * karena free_trial memang sengaja tidak pernah membuat baris entitlements
+ * (lihat canStartAttempt).
+ */
+export async function wasAttemptFreeTrial(studentId: string, attemptMulaiAt: Date): Promise<boolean> {
+  const covering = await prisma.entitlement.findFirst({
+    where: {
+      studentId,
+      revokedAt: null,
+      startsAt: { lte: attemptMulaiAt },
+      endsAt: { gte: attemptMulaiAt },
+    },
+    select: { id: true },
+  });
+  return !covering;
+}
+
 export async function hasUsedFreeTrial(studentId: string, subjectId: string): Promise<boolean> {
   const count = await prisma.attempt.count({
     where: {

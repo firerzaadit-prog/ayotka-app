@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
+import { AnalisisAiTeaser } from "@/components/ai/analisis-teaser";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { buttonClassName } from "@/components/ui/button";
@@ -21,6 +22,7 @@ type Hasil = {
   package: { nama: string };
   siswa: { nama: string; idSamar: string };
   canShowPembahasan: boolean;
+  isFreeTrial: boolean;
   perSoal: PerSoal[];
   competencyScores: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
 };
@@ -137,7 +139,7 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         </div>
       )}
 
-      <AnalisisAiPanel attemptId={id} canTrigger={false} />
+      {hasil.isFreeTrial ? <AnalisisAiTeaser /> : <AnalisisAiPanel attemptId={id} canTrigger={false} />}
 
       <div
         className="select-none"

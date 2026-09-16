@@ -5,6 +5,7 @@ import { runAnalisisAi } from "@/lib/ai/analyze";
 import { tryStartProcessing, finishProcessing, setLastError } from "@/lib/ai/analysis-guard";
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota } from "@/lib/ai/auto-trigger-quota";
+import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
 import type { Attempt } from "@prisma/client";
 
 /**
@@ -18,6 +19,12 @@ import type { Attempt } from "@prisma/client";
  * terjamin terkendali apa pun kondisi kuota attempt-nya. Tombol manual admin pusat/
  * sekolah (app/api/attempts/[id]/analisis-ai/route.ts) SENGAJA tidak lewat
  * fungsi ini - itu tetap tanpa batas seperti sebelumnya.
+ *
+ * Rincian Biaya AyoTKA (keputusan produk): free trial TIDAK mendapat
+ * Analisis AI sama sekali - hanya skor + peta kompetensi (lihat
+ * app/siswa/hasil/[id]/page.tsx untuk teaser blur yang ditampilkan
+ * sebagai gantinya). Biaya Gemini jadi nol untuk siapa pun yang belum bayar,
+ * berapa pun jumlahnya.
  *
  * Cuma berlaku untuk attempt yang selesai MULAI SEKARANG (keputusan user) -
  * tidak ada backfill attempt lama, karena fungsi ini cuma dipanggil dari
@@ -40,6 +47,8 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
       select: { subjectId: true },
     });
     if (!pkg) return;
+
+    if (await wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt)) return;
 
     const settings = await getAiAutoAnalysisSettings();
     const usedCount = await prisma.attempt.count({

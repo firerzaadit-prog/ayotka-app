@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import type { Attempt } from "@prisma/client";
 import { shuffleWithSeed } from "@/lib/exam/shuffle";
+import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
 
 /**
  * Tiket 4.10 + Bagian 7.1 brief ("Tampil pembahasan"): siswa sekolah (Jalur
@@ -23,7 +24,7 @@ function maskIdentifier(nisn: string | null, attemptId: string): string {
 }
 
 export async function buildHasil(attempt: Attempt) {
-  const [pkg, assignment, answers, competencyScores, student] = await Promise.all([
+  const [pkg, assignment, answers, competencyScores, student, isFreeTrial] = await Promise.all([
     prisma.package.findUniqueOrThrow({ where: { id: attempt.packageId } }),
     attempt.assignmentId
       ? prisma.assignment.findUnique({ where: { id: attempt.assignmentId } })
@@ -48,6 +49,7 @@ export async function buildHasil(attempt: Attempt) {
       where: { id: attempt.studentId },
       select: { nama: true, nisn: true },
     }),
+    wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt),
   ]);
 
   const canShowPembahasan =
@@ -105,6 +107,7 @@ export async function buildHasil(attempt: Attempt) {
     package: { nama: pkg.nama },
     siswa: { nama: student.nama, idSamar: maskIdentifier(student.nisn, attempt.id) },
     canShowPembahasan,
+    isFreeTrial,
     perSoal,
     competencyScores: competencyScores.map((c) => ({
       kode: c.kompetensi.kode,
