@@ -82,6 +82,7 @@ export async function POST(request: Request) {
         blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
         jenisPaket: "tryout",
         bolehDipilihSiswa: false,
+        kategori: group.kategori,
         tryOutGroupId: group.id,
         ...scope,
       },

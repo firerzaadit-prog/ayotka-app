@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { createSnapTransaction } from "@/lib/billing/midtrans";
-import { computeVoucherOrderAmount, VOUCHER_PRICE_TIERS } from "@/lib/billing/vouchers";
+import { computeVoucherOrderAmount } from "@/lib/billing/vouchers";
+import { getVoucherPriceTiers } from "@/lib/billing/voucher-price-tiers";
 import { voucherOrderCheckoutSchema } from "@/lib/validations/partner";
 
 /**
@@ -27,18 +28,19 @@ export async function GET() {
     return NextResponse.json({ error: "Akun mitra belum terhubung." }, { status: 404 });
   }
 
-  const [plans, pendingOrder] = await Promise.all([
+  const [plans, pendingOrder, tiers] = await Promise.all([
     prisma.plan.findMany({ where: { kode: { in: ["monthly", "semester"] }, isActive: true }, orderBy: { harga: "asc" } }),
     prisma.voucherOrder.findFirst({
       where: { partnerId: partner.id, status: "pending", expiresAt: { gt: new Date() } },
       orderBy: { createdAt: "desc" },
     }),
+    getVoucherPriceTiers(),
   ]);
 
   return NextResponse.json({
     plans,
     pendingOrderId: pendingOrder?.id ?? null,
-    tiers: VOUCHER_PRICE_TIERS,
+    tiers,
   });
 }
 
@@ -79,7 +81,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const { amount, diskonPersen } = computeVoucherOrderAmount(plan.harga, parsed.data.jumlah);
+  const tiers = await getVoucherPriceTiers();
+  const { amount, diskonPersen } = computeVoucherOrderAmount(tiers, plan.harga, parsed.data.jumlah);
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const order = await prisma.voucherOrder.create({
     data: { partnerId: partner.id, planId: plan.id, jumlah: parsed.data.jumlah, amount, status: "pending", expiresAt },

@@ -1,104 +1,118 @@
 ---
-name: AyoTKA — Kartu Peserta Ujian
-description: Homepage publik dibangun sebagai kartu peserta ujian resmi yang "terbuka" - bukan template SaaS generik.
+name: AyoTKA Unified Design System
+description: Modern, high-craft design system for AyoTKA with Poppins typography, vibrant indigo/violet gradients, frosted glass navigation, and tactile rounded surfaces across public pages and multi-role dashboards.
 colors:
-  paper: "#F7F2E4"
-  ink: "#1E2A52"
-  seal: "#AD7A25"
-  competency-good: "#059669"
-  competency-mid: "#D97706"
-  competency-low: "#E11D48"
+  primary:
+    from: "#4F46E5" # indigo-600
+    to: "#7C3AED"   # violet-600
+  accent:
+    indigo-50: "#EEF2FF"
+    violet-50: "#F5F3FF"
+    indigo-100: "#E0E7FF"
+    indigo-500: "#6366F1"
+  ground:
+    dashboard: "#F8FAFC" # slate-50/70
+    card: "#FFFFFF"
+    header: "rgba(255, 255, 255, 0.90)"
+  border:
+    subtle: "rgba(226, 232, 240, 0.8)" # slate-200/80
+    default: "#E2E8F0" # slate-200
+  text:
+    primary: "#0F172A" # slate-900
+    secondary: "#475569" # slate-600
+    muted: "#64748B" # slate-500
+    hint: "#94A3B8" # slate-400
+  semantic:
+    success:
+      bg: "#ECFDF5" # emerald-50
+      text: "#047857" # emerald-700
+      border: "rgba(167, 243, 208, 0.7)"
+    warning:
+      bg: "#FFFBEB" # amber-50
+      text: "#92400E" # amber-800
+      border: "rgba(253, 230, 138, 0.7)"
+    danger:
+      bg: "#FFF1F2" # rose-50
+      text: "#BE123C" # rose-700
+      border: "rgba(254, 205, 211, 0.7)"
+    info:
+      bg: "#EEF2FF" # indigo-50
+      text: "#4338CA" # indigo-700
+      border: "rgba(199, 210, 254, 0.7)"
 typography:
-  display:
-    fontFamily: "Domine, Georgia, serif"
-    fontWeight: 600
-    lineHeight: 1.2
-  body:
-    fontFamily: "Public Sans, system-ui, sans-serif"
-    fontWeight: 400
-    lineHeight: 1.6
-  label:
-    fontFamily: "Cutive Mono, ui-monospace, monospace"
-    letterSpacing: "0.14em"
+  fontFamily:
+    sans: "Poppins, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    mono: "IBM Plex Mono, ui-monospace, monospace"
 rounded:
-  none: "0px"
-components:
-  button-primary:
-    backgroundColor: "{colors.ink}"
-    textColor: "{colors.paper}"
-    rounded: "{rounded.none}"
-    padding: "12px 24px"
-  button-secondary:
-    backgroundColor: "transparent"
-    textColor: "{colors.ink}"
-    rounded: "{rounded.none}"
-    padding: "12px 24px"
-  seal-badge:
-    backgroundColor: "{colors.seal}"
-    textColor: "{colors.seal}"
-    rounded: "9999px"
+  card: "1rem" # rounded-2xl (16px)
+  button: "0.75rem" # rounded-xl (12px)
+  badge: "9999px" # rounded-full
 ---
 
-## Overview
+# AyoTKA Unified Design System
 
-AyoTKA's homepage (`app/(public)/page.tsx` dan section-nya di `components/public/landing/`) dibangun sebagai satu **kartu peserta ujian** yang "terbuka" di depan pengunjung - bukan halaman fitur generik dengan hero+kartu-fitur+harga seperti kebanyakan produk SaaS. Ini adalah arah desain hasil proses `impeccable new-work` (direction index 7/7, seed key `181e37ef`, mode Persuade), dipilih untuk mengganti identitas lama yang teridentifikasi sebagai pola generik ("AI slop"): kicker/eyebrow di atas tiap heading, kartu ikon+judul+teks berukuran sama sebagai struktur halaman, dan gradient indigo/violet + rounded-2xl yang bisa jadi produk apa saja.
+Dokumentasi sistem desain AyoTKA yang menyelaraskan estetika visual halaman publik (homepage & kerangka asesmen) dan 5 portal dashboard (**Siswa**, **Admin Pusat**, **Admin Sekolah**, **Reseller/Mitra**, dan **Dinas Pendidikan**).
 
-Thesis: pengunjung merasa sedang memegang kartu ujian miliknya sendiri - nomor peserta, kotak foto, judul dicetak sebagai bagian kartu - lalu "menyobek" ke bawah untuk melihat hasil peta kompetensi asli. Setiap section lain adalah halaman/lampiran dari dokumen resmi yang sama, bukan kartu-kartu lepas yang tidak berhubungan.
+## 1. Filosofi & Karakter Visual
 
-**Cakupan**: hanya route group `app/(public)/` (homepage + header/footer publik). Dashboard aplikasi (siswa/admin/mitra/dll) TIDAK ikut berubah - tetap pakai identitas lama (Poppins, indigo/violet) yang sudah mapan untuk konteks "Operate", bukan "Persuade". Font baru dipasang scoped lewat `app/(public)/layout.tsx`, tidak menimpa `--font-poppins`/`--font-mono` global.
+- **Harmonis & Terintegrasi**: Halaman publik dan dashboard berbagi identitas visual yang sama (palet warna indigo-violet, tipografi Poppins, sudut lembut `rounded-2xl` / `rounded-xl`, dan header frosted glass).
+- **Operate Surface yang Efisien**: Pada dashboard, tujuan utama adalah kemudahan pemindaian data (*high scanability*), hierarki informasi yang jelas, dan umpan balik mikro-interaksi yang terukur tanpa animasi berlebihan.
+- **Kerapian Data**: Nomor kode, statistik, dan identifier menggunakan tipografi monospace (`IBM Plex Mono`) dengan label berukuran kecil (`text-xs font-semibold uppercase tracking-wider`).
 
-Halaman `/kerangka-asesmen` (`components/public/kerangka-asesmen-client.tsx`) memakai sistem yang sama, dengan penekanan lebih ke keterbacaan (Domine cuma di H1, sisanya Public Sans) karena mode-nya Read/dokumentasi, bukan Persuade.
+## 2. Palet Warna & Token
 
-## Colors
+### Brand Gradient
+- `bg-gradient-to-r from-indigo-600 to-violet-600`
+- Digunakan untuk: tombol primer, active link pill di sidebar navigasi, aksen branding header, dan hero elements.
+- Efek shadow: `shadow-sm shadow-indigo-600/25 hover:shadow-md hover:shadow-indigo-600/35`.
 
-- **paper** `#F7F2E4` - ground utama, krem kertas dokumen resmi (bukan putih polos). Dipakai polos atau dengan tekstur titik halus (`.card-paper-texture` di `app/globals.css`) untuk kesan kertas keamanan/watermark.
-- **ink** `#1E2A52` - satu-satunya warna tinta utama: teks, border, tombol primer, latar footer & CTA penutup. Menggantikan gradient indigo→violet sepenuhnya - tidak ada gradient di sistem ini.
-- **seal** `#AD7A25` (emas pudar) - aksen tunggal untuk "stempel resmi": badge status (`Seal` di `kit.tsx`), highlight kecil. Dipakai sedikit, sengaja tidak untuk area luas.
-- **competency-good/mid/low** (emerald-600/amber-600/rose-600) - warna semantik untuk bar peta kompetensi (baik/cukup/kurang). Ini data, bukan brand - jangan diganti jadi ink/seal.
+### Latar Belakang & Ground
+- **Dashboard Shell Ground**: `bg-slate-50/70` memberikan kontras lembut terhadap kartu putih murni.
+- **Header Shell**: `bg-white/90 backdrop-blur-md border-b border-slate-200/80` memberikan efek frosted glass modern dan elegan.
+- **Container / Cards**: `bg-white border border-slate-200/80 shadow-sm rounded-2xl`.
 
-Strategi warna: **Full palette** (paper + ink + seal + semantik), bukan gradient. Ground selalu terang (paper) - dokumen resmi dibaca di cahaya terang, bukan gelap.
+### Semantik Status Badges
+- **Aktif / Selesai (Success)**: `bg-emerald-50 text-emerald-700 border-emerald-200/70`
+- **Menunggu Verifikasi / Pending (Warning)**: `bg-amber-50 text-amber-800 border-amber-200/70`
+- **Suspend / Gagal (Danger)**: `bg-rose-50 text-rose-700 border-rose-200/70`
+- **Info / Draft**: `bg-indigo-50 text-indigo-700 border-indigo-200/70`
+- **Netral**: `bg-slate-50 text-slate-600 border-slate-200/80`
 
-## Typography
+## 3. Komponen UI Inti
 
-- **Domine** (`font-card-serif`) - semua heading (h1-h3). Serif tegap, bergaya buku/dokumen resmi, sengaja bukan Fraunces/Playfair/dsb (font "AI-default" yang dihindari).
-- **Public Sans** (`font-card`) - semua body text & label tombol. Dipilih karena aslinya font resmi pemerintah (US Web Design System) - cocok tematik dengan "dokumen resmi ujian negara".
-- **Cutive Mono** (`font-card-mono`) - nomor ujian, skor, tanggal, label bidang formulir (`FieldLabel`, `ExamNumber` di `kit.tsx`). Karakter mesin tik/kartu ID lama, dipakai HANYA untuk data/angka, bukan body text.
+### DashboardShell & Navigation
+- **Header**: Logo AyoTKA + badge peran dalam kapsul gradien halus (`bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700 border-indigo-100/60`).
+- **User Indicator**: Pill email pengguna dilengkapi status dot hijau aktif (`bg-emerald-500 ring-2 ring-white`).
+- **Sidebar Nav**: 
+  - Judul bagian (*section header*): `font-mono text-[0.68rem] font-semibold uppercase tracking-wider text-indigo-600/80`.
+  - Item aktif (*active link*): kapsul gradien `from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-600/25` dengan dot indikator putih.
+  - Item non-aktif: `text-slate-600 hover:bg-indigo-50/60 hover:text-indigo-700 rounded-xl`.
 
-**Kicker/eyebrow di atas heading DIHAPUS TOTAL** dari sistem ini (pola generik yang jadi temuan utama saat audit) - heading berdiri sendiri tanpa label mengambang di atasnya. Kalau perlu label kategori, integrasikan sebagai bagian form/field (lihat Components), bukan eyebrow terpisah.
+### Tabel Data (`components/ui/table.tsx`)
+- Container: `rounded-2xl border border-slate-200/80 bg-white shadow-sm overflow-hidden`.
+- Header (`Thead`): Latar gradien halus `bg-gradient-to-r from-slate-50 via-indigo-50/20 to-slate-50 border-b border-slate-200/80`.
+- Judul Kolom (`Th`): `font-mono text-xs font-semibold uppercase tracking-wider text-slate-500 py-3.5 px-4`.
+- Baris Data (`Tr`): `hover:bg-indigo-50/20 transition-colors`.
 
-## Layout
+### Tombol (`components/ui/button.tsx`)
+- `rounded-xl px-4 py-2 text-sm font-medium tracking-tight transition-all duration-150`
+- **Primary**: Gradien indigo-violet dengan bayangan halus, respon hover `brightness-105` dan respon klik `active:scale-[0.98]`.
+- **Secondary**: `bg-white border-slate-200/90 text-slate-700 shadow-xs hover:bg-slate-50/80 hover:border-slate-300`.
+- **Danger**: Gradien rose-red dengan bayangan rose halus.
 
-Section umumnya `max-w-3xl` sampai `max-w-6xl`, padding horizontal `px-4 sm:px-6`. Ground section berselang-seling antara `bg-card-paper` polos dan `.card-paper-texture` (bertekstur) untuk ritme, tanpa warna lain di antaranya.
+### Form Input (`components/ui/input.tsx`)
+- `rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 shadow-xs transition-all`
+- Fokus state: `focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10`.
 
-## Shapes
+## 4. Panduan Implementasi (Do's & Don'ts)
 
-**Tidak ada rounded-2xl / rounded-full pada kartu atau tombol.** Semua panel & tombol bersudut siku (`rounded-none`, default) - meniru dokumen/formulir resmi, bukan kartu SaaS. Pengecualian: `Seal` (badge status) tetap `rounded-full` karena meniru bentuk stempel/cap bulat, dan lingkaran kecil pada `Perforation`.
+### Do:
+- Gunakan `font-sans` (Poppins) untuk teks umum dan heading, serta `font-mono` (IBM Plex Mono) untuk kode, angka ID, dan tabel label.
+- Pertahankan struktur dan copywriting teks yang sudah ada 100% akurat.
+- Gunakan komponen shared di `@/components/ui/*` agar semua peran (Siswa, Admin Pusat, Admin Sekolah, Mitra, Dinas Pendidikan) otomatis konsisten.
+- Gunakan `rounded-2xl` untuk card/tabel container dan `rounded-xl` untuk input/button.
 
-Panel penting (`KartuFrame` di `kit.tsx`) mendapat 4 aksen sudut siku-siku kecil (bracket) di tiap pojok - motif "target/ID card corner", pengganti shadow/rounded-corner sebagai penanda "ini panel penting".
-
-## Elevation & Depth
-
-Sistem ini flat - tidak ada box-shadow. Hierarki dibentuk lewat border (`border-card-ink/15` dst) dan warna latar (`bg-white` vs `bg-card-paper`), bukan bayangan.
-
-## Components
-
-- **KartuFrame** (`components/public/landing/kit.tsx`): panel utama - border tipis + 4 corner bracket. Dipakai untuk hero card, tabel Beda, kartu Jalur, kartu Harga, panel Kerangka Asesmen.
-- **Perforation**: garis titik-titik horizontal ("sobek di sini") sebagai pemisah dalam satu kartu (mis. antara form hero dan hasil peta kompetensi). Bukan pemisah antar-section biasa - pakai hanya saat benar-benar merepresentasikan "kartu → lampiran hasil".
-- **FieldLabel**: label kecil mono-uppercase bergaya bidang formulir - pengganti kicker/eyebrow, SELALU menempel langsung ke konten yang dilabeli (bukan eyebrow lepas di atas heading).
-- **ExamNumber**: angka bergaya kartu ujian (`font-card-mono`, `tabular-nums`) untuk skor, tanggal, nomor urut.
-- **Seal**: badge bulat kecil gaya stempel (emas) untuk status "resmi/unggulan" (mis. "Paling banyak dipakai").
-- **Tombol primer**: `border border-card-ink bg-card-ink text-card-paper`, hover `-translate-y-0.5` (efek "terangkat", bukan shadow-grow). Tombol sekunder: border ink tipis, bg putih/transparan.
-
-## Do's and Don'ts
-
-**Do:**
-- Pakai `KartuFrame`/`FieldLabel`/`ExamNumber`/`Seal` dari `kit.tsx` untuk section baru di homepage, jangan bikin ulang pola serupa dari nol.
-- Pertahankan satu warna ink (`card-ink`) sebagai tinta utama - aksen `card-seal` dipakai sedikit dan sengaja.
-- Baris/ledger (border-top antar-item dalam satu frame) untuk daftar 2+ item sejenis (lihat Siapa, Mapel, Cara Kerja) - BUKAN kartu-kartu terpisah berukuran sama.
-
-**Don't:**
-- Jangan tambahkan kicker/eyebrow di atas heading baru manapun - ini pola yang sengaja dihapus.
-- Jangan pakai gradient indigo/violet lagi di area manapun dalam sistem ini - itu identitas lama yang diganti.
-- Jangan pakai `rounded-2xl`/`rounded-full` untuk panel/kartu konten - sudut siku + corner bracket adalah bahasa bentuk sistem ini.
-- Jangan tambahkan `border-l`/`border-r` berwarna di atas 1px pada callout/list item sebagai aksen dekoratif.
-- Jangan sebarkan identitas ini ke luar `app/(public)/` (dashboard aplikasi tetap pakai sistem Poppins/indigo yang sudah ada) tanpa keputusan eksplisit baru.
+### Don't:
+- Jangan menggunakan font serif (Domine) atau nuansa kertas kuning/krem (`#F7F2E4`) yang sudah diganti oleh pengguna.
+- Jangan menggunakan sudut tajam (`rounded-none`).
+- Jangan gunakan tombol aksi tabel yang hanya berupa teks bergaris bawah tanpa padding (`hover:underline`), gunakan pill tombol halus (`rounded-lg px-2.5 py-1 text-xs font-semibold hover:bg-rose-50`).

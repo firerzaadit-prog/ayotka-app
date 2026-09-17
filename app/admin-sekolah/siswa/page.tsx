@@ -346,7 +346,7 @@ export default function KelolaSiswaPage() {
                       {s.claimStatus === "belum_klaim" && (
                         <button
                           onClick={() => handleResetKode(s.id)}
-                          className="text-sm font-medium text-slate-600 hover:underline"
+                          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                         >
                           Reset kode
                         </button>
@@ -354,14 +354,14 @@ export default function KelolaSiswaPage() {
                       {s.claimStatus === "sudah_klaim" && (
                         <button
                           onClick={() => handleResetPassword(s.id)}
-                          className="text-sm font-medium text-slate-600 hover:underline"
+                          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
                         >
                           Reset password
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(s.id, s.nama)}
-                        className="text-sm font-medium text-rose-600 hover:underline"
+                        className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                       >
                         Hapus
                       </button>

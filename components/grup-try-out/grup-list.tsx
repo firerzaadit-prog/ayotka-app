@@ -13,6 +13,8 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 
+import { formatWIB } from "@/lib/utils/datetime";
+
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type GroupListItem = {
   id: string;
@@ -20,6 +22,9 @@ type GroupListItem = {
   jenjang: "SD" | "SMP";
   tingkatList: number[];
   status: string;
+  kategori: "mandiri" | "nasional";
+  bukaMulai: string | null;
+  bukaSelesai: string | null;
   subject: Subject;
   _count: { packages: number };
 };
@@ -43,6 +48,7 @@ const emptyForm = {
   durasiMenit: "",
   jumlahSoal: "",
   maxAttempt: "",
+  kategori: "nasional" as "nasional" | "mandiri",
   modePembahasan: "setelah_tutup" as "langsung" | "setelah_tutup",
   bukaMulai: "",
   bukaSelesai: "",
@@ -58,6 +64,7 @@ const emptyForm = {
 export function GrupTryOutList() {
   const [groups, setGroups] = useState<GroupListItem[] | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [kategoriFilter, setKategoriFilter] = useState<"semua" | "nasional" | "mandiri">("semua");
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +242,21 @@ export function GrupTryOutList() {
                 </select>
               </div>
             </div>
+            <div>
+              <Label htmlFor="kategori">Kategori Try Out</Label>
+              <select
+                id="kategori"
+                className={selectClassName}
+                value={form.kategori}
+                onChange={(e) => setForm({ ...form, kategori: e.target.value as "nasional" | "mandiri" })}
+              >
+                <option value="nasional">Try Out Nasional (Terjadwal resmi, serentak, AI otomatis)</option>
+                <option value="mandiri">Try Out Mandiri (Latihan fleksibel kapan saja)</option>
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Pilih &quot;Try Out Nasional&quot; agar muncul di tab Nasional siswa dengan jadwal khusus dan analisis AI otomatis.
+              </p>
+            </div>
             <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div>
                 <Label htmlFor="bukaMulai">Buka mulai (opsional)</Label>
@@ -278,19 +300,45 @@ export function GrupTryOutList() {
       )}
 
       {groups && groups.length > 0 && (() => {
-        const totalPages = Math.max(1, Math.ceil(groups.length / pageSize));
-        const pageRows = groups.slice((page - 1) * pageSize, page * pageSize);
+        const filtered = groups.filter((g) => {
+          if (kategoriFilter === "semua") return true;
+          return (g.kategori ?? "mandiri") === kategoriFilter;
+        });
+        const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+        const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
         return (
           <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              {(["semua", "nasional", "mandiri"] as const).map((kat) => (
+                <button
+                  key={kat}
+                  type="button"
+                  onClick={() => {
+                    setKategoriFilter(kat);
+                    setPage(1);
+                  }}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
+                    kategoriFilter === kat
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {kat === "semua" ? "Semua Kategori" : `Try Out ${kat}`}
+                </button>
+              ))}
+            </div>
+
             <TableContainer>
               <Table>
                 <Thead>
                   <tr>
                     <Th>Nama</Th>
+                    <Th>Kategori</Th>
                     <Th>Mapel</Th>
                     <Th>Tingkat</Th>
+                    <Th>Jadwal</Th>
                     <Th>Status</Th>
-                    <Th>Variasi paket</Th>
+                    <Th>Variasi</Th>
                     <Th></Th>
                   </tr>
                 </Thead>
@@ -302,12 +350,33 @@ export function GrupTryOutList() {
                           {g.nama}
                         </Link>
                       </Td>
+                      <Td>
+                        {g.kategori === "nasional" ? (
+                          <span className="rounded-md bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">
+                            Nasional
+                          </span>
+                        ) : (
+                          <span className="rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
+                            Mandiri
+                          </span>
+                        )}
+                      </Td>
                       <Td>{g.subject.nama}</Td>
                       <Td>{g.tingkatList.join(", ")}</Td>
+                      <Td className="text-xs text-slate-500">
+                        {g.bukaMulai || g.bukaSelesai ? (
+                          <span>
+                            {g.bukaMulai ? formatWIB(g.bukaMulai) : "Sekarang"} s.d.{" "}
+                            {g.bukaSelesai ? formatWIB(g.bukaSelesai) : "Seterusnya"}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Selalu terbuka</span>
+                        )}
+                      </Td>
                       <Td>
                         <Badge variant={STATUS_BADGE_VARIANT[g.status] ?? "neutral"}>{g.status}</Badge>
                       </Td>
-                      <Td>{g._count.packages}</Td>
+                      <Td>{g._count.packages} paket</Td>
                       <Td className="text-right">
                         <button
                           onClick={() => handleDelete(g.id, g.nama)}

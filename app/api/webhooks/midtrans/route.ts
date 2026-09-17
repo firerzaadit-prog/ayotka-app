@@ -22,12 +22,13 @@ function addDays(date: Date, days: number): Date {
 }
 
 /**
- * Satu-satunya endpoint yang menerima webhook payment gateway, dipakai DUA
- * jalur: Jalur A (Invoice siswa individu, Bagian 4 dokumen rencana) dan
- * Jalur C lewat Midtrans (VoucherOrder mitra, permintaan user). Order id
- * Midtrans = id baris kita sendiri, jadi order_id yang sama tidak mungkin
- * cocok di invoices DAN voucher_orders sekaligus - dicoba invoices dulu,
- * baru voucher_orders. Signature WAJIB diverifikasi sebelum payload
+ * Satu-satunya endpoint yang menerima webhook payment gateway, dipakai TIGA
+ * jalur: Jalur A (Invoice siswa individu, Bagian 4 dokumen rencana), Jalur C
+ * lewat Midtrans (VoucherOrder mitra, permintaan user), dan top-up saldo
+ * wallet (SaldoTransaction, Bagian D/G permintaan user). Order id Midtrans =
+ * id baris kita sendiri, jadi order_id yang sama tidak mungkin cocok di dua
+ * tabel sekaligus - dicoba invoices dulu, lalu voucher_orders, lalu
+ * saldo_transactions. Signature WAJIB diverifikasi sebelum payload
  * dipercaya (mencegah webhook dipalsukan pihak luar).
  */
 export async function POST(request: Request) {
@@ -155,7 +156,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  // Order id tidak dikenal di kedua tabel - balas 200 supaya Midtrans tidak
+  const saldoTx = await prisma.saldoTransaction.findUnique({ where: { id: n.order_id } });
+  if (saldoTx) {
+    if (saldoTx.status !== "pending") {
+      return NextResponse.json({ ok: true });
+    }
+
+    if (isPaid) {
+      await prisma.saldoTransaction.update({
+        where: { id: saldoTx.id },
+        data: { status: "berhasil", gatewayRef: n.transaction_id ?? null, paymentChannel: n.payment_type ?? null },
+      });
+
+      await logAudit({
+        userId: null,
+        aksi: "update",
+        entitas: "saldo_transactions",
+        entitasId: saldoTx.id,
+        after: { status: "berhasil", jumlah: saldoTx.jumlah },
+      });
+    } else if (isFailed) {
+      await prisma.saldoTransaction.update({ where: { id: saldoTx.id }, data: { status: "gagal" } });
+    }
+
+    return NextResponse.json({ ok: true });
+  }
+
+  // Order id tidak dikenal di ketiga tabel - balas 200 supaya Midtrans tidak
   // retry terus, tapi tidak melakukan apa pun (kemungkinan transaksi test).
   return NextResponse.json({ ok: true });
 }

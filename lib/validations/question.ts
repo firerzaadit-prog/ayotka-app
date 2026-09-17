@@ -30,6 +30,7 @@ export const packageCreateSchema = z.object({
       schoolId: z.string().optional(),
     }))
     .optional(),
+  kategori: z.enum(["mandiri", "nasional"]).optional(),
   // Bagian 8/10 (permintaan user, "paket soal yang banyak, diacak"): kalau
   // diisi, ini adalah paket VARIASI dari sebuah TryOutGroup - field jadwal/
   // target/mapel lain diabaikan dan diturunkan dari grupnya (lihat
@@ -51,6 +52,7 @@ export const tryOutGroupCreateSchema = z.object({
   maxAttempt: z.coerce.number().int().min(1).optional().nullable(),
   modePembahasan: z.enum(["langsung", "setelah_tutup"]).optional(),
   targetSiswa: z.enum(["sekolah", "mandiri", "semua"]).optional(),
+  kategori: z.enum(["mandiri", "nasional"]).optional(),
   bukaMulai: z.string().optional().or(z.literal("")),
   bukaSelesai: z.string().optional().or(z.literal("")),
   visibilityMode: z.enum(["privat", "semua", "sekolah", "publik"]).optional(),

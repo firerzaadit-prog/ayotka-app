@@ -224,13 +224,13 @@ export default function SekolahPage() {
                       <Td>
                         <Link
                           href={`/admin-pusat/sekolah/${school.id}`}
-                          className="font-medium text-slate-900 hover:underline"
+                          className="font-medium text-slate-900 transition-colors hover:text-indigo-600"
                         >
                           {school.nama}
                         </Link>
                       </Td>
                       <Td>{school.jenjang}</Td>
-                      <Td className="font-mono">{school.kodeSekolah}</Td>
+                      <Td className="font-mono text-xs font-medium text-slate-600">{school.kodeSekolah}</Td>
                       <Td>
                         <Badge variant={STATUS_BADGE_VARIANT[school.status]}>
                           {STATUS_LABEL[school.status]}
@@ -243,7 +243,7 @@ export default function SekolahPage() {
                       <Td className="text-right">
                         <button
                           onClick={() => handleDelete(school.id, school.nama)}
-                          className="text-sm font-medium text-rose-600 hover:underline"
+                          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                         >
                           Hapus
                         </button>

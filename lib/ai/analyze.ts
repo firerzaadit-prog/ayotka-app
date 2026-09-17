@@ -75,7 +75,7 @@ function kunciKeTeks(q: AnswerQuestion): string {
  * dipakai finalizeAttempt/buildHasil, supaya tidak pernah berbeda dari
  * yang dilihat siswa di halaman hasil.
  */
-export async function runAnalisisAi(attempt: Attempt) {
+export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" = "kuota") {
   const [student, pkg, competencyScores, answers] = await Promise.all([
     prisma.student.findUniqueOrThrow({
       where: { id: attempt.studentId },
@@ -188,10 +188,12 @@ export async function runAnalisisAi(attempt: Attempt) {
       model: MODEL_NAME,
       ringkasan: hasil.ringkasan,
       detailJson: hasil,
+      sumber,
     },
     update: {
       versiPrompt: PROMPT_VERSION,
       model: MODEL_NAME,
+      sumber,
       ringkasan: hasil.ringkasan,
       detailJson: hasil,
       generatedAt: new Date(),

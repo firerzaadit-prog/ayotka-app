@@ -212,7 +212,7 @@ function MateriItem({
         </button>
         <button
           onClick={() => onDelete(materi.id, materi.nama)}
-          className="text-sm font-medium text-rose-600 hover:underline"
+          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
         >
           Hapus
         </button>
@@ -332,7 +332,7 @@ function SubMateriItem({
         </button>
         <button
           onClick={() => onDelete(subMateri.id, subMateri.nama)}
-          className="text-sm font-medium text-rose-600 hover:underline"
+          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
         >
           Hapus
         </button>
@@ -392,7 +392,7 @@ function SubMateriItem({
                 <span className="flex-1">{k.deskripsi}</span>
                 <button
                   onClick={() => handleDeleteKompetensi(k.id, k.kode)}
-                  className="text-xs font-medium text-rose-600 hover:underline"
+                  className="rounded-lg px-2 py-0.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                 >
                   Hapus
                 </button>

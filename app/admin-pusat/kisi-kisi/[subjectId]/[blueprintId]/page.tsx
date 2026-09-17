@@ -140,7 +140,7 @@ export default function BlueprintDetailPage({
                       onClick={() =>
                         handleDeleteItem(item.id, `${item.kompetensi.kode} · ${item.tingkatKesulitan}`)
                       }
-                      className="text-sm font-medium text-rose-600 hover:underline"
+                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                     >
                       Hapus
                     </button>

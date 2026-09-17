@@ -176,7 +176,7 @@ export default function TahunAjaranPage() {
                         <button
                           onClick={() => handleAktivasi(y.id)}
                           disabled={busyId === y.id}
-                          className="text-sm font-medium text-slate-600 hover:underline"
+                          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700 disabled:opacity-50"
                         >
                           Aktifkan
                         </button>
@@ -184,7 +184,7 @@ export default function TahunAjaranPage() {
                       <button
                         onClick={() => handleDelete(y.id, y.nama)}
                         disabled={busyId === y.id}
-                        className="text-sm font-medium text-rose-600 hover:underline"
+                        className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
                       >
                         Hapus
                       </button>

@@ -33,9 +33,11 @@ export default async function SiswaLayout({ children }: { children: React.ReactN
       nav={
         <SidebarSection>
           <SidebarLink href="/siswa/dashboard">Dashboard</SidebarLink>
-          <SidebarLink href="/siswa/ujian">Ujian</SidebarLink>
+          <SidebarLink href="/siswa/ujian?kategori=nasional">Try Out Nasional</SidebarLink>
+          <SidebarLink href="/siswa/ujian?kategori=mandiri">Try Out Mandiri</SidebarLink>
           <SidebarLink href="/siswa/riwayat">Riwayat</SidebarLink>
           <SidebarLink href="/siswa/langganan">Langganan</SidebarLink>
+          <SidebarLink href="/siswa/wallet">Wallet / Saldo</SidebarLink>
         </SidebarSection>
       }
     >

@@ -102,6 +102,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     },
   });
 
+  if (rest.kategori) {
+    await prisma.package.updateMany({
+      where: { tryOutGroupId: id },
+      data: { kategori: rest.kategori },
+    });
+  }
+
   await logAudit({
     userId: user.id,
     aksi: "update",

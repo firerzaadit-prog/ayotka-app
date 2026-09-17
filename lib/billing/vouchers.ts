@@ -2,7 +2,8 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { generateReadableCode } from "@/lib/utils/generate-code";
 
-export { VOUCHER_PRICE_TIERS, getVoucherDiscountPercent, computeVoucherOrderAmount } from "@/lib/billing/voucher-pricing";
+export { getVoucherDiscountPercent, computeVoucherOrderAmount } from "@/lib/billing/voucher-pricing";
+export { getVoucherPriceTiers } from "@/lib/billing/voucher-price-tiers";
 
 /** Dipakai admin pusat (generate manual) dan webhook Midtrans (VoucherOrder lunas) - satu logika unik yang sama. */
 export async function generateUniqueVoucherCode(): Promise<string> {

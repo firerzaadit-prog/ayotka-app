@@ -28,6 +28,9 @@ export default function RegistrasiPage() {
         </p>
       </Link>
 
+      <Link href="/registrasi/mitra" className="text-center text-sm text-slate-500 hover:text-slate-700">
+        Mau jadi mitra/reseller? Daftar di sini
+      </Link>
       <Link href="/login" className="text-center text-sm text-slate-500 hover:text-slate-700">
         Sudah punya akun? Masuk
       </Link>

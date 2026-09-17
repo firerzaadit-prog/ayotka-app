@@ -7,10 +7,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { PageSkeleton } from "@/components/ui/skeleton";
-import { computeVoucherOrderAmount, VOUCHER_PRICE_TIERS } from "@/lib/billing/voucher-pricing";
+import { computeVoucherOrderAmount, type VoucherPriceTier } from "@/lib/billing/voucher-pricing";
 
 type Plan = { id: string; kode: string; nama: string; harga: number; durasiHari: number | null };
-type CheckoutData = { plans: Plan[]; pendingOrderId: string | null };
+type CheckoutData = { plans: Plan[]; pendingOrderId: string | null; tiers: VoucherPriceTier[] };
 
 function formatRupiah(n: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
@@ -71,7 +71,7 @@ export default function BeliVoucherPage() {
 
   const selectedPlan = data.plans.find((p) => p.id === selectedPlanId);
   const { amount: totalHarga, diskonPersen } = selectedPlan
-    ? computeVoucherOrderAmount(selectedPlan.harga, Number(jumlah || 0))
+    ? computeVoucherOrderAmount(data.tiers, selectedPlan.harga, Number(jumlah || 0))
     : { amount: 0, diskonPersen: 0 };
   const hargaSebelumDiskon = selectedPlan ? selectedPlan.harga * Number(jumlah || 0) : 0;
 
@@ -139,8 +139,9 @@ export default function BeliVoucherPage() {
           <div className="rounded-lg border border-slate-200 p-3 text-xs text-slate-500">
             <p className="mb-1.5 font-medium text-slate-600">Diskon grosir</p>
             <ul className="flex flex-col gap-0.5">
-              {VOUCHER_PRICE_TIERS.slice()
-                .reverse()
+              {data.tiers
+                .slice()
+                .sort((a, b) => b.minJumlah - a.minJumlah)
                 .map((t) => (
                   <li key={t.label}>
                     {t.label}: {t.diskonPersen > 0 ? `diskon ${t.diskonPersen}%` : "harga penuh"}

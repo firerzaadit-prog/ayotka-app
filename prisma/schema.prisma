@@ -262,15 +262,16 @@ model Student {
   /// Bagian 7.2: soal & siswa tidak boleh dihapus permanen, hanya soft delete.
   deletedAt           DateTime?     @map("deleted_at")
 
-  user         User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  school       School?             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
-  referredBy   Student?            @relation("StudentReferral", fields: [referredByStudentId], references: [id], onDelete: SetNull)
-  referrals    Student[]           @relation("StudentReferral")
-  enrollments  StudentEnrollment[]
-  attempts     Attempt[]
-  invoices     Invoice[]
-  entitlements Entitlement[]
-  vouchersUsed Voucher[]
+  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  school            School?             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  referredBy        Student?            @relation("StudentReferral", fields: [referredByStudentId], references: [id], onDelete: SetNull)
+  referrals         Student[]           @relation("StudentReferral")
+  enrollments       StudentEnrollment[]
+  attempts          Attempt[]
+  invoices          Invoice[]
+  entitlements      Entitlement[]
+  vouchersUsed      Voucher[]
+  saldoTransactions SaldoTransaction[]
 
   @@map("students")
 }
@@ -377,6 +378,17 @@ enum JenisPaket {
   latihan
 }
 
+/// Bagian B/F/G (permintaan user): kategori Try Out yang siswa lihat sebagai
+/// dua menu terpisah dengan ikon masing-masing - "nasional" (dijadwalkan
+/// admin pusat, dipooling+diacak lewat TryOutGroup, kuota & analisis AI-nya
+/// otomatis termasuk sesuai plan) vs "mandiri" (kapan saja, sepuasnya,
+/// Learning Analytics opsional per percobaan). Default "mandiri" supaya
+/// paket/grup yang sudah ada tidak berubah perilaku.
+enum TryOutKategori {
+  mandiri
+  nasional
+}
+
 model Package {
   id                String         @id @default(uuid()) @db.Uuid
   ownerType         OwnerType      @map("owner_type")
@@ -396,6 +408,7 @@ model Package {
   maxAttempt        Int?           @map("max_attempt")
   tipePaket         TipePaket      @default(paralel) @map("tipe_paket")
   jenisPaket        JenisPaket     @default(tryout) @map("jenis_paket")
+  kategori          TryOutKategori @default(mandiri)
   /// Jendela pengerjaan untuk paket self-select (siswa mandiri & siswa
   /// sekolah lewat Latihan Mandiri) - dicek di getSelfSelectPackagesFor.
   /// Null berarti selalu terbuka (perilaku lama, dipakai default untuk
@@ -449,6 +462,7 @@ model TryOutGroup {
   durasiMenit    Int            @map("durasi_menit")
   jumlahSoal     Int            @map("jumlah_soal")
   maxAttempt     Int?           @map("max_attempt")
+  kategori       TryOutKategori @default(mandiri)
   targetSiswa    TargetSiswa    @default(semua) @map("target_siswa")
   modePembahasan ModePembahasan @default(setelah_tutup) @map("mode_pembahasan")
   status         PackageStatus  @default(draft)
@@ -639,6 +653,12 @@ model Attempt {
   /// saja) - begitu jatah terpakai, tetap terhitung terpakai walau baris
   /// ai_analyses attempt ini belakangan ditimpa manual oleh admin.
   aiAutoAnalysisAt       DateTime?     @map("ai_auto_analysis_at")
+  /// Bagian D/G (permintaan user): opt-in "gunakan Learning Analytics untuk
+  /// percobaan ini?" diisi SEKALI saat attempt dibuat (app/api/siswa/attempts).
+  /// Untuk paket kategori "nasional" selalu dipaksa true (LA otomatis
+  /// termasuk) - lihat lib/billing/plan-fitur.ts. Menggantikan perilaku lama
+  /// "AI selalu otomatis jalan untuk semua try out non-free-trial".
+  analisisAiDiminta      Boolean       @default(false) @map("analisis_ai_diminta")
 
   student    Student     @relation(fields: [studentId], references: [id], onDelete: Restrict)
   package    Package     @relation(fields: [packageId], references: [id], onDelete: Restrict)
@@ -700,14 +720,23 @@ model CompetencyScore {
   @@map("competency_scores")
 }
 
+/// Bagian D/G: bagaimana analisis ini "dibayar" - jatah kuota plan (gratis
+/// buat siswa, tidak ada transaksi saldo) atau didebit dari saldo karena
+/// jatah plan-nya sudah habis. Lihat lib/billing/plan-fitur.ts.
+enum AnalisisSumber {
+  kuota
+  saldo
+}
+
 model AiAnalysis {
-  id          String   @id @default(uuid()) @db.Uuid
-  attemptId   String   @unique @map("attempt_id") @db.Uuid
-  versiPrompt String   @map("versi_prompt")
+  id          String         @id @default(uuid()) @db.Uuid
+  attemptId   String         @unique @map("attempt_id") @db.Uuid
+  versiPrompt String         @map("versi_prompt")
   model       String
   ringkasan   String
-  detailJson  Json     @map("detail_json")
-  generatedAt DateTime @default(now()) @map("generated_at")
+  detailJson  Json           @map("detail_json")
+  sumber      AnalisisSumber @default(kuota)
+  generatedAt DateTime       @default(now()) @map("generated_at")
 
   attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
@@ -721,6 +750,14 @@ model AiAnalysis {
 model AppSetting {
   id                          String   @id @default("global")
   aiAutoAnalysisMaxPerSubject Int      @default(3) @map("ai_auto_analysis_max_per_subject")
+  /// Bagian D/G (permintaan user): harga jual satu Learning Analytics
+  /// tambahan (di luar jatah plan), didebit dari saldo siswa - lihat
+  /// lib/billing/saldo.ts. Admin pusat atur lewat halaman Wallet/Saldo.
+  hargaLearningAnalytics      Int      @default(7500) @map("harga_learning_analytics")
+  /// Bagian D (permintaan user): margin keuntungan per transaksi Learning
+  /// Analytics tambahan — dipakai lib/billing/margin.ts saat menghitung
+  /// harga jual ke siswa. Default 20% (siswa bayar 120% dari harga dasar).
+  marginLearningAnalyticsPersen Int    @default(20) @map("margin_learning_analytics_persen")
   updatedAt                   DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
@@ -906,6 +943,56 @@ model VoucherOrder {
   vouchers Voucher[]
 
   @@map("voucher_orders")
+}
+
+/// Bagian A (permintaan user): skema diskon grosir mitra beli voucher -
+/// dulu hardcoded di kode (VOUCHER_PRICE_TIERS), sekarang bisa diatur admin
+/// pusat kapan saja tanpa deploy ulang. Dicek dari minJumlah PALING TINGGI
+/// dulu (lihat lib/billing/voucher-pricing.ts) - jumlah di bawah tier
+/// terendah dapat 0% (tidak perlu baris tersendiri untuk itu).
+model VoucherPriceTier {
+  id           String @id @default(uuid()) @db.Uuid
+  minJumlah    Int    @unique @map("min_jumlah")
+  diskonPersen Int    @map("diskon_persen")
+  label        String
+
+  @@map("voucher_price_tiers")
+}
+
+enum SaldoTransactionTipe {
+  topup
+  debit_analisis
+  penyesuaian_admin
+}
+
+enum SaldoTransactionStatus {
+  pending
+  berhasil
+  gagal
+}
+
+/// Bagian D/G (permintaan user): dompet/saldo siswa untuk membeli Learning
+/// Analytics tambahan di luar jatah plan. Saldo = SUM(jumlah) atas baris
+/// berstatus "berhasil" milik siswa ini (bukan kolom saldo terpisah yang
+/// bisa drift - lihat lib/billing/saldo.ts). jumlah SIGNED: positif untuk
+/// kredit (topup, penyesuaian tambah admin), negatif untuk debit (dipakai
+/// analisis, penyesuaian kurang admin).
+model SaldoTransaction {
+  id             String                 @id @default(uuid()) @db.Uuid
+  studentId      String                 @map("student_id") @db.Uuid
+  tipe           SaldoTransactionTipe
+  status         SaldoTransactionStatus
+  jumlah         Int
+  keterangan     String?
+  gatewayRef     String?                @unique @map("gateway_ref")
+  paymentChannel String?                @map("payment_channel")
+  expiresAt      DateTime?              @map("expires_at")
+  createdById    String?                @map("created_by_id") @db.Uuid
+  createdAt      DateTime               @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@map("saldo_transactions")
 }
 
 /// Mitra/reseller — punya login sendiri (userId, role mitra) dan dashboard

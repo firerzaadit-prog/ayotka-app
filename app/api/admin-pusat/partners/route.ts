@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { generateReadableCode, generateTempPassword } from "@/lib/utils/generate-code";
+import { generateTempPassword } from "@/lib/utils/generate-code";
+import { generateUniqueReferralCode } from "@/lib/partners/create";
 import { partnerCreateSchema } from "@/lib/validations/partner";
 
 /** GET: daftar mitra + ringkasan jumlah voucher untuk halaman Mitra & Voucher admin pusat. */
@@ -40,15 +41,6 @@ export async function GET() {
       totalSekolahRujukan: p._count.schools,
     })),
   });
-}
-
-async function generateUniqueReferralCode(): Promise<string> {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const code = generateReadableCode(6);
-    const existing = await prisma.partner.findUnique({ where: { referralCode: code } });
-    if (!existing) return code;
-  }
-  throw new Error("Gagal membuat kode referral unik, coba lagi.");
 }
 
 /**

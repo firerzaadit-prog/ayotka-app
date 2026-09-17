@@ -90,20 +90,20 @@ export async function buildHasil(attempt: Attempt) {
       skorMaks: a.skorMaks,
       ...(canShowPembahasan
         ? {
-            pembahasan: q.pembahasan,
-            categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
-            options: orderedOptions.map((o, idx) => ({
-              id: o.id,
-              label: String.fromCharCode(65 + idx),
-              teks: o.teks,
-              isCorrect: o.isCorrect,
-            })),
-            statements: orderedStatements.map((s) => ({
-              id: s.id,
-              teks: s.teks,
-              correctLabel: q.categories.find((c) => c.id === s.correctCategoryId)?.label ?? "-",
-            })),
-          }
+          pembahasan: q.pembahasan,
+          categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
+          options: orderedOptions.map((o, idx) => ({
+            id: o.id,
+            label: String.fromCharCode(65 + idx),
+            teks: o.teks,
+            isCorrect: o.isCorrect,
+          })),
+          statements: orderedStatements.map((s) => ({
+            id: s.id,
+            teks: s.teks,
+            correctLabel: q.categories.find((c) => c.id === s.correctCategoryId)?.label ?? "-",
+          })),
+        }
         : {}),
     };
   });
