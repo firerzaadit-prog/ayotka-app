@@ -48,11 +48,14 @@ export async function GET() {
     const plan = await prisma.plan.findUnique({ where: { id: activeEntitlement.entitlement.planId } });
     if (plan) {
       const fitur = parsePlanFitur(plan.fitur);
+      const isSchool = activeEntitlement.entitlement.source === "school_seat" || plan.kode === "school";
       activePlan = {
         kode: plan.kode,
-        nama: plan.nama,
+        nama: isSchool ? "Sekolah & Lembaga (Setara Semester)" : plan.nama,
         aiKuotaPerMapel: fitur.aiKuotaPerMapel,
-        tryOutNasionalKuotaPerMapel: fitur.tryOutNasionalKuotaPerMapel,
+        tryOutNasionalKuotaPerMapel: isSchool
+          ? (fitur.tryOutNasionalKuotaPerMapel > 0 ? fitur.tryOutNasionalKuotaPerMapel : 3)
+          : fitur.tryOutNasionalKuotaPerMapel,
       };
     }
   }

@@ -80,11 +80,11 @@ export default function VerifikasiPembayaranPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Verifikasi Pembayaran"
-        description="Jaring pengaman Jalur A - kalau webhook Midtrans gagal sampai atau siswa transfer manual di luar sistem, setujui di sini supaya aksesnya tetap aktif."
+        description="Jaring pengaman Jalur A - verifikasi pembayaran manual atau sinkronisasi jika ada transaksi di luar sistem pembayaran online."
       />
 
       <Alert variant="info">
-        Alur normal tetap otomatis lewat Midtrans. Cuma pakai halaman ini kalau ada bukti nyata siswa
+        Alur normal tetap otomatis tercatat lunas oleh sistem. Cuma pakai halaman ini kalau ada bukti nyata siswa
         sudah bayar tapi sistem belum mencatatnya lunas.
       </Alert>
 
@@ -94,7 +94,7 @@ export default function VerifikasiPembayaranPage() {
         <EmptyState
           icon={<IconWallet />}
           title="Tidak ada invoice yang butuh verifikasi"
-          description="Semua transaksi Jalur A tercatat lunas otomatis lewat Midtrans."
+          description="Semua transaksi Jalur A tercatat lunas otomatis oleh sistem."
         />
       )}
 

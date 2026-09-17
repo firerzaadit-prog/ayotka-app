@@ -16,11 +16,11 @@ const JALUR: JalurItem[] = [
   {
     label: "Jalur A · Siswa",
     judul: "Daftar sebagai siswa",
-    deskripsi: "Coba gratis dulu, lalu berlangganan sendiri kapan pun siap — atau klaim akun kalau sekolahmu sudah pakai AyoTKA.",
+    deskripsi: "Coba gratis dulu, lalu pilih paket mandiri sesuai kebutuhan: Paket Bulanan (latihan tanpa batas) atau Paket Semester (lengkap 3x Try Out Nasional + Learning Analytics AI).",
     poin: [
-      "Coba gratis: 1 tryout per mata pelajaran, tanpa kartu",
-      "Sekolah sudah berlangganan? Tinggal klaim akun pakai kode sekolah",
-      "Belum ada sekolah yang daftar? Berlangganan sendiri (Bulanan/Semester) lewat Midtrans",
+      "Coba gratis awal: 1 tryout per mata pelajaran, tanpa kartu",
+      "Paket Bulanan: Try Out Mandiri sepuasnya + 1x Analisis AI per mapel",
+      "Paket Semester: Mendapatkan Try Out Nasional 3 kali + Analisis AI lengkap",
     ],
     cta: "Daftar sebagai siswa",
     href: "/registrasi",
@@ -41,15 +41,14 @@ const JALUR: JalurItem[] = [
   {
     label: "Jalur C · Mitra",
     judul: "Jadi mitra/reseller",
-    deskripsi: "Beli kode voucher lewat Midtrans dengan diskon grosir bertingkat, lalu jual ke siswa dengan hargamu sendiri.",
+    deskripsi: "Daftar akun mandiri secara instan, beli paket voucher langsung dengan diskon grosir bertingkat, dan bagikan kode akses ke siswa.",
     poin: [
-      "Diskon makin besar makin banyak dibeli sekaligus",
-      "Bagikan atau jual kode ke siswamu sendiri, harga bebas ditentukan",
-      "Identitas siswa yang pakai kodemu tidak pernah terbuka ke kamu",
+      "Daftar mandiri langsung tanpa perlu menghubungi admin",
+      "Diskon grosir otomatis: 20% (2-9 siswa), 25% (10-49 siswa), hingga 30% (≥50 siswa)",
+      "Dapatkan kode akses instan dan pantau pemakaian siswa secara real-time",
     ],
-    cta: "Hubungi kami",
-    href: buildWhatsAppLink("Halo, saya tertarik menjadi mitra/reseller AyoTKA."),
-    external: true,
+    cta: "Daftar sebagai mitra",
+    href: "/registrasi/mitra",
   },
 ];
 

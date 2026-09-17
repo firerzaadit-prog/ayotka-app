@@ -48,7 +48,7 @@ export async function POST(request: Request) {
       signatureKey: n.signature_key,
     });
   } catch {
-    return NextResponse.json({ error: "Midtrans belum dikonfigurasi." }, { status: 503 });
+    return NextResponse.json({ error: "Sistem pembayaran belum dikonfigurasi." }, { status: 503 });
   }
   if (!signatureValid) {
     return NextResponse.json({ error: "Signature tidak valid." }, { status: 401 });

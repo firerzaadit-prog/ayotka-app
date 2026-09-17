@@ -79,7 +79,7 @@ export default function BeliVoucherPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Beli Voucher"
-        description="Bayar sekali lewat Midtrans, dapat N kode voucher siap dibagikan ke siswa - harga per voucher sama seperti siswa individu."
+        description="Bayar secara online (QRIS / Transfer Bank), dapatkan kode voucher instan yang siap dibagikan ke siswa."
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -155,7 +155,7 @@ export default function BeliVoucherPage() {
             disabled={submitting || Boolean(data.pendingOrderId)}
             className="w-fit"
           >
-            {submitting ? "Memproses..." : "Bayar dengan Midtrans"}
+            {submitting ? "Memproses..." : "Bayar Sekarang"}
           </Button>
         </Card>
       )}

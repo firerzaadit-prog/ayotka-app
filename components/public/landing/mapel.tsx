@@ -47,7 +47,7 @@ export function Mapel() {
 
   return (
     <section className="mx-auto max-w-6xl px-6 py-20 sm:py-24">
-      <Reveal className="mb-8 max-w-2xl">
+      <Reveal className="mx-auto mb-8 max-w-2xl text-center">
         <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
           Mata pelajaran
         </p>
@@ -55,7 +55,7 @@ export function Mapel() {
           Disusun per jenjang, bukan satu paket untuk semua
         </h2>
       </Reveal>
-      <Reveal delay={60} className="mb-8 flex gap-2">
+      <Reveal delay={60} className="mb-8 flex justify-center gap-2">
         {FILTERS.map((f) => (
           <button
             key={f}
@@ -63,8 +63,8 @@ export function Mapel() {
             onClick={() => setFilter(f)}
             className={
               f === filter
-                ? "rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white"
-                : "rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-400"
+                ? "rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-indigo-600/20"
+                : "rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50"
             }
           >
             {f}

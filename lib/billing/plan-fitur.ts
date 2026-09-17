@@ -71,6 +71,12 @@ export async function getTryOutNasionalKuotaRemaining(studentId: string, subject
   if (!plan) return { sisa: 0, total: 0, usedEventIds: new Set() };
   const fitur = parsePlanFitur(plan.fitur);
 
+  // Siswa sekolah (source = school_seat atau plan kode = school) mendapatkan fasilitas setara Paket Semester
+  const isSchool = active.entitlement.source === "school_seat" || plan.kode === "school";
+  const totalKuota = isSchool
+    ? (fitur.tryOutNasionalKuotaPerMapel > 0 ? fitur.tryOutNasionalKuotaPerMapel : 3)
+    : fitur.tryOutNasionalKuotaPerMapel;
+
   const attempts = await prisma.attempt.findMany({
     where: {
       studentId,
@@ -82,8 +88,8 @@ export async function getTryOutNasionalKuotaRemaining(studentId: string, subject
   const usedEventIds = new Set(attempts.map((a) => a.package.tryOutGroupId ?? a.package.id));
 
   return {
-    sisa: Math.max(0, fitur.tryOutNasionalKuotaPerMapel - usedEventIds.size),
-    total: fitur.tryOutNasionalKuotaPerMapel,
+    sisa: Math.max(0, totalKuota - usedEventIds.size),
+    total: totalKuota,
     usedEventIds,
   };
 }

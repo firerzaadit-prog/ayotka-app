@@ -57,6 +57,11 @@ export function Footer() {
               </Link>
             </li>
             <li>
+              <Link href="/registrasi/mitra" className="text-white/80 hover:text-white flex items-center gap-2 text-sm transition-colors group">
+                <ChevronRight className="w-3 h-3 text-[#6c7cff] group-hover:translate-x-1 transition-transform" /> Gabung Jadi Mitra
+              </Link>
+            </li>
+            <li>
               <a href="#" className="text-white/80 hover:text-white flex items-center gap-2 text-sm transition-colors group">
                 <ChevronRight className="w-3 h-3 text-[#6c7cff] group-hover:translate-x-1 transition-transform" /> Download Materi
               </a>

@@ -402,7 +402,7 @@ export default function MitraPage() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Skema Diskon Voucher</h2>
             <p className="mt-0.5 text-sm text-slate-500">
-              Diskon grosir yang otomatis diterapkan saat mitra beli voucher sendiri lewat Midtrans -
+              Diskon grosir yang otomatis diterapkan saat mitra beli voucher sendiri secara online -
               diurutkan dari jumlah minimal terbesar saat dihitung, tidak perlu deploy ulang untuk mengubahnya.
             </p>
           </div>

@@ -40,7 +40,7 @@ export default function RegistrasiMitraPage() {
         <h1 className="text-lg font-semibold text-slate-900">Cek email kamu</h1>
         <p className="text-sm text-slate-600">
           Kami sudah mengirim link verifikasi ke {email}. Klik link itu untuk mengaktifkan akun
-          mitramu, lalu langsung bisa beli paket voucher lewat Midtrans - tidak perlu menunggu
+          mitramu, lalu langsung bisa beli paket voucher secara online - tidak perlu menunggu
           persetujuan admin.
         </p>
         <Link href="/login" className="text-sm text-slate-500 hover:text-slate-700">
@@ -55,7 +55,7 @@ export default function RegistrasiMitraPage() {
       <div>
         <h1 className="text-lg font-semibold text-slate-900">Daftar - Mitra/Reseller</h1>
         <p className="text-sm text-slate-500">
-          Beli voucher lewat Midtrans dengan diskon grosir bertingkat, lalu jual ke siswamu sendiri.
+          Beli voucher secara langsung dengan diskon grosir bertingkat, lalu bagikan kode akses ke siswamu.
         </p>
       </div>
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

@@ -189,21 +189,102 @@ export default function LanggananSiswaPage() {
         {data.plans.length === 0 ? (
           <Alert variant="danger">Belum ada paket langganan yang tersedia. Hubungi admin pusat.</Alert>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {data.plans.map((p) => (
-              <div key={p.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                <p className="font-semibold text-slate-900">{p.nama}</p>
-                <p className="mt-1 text-2xl font-bold text-indigo-700">{formatRupiah(p.harga)}</p>
-                {p.durasiHari && <p className="text-xs text-slate-500">Berlaku {p.durasiHari} hari</p>}
-                <Button
-                  className="mt-3 w-full"
-                  disabled={submittingPlanId !== null || Boolean(data.pendingInvoiceId)}
-                  onClick={() => handleBeli(p.id)}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {data.plans.map((p) => {
+              const isSemester = p.durasiHari && p.durasiHari >= 90;
+              return (
+                <div
+                  key={p.id}
+                  className={`flex flex-col justify-between rounded-2xl border p-5 shadow-sm transition-all ${
+                    isSemester
+                      ? "border-indigo-300 bg-gradient-to-b from-indigo-50/50 via-white to-white ring-2 ring-indigo-500/20"
+                      : "border-slate-200 bg-white"
+                  }`}
                 >
-                  {submittingPlanId === p.id ? "Memproses..." : "Bayar dengan Midtrans"}
-                </Button>
-              </div>
-            ))}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 font-mono text-[0.68rem] font-bold ${
+                          isSemester
+                            ? "bg-amber-100 text-amber-900 border border-amber-300"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
+                        {isSemester ? "★ REKOMENDASI TERBAIK" : "AKSES FLEKSIBEL"}
+                      </span>
+                      {p.durasiHari && (
+                        <span className="font-mono text-xs text-slate-500">{p.durasiHari} hari</span>
+                      )}
+                    </div>
+
+                    <p className="mt-3 text-xl font-bold text-slate-900">{p.nama}</p>
+                    <p className="mt-1 text-2xl font-black text-indigo-700">{formatRupiah(p.harga)}</p>
+
+                    <ul className="mt-4 flex flex-col gap-2 text-xs text-slate-600">
+                      {isSemester ? (
+                        <>
+                          <li className="flex items-start gap-2 font-semibold text-indigo-950">
+                            <span className="text-amber-500 font-bold">★</span>
+                            <span>Mendapatkan Try Out Nasional 3 kali per mapel</span>
+                          </li>
+                          <li className="flex items-start gap-2 font-semibold text-indigo-950">
+                            <span className="text-amber-500 font-bold">★</span>
+                            <span>Plus Learning Analytics AI lengkap di TO Nasional</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-600 font-bold">✓</span>
+                            <span>Try Out Mandiri tanpa batas semua mapel</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-600 font-bold">✓</span>
+                            <span>Akses skor nilai &amp; peta kompetensi sepuasnya</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-indigo-600 font-bold">✦</span>
+                            <span>Plus 1x Analisis AI per mapel untuk TO Mandiri</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-600 font-bold">✓</span>
+                            <span>Laporan berkala komprehensif untuk orang tua</span>
+                          </li>
+                        </>
+                      ) : (
+                        <>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-600 font-bold">✓</span>
+                            <span>Try Out Mandiri tanpa batas semua mapel</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-600 font-bold">✓</span>
+                            <span>Akses skor nilai &amp; peta kompetensi sepuasnya</span>
+                          </li>
+                          <li className="flex items-start gap-2 font-medium text-indigo-900">
+                            <span className="text-indigo-600 font-bold">✦</span>
+                            <span>Plus 1x Learning Analytics AI per mapel</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <span className="text-emerald-600 font-bold">✓</span>
+                            <span>Laporan bulanan berkala untuk orang tua</span>
+                          </li>
+                          <li className="flex items-start gap-2 text-slate-400">
+                            <span className="text-slate-400 font-bold">✕</span>
+                            <span className="line-through">Tidak termasuk Try Out Nasional</span>
+                          </li>
+                        </>
+                      )}
+                    </ul>
+                  </div>
+
+                  <Button
+                    className={`mt-5 w-full ${isSemester ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
+                    disabled={submittingPlanId !== null || Boolean(data.pendingInvoiceId)}
+                    onClick={() => handleBeli(p.id)}
+                  >
+                    {submittingPlanId === p.id ? "Memproses..." : "Bayar Sekarang"}
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

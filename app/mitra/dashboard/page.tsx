@@ -116,7 +116,7 @@ export default async function MitraDashboardPage() {
           <EmptyState
             icon={<IconWallet />}
             title="Belum ada voucher yang dibeli"
-            description="Beli voucher langsung via pembayaran Midtrans untuk mendapatkan kode akses bagi siswa."
+            description="Beli voucher langsung secara online untuk mendapatkan kode akses bagi siswa."
             action={
               <Link href="/mitra/beli-voucher" className={buttonClassName("primary")}>
                 Beli Voucher

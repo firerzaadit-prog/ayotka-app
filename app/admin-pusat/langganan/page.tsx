@@ -303,7 +303,7 @@ export default function LanggananSettingsPage() {
     <div className="flex flex-col gap-10">
       <PageHeader
         title="Paket & Rekening"
-        description="Plan monthly/semester dijual ke siswa mandiri lewat Midtrans (Jalur A). Rekening tujuan dipakai untuk transfer manual sekolah (Jalur B)."
+        description="Plan bulanan/semester dijual ke siswa mandiri secara online (Jalur A). Rekening tujuan dipakai untuk transfer manual sekolah (Jalur B)."
       />
 
       {/* ─── Plan Langganan ─── */}
@@ -312,7 +312,7 @@ export default function LanggananSettingsPage() {
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Plan Langganan</h2>
             <p className="mt-0.5 text-sm text-slate-500">
-              Harga &amp; durasi plan yang dijual siswa mandiri lewat Midtrans.
+              Harga &amp; durasi plan yang dijual siswa mandiri secara online.
             </p>
           </div>
           <Button onClick={() => setShowPlanForm((v) => !v)}>{showPlanForm ? "Batal" : "Tambah plan"}</Button>

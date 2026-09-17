@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 const NAV_LINKS = [
+  { href: "/", label: "Beranda" },
   { href: "/kerangka-asesmen", label: "Kerangka Asesmen" },
   { href: "/#cara-kerja", label: "Cara Kerja" },
   { href: "/#harga", label: "Harga" },

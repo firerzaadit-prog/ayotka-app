@@ -50,9 +50,38 @@ async function ensurePlanByKode(kode: "free" | "monthly" | "semester" | "school"
   return prisma.plan.create({ data: { kode, nama, harga, durasiHari, isActive: true } });
 }
 
-/** Plan `school` dipakai sebagai plan_id generik untuk entitlement source=school_seat. */
+/** Plan `school` dipakai sebagai plan_id generik untuk entitlement source=school_seat (setara Paket Semester: 3x TO Nasional + 1x AI per mapel). */
 export async function ensureSchoolPlan() {
-  return ensurePlanByKode("school", "Sekolah", 0, null);
+  const existing = await prisma.plan.findFirst({ where: { kode: "school" } });
+  if (existing) {
+    const currentFitur = (existing.fitur as Record<string, unknown> | null) ?? {};
+    if (typeof currentFitur.tryOutNasionalKuotaPerMapel !== "number" || currentFitur.tryOutNasionalKuotaPerMapel <= 0) {
+      return prisma.plan.update({
+        where: { id: existing.id },
+        data: {
+          fitur: {
+            ...currentFitur,
+            aiKuotaPerMapel: typeof currentFitur.aiKuotaPerMapel === "number" ? currentFitur.aiKuotaPerMapel : 1,
+            tryOutNasionalKuotaPerMapel: 3,
+          },
+        },
+      });
+    }
+    return existing;
+  }
+  return prisma.plan.create({
+    data: {
+      kode: "school",
+      nama: "Sekolah & Lembaga",
+      harga: 0,
+      durasiHari: null,
+      isActive: true,
+      fitur: {
+        aiKuotaPerMapel: 1,
+        tryOutNasionalKuotaPerMapel: 3,
+      },
+    },
+  });
 }
 
 /**

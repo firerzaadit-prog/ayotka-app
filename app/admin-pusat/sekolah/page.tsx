@@ -22,6 +22,7 @@ type SchoolListItem = {
   jenjang: "SD" | "SMP";
   kodeSekolah: string;
   status: SchoolStatus;
+  seatQuota?: number | null;
   _count: { schoolUsers: number; students: number };
 };
 
@@ -41,9 +42,22 @@ type SchoolFormState = {
   npsn: string;
   jenjang: "SD" | "SMP";
   alamat: string;
+  seatQuota: string;
+  validUntil: string;
+  adminEmail: string;
+  adminNama: string;
 };
 
-const emptyForm: SchoolFormState = { nama: "", npsn: "", jenjang: "SD", alamat: "" };
+const emptyForm: SchoolFormState = {
+  nama: "",
+  npsn: "",
+  jenjang: "SD",
+  alamat: "",
+  seatQuota: "",
+  validUntil: "",
+  adminEmail: "",
+  adminNama: "",
+};
 
 export default function SekolahPage() {
   const { confirm } = useDialog();
@@ -52,7 +66,13 @@ export default function SekolahPage() {
   const [form, setForm] = useState<SchoolFormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const [createdInfo, setCreatedInfo] = useState<{
+    kodeSekolah: string;
+    nama: string;
+    seatQuota?: number | null;
+    adminEmail?: string | null;
+    tempPassword?: string | null;
+  } | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [page, setPage] = useState(1);
@@ -75,10 +95,21 @@ export default function SekolahPage() {
     setError(null);
     setSubmitting(true);
 
+    const payload = {
+      nama: form.nama,
+      npsn: form.npsn || undefined,
+      jenjang: form.jenjang,
+      alamat: form.alamat || undefined,
+      seatQuota: form.seatQuota ? Number(form.seatQuota) : undefined,
+      validUntil: form.validUntil || undefined,
+      adminEmail: form.adminEmail || undefined,
+      adminNama: form.adminNama || undefined,
+    };
+
     const res = await fetch("/api/admin-pusat/schools", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
 
@@ -88,7 +119,13 @@ export default function SekolahPage() {
       return;
     }
 
-    setCreatedCode(data.school.kodeSekolah);
+    setCreatedInfo({
+      kodeSekolah: data.school.kodeSekolah,
+      nama: data.school.nama,
+      seatQuota: data.school.seatQuota,
+      adminEmail: data.admin?.email ?? null,
+      tempPassword: data.tempPassword ?? null,
+    });
     setForm(emptyForm);
     setShowForm(false);
     setRefreshKey((k) => k + 1);
@@ -122,10 +159,35 @@ export default function SekolahPage() {
         }
       />
 
-      {createdCode && (
-        <Alert variant="success">
-          Sekolah berhasil dibuat. Kode Sekolah: <strong>{createdCode}</strong> — sampaikan
-          kode ini ke sekolah untuk proses registrasi siswa.
+      {createdInfo && (
+        <Alert variant="success" className="space-y-2">
+          <div>
+            <p className="font-semibold text-slate-900">
+              Sekolah &quot;{createdInfo.nama}&quot; berhasil didaftarkan!
+            </p>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Kode Sekolah: <strong className="font-mono text-indigo-700 font-bold">{createdInfo.kodeSekolah}</strong>
+              {createdInfo.seatQuota != null ? ` • Kuota Kursi Siswa: ${createdInfo.seatQuota} siswa` : ""}
+            </p>
+          </div>
+          {createdInfo.adminEmail && createdInfo.tempPassword ? (
+            <div className="mt-2 rounded-lg bg-emerald-100/70 p-3 border border-emerald-300 text-xs text-slate-800 space-y-1.5">
+              <p className="font-semibold text-emerald-900">
+                Akun Admin Sekolah Telah Dibuatkan:
+              </p>
+              <div className="flex flex-col sm:flex-row sm:gap-6 gap-1 font-mono text-xs">
+                <div>Email: <strong className="text-slate-900">{createdInfo.adminEmail}</strong></div>
+                <div>Password Sementara: <strong className="bg-white px-2 py-0.5 rounded border border-emerald-300 text-emerald-900">{createdInfo.tempPassword}</strong></div>
+              </div>
+              <p className="text-slate-600 italic text-[11px] pt-1">
+                *Sampaikan email dan password sementara ini kepada pihak Admin Sekolah. Admin sekolah akan diminta membuat password baru saat login pertama kali.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-slate-600">
+              Sampaikan kode sekolah ke pihak sekolah untuk proses registrasi, atau buka detail sekolah untuk menambahkan akun Admin Sekolah dan kuota kursi sewaktu-waktu.
+            </p>
+          )}
         </Alert>
       )}
 
@@ -183,6 +245,70 @@ export default function SekolahPage() {
             />
           </div>
 
+          <div className="border-t border-slate-100 pt-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
+              Kuota Siswa (Kerjasama / Setara Paket Semester)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="seatQuota">Kuota Siswa (opsional)</Label>
+                <Input
+                  id="seatQuota"
+                  type="number"
+                  min="1"
+                  placeholder="Contoh: 100"
+                  value={form.seatQuota}
+                  onChange={(e) => setForm({ ...form, seatQuota: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Jumlah batas siswa yang disepakati untuk dimasukkan oleh admin sekolah.
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="validUntil">Masa Berlaku (opsional)</Label>
+                <Input
+                  id="validUntil"
+                  type="date"
+                  value={form.validUntil}
+                  onChange={(e) => setForm({ ...form, validUntil: e.target.value })}
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Batas tanggal masa aktif siswa sekolah (misal: akhir semester).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-100 pt-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
+              Akun Admin Sekolah (Opsional - Dibuatkan Password Sementara)
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="adminEmail">Email Admin Sekolah</Label>
+                <Input
+                  id="adminEmail"
+                  type="email"
+                  placeholder="admin@sekolah.sch.id"
+                  value={form.adminEmail}
+                  onChange={(e) => setForm({ ...form, adminEmail: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="adminNama">Nama Admin Sekolah</Label>
+                <Input
+                  id="adminNama"
+                  placeholder="Contoh: Pak Budi (Operator)"
+                  value={form.adminNama}
+                  onChange={(e) => setForm({ ...form, adminNama: e.target.value })}
+                />
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Jika diisi, sistem akan otomatis men-generate akun Admin Sekolah dengan password sementara untuk diberikan kepada sekolah.
+            </p>
+          </div>
+
           <Button type="submit" disabled={submitting} className="w-fit">
             {submitting ? "Menyimpan..." : "Simpan sekolah"}
           </Button>
@@ -214,7 +340,7 @@ export default function SekolahPage() {
                     <Th>Kode Sekolah</Th>
                     <Th>Status</Th>
                     <Th>Admin</Th>
-                    <Th>Siswa</Th>
+                    <Th>Siswa / Kuota</Th>
                     <Th></Th>
                   </tr>
                 </Thead>
@@ -238,7 +364,8 @@ export default function SekolahPage() {
                       </Td>
                       <Td>{school._count.schoolUsers}</Td>
                       <Td>
-                        {school._count.students}
+                        <span className="font-medium text-slate-800">{school._count.students}</span>
+                        <span className="text-slate-500"> / {school.seatQuota != null ? `${school.seatQuota}` : "∞"}</span>
                       </Td>
                       <Td className="text-right">
                         <button
