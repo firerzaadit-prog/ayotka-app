@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError } from "@/components/ui/input";
@@ -18,10 +19,12 @@ export function LoginForm({
   identifierLabel,
   identifierAutoComplete = "username",
   expectedRole,
+  showForgotPassword = true,
 }: {
   identifierLabel: string;
   identifierAutoComplete?: string;
   expectedRole?: "siswa" | "admin_sekolah" | "admin_pusat" | "dinas_pendidikan" | "mitra";
+  showForgotPassword?: boolean;
 }) {
   const router = useRouter();
   const [emailOrNisn, setEmailOrNisn] = useState("");
@@ -75,7 +78,19 @@ export function LoginForm({
       </div>
 
       <div>
-        <Label htmlFor="password">Password</Label>
+        <div className="flex items-center justify-between mb-1.5">
+          <Label htmlFor="password" className="mb-0">
+            Password
+          </Label>
+          {showForgotPassword && (
+            <Link
+              href={expectedRole ? `/forgot-password?portal=${expectedRole}` : "/forgot-password"}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline transition-colors"
+            >
+              Lupa password?
+            </Link>
+          )}
+        </div>
         <Input
           id="password"
           type="password"
