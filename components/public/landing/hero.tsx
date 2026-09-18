@@ -7,13 +7,6 @@ const KOMPETENSI = [
   { label: "Geometri", nilai: 36, warna: "bg-rose-500" },
 ];
 
-/**
- * Hero baru (menggantikan HeroSection foto split-screen) - panel kanan
- * sengaja bukan foto, tapi pratinjau produk nyata (kartu hasil tryout +
- * peta kompetensi), supaya pembeda utama AyoTKA (learning analytics per
- * materi, bukan cuma skor akhir) langsung kelihatan wujudnya, bukan cuma
- * diklaim lewat teks.
- */
 export function Hero() {
   return (
     <section className="bg-[#B5C8F4]">
@@ -65,7 +58,7 @@ export function Hero() {
           </div>
           <div className="px-6 py-5">
             <div className="flex items-baseline justify-between">
-              <span className="font-mono text-[0.65rem] tracking-wide text-slate-400">HASIL TRYOUT</span>
+              <span className="font-mono text-[0.65rem] tracking-wide text-slate-500">HASIL TRYOUT</span>
               <span className="text-sm font-semibold text-slate-900">Matematika</span>
             </div>
             <p className="mt-1 text-4xl font-extrabold text-slate-900">

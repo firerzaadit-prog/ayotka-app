@@ -159,7 +159,7 @@ export default function PendapatanPage() {
                           <button
                             onClick={() => handleRefund(t)}
                             disabled={refundingId === t.id}
-                            className="text-sm font-medium text-rose-600 hover:underline disabled:opacity-50"
+                            className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50"
                           >
                             {refundingId === t.id ? "Memproses..." : "Refund"}
                           </button>

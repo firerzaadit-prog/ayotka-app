@@ -50,9 +50,38 @@ async function ensurePlanByKode(kode: "free" | "monthly" | "semester" | "school"
   return prisma.plan.create({ data: { kode, nama, harga, durasiHari, isActive: true } });
 }
 
-/** Plan `school` dipakai sebagai plan_id generik untuk entitlement source=school_seat. */
+/** Plan `school` dipakai sebagai plan_id generik untuk entitlement source=school_seat (setara Paket Semester: 3x TO Nasional + 1x AI per mapel). */
 export async function ensureSchoolPlan() {
-  return ensurePlanByKode("school", "Sekolah", 0, null);
+  const existing = await prisma.plan.findFirst({ where: { kode: "school" } });
+  if (existing) {
+    const currentFitur = (existing.fitur as Record<string, unknown> | null) ?? {};
+    if (typeof currentFitur.tryOutNasionalKuotaPerMapel !== "number" || currentFitur.tryOutNasionalKuotaPerMapel <= 0) {
+      return prisma.plan.update({
+        where: { id: existing.id },
+        data: {
+          fitur: {
+            ...currentFitur,
+            aiKuotaPerMapel: typeof currentFitur.aiKuotaPerMapel === "number" ? currentFitur.aiKuotaPerMapel : 1,
+            tryOutNasionalKuotaPerMapel: 3,
+          },
+        },
+      });
+    }
+    return existing;
+  }
+  return prisma.plan.create({
+    data: {
+      kode: "school",
+      nama: "Sekolah & Lembaga",
+      harga: 0,
+      durasiHari: null,
+      isActive: true,
+      fitur: {
+        aiKuotaPerMapel: 1,
+        tryOutNasionalKuotaPerMapel: 3,
+      },
+    },
+  });
 }
 
 /**
@@ -114,6 +143,28 @@ export async function grantSchoolSeatIfAvailable(
  * cuma yang selesai) supaya jatah tidak bisa "direset" dengan meninggalkan
  * attempt menggantung.
  */
+/**
+ * Rincian Biaya AyoTKA - "Free trial TIDAK mendapat Analisis AI": dipakai
+ * SETELAH attempt dibuat (auto-trigger AI, halaman hasil) untuk menentukan
+ * apakah attempt tsb lahir dari akses berbayar/sekolah atau dari jatah
+ * gratis. Tidak ada kolom tersendiri di Attempt yang mencatat ini - dicek
+ * ulang dari ada/tidaknya entitlement yang mencakup waktu mulai attempt,
+ * karena free_trial memang sengaja tidak pernah membuat baris entitlements
+ * (lihat canStartAttempt).
+ */
+export async function wasAttemptFreeTrial(studentId: string, attemptMulaiAt: Date): Promise<boolean> {
+  const covering = await prisma.entitlement.findFirst({
+    where: {
+      studentId,
+      revokedAt: null,
+      startsAt: { lte: attemptMulaiAt },
+      endsAt: { gte: attemptMulaiAt },
+    },
+    select: { id: true },
+  });
+  return !covering;
+}
+
 export async function hasUsedFreeTrial(studentId: string, subjectId: string): Promise<boolean> {
   const count = await prisma.attempt.count({
     where: {

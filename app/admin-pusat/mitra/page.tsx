@@ -44,8 +44,11 @@ type Commission = {
 
 type SchoolOption = { id: string; nama: string };
 
+type PriceTier = { id: string; minJumlah: number; diskonPersen: number; label: string };
+
 const emptyPartnerForm = { email: "", nama: "", kontak: "" };
 const emptyCommissionForm = { partnerId: "", schoolId: "", note: "" };
+const emptyTierForm = { minJumlah: "", diskonPersen: "", label: "" };
 
 function formatRupiah(n: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
@@ -86,24 +89,33 @@ export default function MitraPage() {
   const [savingCommissionId, setSavingCommissionId] = useState<string | null>(null);
   const [amountDrafts, setAmountDrafts] = useState<Record<string, string>>({});
 
+  const [tiers, setTiers] = useState<PriceTier[] | null>(null);
+  const [showTierForm, setShowTierForm] = useState(false);
+  const [tierForm, setTierForm] = useState(emptyTierForm);
+  const [tierError, setTierError] = useState<string | null>(null);
+  const [tierSubmitting, setTierSubmitting] = useState(false);
+
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const [partnerRes, planRes, commissionRes, schoolRes] = await Promise.all([
+      const [partnerRes, planRes, commissionRes, schoolRes, tierRes] = await Promise.all([
         fetch("/api/admin-pusat/partners"),
         fetch("/api/admin-pusat/plans"),
         fetch("/api/admin-pusat/partner-commissions"),
         fetch("/api/admin-pusat/schools"),
+        fetch("/api/admin-pusat/voucher-price-tiers"),
       ]);
       const partnerData = await partnerRes.json().catch(() => null);
       const planData = await planRes.json().catch(() => null);
       const commissionData = await commissionRes.json().catch(() => null);
       const schoolData = await schoolRes.json().catch(() => null);
+      const tierData = await tierRes.json().catch(() => null);
       if (!ignore) {
         if (commissionRes.ok) setCommissions(commissionData.commissions ?? []);
         if (schoolRes.ok) setSchools((schoolData.schools ?? []).map((s: SchoolOption) => ({ id: s.id, nama: s.nama })));
         if (partnerRes.ok) setPartners(partnerData.partners ?? []);
         if (planRes.ok) setPlans(planData.plans ?? []);
+        if (tierRes.ok) setTiers(tierData.tiers ?? []);
       }
     })();
     return () => {
@@ -230,6 +242,33 @@ export default function MitraPage() {
     toast.success("Nominal komisi disimpan.");
   }
 
+  async function handleTierSubmit(e: FormEvent) {
+    e.preventDefault();
+    setTierError(null);
+    setTierSubmitting(true);
+    const res = await fetch("/api/admin-pusat/voucher-price-tiers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(tierForm),
+    });
+    const data = await res.json().catch(() => null);
+    setTierSubmitting(false);
+    if (!res.ok) {
+      setTierError(data?.error ?? "Gagal menyimpan tingkatan.");
+      return;
+    }
+    setTierForm(emptyTierForm);
+    setShowTierForm(false);
+    setRefreshKey((k) => k + 1);
+  }
+
+  async function handleDeleteTier(tier: PriceTier) {
+    if (!window.confirm(`Hapus tingkatan "${tier.label}"?`)) return;
+    const res = await fetch(`/api/admin-pusat/voucher-price-tiers/${tier.id}`, { method: "DELETE" });
+    if (res.ok) setRefreshKey((k) => k + 1);
+    else toast.error("Gagal menghapus tingkatan.");
+  }
+
   async function handleMarkPaid(commission: Commission) {
     setSavingCommissionId(commission.id);
     const res = await fetch(`/api/admin-pusat/partner-commissions/${commission.id}`, {
@@ -351,6 +390,113 @@ export default function MitraPage() {
                     <Td>{p.totalSekolahRujukan}</Td>
                   </Tr>
                 ))}
+              </tbody>
+            </Table>
+          </TableContainer>
+        )}
+      </section>
+
+      {/* ─── Skema Diskon Voucher (Bagian A, permintaan user) ─── */}
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Skema Diskon Voucher</h2>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Diskon grosir yang otomatis diterapkan saat mitra beli voucher sendiri secara online -
+              diurutkan dari jumlah minimal terbesar saat dihitung, tidak perlu deploy ulang untuk mengubahnya.
+            </p>
+          </div>
+          <Button onClick={() => setShowTierForm((v) => !v)}>{showTierForm ? "Batal" : "Tambah tingkatan"}</Button>
+        </div>
+
+        {showTierForm && (
+          <form
+            onSubmit={handleTierSubmit}
+            className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
+          >
+            {tierError && <Alert variant="danger">{tierError}</Alert>}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <Label htmlFor="tierMinJumlah">Jumlah minimal</Label>
+                <Input
+                  id="tierMinJumlah"
+                  type="number"
+                  min={1}
+                  required
+                  placeholder="mis. 2"
+                  value={tierForm.minJumlah}
+                  onChange={(e) => setTierForm({ ...tierForm, minJumlah: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="tierDiskon">Diskon (%)</Label>
+                <Input
+                  id="tierDiskon"
+                  type="number"
+                  min={0}
+                  max={100}
+                  required
+                  placeholder="mis. 20"
+                  value={tierForm.diskonPersen}
+                  onChange={(e) => setTierForm({ ...tierForm, diskonPersen: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="tierLabel">Label</Label>
+                <Input
+                  id="tierLabel"
+                  required
+                  placeholder='mis. "2-9 voucher"'
+                  value={tierForm.label}
+                  onChange={(e) => setTierForm({ ...tierForm, label: e.target.value })}
+                />
+              </div>
+            </div>
+            <Button type="submit" disabled={tierSubmitting} className="w-fit">
+              {tierSubmitting ? "Menyimpan..." : "Simpan tingkatan"}
+            </Button>
+          </form>
+        )}
+
+        {tiers === null && <TableSkeleton columns={4} />}
+        {tiers?.length === 0 && (
+          <EmptyState
+            icon={<IconWallet />}
+            title="Belum ada tingkatan diskon"
+            description="Tanpa tingkatan, mitra beli voucher dengan harga penuh (0% diskon)."
+            action={<Button onClick={() => setShowTierForm(true)}>Tambah tingkatan</Button>}
+          />
+        )}
+        {tiers && tiers.length > 0 && (
+          <TableContainer>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Label</Th>
+                  <Th>Jumlah minimal</Th>
+                  <Th>Diskon</Th>
+                  <Th></Th>
+                </Tr>
+              </Thead>
+              <tbody>
+                {tiers
+                  .slice()
+                  .sort((a, b) => b.minJumlah - a.minJumlah)
+                  .map((t) => (
+                    <Tr key={t.id}>
+                      <Td className="font-medium text-slate-900">{t.label}</Td>
+                      <Td>{t.minJumlah}+</Td>
+                      <Td className="font-semibold text-indigo-700">{t.diskonPersen}%</Td>
+                      <Td className="text-right">
+                        <button
+                          onClick={() => handleDeleteTier(t)}
+                          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                        >
+                          Hapus
+                        </button>
+                      </Td>
+                    </Tr>
+                  ))}
               </tbody>
             </Table>
           </TableContainer>

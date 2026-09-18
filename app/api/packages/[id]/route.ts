@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
-import { packageCreateSchema } from "@/lib/validations/question";
+import { packageCreateSchema, toNullableDate } from "@/lib/validations/question";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -25,6 +25,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     where: { id },
     include: {
       subject: true,
+      tryOutGroup: { select: { nama: true } },
       visibility: { include: { school: { select: { id: true, nama: true } } } },
       blueprint: { include: { items: { include: { kompetensi: true } } } },
       questions: {
@@ -58,7 +59,19 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const before = await prisma.package.findUnique({ where: { id } });
-  const { blueprintId, visibilityMode, visibilitySchoolIds, visibilityEntries, ...rest } = parsed.data;
+  const { blueprintId, visibilityMode, visibilitySchoolIds, visibilityEntries, bukaMulai, bukaSelesai, ...rest } =
+    parsed.data;
+
+  const bukaMulaiDate = toNullableDate(bukaMulai);
+  const bukaSelesaiDate = toNullableDate(bukaSelesai);
+  // Field yang tidak dikirim (undefined) berarti "tidak diubah" - pakai nilai
+  // lama untuk validasi urutan supaya PATCH sebagian (cuma kirim salah satu
+  // dari bukaMulai/bukaSelesai) tetap tervalidasi terhadap nilai tersimpan.
+  const effectiveBukaMulai = bukaMulaiDate !== undefined ? bukaMulaiDate : (before?.bukaMulai ?? null);
+  const effectiveBukaSelesai = bukaSelesaiDate !== undefined ? bukaSelesaiDate : (before?.bukaSelesai ?? null);
+  if (effectiveBukaMulai && effectiveBukaSelesai && effectiveBukaSelesai <= effectiveBukaMulai) {
+    return NextResponse.json({ error: "Waktu selesai harus setelah waktu mulai." }, { status: 400 });
+  }
 
   // Distribusi lintas sekolah (visibility) cuma konsep milik paket pusat
   // (Tiket 2.8) - field ini diabaikan diam-diam kalau tetap dikirim
@@ -98,6 +111,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       ...(blueprintId !== undefined
         ? { blueprintId: blueprintId.length > 0 ? blueprintId : null }
         : {}),
+      ...(bukaMulaiDate !== undefined ? { bukaMulai: bukaMulaiDate } : {}),
+      ...(bukaSelesaiDate !== undefined ? { bukaSelesai: bukaSelesaiDate } : {}),
       ...(visibilityUpdate ? { visibility: visibilityUpdate } : {}),
     },
   });

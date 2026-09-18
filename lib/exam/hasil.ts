@@ -2,6 +2,9 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import type { Attempt } from "@prisma/client";
 import { shuffleWithSeed } from "@/lib/exam/shuffle";
+import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
+import { aggregateMateriScores } from "@/lib/exam/materi-scores";
+import { buildRanking } from "@/lib/exam/ranking";
 
 /**
  * Tiket 4.10 + Bagian 7.1 brief ("Tampil pembahasan"): siswa sekolah (Jalur
@@ -23,8 +26,11 @@ function maskIdentifier(nisn: string | null, attemptId: string): string {
 }
 
 export async function buildHasil(attempt: Attempt) {
-  const [pkg, assignment, answers, competencyScores, student] = await Promise.all([
-    prisma.package.findUniqueOrThrow({ where: { id: attempt.packageId } }),
+  const [pkg, assignment, answers, competencyScores, student, isFreeTrial] = await Promise.all([
+    prisma.package.findUniqueOrThrow({
+      where: { id: attempt.packageId },
+      include: { tryOutGroup: { select: { nama: true } } },
+    }),
     attempt.assignmentId
       ? prisma.assignment.findUnique({ where: { id: attempt.assignmentId } })
       : Promise.resolve(null),
@@ -42,12 +48,21 @@ export async function buildHasil(attempt: Attempt) {
     }),
     prisma.competencyScore.findMany({
       where: { attemptId: attempt.id },
-      include: { kompetensi: { select: { kode: true, deskripsi: true } } },
+      include: {
+        kompetensi: {
+          select: {
+            kode: true,
+            deskripsi: true,
+            subMateri: { select: { materi: { select: { id: true, nama: true, urutan: true } } } },
+          },
+        },
+      },
     }),
     prisma.student.findUniqueOrThrow({
       where: { id: attempt.studentId },
       select: { nama: true, nisn: true },
     }),
+    wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt),
   ]);
 
   const canShowPembahasan =
@@ -75,23 +90,32 @@ export async function buildHasil(attempt: Attempt) {
       skorMaks: a.skorMaks,
       ...(canShowPembahasan
         ? {
-            pembahasan: q.pembahasan,
-            categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
-            options: orderedOptions.map((o, idx) => ({
-              id: o.id,
-              label: String.fromCharCode(65 + idx),
-              teks: o.teks,
-              isCorrect: o.isCorrect,
-            })),
-            statements: orderedStatements.map((s) => ({
-              id: s.id,
-              teks: s.teks,
-              correctLabel: q.categories.find((c) => c.id === s.correctCategoryId)?.label ?? "-",
-            })),
-          }
+          pembahasan: q.pembahasan,
+          categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
+          options: orderedOptions.map((o, idx) => ({
+            id: o.id,
+            label: String.fromCharCode(65 + idx),
+            teks: o.teks,
+            isCorrect: o.isCorrect,
+          })),
+          statements: orderedStatements.map((s) => ({
+            id: s.id,
+            teks: s.teks,
+            correctLabel: q.categories.find((c) => c.id === s.correctCategoryId)?.label ?? "-",
+          })),
+        }
         : {}),
     };
   });
+
+  // Bagian 8/10 (permintaan user): "setiap ada try out ada ranking" - hanya
+  // untuk paket Try Out (bukan Latihan), dan hanya kalau attempt ini sudah
+  // punya skor akhir (belum tentu true untuk status "berjalan"/"paused" yang
+  // tetap bisa lewat sini lewat jalur retry polling di halaman hasil).
+  const ranking =
+    pkg.jenisPaket === "tryout" && attempt.skorAkhir != null
+      ? await buildRanking(attempt.packageId, attempt.studentId)
+      : null;
 
   return {
     attempt: {
@@ -102,9 +126,18 @@ export async function buildHasil(attempt: Attempt) {
       mulaiAt: attempt.mulaiAt,
       selesaiAt: attempt.selesaiAt,
     },
-    package: { nama: pkg.nama },
+    // Bagian 8/10: kalau paket ini salah satu variasi dari TryOutGroup, tampilkan
+    // nama GRUP-nya (mis. "Try Out Januari") - nama paket sendiri cuma label
+    // internal admin untuk variasinya (mis. "Variasi A"), tidak berarti apa-apa buat siswa.
+    package: { nama: pkg.tryOutGroup?.nama ?? pkg.nama },
     siswa: { nama: student.nama, idSamar: maskIdentifier(student.nisn, attempt.id) },
     canShowPembahasan,
+    isFreeTrial,
+    // Bagian 8/10 (permintaan user): paket Latihan tidak pernah dapat
+    // analisis AI, berlaku di semua jalur - independen dari status
+    // free-trial/berlangganan (lihat lib/ai/auto-trigger.ts).
+    isLatihan: pkg.jenisPaket === "latihan",
+    ranking,
     perSoal,
     competencyScores: competencyScores.map((c) => ({
       kode: c.kompetensi.kode,
@@ -113,5 +146,16 @@ export async function buildHasil(attempt: Attempt) {
       jmlSoal: c.jmlSoal,
       persentase: c.persentase,
     })),
+    // Bagian 8.7 brief: Peta Kompetensi ditampilkan per Materi (bukan per
+    // Kompetensi butir halus) di web & PDF - lihat lib/exam/materi-scores.ts.
+    materiScores: aggregateMateriScores(
+      competencyScores.map((c) => ({
+        materiId: c.kompetensi.subMateri.materi.id,
+        materiNama: c.kompetensi.subMateri.materi.nama,
+        materiUrutan: c.kompetensi.subMateri.materi.urutan,
+        jmlBenar: c.jmlBenar,
+        jmlSoal: c.jmlSoal,
+      })),
+    ),
   };
 }

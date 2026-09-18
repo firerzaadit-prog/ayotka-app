@@ -48,7 +48,32 @@ export default function LoginPage() {
         }
       >
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">Selamat datang kembali</h1>
+          {/* Navigasi Role Portal */}
+          <div className="mb-5 flex rounded-xl bg-slate-100 p-1 text-xs font-semibold text-slate-600">
+            <span className="flex-1 rounded-lg bg-white py-1.5 text-center text-indigo-700 shadow-xs">
+              Siswa
+            </span>
+            <Link
+              href="/mitra/login"
+              className="flex-1 rounded-lg py-1.5 text-center transition-colors hover:text-indigo-600"
+            >
+              Mitra
+            </Link>
+            <Link
+              href="/admin/admin-sekolah"
+              className="flex-1 rounded-lg py-1.5 text-center transition-colors hover:text-indigo-600"
+            >
+              Sekolah
+            </Link>
+            <Link
+              href="/admin/dinas-pendidikan"
+              className="flex-1 rounded-lg py-1.5 text-center transition-colors hover:text-indigo-600"
+            >
+              Dinas
+            </Link>
+          </div>
+
+          <h1 className="text-2xl font-bold text-slate-900">Masuk Akun Siswa</h1>
           <p className="mt-1 text-sm text-slate-500">
             Masuk pakai email (atau NISN untuk siswa tanpa email) dan password akunmu.
           </p>
@@ -56,16 +81,22 @@ export default function LoginPage() {
 
         <LoginForm identifierLabel="Email atau NISN" expectedRole="siswa" />
 
-        <div className="mt-6 flex flex-col items-center gap-2">
-          <Link href="/forgot-password" className="text-sm text-slate-500 hover:text-slate-700">
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <Link href="/forgot-password" className="text-sm text-slate-500 hover:text-slate-800 transition-colors">
             Lupa password?
           </Link>
           <p className="text-sm text-slate-500">
-            Belum punya akun?{" "}
-            <Link href="/registrasi" className="font-medium text-indigo-600 hover:text-indigo-700">
-              Daftar
+            Belum punya akun siswa?{" "}
+            <Link href="/registrasi" className="font-semibold text-indigo-600 hover:text-indigo-700 hover:underline">
+              Daftar sekarang
             </Link>
           </p>
+          <div className="mt-1 w-full rounded-xl border border-indigo-100 bg-indigo-50/60 p-3 text-center text-xs text-slate-600">
+            <span>Mitra atau reseller AyoTKA? </span>
+            <Link href="/mitra/login" className="font-bold text-indigo-700 hover:underline">
+              Masuk ke Portal Mitra &rarr;
+            </Link>
+          </div>
         </div>
       </AuthSplitLayout>
     </>

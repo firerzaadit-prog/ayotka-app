@@ -349,7 +349,7 @@ export default function SemuaSiswaPage() {
                   <Td className="text-right">
                     <button
                       onClick={() => handleDelete(s.id, s.nama)}
-                      className="text-sm font-medium text-rose-600 hover:underline"
+                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                     >
                       Hapus
                     </button>

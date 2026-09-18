@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
+import { formatWIB } from "@/lib/utils/datetime";
 /** Bersihkan simbol LaTeX untuk preview singkat di tabel */
 function stripLatex(text: string): string {
   return text
@@ -49,6 +50,10 @@ type PackageDetail = {
   modePembahasan: "langsung" | "setelah_tutup";
   bolehDipilihSiswa: boolean;
   targetSiswa: "sekolah" | "mandiri" | "semua";
+  jenisPaket: "tryout" | "latihan";
+  bukaMulai: string | null;
+  bukaSelesai: string | null;
+  tryOutGroup: { nama: string } | null;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -62,6 +67,9 @@ type EditForm = {
   jumlahSoal: string;
   modePembahasan: "langsung" | "setelah_tutup";
   bolehDipilihSiswa: boolean;
+  jenisPaket: "tryout" | "latihan";
+  bukaMulai: string;
+  bukaSelesai: string;
   // Distribusi: dua target independen yang bisa aktif bersamaan
   forSekolah: boolean;         // paket bisa dijadwalkan oleh admin sekolah
   sekolahMode: "semua" | "terpilih"; // jika forSekolah: semua sekolah atau sekolah terpilih
@@ -79,6 +87,29 @@ const STATUS_BADGE_VARIANT: Record<string, "neutral" | "success" | "warning"> = 
   published: "success",
   archived: "warning",
 };
+
+const JENIS_PAKET_BADGE_VARIANT: Record<"tryout" | "latihan", "neutral" | "success"> = {
+  tryout: "success",
+  latihan: "neutral",
+};
+const JENIS_PAKET_LABEL: Record<"tryout" | "latihan", string> = {
+  tryout: "Try Out",
+  latihan: "Latihan",
+};
+
+/**
+ * ISO UTC dari API -> "yyyy-MM-ddTHH:mm" di waktu LOKAL browser, format yang
+ * dipahami <input type="datetime-local">. Sengaja pakai getter lokal
+ * (getHours, bukan getUTCHours) - kalau di-slice mentah dari string ISO
+ * (yang selalu UTC), jamnya akan meleset dari yang dimaksud admin begitu
+ * browsernya tidak di UTC+0 (mis. WIB, UTC+7).
+ */
+function toDatetimeLocalValue(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
@@ -99,6 +130,9 @@ function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): Edit
     jumlahSoal: String(pkg.jumlahSoal),
     modePembahasan: pkg.modePembahasan,
     bolehDipilihSiswa: pkg.bolehDipilihSiswa,
+    jenisPaket: pkg.jenisPaket,
+    bukaMulai: toDatetimeLocalValue(pkg.bukaMulai),
+    bukaSelesai: toDatetimeLocalValue(pkg.bukaSelesai),
     forSekolah: hasSekolah,
     sekolahMode: isSemua ? "semua" : "terpilih",
     visibilitySchoolIds: rows.filter((v) => v.schoolId).map((v) => v.schoolId as string),
@@ -225,6 +259,9 @@ export function PackageDetail({
       jumlahSoal: editForm.jumlahSoal,
       modePembahasan: editForm.modePembahasan,
       bolehDipilihSiswa: editForm.bolehDipilihSiswa,
+      jenisPaket: editForm.jenisPaket,
+      bukaMulai: editForm.bukaMulai,
+      bukaSelesai: editForm.bukaSelesai,
       ...(visibilityEntries
         ? { visibilityEntries }
         : { visibilityMode, visibilitySchoolIds }),
@@ -288,7 +325,13 @@ export function PackageDetail({
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold text-slate-900">{pkg.nama}</h1>
           <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
+          <Badge variant={JENIS_PAKET_BADGE_VARIANT[pkg.jenisPaket]}>{JENIS_PAKET_LABEL[pkg.jenisPaket]}</Badge>
         </div>
+        {pkg.tryOutGroup && (
+          <p className="mt-1 text-xs text-slate-400">
+            Variasi dari grup try out: <span className="font-medium text-slate-500">{pkg.tryOutGroup.nama}</span> - jadwal & target diatur di halaman Grup Try Out.
+          </p>
+        )}
         <p className="text-sm text-slate-500">
           {pkg.questions.length}/{pkg.jumlahSoal} soal
           {" · Tingkat: "}{pkg.tingkatList.join(", ")}
@@ -296,6 +339,14 @@ export function PackageDetail({
           {" · Pembahasan: "}
           {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
           {" · Target: "}{describeVisibility(pkg.visibility ?? [])}
+          {pkg.jenisPaket === "tryout" && (pkg.bukaMulai || pkg.bukaSelesai) && (
+            <>
+              {" · Jendela: "}
+              {pkg.bukaMulai ? formatWIB(pkg.bukaMulai) : "kapan saja"}
+              {" - "}
+              {pkg.bukaSelesai ? formatWIB(pkg.bukaSelesai) : "tanpa batas"}
+            </>
+          )}
         </p>
 
         <div className="mt-2 flex flex-wrap gap-2">
@@ -417,7 +468,61 @@ export function PackageDetail({
                 </select>
               </div>
 
-              {pkg.ownerType === "pusat" && (
+              {pkg.tryOutGroup ? (
+                <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                  Jenis paket, jadwal, dan target pengguna variasi ini mengikuti grup try out{" "}
+                  <span className="font-medium text-slate-700">{pkg.tryOutGroup.nama}</span> - ubah di halaman
+                  Grup Try Out, bukan di sini.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <Label htmlFor="editPkgJenisPaket">Jenis paket</Label>
+                    <select
+                      id="editPkgJenisPaket"
+                      className={selectClassName}
+                      value={editForm.jenisPaket}
+                      onChange={(e) =>
+                        setEditForm({ ...editForm, jenisPaket: e.target.value as "tryout" | "latihan" })
+                      }
+                    >
+                      <option value="tryout">Try Out (dianalisis AI)</option>
+                      <option value="latihan">Latihan (skor + peta kompetensi saja, tanpa AI)</option>
+                    </select>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Latihan tidak pernah memicu analisis AI, apa pun status berlangganan siswanya.
+                    </p>
+                  </div>
+
+                  {editForm.bolehDipilihSiswa && (
+                    <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                      <div>
+                        <Label htmlFor="editPkgBukaMulai">Buka mulai (opsional)</Label>
+                        <Input
+                          id="editPkgBukaMulai"
+                          type="datetime-local"
+                          value={editForm.bukaMulai}
+                          onChange={(e) => setEditForm({ ...editForm, bukaMulai: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="editPkgBukaSelesai">Buka selesai (opsional)</Label>
+                        <Input
+                          id="editPkgBukaSelesai"
+                          type="datetime-local"
+                          value={editForm.bukaSelesai}
+                          onChange={(e) => setEditForm({ ...editForm, bukaSelesai: e.target.value })}
+                        />
+                      </div>
+                      <p className="col-span-2 text-xs text-slate-500">
+                        Kosongkan berdua kalau paket ini selalu terbuka untuk siswa yang berhak melihatnya.
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {pkg.ownerType === "pusat" && !pkg.tryOutGroup && (
                 <div className="pt-2 border-t border-slate-200 mt-2 flex flex-col gap-3">
                   <Label className="block">Distribusi / Target Pengguna</Label>
                   <p className="text-xs text-slate-500 -mt-2">Pilih satu atau keduanya. Paket bisa sekaligus dijadwalkan sekolah dan diakses siswa mandiri.</p>

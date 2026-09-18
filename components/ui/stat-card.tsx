@@ -13,10 +13,10 @@ export function StatCard({
   className?: string;
 }) {
   return (
-    <div className={cn("rounded-xl border border-slate-200 bg-white p-4", className)}>
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-slate-900">{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+    <div className={cn("rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:border-slate-300 hover:shadow-md", className)}>
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{value}</p>
+      {hint && <p className="mt-1.5 text-xs text-slate-400">{hint}</p>}
     </div>
   );
 }

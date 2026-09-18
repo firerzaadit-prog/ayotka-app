@@ -48,7 +48,7 @@ const ROLE_LOGIN_PATH: Record<string, string> = {
   admin_sekolah: "/admin/admin-sekolah",
   admin_pusat: "/admin/admin-pusat",
   dinas_pendidikan: "/admin/dinas-pendidikan",
-  mitra: "/admin/mitra",
+  mitra: "/mitra/login",
 };
 
 // "/reset-password" SENGAJA tidak dimasukkan ke sini. Kalau dimasukkan,
@@ -56,7 +56,12 @@ const ROLE_LOGIN_PATH: Record<string, string> = {
 // aturan di bawah memaksa mereka ke /reset-password, lalu blok ini
 // langsung melempar mereka balik ke dashboard karena sudah login -
 // dua aturan saling lempar selamanya (ERR_TOO_MANY_REDIRECTS).
-const PUBLIC_AUTH_PATHS = ["/forgot-password", ...Object.values(ROLE_LOGIN_PATH)];
+const PUBLIC_AUTH_PATHS = [
+  "/forgot-password",
+  "/admin/mitra",
+  "/login/mitra",
+  ...Object.values(ROLE_LOGIN_PATH),
+];
 
 export default async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });

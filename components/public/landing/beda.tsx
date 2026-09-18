@@ -11,7 +11,7 @@ const BARIS = [
 
 function Tanda({ ada }: { ada: boolean }) {
   return ada ? (
-    <span className="text-emerald-600" aria-label="Ada">✓</span>
+    <span className="text-emerald-600 font-semibold" aria-label="Ada">✓</span>
   ) : (
     <span className="text-slate-300" aria-label="Tidak ada">–</span>
   );

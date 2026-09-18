@@ -83,6 +83,17 @@ describe("buildAnalisisPrompt", () => {
     const prompt = buildAnalisisPrompt({ ...input, kompetensi: [], levelKognitif: [], format: [] });
     expect(prompt).toContain("(tidak ada data)");
   });
+
+  it("tidak menyertakan bagian standar kompetensi resmi kalau kerangkaAsesmen tidak diberikan", () => {
+    const prompt = buildAnalisisPrompt(input);
+    expect(prompt).not.toContain("STANDAR KOMPETENSI RESMI");
+  });
+
+  it("menyertakan bagian standar kompetensi resmi kalau kerangkaAsesmen diberikan (Bagian 8.2 brief)", () => {
+    const prompt = buildAnalisisPrompt({ ...input, kerangkaAsesmen: "Ringkasan kerangka asesmen resmi Matematika SD." });
+    expect(prompt).toContain("STANDAR KOMPETENSI RESMI");
+    expect(prompt).toContain("Ringkasan kerangka asesmen resmi Matematika SD.");
+  });
 });
 
 describe("analisisSchema", () => {

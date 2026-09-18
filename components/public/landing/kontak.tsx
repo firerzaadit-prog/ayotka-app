@@ -12,14 +12,14 @@ export function Kontak() {
       <Reveal className="mx-auto max-w-5xl">
         <div className="flex flex-col items-center gap-4 rounded-3xl bg-[#231A31] px-6 py-14 text-center sm:px-12">
           <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
-            Mulai dari satu tryout
+            Coba dulu, gratis
           </p>
           <h2 className="max-w-xl text-3xl font-bold text-balance text-white">
-            Mulai dari satu tryout. GRATISSS!!!
+            Mulai dari satu tryout gratis, tanpa kartu kredit
           </h2>
           <p className="max-w-lg text-base leading-relaxed text-white/75">
-            Setelah anak selesai mengerjakan, Anda langsung lihat peta kompetensinya. Yuk Coba Try Out
-            Tes Kemampuan Akademik
+            Begitu tryout selesai dikerjakan, kamu langsung melihat peta kompetensinya — kelebihan,
+            kekurangan, dan rekomendasi materi berikutnya.
           </p>
           <div className="mt-2 flex flex-wrap justify-center gap-3">
             <Link

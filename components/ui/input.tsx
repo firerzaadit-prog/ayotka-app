@@ -4,7 +4,7 @@ import { type InputHTMLAttributes, forwardRef, useState } from "react";
 import { cn } from "@/lib/utils/cn";
 
 const baseInputClass =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
+  "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm text-slate-900 shadow-xs placeholder:text-slate-400 transition-all focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10";
 
 /** type="password" otomatis dapat tombol tampilkan/sembunyikan - field lain tidak berubah. */
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(

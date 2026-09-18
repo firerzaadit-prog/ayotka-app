@@ -16,6 +16,12 @@ export const voucherRedeemSchema = z.object({
   code: z.string().trim().min(1, "Kode voucher wajib diisi"),
 });
 
+/** Jalur C lewat Midtrans: mitra beli batch voucher sendiri (bukan admin pusat generate manual). */
+export const voucherOrderCheckoutSchema = z.object({
+  planId: z.string().uuid(),
+  jumlah: z.number().int().min(1, "Jumlah minimal 1").max(500, "Maksimal 500 voucher per pembelian"),
+});
+
 /**
  * Bagian 9 kasus tepi #7: klaim rujukan sekolah yang telat diverifikasi -
  * dibuat manual oleh admin SETELAH verifikasi terpisah di luar sistem
@@ -37,5 +43,6 @@ export const partnerCommissionUpdateSchema = z.object({
 export type PartnerCreateInput = z.infer<typeof partnerCreateSchema>;
 export type VoucherGenerateInput = z.infer<typeof voucherGenerateSchema>;
 export type VoucherRedeemInput = z.infer<typeof voucherRedeemSchema>;
+export type VoucherOrderCheckoutInput = z.infer<typeof voucherOrderCheckoutSchema>;
 export type PartnerCommissionCreateInput = z.infer<typeof partnerCommissionCreateSchema>;
 export type PartnerCommissionUpdateInput = z.infer<typeof partnerCommissionUpdateSchema>;

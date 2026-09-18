@@ -3,11 +3,14 @@
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
+import { AnalisisAiTeaser } from "@/components/ai/analisis-teaser";
+import { LatihanAiNotice } from "@/components/ai/latihan-notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { buttonClassName } from "@/components/ui/button";
-import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { RincianJawaban, type PerSoal } from "@/components/hasil/rincian-jawaban";
+import { PetaKompetensiChart } from "@/components/hasil/peta-kompetensi-chart";
+import { RankingBoardCard } from "@/components/hasil/ranking-board";
 
 type Hasil = {
   attempt: {
@@ -21,8 +24,11 @@ type Hasil = {
   package: { nama: string };
   siswa: { nama: string; idSamar: string };
   canShowPembahasan: boolean;
+  isFreeTrial: boolean;
+  isLatihan: boolean;
+  ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
-  competencyScores: { kode: string; deskripsi: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
+  materiScores: { materiNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
 };
 
 /**
@@ -107,37 +113,22 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         </p>
       </Card>
 
-      {hasil.competencyScores.length > 0 && (
-        <div>
-          <h2 className="mb-2 text-lg font-semibold text-slate-900">Peta Kompetensi</h2>
-          <TableContainer>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>Kompetensi</Th>
-                  <Th>Benar</Th>
-                  <Th>Persentase</Th>
-                </Tr>
-              </Thead>
-              <tbody>
-                {hasil.competencyScores.map((c) => (
-                  <Tr key={c.kode}>
-                    <Td>
-                      <span className="font-mono text-xs">{c.kode}</span> {c.deskripsi}
-                    </Td>
-                    <Td>
-                      {c.jmlBenar}/{c.jmlSoal}
-                    </Td>
-                    <Td>{c.persentase.toFixed(0)}%</Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
-          </TableContainer>
-        </div>
+      {hasil.ranking && <RankingBoardCard ranking={hasil.ranking} />}
+
+      {hasil.materiScores.length > 0 && (
+        <Card>
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">Peta Kompetensi</h2>
+          <PetaKompetensiChart scores={hasil.materiScores} />
+        </Card>
       )}
 
-      <AnalisisAiPanel attemptId={id} canTrigger={false} />
+      {hasil.isLatihan ? (
+        <LatihanAiNotice />
+      ) : hasil.isFreeTrial ? (
+        <AnalisisAiTeaser />
+      ) : (
+        <AnalisisAiPanel attemptId={id} canTrigger={false} />
+      )}
 
       <div
         className="select-none"

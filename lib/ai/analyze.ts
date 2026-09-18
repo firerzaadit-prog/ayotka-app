@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { generateAnalisis, MODEL_NAME } from "@/lib/ai/gemini";
 import { buildAnalisisPrompt } from "@/lib/ai/prompt";
 import { PROMPT_VERSION } from "@/lib/ai/version";
+import { mataPelajaranFromSubjectNama, renderKerangkaAsesmenRingkas } from "@/lib/content/kerangka-asesmen";
 import type { Attempt } from "@prisma/client";
 
 const TIDAK_DIJAWAB = "(tidak dijawab)";
@@ -74,13 +75,16 @@ function kunciKeTeks(q: AnswerQuestion): string {
  * dipakai finalizeAttempt/buildHasil, supaya tidak pernah berbeda dari
  * yang dilihat siswa di halaman hasil.
  */
-export async function runAnalisisAi(attempt: Attempt) {
+export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" = "kuota") {
   const [student, pkg, competencyScores, answers] = await Promise.all([
     prisma.student.findUniqueOrThrow({
       where: { id: attempt.studentId },
       select: { nama: true, userId: true },
     }),
-    prisma.package.findUniqueOrThrow({ where: { id: attempt.packageId }, select: { nama: true } }),
+    prisma.package.findUniqueOrThrow({
+      where: { id: attempt.packageId },
+      select: { nama: true, jenjang: true, subject: { select: { nama: true } } },
+    }),
     prisma.competencyScore.findMany({
       where: { attemptId: attempt.id },
       include: {
@@ -136,10 +140,14 @@ export async function runAnalisisAi(attempt: Attempt) {
     formatMap.set(a.question.format, fmt);
   }
 
+  const mapel = mataPelajaranFromSubjectNama(pkg.subject.nama);
+  const kerangkaAsesmen = mapel ? renderKerangkaAsesmenRingkas(pkg.jenjang, mapel) : null;
+
   const prompt = buildAnalisisPrompt({
     namaSiswa: student.nama,
     paketNama: pkg.nama,
     skorAkhir: attempt.skorAkhir ?? 0,
+    kerangkaAsesmen,
     kompetensi: competencyScores.map((c) => ({
       kode: c.kompetensi.kode,
       deskripsi: c.kompetensi.deskripsi,
@@ -180,10 +188,12 @@ export async function runAnalisisAi(attempt: Attempt) {
       model: MODEL_NAME,
       ringkasan: hasil.ringkasan,
       detailJson: hasil,
+      sumber,
     },
     update: {
       versiPrompt: PROMPT_VERSION,
       model: MODEL_NAME,
+      sumber,
       ringkasan: hasil.ringkasan,
       detailJson: hasil,
       generatedAt: new Date(),

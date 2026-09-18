@@ -49,11 +49,11 @@ export async function GET() {
     referralCode: student.referralCode,
     entitlement: active
       ? {
-          endsAt: active.entitlement.endsAt,
-          canStartNewAttempt: active.canStartNewAttempt,
-          canViewHistory: active.canViewHistory,
-          source: active.entitlement.source,
-        }
+        endsAt: active.entitlement.endsAt,
+        canStartNewAttempt: active.canStartNewAttempt,
+        canViewHistory: active.canViewHistory,
+        source: active.entitlement.source,
+      }
       : null,
     plans,
     pendingInvoiceId: pendingInvoice?.id ?? null,

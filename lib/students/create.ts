@@ -12,8 +12,9 @@ import type { Jenjang } from "@prisma/client";
  * assertKuotaTersedia tidak lagi memblokir penambahan siswa.
  */
 export class KuotaPenuhError extends Error {
-  constructor() {
-    super("Kuota siswa sekolah sudah penuh. Hubungi Admin Pusat.");
+  constructor(message = "Kuota siswa sekolah sudah penuh. Hubungi Admin Pusat.") {
+    super(message);
+    this.name = "KuotaPenuhError";
   }
 }
 
@@ -37,14 +38,33 @@ export async function generateUniqueStudentReferralCode(): Promise<string> {
 }
 
 /**
- * Tiket 3.7: tidak ada lagi batas kuota dari model School.
- * Fungsi ini dipertahankan agar caller tidak perlu diubah,
- * tapi tidak lagi memblokir — admin pusat mengatur akses
- * try out lewat seatQuota/validUntil (lib/billing/entitlements.ts).
+ * Pengecekan kuota kursi siswa yang telah disepakati & diaktifkan Admin Pusat.
+ * Dipanggil saat Admin Sekolah menambah siswa secara manual maupun import Excel.
  */
-export async function assertKuotaTersedia(_schoolId: string, _tambahan: number): Promise<void> {
-  // Tidak ada batasan kuota di School model lagi (post billing redesign)
-  return;
+export async function assertKuotaTersedia(schoolId: string, tambahan: number): Promise<void> {
+  const school = await prisma.school.findUnique({
+    where: { id: schoolId },
+    select: { id: true, seatQuota: true, nama: true },
+  });
+  if (!school) return;
+
+  // Jika sekolah belum memiliki kuota yang diaktifkan oleh admin pusat
+  if (school.seatQuota == null) {
+    throw new KuotaPenuhError(
+      "Sekolah ini belum memiliki kuota siswa yang diaktifkan oleh Admin Pusat. Hubungi Admin Pusat untuk menetapkan kuota kursi terlebih dahulu."
+    );
+  }
+
+  const currentCount = await prisma.student.count({
+    where: { schoolId, jalur: "A", deletedAt: null },
+  });
+
+  if (currentCount + tambahan > school.seatQuota) {
+    const sisa = Math.max(0, school.seatQuota - currentCount);
+    throw new KuotaPenuhError(
+      `Kuota siswa sekolah tidak mencukupi. Kuota dari Admin Pusat: ${school.seatQuota} siswa, saat ini terdaftar: ${currentCount} siswa, sisa kuota: ${sisa} siswa. Menambahkan ${tambahan} siswa akan melebihi kuota kursi yang disepakati.`
+    );
+  }
 }
 
 export async function createStudentWithEnrollment(params: {

@@ -8,7 +8,6 @@ const KOMPETENSI = [
   { label: "Pengolahan Data", nilai: 86, warna: "bg-emerald-500" },
 ];
 
-/** Tiket homepage: pratinjau produk nyata untuk Learning Analytics - contoh rapor lengkap, bukan cuma diklaim lewat teks. */
 export function Analitik() {
   return (
     <section className="bg-slate-50/70 px-6 py-20 sm:py-24">

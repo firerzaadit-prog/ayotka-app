@@ -34,13 +34,6 @@ function PillButton({
   );
 }
 
-/**
- * Cuma cuplikan/teaser (definisi tiap kombinasi jenjang & mapel) yang
- * mengarahkan ke halaman /kerangka-asesmen yang sudah lengkap (muatan,
- * kompetensi, matriks asesmen penuh) - sumber datanya sama persis dengan
- * halaman itu (lib/content/kerangka-asesmen.ts) supaya tidak ada isi yang
- * beda sendiri/basi di sini.
- */
 export function KerangkaAsesmenTeaser() {
   const [jenjang, setJenjang] = useState<Jenjang>("SD");
   const [mapel, setMapel] = useState<MataPelajaran>("matematika");
@@ -48,7 +41,7 @@ export function KerangkaAsesmenTeaser() {
 
   return (
     <section className="bg-slate-50/70 px-6 py-20 sm:py-24">
-      <div className="mx-auto max-w-4xl text-center">
+      <div className="mx-auto max-w-6xl text-center">
         <Reveal>
           <p className="font-mono text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">
             Panduan resmi
@@ -56,7 +49,7 @@ export function KerangkaAsesmenTeaser() {
           <h2 className="mt-2 text-3xl font-bold text-balance text-slate-900">
             Kerangka Asesmen TKA
           </h2>
-          <p className="mx-auto mt-3 max-w-2xl text-base leading-relaxed text-slate-600">
+          <p className="mx-auto mt-3 max-w-3xl text-base leading-relaxed text-slate-600">
             Cakupan materi dan kompetensi yang diujikan pada Tes Kemampuan Akademik, disusun
             berdasarkan kerangka resmi Pusat Asesmen Pendidikan, Kementerian Pendidikan Dasar dan
             Menengah RI.
@@ -64,15 +57,19 @@ export function KerangkaAsesmenTeaser() {
         </Reveal>
 
         <Reveal delay={100}>
-          <div className="mx-auto mt-8 max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 text-left sm:p-8">
-            <div className="flex flex-wrap gap-2">
-              <PillButton active={jenjang === "SD"} onClick={() => setJenjang("SD")}>
-                SD
-              </PillButton>
-              <PillButton active={jenjang === "SMP"} onClick={() => setJenjang("SMP")}>
-                SMP
-              </PillButton>
-              <div className="ml-auto flex flex-wrap gap-2">
+          <div className="mx-auto mt-8 max-w-4xl rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-xs sm:p-8">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Jenjang:</span>
+                <PillButton active={jenjang === "SD"} onClick={() => setJenjang("SD")}>
+                  SD / MI
+                </PillButton>
+                <PillButton active={jenjang === "SMP"} onClick={() => setJenjang("SMP")}>
+                  SMP / MTs
+                </PillButton>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Mapel:</span>
                 <PillButton active={mapel === "matematika"} onClick={() => setMapel("matematika")}>
                   {MAPEL_LABEL.matematika}
                 </PillButton>
@@ -87,7 +84,7 @@ export function KerangkaAsesmenTeaser() {
             <p className="mt-5 border-t border-slate-100 pt-5 text-sm leading-relaxed text-slate-600">
               {definisi}
             </p>
-            <p className="mt-4 text-xs text-slate-400">
+            <p className="mt-4 text-xs text-slate-500">
               Sumber: Kementerian Pendidikan Dasar dan Menengah Republik Indonesia — Pusat Asesmen
               Pendidikan.
             </p>

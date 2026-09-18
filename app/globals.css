@@ -84,3 +84,23 @@ body {
     animation: none;
   }
 }
+
+/*
+ * Identitas "Kartu Peserta Ujian" - homepage saja (lihat app/(public)/layout.tsx
+ * & DESIGN.md). Tekstur kertas & garis perforasi dibuat murni CSS (tanpa aset
+ * gambar) supaya tetap ringan dan tidak butuh alat generate gambar.
+ */
+.card-paper-texture {
+  background-color: #f7f2e4;
+  background-image: radial-gradient(circle at 1px 1px, rgba(30, 42, 82, 0.055) 1px, transparent 0);
+  background-size: 18px 18px;
+}
+
+.card-perforation {
+  height: 14px;
+  background-image: radial-gradient(circle, rgba(30, 42, 82, 0.3) 2.5px, transparent 2.6px);
+  background-size: 16px 14px;
+  background-repeat: repeat-x;
+  background-position: center;
+}
+

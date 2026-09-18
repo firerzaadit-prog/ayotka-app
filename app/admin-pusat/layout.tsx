@@ -45,6 +45,7 @@ export default async function AdminPusatLayout({
 
           <SidebarSection label="Ujian">
             <SidebarLink href="/admin-pusat/jadwal-ujian">Jadwal Ujian</SidebarLink>
+            <SidebarLink href="/admin-pusat/grup-try-out">Grup Try Out</SidebarLink>
             <SidebarLink href="/admin-pusat/pelanggaran-ujian">Pelanggaran Ujian</SidebarLink>
             <SidebarLink href="/admin-pusat/analisis-ai-gagal">Analisis AI Gagal</SidebarLink>
           </SidebarSection>
@@ -52,6 +53,7 @@ export default async function AdminPusatLayout({
           <SidebarSection label="Monetisasi">
             <SidebarLink href="/admin-pusat/langganan">Paket &amp; Rekening</SidebarLink>
             <SidebarLink href="/admin-pusat/mitra">Mitra &amp; Voucher</SidebarLink>
+            <SidebarLink href="/admin-pusat/verifikasi-pembayaran">Verifikasi Pembayaran</SidebarLink>
             <SidebarLink href="/admin-pusat/pendapatan">Pendapatan</SidebarLink>
           </SidebarSection>
 

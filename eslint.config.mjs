@@ -11,6 +11,11 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     "prisma/migrations/**",
+    ".claude/**",
+    ".agent/**",
+    ".github/agents/**",
+    ".github/hooks/**",
+    ".github/skills/**",
   ]),
 ]);
 

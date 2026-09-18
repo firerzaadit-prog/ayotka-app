@@ -45,7 +45,16 @@ export const daftarMandiriSchema = z
     { message: "Pilih asal sekolah dari daftar atau ketik manual.", path: ["asalSekolahManual"] },
   );
 
+/** Bagian A (permintaan user): mitra daftar sendiri, langsung aktif tanpa perlu admin approve. */
+export const daftarMitraSchema = z.object({
+  nama: z.string().trim().min(2, "Nama minimal 2 karakter"),
+  email: z.string().trim().email("Email tidak valid"),
+  password: z.string().min(8, "Password minimal 8 karakter"),
+  kontak: z.string().trim().optional().or(z.literal("")),
+});
+
 export type CekKodeSekolahInput = z.infer<typeof cekKodeSekolahSchema>;
 export type CariSiswaInput = z.infer<typeof cariSiswaSchema>;
 export type KlaimInput = z.infer<typeof klaimSchema>;
 export type DaftarMandiriInput = z.infer<typeof daftarMandiriSchema>;
+export type DaftarMitraInput = z.infer<typeof daftarMitraSchema>;

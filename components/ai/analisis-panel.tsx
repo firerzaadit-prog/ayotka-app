@@ -8,8 +8,10 @@ import { Alert } from "@/components/ui/alert";
 type AnalisisAi = {
   ringkasan: string;
   petaKompetensi: { kode: string; narasi: string }[];
-  levelKognitif: string;
-  polaKesalahan: string;
+  kelebihanSiswa?: string;
+  kekuranganSiswa?: string;
+  levelKognitif?: string;
+  polaKesalahan?: string;
   rekomendasi: string[];
 };
 
@@ -193,10 +195,13 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
           <p className="text-xs text-slate-400">
             Dianalisis pada {FORMAT_TANGGAL.format(new Date(data.generatedAt))}
           </p>
-          <p className="text-slate-700">{data.analysis.ringkasan}</p>
+          <div>
+            <p className="mb-1 text-xs font-medium text-slate-500">Ringkasan Kemampuan</p>
+            <p className="text-slate-700">{data.analysis.ringkasan}</p>
+          </div>
 
           <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">Peta Kompetensi</p>
+            <p className="mb-1 text-xs font-medium text-slate-500">Peta Kompetensi AI</p>
             <ul className="flex flex-col gap-1">
               {data.analysis.petaKompetensi.map((k) => (
                 <li key={k.kode} className="text-slate-600">
@@ -206,15 +211,19 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
             </ul>
           </div>
 
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">Level Kognitif</p>
-            <p className="text-slate-600">{data.analysis.levelKognitif}</p>
-          </div>
+          {(data.analysis.kelebihanSiswa || data.analysis.levelKognitif) && (
+            <div>
+              <p className="mb-1 text-xs font-medium text-slate-500">Kelebihan Siswa</p>
+              <p className="text-slate-600">{data.analysis.kelebihanSiswa || data.analysis.levelKognitif}</p>
+            </div>
+          )}
 
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">Pola Kesalahan</p>
-            <p className="text-slate-600">{data.analysis.polaKesalahan}</p>
-          </div>
+          {(data.analysis.kekuranganSiswa || data.analysis.polaKesalahan) && (
+            <div>
+              <p className="mb-1 text-xs font-medium text-slate-500">Kekurangan Siswa</p>
+              <p className="text-slate-600">{data.analysis.kekuranganSiswa || data.analysis.polaKesalahan}</p>
+            </div>
+          )}
 
           <div>
             <p className="mb-1 text-xs font-medium text-slate-500">Rekomendasi Belajar</p>

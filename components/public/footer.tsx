@@ -52,9 +52,14 @@ export function Footer() {
               </Link>
             </li>
             <li>
-              <a href="#" className="text-white/80 hover:text-white flex items-center gap-2 text-sm transition-colors group">
+              <Link href="/#faq" className="text-white/80 hover:text-white flex items-center gap-2 text-sm transition-colors group">
                 <ChevronRight className="w-3 h-3 text-[#6c7cff] group-hover:translate-x-1 transition-transform" /> FAQ
-              </a>
+              </Link>
+            </li>
+            <li>
+              <Link href="/registrasi/mitra" className="text-white/80 hover:text-white flex items-center gap-2 text-sm transition-colors group">
+                <ChevronRight className="w-3 h-3 text-[#6c7cff] group-hover:translate-x-1 transition-transform" /> Gabung Jadi Mitra
+              </Link>
             </li>
             <li>
               <a href="#" className="text-white/80 hover:text-white flex items-center gap-2 text-sm transition-colors group">
@@ -113,12 +118,13 @@ export function Footer() {
 
       <div className="max-w-6xl mx-auto pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
         <p className="text-white/80 text-sm text-center md:text-left">
-          &copy; 2026 <strong>Universitas Negeri Malang</strong>. All Rights Reserved
+          &copy; {new Date().getFullYear()}{" "}
+          <strong className="font-medium text-white">Universitas Negeri Malang</strong>. Semua hak dilindungi.
         </p>
         <div className="flex gap-6 text-sm text-white/80">
           <a href="#" className="hover:text-white transition-colors">Kebijakan Privasi</a>
-          <a href="#" className="hover:text-white transition-colors">Syarat & Ketentuan</a>
-          <a href="#" className="hover:text-white transition-colors">Sitemap</a>
+          <a href="#" className="hover:text-white transition-colors">Syarat &amp; Ketentuan</a>
+          <a href="/sitemap.xml" className="hover:text-white transition-colors">Sitemap</a>
         </div>
       </div>
     </footer>
