@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { formatWIBDate } from "@/lib/utils/datetime";
+import { VoucherRedeemCard } from "@/components/siswa/voucher-redeem-card";
 
 type Plan = { id: string; kode: string; nama: string; harga: number; durasiHari: number | null };
 type Entitlement = {
@@ -41,12 +42,6 @@ export default function LanggananSiswaPage() {
   const [data, setData] = useState<CheckoutData | null>(null);
   const [submittingPlanId, setSubmittingPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const [voucherCode, setVoucherCode] = useState("");
-  const [voucherError, setVoucherError] = useState<string | null>(null);
-  const [voucherSubmitting, setVoucherSubmitting] = useState(false);
-  const [voucherSuccess, setVoucherSuccess] = useState(false);
-
   const [copied, setCopied] = useState(false);
 
   async function handleCopyReferral(code: string) {
@@ -57,6 +52,12 @@ export default function LanggananSiswaPage() {
     } catch {
       // Clipboard API tidak tersedia - kode tetap terlihat untuk disalin manual.
     }
+  }
+
+  async function refreshData() {
+    const res = await fetch("/api/siswa/checkout");
+    const json = await res.json().catch(() => null);
+    if (res.ok && json) setData(json);
   }
 
   useEffect(() => {
@@ -88,36 +89,13 @@ export default function LanggananSiswaPage() {
     window.location.assign(json.redirectUrl);
   }
 
-  async function handleRedeemVoucher(e: FormEvent) {
-    e.preventDefault();
-    setVoucherError(null);
-    setVoucherSuccess(false);
-    setVoucherSubmitting(true);
-    const res = await fetch("/api/siswa/vouchers/redeem", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: voucherCode }),
-    });
-    const json = await res.json().catch(() => null);
-    setVoucherSubmitting(false);
-    if (!res.ok) {
-      setVoucherError(json?.error ?? "Gagal menukar kode voucher.");
-      return;
-    }
-    setVoucherCode("");
-    setVoucherSuccess(true);
-    const refreshed = await fetch("/api/siswa/checkout");
-    const refreshedJson = await refreshed.json().catch(() => null);
-    if (refreshed.ok) setData(refreshedJson);
-  }
-
   if (!data) {
     return <PageSkeleton />;
   }
 
   if (data.jalur === "A") {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         <PageHeader title="Langganan" />
         <Card>
           <p className="text-sm text-slate-600">
@@ -133,6 +111,9 @@ export default function LanggananSiswaPage() {
             . Akses Try Out ditanggung oleh sekolahmu — kamu tidak perlu membeli paket sendiri.
           </p>
         </Card>
+
+        <VoucherRedeemCard onSuccess={refreshData} />
+
         <Card>
           <p className="text-sm text-slate-500">Kode referral kamu</p>
           <p className="mt-1 text-sm text-slate-600">
@@ -154,8 +135,8 @@ export default function LanggananSiswaPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        title="Langganan"
-        description="Kamu terdaftar sebagai siswa mandiri (bukan lewat sekolah) — beli paket langganan untuk akses try out tanpa batas."
+        title="Langganan & Voucher"
+        description="Kamu terdaftar sebagai siswa mandiri — beli paket langganan atau tukarkan kode voucher dari mitra untuk akses try out tanpa batas."
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -176,6 +157,9 @@ export default function LanggananSiswaPage() {
           </p>
         )}
       </Card>
+
+      {/* Form Tukar Kode Voucher Mitra di Posisi Utama */}
+      <VoucherRedeemCard onSuccess={refreshData} />
 
       {data.pendingInvoiceId && (
         <Alert variant="warning">
@@ -303,31 +287,6 @@ export default function LanggananSiswaPage() {
           </Button>
         </div>
       </Card>
-
-      <section className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-slate-900">Punya kode voucher?</h2>
-        <p className="text-sm text-slate-600">
-          Kalau kamu dapat kode voucher dari mitra AyoTKA, tukarkan di sini untuk langsung
-          aktifkan aksesmu.
-        </p>
-        {voucherSuccess && <Alert variant="success">Voucher berhasil ditukar — akses kamu sudah aktif.</Alert>}
-        {voucherError && <Alert variant="danger">{voucherError}</Alert>}
-        <form onSubmit={handleRedeemVoucher} className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="flex-1">
-            <Label htmlFor="voucherCode">Kode voucher</Label>
-            <Input
-              id="voucherCode"
-              required
-              placeholder="mis. AB12CD34EF"
-              value={voucherCode}
-              onChange={(e) => setVoucherCode(e.target.value)}
-            />
-          </div>
-          <Button type="submit" disabled={voucherSubmitting || !voucherCode.trim()}>
-            {voucherSubmitting ? "Menukar..." : "Tukar kode"}
-          </Button>
-        </form>
-      </section>
     </div>
   );
 }
