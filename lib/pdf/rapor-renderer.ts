@@ -7,6 +7,8 @@ type Hasil = Awaited<ReturnType<typeof buildHasil>>;
 type AiAnalysisDetail = {
   ringkasan?: string;
   petaKompetensi?: { kode: string; narasi: string }[];
+  kelebihanSiswa?: string;
+  kekuranganSiswa?: string;
   levelKognitif?: string;
   polaKesalahan?: string;
   rekomendasi?: string[];
@@ -339,14 +341,15 @@ export async function renderRaporPdf(
     doc.rect(48, accentY, contentWidth, 3).fill(COLOR.primaryFrom);
     doc.y = accentY + 14;
 
-    doc.fontSize(10).fillColor(COLOR.body).text(analysis.ringkasan || "-", 48, doc.y, {
+    doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Ringkasan Kemampuan");
+    doc.font("Helvetica").fontSize(9.5).fillColor(COLOR.body).text(analysis.ringkasan || "-", {
       width: contentWidth,
       align: "justify",
     });
-    doc.moveDown(0.9);
+    doc.moveDown(0.7);
 
     if (analysis.petaKompetensi && analysis.petaKompetensi.length > 0) {
-      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Peta Kompetensi (AI)");
+      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Peta Kompetensi AI");
       doc.font("Helvetica");
       doc.moveDown(0.2);
       for (const k of analysis.petaKompetensi) {
@@ -357,17 +360,19 @@ export async function renderRaporPdf(
       doc.moveDown(0.7);
     }
 
-    if (analysis.levelKognitif) {
-      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Level Kognitif");
+    const kelebihan = analysis.kelebihanSiswa || analysis.levelKognitif;
+    if (kelebihan) {
+      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Kelebihan Siswa");
       doc.font("Helvetica").fontSize(9.5).fillColor(COLOR.body)
-        .text(analysis.levelKognitif, { width: contentWidth, align: "justify" });
+        .text(kelebihan, { width: contentWidth, align: "justify" });
       doc.moveDown(0.7);
     }
 
-    if (analysis.polaKesalahan) {
-      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Pola Kesalahan");
+    const kekurangan = analysis.kekuranganSiswa || analysis.polaKesalahan;
+    if (kekurangan) {
+      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Kekurangan Siswa");
       doc.font("Helvetica").fontSize(9.5).fillColor(COLOR.body)
-        .text(analysis.polaKesalahan, { width: contentWidth, align: "justify" });
+        .text(kekurangan, { width: contentWidth, align: "justify" });
       doc.moveDown(0.7);
     }
 

@@ -12,7 +12,9 @@
  * 2026-09-v4 (Bagian 8.2 brief): prompt menyertakan ringkasan Kerangka
  * Asesmen TKA resmi (kalau tersedia untuk mapel paket ujian ini) sebagai
  * acuan pembanding narasi per kompetensi - lihat lib/content/kerangka-asesmen.ts.
- * Baris ai_analyses lama masih ber-versiPrompt lama sampai di-"Analisis
- * ulang".
+ * 2026-09-v5: struktur output disesuaikan menjadi 5 bagian: Ringkasan Kemampuan,
+ * Peta Kompetensi AI, Kelebihan Siswa, Kekurangan Siswa, Rekomendasi Belajar.
+ * 2026-09-v6: persona guru analis pendidikan dengan Bahasa Indonesia baku santun
+ * yang berbicara langsung kepada siswa.
  */
-export const PROMPT_VERSION = "2026-09-v4";
+export const PROMPT_VERSION = "2026-09-v6";
