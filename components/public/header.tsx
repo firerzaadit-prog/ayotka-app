@@ -20,6 +20,7 @@ const DAFTAR_CLASS =
 
 export function PublicHeader({ active }: { active?: string }) {
   const [open, setOpen] = useState(false);
+  const [loginMenuOpen, setLoginMenuOpen] = useState(false);
 
   function linkClass(href: (typeof NAV_LINKS)[number]["href"]) {
     return href === active
@@ -43,9 +44,77 @@ export function PublicHeader({ active }: { active?: string }) {
               {link.label}
             </Link>
           ))}
-          <Link href="/login" className={MASUK_CLASS}>
-            Masuk
-          </Link>
+
+          {/* Tombol Masuk dengan Dropdown Pilihan Portal */}
+          <div className="relative" onMouseLeave={() => setLoginMenuOpen(false)}>
+            <button
+              type="button"
+              onClick={() => setLoginMenuOpen((v) => !v)}
+              onMouseEnter={() => setLoginMenuOpen(true)}
+              className={`${MASUK_CLASS} inline-flex items-center gap-1.5 cursor-pointer`}
+              aria-expanded={loginMenuOpen}
+            >
+              <span>Masuk</span>
+              <svg
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className={`h-4 w-4 transition-transform duration-200 ${loginMenuOpen ? "rotate-180" : ""}`}
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+
+            {loginMenuOpen && (
+              <div
+                className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10 transition-all z-50"
+                onMouseEnter={() => setLoginMenuOpen(true)}
+              >
+                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Pilih Portal Masuk
+                </div>
+                <Link
+                  href="/login"
+                  onClick={() => setLoginMenuOpen(false)}
+                  className="flex flex-col rounded-xl px-3 py-2 text-left transition-colors hover:bg-slate-50"
+                >
+                  <span className="text-sm font-semibold text-slate-900">Siswa</span>
+                  <span className="text-xs text-slate-500">Mengerjakan try out &amp; rapor</span>
+                </Link>
+                <Link
+                  href="/mitra/login"
+                  onClick={() => setLoginMenuOpen(false)}
+                  className="flex flex-col rounded-xl px-3 py-2 text-left transition-colors hover:bg-indigo-50/70"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-indigo-700">Mitra &amp; Reseller</span>
+                    <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">Portal</span>
+                  </div>
+                  <span className="text-xs text-slate-500">Beli &amp; kelola voucher siswa</span>
+                </Link>
+                <Link
+                  href="/admin/admin-sekolah"
+                  onClick={() => setLoginMenuOpen(false)}
+                  className="flex flex-col rounded-xl px-3 py-2 text-left transition-colors hover:bg-slate-50"
+                >
+                  <span className="text-sm font-semibold text-slate-900">Admin Sekolah</span>
+                  <span className="text-xs text-slate-500">Kelola rombel &amp; siswa sekolah</span>
+                </Link>
+                <Link
+                  href="/admin/dinas-pendidikan"
+                  onClick={() => setLoginMenuOpen(false)}
+                  className="flex flex-col rounded-xl px-3 py-2 text-left transition-colors hover:bg-slate-50"
+                >
+                  <span className="text-sm font-semibold text-slate-900">Dinas Pendidikan</span>
+                  <span className="text-xs text-slate-500">Pantau kesiapan wilayah</span>
+                </Link>
+              </div>
+            )}
+          </div>
+
           <Link href="/registrasi" className={DAFTAR_CLASS}>
             Daftar
           </Link>
@@ -89,12 +158,27 @@ export function PublicHeader({ active }: { active?: string }) {
               {link.label}
             </Link>
           ))}
+          <div className="my-1 border-t border-slate-100" />
           <Link
             href="/login"
             onClick={() => setOpen(false)}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Masuk
+            Masuk sebagai Siswa
+          </Link>
+          <Link
+            href="/mitra/login"
+            onClick={() => setOpen(false)}
+            className="rounded-lg bg-indigo-50/70 px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-100/70"
+          >
+            Masuk sebagai Mitra &amp; Reseller
+          </Link>
+          <Link
+            href="/admin/admin-sekolah"
+            onClick={() => setOpen(false)}
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-500 hover:bg-slate-50"
+          >
+            Masuk sebagai Admin Sekolah
           </Link>
         </nav>
       )}

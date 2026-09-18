@@ -95,12 +95,22 @@ export function Jalur() {
                       {j.cta}
                     </a>
                   ) : (
-                    <Link
-                      href={j.href}
-                      className="mt-6 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-sm shadow-indigo-600/20 transition-all hover:scale-[1.02] hover:shadow-md hover:shadow-indigo-600/30"
-                    >
-                      {j.cta}
-                    </Link>
+                    <>
+                      <Link
+                        href={j.href}
+                        className="mt-6 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-sm shadow-indigo-600/20 transition-all hover:scale-[1.02] hover:shadow-md hover:shadow-indigo-600/30"
+                      >
+                        {j.cta}
+                      </Link>
+                      {j.href === "/registrasi/mitra" && (
+                        <Link
+                          href="/mitra/login"
+                          className="mt-2.5 text-center text-xs font-medium text-slate-500 hover:text-indigo-600 transition-colors"
+                        >
+                          Sudah punya akun? Masuk ke Portal Mitra &rarr;
+                        </Link>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

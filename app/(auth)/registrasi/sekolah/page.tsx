@@ -115,9 +115,17 @@ export default function RegistrasiSekolahPage() {
         <Button type="submit" disabled={loading} className="w-full">
           {loading ? "Memeriksa..." : "Lanjut"}
         </Button>
-        <Link href="/registrasi" className="text-center text-sm text-slate-500 hover:text-slate-700">
-          Kembali
-        </Link>
+        <div className="flex flex-col items-center gap-2 pt-1 text-center">
+          <p className="text-sm text-slate-600">
+            Sudah punya akun siswa?{" "}
+            <Link href="/login" className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline">
+              Masuk di sini
+            </Link>
+          </p>
+          <Link href="/registrasi" className="text-xs text-slate-400 hover:text-slate-600">
+            &larr; Kembali ke pilihan pendaftaran
+          </Link>
+        </div>
       </form>
     );
   }

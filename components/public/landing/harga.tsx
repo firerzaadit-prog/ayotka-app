@@ -409,10 +409,10 @@ export function Harga() {
                 Daftar Jadi Mitra Sekarang →
               </Link>
               <Link
-                href="/login"
-                className="text-center text-xs text-indigo-200 hover:text-white"
+                href="/mitra/login"
+                className="text-center text-xs font-semibold text-amber-300 hover:text-white underline"
               >
-                Sudah punya akun mitra? Masuk di sini
+                Sudah punya akun mitra? Masuk di sini &rarr;
               </Link>
             </div>
           </div>

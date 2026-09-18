@@ -28,12 +28,24 @@ export default function RegistrasiPage() {
         </p>
       </Link>
 
-      <Link href="/registrasi/mitra" className="text-center text-sm text-slate-500 hover:text-slate-700">
-        Mau jadi mitra/reseller? Daftar di sini
-      </Link>
-      <Link href="/login" className="text-center text-sm text-slate-500 hover:text-slate-700">
-        Sudah punya akun? Masuk
-      </Link>
+      <div className="mt-2 flex flex-col gap-2.5 border-t border-slate-100 pt-4 text-center">
+        <Link
+          href="/registrasi/mitra"
+          className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline"
+        >
+          Mau jadi mitra/reseller AyoTKA? Daftar di sini &rarr;
+        </Link>
+        <p className="text-sm text-slate-600">
+          Sudah punya akun?{" "}
+          <Link href="/login" className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline">
+            Masuk Siswa
+          </Link>
+          <span className="text-slate-300"> • </span>
+          <Link href="/mitra/login" className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline">
+            Masuk Mitra
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function MitraLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user || user.role !== "mitra") {
-    redirect("/api/auth/force-logout?next=/admin/mitra");
+    redirect("/api/auth/force-logout?next=/mitra/login");
   }
 
   return (

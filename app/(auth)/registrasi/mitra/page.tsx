@@ -43,8 +43,11 @@ export default function RegistrasiMitraPage() {
           mitramu, lalu langsung bisa beli paket voucher secara online - tidak perlu menunggu
           persetujuan admin.
         </p>
-        <Link href="/login" className="text-sm text-slate-500 hover:text-slate-700">
-          Kembali ke halaman masuk
+        <Link
+          href="/mitra/login"
+          className="mt-2 inline-flex items-center justify-center rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700"
+        >
+          Menuju Halaman Login Mitra &rarr;
         </Link>
       </div>
     );
@@ -56,6 +59,12 @@ export default function RegistrasiMitraPage() {
         <h1 className="text-lg font-semibold text-slate-900">Daftar - Mitra/Reseller</h1>
         <p className="text-sm text-slate-500">
           Beli voucher secara langsung dengan diskon grosir bertingkat, lalu bagikan kode akses ke siswamu.
+        </p>
+        <p className="mt-2 text-xs text-slate-600 bg-indigo-50 border border-indigo-100 rounded-lg p-2.5">
+          Sudah punya akun mitra?{" "}
+          <Link href="/mitra/login" className="font-bold text-indigo-700 hover:underline">
+            Masuk ke Portal Mitra di sini &rarr;
+          </Link>
         </p>
       </div>
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
@@ -85,11 +94,20 @@ export default function RegistrasiMitraPage() {
       </div>
 
       <Button type="submit" disabled={loading} className="w-full">
-        {loading ? "Memproses..." : "Daftar"}
+        {loading ? "Memproses..." : "Daftar sebagai Mitra"}
       </Button>
-      <Link href="/registrasi" className="text-center text-sm text-slate-500 hover:text-slate-700">
-        Kembali
-      </Link>
+
+      <div className="flex flex-col items-center gap-2 pt-1 text-center">
+        <p className="text-sm text-slate-600">
+          Sudah punya akun mitra?{" "}
+          <Link href="/mitra/login" className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline">
+            Masuk ke Portal Mitra
+          </Link>
+        </p>
+        <Link href="/registrasi" className="text-xs text-slate-400 hover:text-slate-600">
+          &larr; Kembali ke pilihan pendaftaran
+        </Link>
+      </div>
     </form>
   );
 }

@@ -1,10 +1,10 @@
 import { MitraLoginView } from "@/components/auth/mitra-login-view";
 
 export const metadata = {
-  title: "Portal Mitra • AyoTKA",
+  title: "Masuk Akun Mitra • AyoTKA",
   description: "Portal masuk resmi untuk Mitra dan Reseller AyoTKA.",
 };
 
-export default function AdminMitraPage() {
+export default function MitraLoginPage() {
   return <MitraLoginView />;
 }
