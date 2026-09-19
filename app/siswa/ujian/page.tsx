@@ -64,13 +64,13 @@ type ActivePlanInfo = {
 };
 
 function MapelIconBadge({ nama }: { nama: string }) {
-  const Icon = getMapelIcon(nama);
+  const IconComponent = getMapelIcon(nama);
   return (
     <span
       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-50 to-violet-100 text-indigo-700 shadow-xs ring-1 ring-indigo-500/10"
       aria-hidden="true"
     >
-      <Icon className="h-5 w-5" />
+      {IconComponent({ className: "h-5 w-5" })}
     </span>
   );
 }
@@ -113,9 +113,8 @@ function UjianContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawKategori = searchParams.get("kategori");
-  const initialKategori: KategoriTO = rawKategori === "nasional" ? "nasional" : "mandiri";
+  const kategori: KategoriTO = rawKategori === "nasional" ? "nasional" : "mandiri";
 
-  const [kategori, setKategori] = useState<KategoriTO>(initialKategori);
   const [selectedSubject, setSelectedSubject] = useState<string>("semua");
   const [jalur, setJalur] = useState<"A" | "B" | null>(null);
   const [jenjang, setJenjang] = useState<string | null>(null);
@@ -125,14 +124,7 @@ function UjianContent() {
   const [tryOutGroups, setTryOutGroups] = useState<TryOutGroupItem[] | null>(null);
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
 
-  useEffect(() => {
-    if (rawKategori === "nasional" || rawKategori === "mandiri") {
-      setKategori(rawKategori);
-    }
-  }, [rawKategori]);
-
   const handleKategoriChange = (newKategori: KategoriTO) => {
-    setKategori(newKategori);
     setSelectedSubject("semua");
     router.replace(`/siswa/ujian?kategori=${newKategori}`);
   };

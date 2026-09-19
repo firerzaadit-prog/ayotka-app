@@ -80,7 +80,6 @@ export default function PengaturanSistemPage() {
 
   async function fetchSettings() {
     try {
-      setLoading(true);
       const res = await fetch("/api/admin-pusat/pengaturan");
       if (!res.ok) throw new Error("Gagal mengambil pengaturan.");
       const json: SettingsData = await res.json();
@@ -112,7 +111,9 @@ export default function PengaturanSistemPage() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSave(e?: FormEvent) {
