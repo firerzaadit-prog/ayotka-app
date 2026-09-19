@@ -15,38 +15,35 @@ import nodemailer from "nodemailer";
  * EMAIL_SMTP_* cuma dibaca lewat process.env saat runtime, tidak pernah
  * jadi literal di kode yang di-bundle.
  */
-let cachedTransporter: ReturnType<typeof nodemailer.createTransport> | null | undefined;
+import { getResolvedSmtpConfig } from "@/lib/settings/app-settings";
 
-function getTransporter(): ReturnType<typeof nodemailer.createTransport> | null {
-  if (cachedTransporter !== undefined) return cachedTransporter;
-
-  const { EMAIL_SMTP_HOST, EMAIL_SMTP_PORT, EMAIL_SMTP_USER, EMAIL_SMTP_PASS } = process.env;
-  if (!EMAIL_SMTP_HOST || !EMAIL_SMTP_PORT || !EMAIL_SMTP_USER || !EMAIL_SMTP_PASS) {
-    cachedTransporter = null;
+async function getTransporter(): Promise<ReturnType<typeof nodemailer.createTransport> | null> {
+  const config = await getResolvedSmtpConfig();
+  if (!config.host || !config.user || !config.pass) {
     return null;
   }
 
-  cachedTransporter = nodemailer.createTransport({
-    host: EMAIL_SMTP_HOST,
-    port: Number(EMAIL_SMTP_PORT),
-    secure: Number(EMAIL_SMTP_PORT) === 465,
-    auth: { user: EMAIL_SMTP_USER, pass: EMAIL_SMTP_PASS },
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.port === 465,
+    auth: { user: config.user, pass: config.pass },
   });
-  return cachedTransporter;
 }
 
 export type SendMailInput = { to: string; subject: string; text: string };
 
 /** Return false = tidak terkirim (SMTP belum dikonfigurasi atau gagal), bukan throw - pemanggil (cron) tetap lanjut ke penerima berikutnya. */
 export async function sendMail({ to, subject, text }: SendMailInput): Promise<boolean> {
-  const transporter = getTransporter();
+  const config = await getResolvedSmtpConfig();
+  const transporter = await getTransporter();
   if (!transporter) {
-    console.warn(`[email] EMAIL_SMTP_* belum diisi di .env - lewati kirim ke ${to}: "${subject}"`);
+    console.warn(`[email] EMAIL_SMTP_* belum diisi di Pengaturan Sistem atau .env - lewati kirim ke ${to}: "${subject}"`);
     return false;
   }
 
   try {
-    await transporter.sendMail({ from: process.env.EMAIL_SMTP_USER, to, subject, text });
+    await transporter.sendMail({ from: config.user, to, subject, text });
     return true;
   } catch (error) {
     console.error(`[email] Gagal kirim ke ${to}:`, error instanceof Error ? error.message : error);

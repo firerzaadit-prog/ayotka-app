@@ -7,22 +7,29 @@ import midtransClient from "midtrans-client";
  * payment gateway. Jalur B dan C tidak boleh bergantung pada Midtrans
  * sama sekali (Bagian 4 dokumen rencana).
  */
-function requireServerKey(): string {
-  const serverKey = process.env.MIDTRANS_SERVER_KEY;
-  if (!serverKey) {
+import { getResolvedMidtransConfig } from "@/lib/settings/app-settings";
+
+async function requireServerKey(): Promise<string> {
+  const config = await getResolvedMidtransConfig();
+  if (!config.serverKey) {
     throw new Error(
-      "MIDTRANS_SERVER_KEY belum diisi. Buat akun sandbox dulu di dashboard.sandbox.midtrans.com " +
-        "lalu isi MIDTRANS_SERVER_KEY/MIDTRANS_CLIENT_KEY di .env.",
+      "MIDTRANS_SERVER_KEY belum diisi. Silakan isi di menu Admin Pusat > Pengaturan Sistem atau di .env.",
     );
   }
-  return serverKey;
+  return config.serverKey;
 }
 
-function getSnapClient() {
+async function getSnapClient() {
+  const config = await getResolvedMidtransConfig();
+  if (!config.serverKey) {
+    throw new Error(
+      "MIDTRANS_SERVER_KEY belum diisi. Silakan isi di menu Admin Pusat > Pengaturan Sistem atau di .env.",
+    );
+  }
   return new midtransClient.Snap({
-    isProduction: process.env.MIDTRANS_IS_PRODUCTION === "true",
-    serverKey: requireServerKey(),
-    clientKey: process.env.MIDTRANS_CLIENT_KEY ?? "",
+    isProduction: config.isProduction,
+    serverKey: config.serverKey,
+    clientKey: config.clientKey ?? "",
   });
 }
 
@@ -32,7 +39,7 @@ export async function createSnapTransaction(input: {
   customerName: string;
   customerEmail: string;
 }): Promise<{ token: string; redirectUrl: string }> {
-  const snap = getSnapClient();
+  const snap = await getSnapClient();
   // @types/midtrans-client tidak mendeklarasikan customer_details meski
   // Snap API sebenarnya mendukungnya - lewat variabel (bukan literal
   // langsung) supaya excess-property check TS tidak memblokirnya.
@@ -49,13 +56,14 @@ export async function createSnapTransaction(input: {
  * gross_amount + server_key, di-SHA512) - WAJIB dicek sebelum mempercayai
  * payload webhook mana pun, supaya endpoint ini tidak bisa dipalsukan.
  */
-export function verifyMidtransSignature(input: {
+export async function verifyMidtransSignature(input: {
   orderId: string;
   statusCode: string;
   grossAmount: string;
   signatureKey: string;
-}): boolean {
-  const serverKey = requireServerKey();
+  serverKey?: string;
+}): Promise<boolean> {
+  const serverKey = input.serverKey ?? (await requireServerKey());
   const expected = crypto
     .createHash("sha512")
     .update(input.orderId + input.statusCode + input.grossAmount + serverKey)

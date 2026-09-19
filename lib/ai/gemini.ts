@@ -2,11 +2,10 @@ import "server-only";
 import { GoogleGenAI, ApiError } from "@google/genai";
 import { geminiResponseSchema, analisisSchema, type AnalisisAi } from "@/lib/ai/schema";
 
-// Google cukup sering pensiunkan model lama untuk pengguna baru (sudah
-// kejadian sekali - gemini-2.5-flash sempat dipakai di sini, lalu Google
-// balas 404 dan minta ganti ke model lebih baru). AI_MODEL opsional supaya
-// kalau kejadian lagi, tinggal ganti env var tanpa perlu deploy ulang.
-const MODEL = process.env.AI_MODEL || "gemini-3.6-flash";
+import { getResolvedAiConfig } from "@/lib/settings/app-settings";
+
+// Google cukup sering pensiunkan model lama untuk pengguna baru.
+// Sekarang bisa diubah langsung oleh Admin Pusat di dashboard atau lewat env var.
 const BACKOFF_MS = [10_000, 20_000, 40_000];
 
 class InvalidAiResponseError extends Error {}
@@ -23,22 +22,18 @@ function isRetriable(err: unknown): boolean {
 /**
  * Tiket 5.4 (Brief Bagian 8.1 aturan wajib 3 & 4): retry dengan backoff
  * 10s/20s/40s kalau API kena limit/error server ATAU responsnya kosong/
- * tidak valid (garbled JSON dsb bisa saja cuma hiccup sesaat, jadi tetap
- * layak dicoba ulang) - percobaan terakhir yang tetap gagal dilempar ke
+ * tidak valid - percobaan terakhir yang tetap gagal dilempar ke
  * pemanggil apa adanya supaya lib/ai/analyze.ts bisa menampilkan fallback
  * yang jujur, BUKAN ditelan diam-diam jadi hasil kosong.
  */
 export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
-  const apiKey = process.env.AI_API_KEY;
+  const { apiKey, model } = await getResolvedAiConfig();
   if (!apiKey) {
-    throw new Error("AI_API_KEY belum diisi di environment server.");
+    throw new Error(
+      "API Key Google Gemini belum diisi. Silakan masukkan di menu Admin Pusat > Pengaturan Sistem atau di Environment Variables.",
+    );
   }
-  // vertexai eksplisit false: SDK ini juga bisa jalan lewat Vertex AI (butuh
-  // kredensial OAuth/service account, bukan API key biasa), dan tanpa flag
-  // ini dia menebak dari variabel lingkungan (GOOGLE_GENAI_USE_VERTEXAI dkk)
-  // yang bisa saja kebetulan ada di server tanpa disadari - kalau kepilih
-  // Vertex AI secara tidak sengaja, errornya persis "expected OAuth 2
-  // access token" walau AI_API_KEY sudah benar diisi.
+
   const client = new GoogleGenAI({ apiKey, vertexai: false });
 
   let lastError: unknown = new Error("Gagal memanggil AI.");
@@ -46,7 +41,7 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
   for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
     try {
       const response = await client.models.generateContent({
-        model: MODEL,
+        model: model || "gemini-3.6-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -89,13 +84,13 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
   }
   if (lastError instanceof ApiError && lastError.status === 404) {
     throw new Error(
-      `Model AI "${MODEL}" tidak ditemukan/sudah pensiun di Gemini (404) - Google kadang ` +
+      `Model AI "${model}" tidak ditemukan/sudah pensiun di Gemini (404) - Google kadang ` +
         `mengganti model lama tanpa pemberitahuan. Cek pesan asli di bawah untuk nama model ` +
-        `pengganti yang disarankan Google, lalu set env var AI_MODEL ke nama itu (tidak perlu ` +
+        `pengganti yang disarankan Google, lalu set env var AI_MODEL atau di menu Pengaturan Sistem (tidak perlu ` +
         `ubah kode). Pesan asli: ${lastError.message}`,
     );
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
 
-export const MODEL_NAME = MODEL;
+export const MODEL_NAME = process.env.AI_MODEL || "gemini-3.6-flash";

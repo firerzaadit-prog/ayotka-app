@@ -18,12 +18,14 @@
 export type SendViaResendInput = { to: string; subject: string; html: string };
 export type SendViaResendResult = { ok: true } | { ok: false; error: string };
 
+import { getResolvedResendConfig } from "@/lib/settings/app-settings";
+
 export async function sendViaResendApi({ to, subject, html }: SendViaResendInput): Promise<SendViaResendResult> {
-  const apiKey = process.env.RESEND_API_KEY;
+  const { apiKey, fromEmail } = await getResolvedResendConfig();
   if (!apiKey) {
-    return { ok: false, error: "RESEND_API_KEY belum diisi di .env" };
+    return { ok: false, error: "RESEND_API_KEY belum diisi di Pengaturan Sistem atau .env" };
   }
-  const from = process.env.RESEND_FROM_EMAIL || "AyoTKA <noreply@ayotka.id>";
+  const from = fromEmail || "AyoTKA <noreply@ayotka.id>";
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

@@ -65,44 +65,6 @@ const PUBLIC_AUTH_PATHS = [
 
 export default async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
-  const isMaintenance = process.env.MAINTENANCE_MODE === "true";
-
-  if (isMaintenance) {
-    if (pathname === "/maintenance") {
-      return NextResponse.next();
-    }
-
-    const bypassSecret = process.env.MAINTENANCE_BYPASS_SECRET || "ayotka-bypass";
-    const queryBypass = searchParams.get("bypass");
-    const cookieBypass = request.cookies.get("maintenance_bypass")?.value;
-    const isBypassed =
-      (queryBypass && queryBypass === bypassSecret) ||
-      (cookieBypass && cookieBypass === bypassSecret);
-
-    if (isBypassed) {
-      const response = NextResponse.next({ request });
-      if (queryBypass === bypassSecret) {
-        response.cookies.set("maintenance_bypass", bypassSecret, {
-          path: "/",
-          httpOnly: true,
-          sameSite: "lax",
-          maxAge: 60 * 60 * 24 * 7,
-        });
-      }
-      // Lanjutkan ke logic autentikasi normal di bawah dengan response ini
-    } else {
-      if (pathname.startsWith("/api/")) {
-        return NextResponse.json(
-          { error: "Sistem sedang dalam pemeliharaan berkala.", maintenance: true },
-          { status: 503, headers: { "Retry-After": "3600" } },
-        );
-      }
-      return NextResponse.redirect(new URL("/maintenance", request.url));
-    }
-  } else if (pathname === "/maintenance") {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
   const response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -134,6 +96,65 @@ export default async function proxy(request: NextRequest) {
     (user?.user_metadata as { must_change_password?: boolean } | undefined)
       ?.must_change_password,
   );
+
+  // Cek mode maintenance: prioritas env var -> lalu cek status toggle database
+  let isMaintenance = process.env.MAINTENANCE_MODE === "true";
+  let bypassSecret = process.env.MAINTENANCE_BYPASS_SECRET || "ayotka-bypass";
+
+  if (!isMaintenance && pathname !== "/maintenance") {
+    try {
+      const { data: dbSetting } = await supabase
+        .from("app_settings")
+        .select("maintenance_mode, maintenance_bypass_secret")
+        .eq("id", "global")
+        .maybeSingle();
+
+      if (dbSetting?.maintenance_mode) {
+        isMaintenance = true;
+        if (dbSetting.maintenance_bypass_secret) {
+          bypassSecret = dbSetting.maintenance_bypass_secret;
+        }
+      }
+    } catch {
+      // Abaikan jika ada kegagalan query sementara
+    }
+  }
+
+  if (isMaintenance) {
+    if (pathname === "/maintenance") {
+      return NextResponse.next();
+    }
+
+    const queryBypass = searchParams.get("bypass");
+    const cookieBypass = request.cookies.get("maintenance_bypass")?.value;
+    // Admin pusat yang sedang login otomatis dibebaskan agar tidak terkunci
+    const isBypassed =
+      role === "admin_pusat" ||
+      (queryBypass && queryBypass === bypassSecret) ||
+      (cookieBypass && cookieBypass === bypassSecret);
+
+    if (isBypassed) {
+      if (queryBypass === bypassSecret) {
+        response.cookies.set("maintenance_bypass", bypassSecret, {
+          path: "/",
+          httpOnly: true,
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+      }
+      // Lanjutkan ke pengecekan navigasi normal di bawah
+    } else {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Sistem sedang dalam pemeliharaan berkala.", maintenance: true },
+          { status: 503, headers: { "Retry-After": "3600" } },
+        );
+      }
+      return NextResponse.redirect(new URL("/maintenance", request.url));
+    }
+  } else if (pathname === "/maintenance") {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
   const matchedPrefix = Object.keys(ROLE_PREFIXES).find(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
