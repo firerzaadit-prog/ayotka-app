@@ -128,21 +128,25 @@ export default async function proxy(request: NextRequest) {
     }
   }
 
+  const queryBypass = searchParams.get("bypass");
+  const cookieBypass = request.cookies.get("maintenance_bypass")?.value;
+  // Admin pusat yang sedang login otomatis dibebaskan agar tidak terkunci
+  const isBypassed =
+    role === "admin_pusat" ||
+    (queryBypass && queryBypass === bypassSecret) ||
+    (cookieBypass && cookieBypass === bypassSecret);
+
   if (pathname === "/maintenance") {
-    // Selalu izinkan render halaman maintenance tanpa melempar balik ke /
-    // Ini menjamin 100% tidak akan pernah terjadi loop pengalihan (ERR_TOO_MANY_REDIRECTS)
+    // Jika sistem TIDAK sedang maintenance (atau user memiliki akses bypass),
+    // jangan tahan user di /maintenance, arahkan kembali ke homepage /
+    if (!isMaintenance || isBypassed) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+    // Jika memang sedang maintenance dan user reguler, tampilkan halaman maintenance
     return NextResponse.next();
   }
 
   if (isMaintenance) {
-    const queryBypass = searchParams.get("bypass");
-    const cookieBypass = request.cookies.get("maintenance_bypass")?.value;
-    // Admin pusat yang sedang login otomatis dibebaskan agar tidak terkunci
-    const isBypassed =
-      role === "admin_pusat" ||
-      (queryBypass && queryBypass === bypassSecret) ||
-      (cookieBypass && cookieBypass === bypassSecret);
-
     if (isBypassed) {
       if (queryBypass === bypassSecret) {
         response.cookies.set("maintenance_bypass", bypassSecret, {

@@ -3,6 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { ReloadButton } from "@/components/maintenance/reload-button";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "Sedang Dalam Pemeliharaan Sistem | AyoTKA",
   description: "AyoTKA sedang dalam pemeliharaan berkala untuk peningkatan performa dan kenyamanan asesmen Anda.",
