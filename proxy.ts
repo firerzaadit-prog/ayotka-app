@@ -109,7 +109,7 @@ export default async function proxy(request: NextRequest) {
   let isMaintenance = process.env.MAINTENANCE_MODE === "true";
   let bypassSecret = process.env.MAINTENANCE_BYPASS_SECRET || "ayotka-bypass";
 
-  if (!isMaintenance && pathname !== "/maintenance") {
+  if (!isMaintenance) {
     try {
       const { data: dbSetting } = await supabase
         .from("app_settings")
