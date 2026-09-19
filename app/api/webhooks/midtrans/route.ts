@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
   let signatureValid: boolean;
   try {
-    signatureValid = verifyMidtransSignature({
+    signatureValid = await verifyMidtransSignature({
       orderId: n.order_id,
       statusCode: n.status_code,
       grossAmount: n.gross_amount,

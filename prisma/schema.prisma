@@ -758,6 +758,30 @@ model AppSetting {
   /// Analytics tambahan — dipakai lib/billing/margin.ts saat menghitung
   /// harga jual ke siswa. Default 20% (siswa bayar 120% dari harga dasar).
   marginLearningAnalyticsPersen Int    @default(20) @map("margin_learning_analytics_persen")
+
+  // Pengaturan AI (Google Gemini)
+  geminiApiKeyEncrypted        String?  @map("gemini_api_key_encrypted")
+  geminiModel                  String?  @default("gemini-3.6-flash") @map("gemini_model")
+
+  // Pengaturan Midtrans Payment Gateway
+  midtransServerKeyEncrypted   String?  @map("midtrans_server_key_encrypted")
+  midtransClientKey            String?  @map("midtrans_client_key")
+  midtransIsProduction         Boolean  @default(false) @map("midtrans_is_production")
+
+  // Pengaturan Email Resend (Verifikasi Akun)
+  resendApiKeyEncrypted        String?  @map("resend_api_key_encrypted")
+  resendFromEmail              String?  @map("resend_from_email")
+
+  // Pengaturan Email SMTP (Billing / Notifikasi)
+  smtpHost                     String?  @map("smtp_host")
+  smtpPort                     Int?     @map("smtp_port")
+  smtpUser                     String?  @map("smtp_user")
+  smtpPassEncrypted            String?  @map("smtp_pass_encrypted")
+
+  // Pengaturan Maintenance Mode
+  maintenanceMode              Boolean  @default(false) @map("maintenance_mode")
+  maintenanceBypassSecret      String?  @map("maintenance_bypass_secret")
+
   updatedAt                   DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
