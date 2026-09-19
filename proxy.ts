@@ -64,6 +64,45 @@ const PUBLIC_AUTH_PATHS = [
 ];
 
 export default async function proxy(request: NextRequest) {
+  const { pathname, searchParams } = request.nextUrl;
+  const isMaintenance = process.env.MAINTENANCE_MODE === "true";
+
+  if (isMaintenance) {
+    if (pathname === "/maintenance") {
+      return NextResponse.next();
+    }
+
+    const bypassSecret = process.env.MAINTENANCE_BYPASS_SECRET || "ayotka-bypass";
+    const queryBypass = searchParams.get("bypass");
+    const cookieBypass = request.cookies.get("maintenance_bypass")?.value;
+    const isBypassed =
+      (queryBypass && queryBypass === bypassSecret) ||
+      (cookieBypass && cookieBypass === bypassSecret);
+
+    if (isBypassed) {
+      const response = NextResponse.next({ request });
+      if (queryBypass === bypassSecret) {
+        response.cookies.set("maintenance_bypass", bypassSecret, {
+          path: "/",
+          httpOnly: true,
+          sameSite: "lax",
+          maxAge: 60 * 60 * 24 * 7,
+        });
+      }
+      // Lanjutkan ke logic autentikasi normal di bawah dengan response ini
+    } else {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Sistem sedang dalam pemeliharaan berkala.", maintenance: true },
+          { status: 503, headers: { "Retry-After": "3600" } },
+        );
+      }
+      return NextResponse.redirect(new URL("/maintenance", request.url));
+    }
+  } else if (pathname === "/maintenance") {
+    return NextResponse.redirect(new URL("/", request.url));
+  }
+
   const response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -95,8 +134,6 @@ export default async function proxy(request: NextRequest) {
     (user?.user_metadata as { must_change_password?: boolean } | undefined)
       ?.must_change_password,
   );
-  const { pathname } = request.nextUrl;
-
   const matchedPrefix = Object.keys(ROLE_PREFIXES).find(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
