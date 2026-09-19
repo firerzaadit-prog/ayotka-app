@@ -128,11 +128,13 @@ export default async function proxy(request: NextRequest) {
     }
   }
 
-  if (isMaintenance) {
-    if (pathname === "/maintenance") {
-      return NextResponse.next();
-    }
+  if (pathname === "/maintenance") {
+    // Selalu izinkan render halaman maintenance tanpa melempar balik ke /
+    // Ini menjamin 100% tidak akan pernah terjadi loop pengalihan (ERR_TOO_MANY_REDIRECTS)
+    return NextResponse.next();
+  }
 
+  if (isMaintenance) {
     const queryBypass = searchParams.get("bypass");
     const cookieBypass = request.cookies.get("maintenance_bypass")?.value;
     // Admin pusat yang sedang login otomatis dibebaskan agar tidak terkunci
@@ -160,8 +162,6 @@ export default async function proxy(request: NextRequest) {
       }
       return NextResponse.redirect(new URL("/maintenance", request.url));
     }
-  } else if (pathname === "/maintenance") {
-    return NextResponse.redirect(new URL("/", request.url));
   }
   // 1. Cek halaman autentikasi publik (login / registrasi / forgot password)
   const isPublicAuthPath = PUBLIC_AUTH_PATHS.some(
