@@ -57,10 +57,18 @@ const ROLE_LOGIN_PATH: Record<string, string> = {
 // langsung melempar mereka balik ke dashboard karena sudah login -
 // dua aturan saling lempar selamanya (ERR_TOO_MANY_REDIRECTS).
 const PUBLIC_AUTH_PATHS = [
+  "/login",
   "/forgot-password",
+  "/registrasi",
+  "/registrasi/mitra",
+  "/registrasi/sekolah",
+  "/registrasi/mandiri",
   "/admin/mitra",
   "/login/mitra",
-  ...Object.values(ROLE_LOGIN_PATH),
+  "/mitra/login",
+  "/admin/admin-sekolah",
+  "/admin/admin-pusat",
+  "/admin/dinas-pendidikan",
 ];
 
 export default async function proxy(request: NextRequest) {
@@ -155,6 +163,44 @@ export default async function proxy(request: NextRequest) {
   } else if (pathname === "/maintenance") {
     return NextResponse.redirect(new URL("/", request.url));
   }
+  // 1. Cek halaman autentikasi publik (login / registrasi / forgot password)
+  const isPublicAuthPath = PUBLIC_AUTH_PATHS.some(
+    (authPath) => pathname === authPath || pathname.startsWith(`${authPath}/`),
+  );
+
+  if (isPublicAuthPath) {
+    if (user && role) {
+      // Khusus login mitra: jika sudah login sebagai mitra, ke dashboard mitra
+      if (pathname === "/mitra/login" || pathname === "/login/mitra" || pathname === "/admin/mitra") {
+        if (role === "mitra") {
+          return NextResponse.redirect(new URL("/mitra/dashboard", request.url));
+        }
+        // Jika user login sebagai role lain (mis. siswa), tapi membuka login mitra,
+        // izinkan membuka halaman login mitra
+        return response;
+      }
+
+      if (pathname === "/login") {
+        if (role === "siswa") {
+          return NextResponse.redirect(new URL("/siswa/dashboard", request.url));
+        }
+        return response;
+      }
+
+      if (pathname.startsWith("/registrasi")) {
+        return NextResponse.redirect(new URL(ROLE_HOME[role] ?? "/", request.url));
+      }
+
+      if (ROLE_HOME[role]) {
+        return NextResponse.redirect(new URL(ROLE_HOME[role]!, request.url));
+      }
+    }
+
+    // Jika belum login, izinkan langsung render halaman login/registrasi tanpa redirect
+    return response;
+  }
+
+  // 2. Proteksi rute berdasarkan Role
   const matchedPrefix = Object.keys(ROLE_PREFIXES).find(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -163,10 +209,7 @@ export default async function proxy(request: NextRequest) {
     const requiredRoles = ROLE_PREFIXES[matchedPrefix]!;
 
     if (!user) {
-      // Belum login: arahkan ke login role utama prefix ini (elemen
-      // pertama) - untuk /admin-sekolah itu tetap admin_sekolah, karena
-      // admin_pusat masuk ke sini lewat navigasi internal saat sudah
-      // login (tombol "Kelola sekolah ini"), bukan lewat URL langsung.
+      // Belum login: arahkan ke login role utama prefix ini
       const loginPath = ROLE_LOGIN_PATH[requiredRoles[0]!] ?? "/login";
       const loginUrl = new URL(loginPath, request.url);
       loginUrl.searchParams.set("next", pathname);
@@ -183,10 +226,6 @@ export default async function proxy(request: NextRequest) {
     if (mustChangePassword && pathname !== "/reset-password") {
       return NextResponse.redirect(new URL("/reset-password", request.url));
     }
-  }
-
-  if (user && role && PUBLIC_AUTH_PATHS.includes(pathname)) {
-    return NextResponse.redirect(new URL(ROLE_HOME[role] ?? "/", request.url));
   }
 
   return response;
