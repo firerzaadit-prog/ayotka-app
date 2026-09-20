@@ -1,3 +1,4 @@
+import { resolveFromAddress } from "@/lib/email/from-address";
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { decryptSecret } from "@/lib/security/crypto";
@@ -111,7 +112,7 @@ export async function getResolvedResendConfig(): Promise<{
     const envKey = process.env.RESEND_API_KEY || "";
     return {
       apiKey: envKey,
-      fromEmail: process.env.RESEND_FROM_EMAIL || "AyoTKA <noreply@ayotka.id>",
+      fromEmail: resolveFromAddress(process.env.RESEND_FROM_EMAIL),
       source: envKey ? "env" : "none",
     };
   }
@@ -123,7 +124,7 @@ export async function getResolvedResendConfig(): Promise<{
     if (dbApiKey) {
       return {
         apiKey: dbApiKey,
-        fromEmail: settings.resendFromEmail || process.env.RESEND_FROM_EMAIL || "AyoTKA <noreply@ayotka.id>",
+        fromEmail: resolveFromAddress(settings.resendFromEmail, process.env.RESEND_FROM_EMAIL),
         source: "database",
       };
     }
@@ -134,7 +135,7 @@ export async function getResolvedResendConfig(): Promise<{
   const envKey = process.env.RESEND_API_KEY || "";
   return {
     apiKey: envKey,
-    fromEmail: process.env.RESEND_FROM_EMAIL || "AyoTKA <noreply@ayotka.id>",
+    fromEmail: resolveFromAddress(process.env.RESEND_FROM_EMAIL),
     source: envKey ? "env" : "none",
   };
 }

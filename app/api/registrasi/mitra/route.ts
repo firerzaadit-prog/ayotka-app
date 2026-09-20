@@ -96,9 +96,15 @@ export async function POST(request: Request) {
     ]);
   } catch (err) {
     await supabaseAdmin.auth.admin.deleteUser(authUser.id).catch(() => {});
-    const message = err instanceof Error ? err.message : "Terjadi kesalahan tak terduga.";
+    console.error("[registrasi-mitra] gagal membuat akun:", err);
+    const message = err instanceof Error ? err.message : "";
+    const emailGagal = message.startsWith("Gagal mengirim email verifikasi");
     return NextResponse.json(
-      { error: `Gagal membuat akun: ${message}. Coba daftar lagi.` },
+      {
+        error: emailGagal
+          ? "Akun belum bisa dibuat karena email verifikasi gagal terkirim. Pastikan alamat emailmu benar, lalu coba lagi. Kalau masih gagal, hubungi admin AyoTKA."
+          : "Akun belum bisa dibuat karena terjadi gangguan. Silakan coba daftar lagi sebentar lagi.",
+      },
       { status: 502 },
     );
   }

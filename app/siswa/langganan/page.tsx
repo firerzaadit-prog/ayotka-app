@@ -227,10 +227,6 @@ export default function LanggananSiswaPage() {
                             <span className="text-indigo-600 font-bold">✦</span>
                             <span>Plus 1x Analisis AI per mapel untuk TO Mandiri</span>
                           </li>
-                          <li className="flex items-start gap-2">
-                            <span className="text-emerald-600 font-bold">✓</span>
-                            <span>Laporan berkala komprehensif untuk orang tua</span>
-                          </li>
                         </>
                       ) : (
                         <>
@@ -245,10 +241,6 @@ export default function LanggananSiswaPage() {
                           <li className="flex items-start gap-2 font-medium text-indigo-900">
                             <span className="text-indigo-600 font-bold">✦</span>
                             <span>Plus 1x Learning Analytics AI per mapel</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <span className="text-emerald-600 font-bold">✓</span>
-                            <span>Laporan bulanan berkala untuk orang tua</span>
                           </li>
                           <li className="flex items-start gap-2 text-slate-400">
                             <span className="text-slate-400 font-bold">✕</span>

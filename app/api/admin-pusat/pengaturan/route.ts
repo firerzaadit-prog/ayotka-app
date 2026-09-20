@@ -1,3 +1,4 @@
+import { normalizeFromAddress } from "@/lib/email/from-address";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
@@ -147,7 +148,21 @@ export async function POST(request: NextRequest) {
       : null;
   }
   if (data.resendFromEmail !== undefined) {
-    updateData.resendFromEmail = data.resendFromEmail.trim() || null;
+    const raw = data.resendFromEmail.trim();
+    if (raw === "") {
+      updateData.resendFromEmail = null;
+    } else {
+      // Kutip pembungkus dibuang otomatis; bentuk lain yang salah ditolak di sini
+      // supaya tidak baru ketahuan gagal (HTTP 422 Resend) saat siswa mendaftar.
+      const normalized = normalizeFromAddress(raw);
+      if (!normalized) {
+        return NextResponse.json(
+          { error: 'Email pengirim tidak valid. Pakai format "nama@domain.com" atau "Nama <nama@domain.com>".' },
+          { status: 400 },
+        );
+      }
+      updateData.resendFromEmail = normalized;
+    }
   }
 
   // SMTP

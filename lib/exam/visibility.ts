@@ -3,13 +3,34 @@ import { prisma } from "@/lib/db/prisma";
 import type { Student } from "@prisma/client";
 
 /**
+ * Jendela buka/tutup paket & grup self-select. Kalau includeUpcomingNasional,
+ * event kategori "nasional" yang BELUM dibuka (bukaMulai di masa depan) ikut
+ * dikembalikan supaya siswa bisa melihat jadwalnya - tombol Mulai tetap
+ * dikunci di UI, dan POST /api/siswa/attempts memanggil fungsi ini TANPA
+ * opsi itu sehingga server tidak pernah membiarkan event belum-buka dimulai.
+ */
+function windowFilter(now: Date, includeUpcomingNasional: boolean) {
+  const open = {
+    AND: [
+      { OR: [{ bukaMulai: null }, { bukaMulai: { lte: now } }] },
+      { OR: [{ bukaSelesai: null }, { bukaSelesai: { gte: now } }] },
+    ],
+  };
+  if (!includeUpcomingNasional) return [open];
+  return [{ OR: [open, { kategori: "nasional" as const, bukaMulai: { gt: now } }] }];
+}
+
+/**
  * Tiket 4.4 (Bagian 3.2 brief, "Masuk ke Paket Soal - dua mode"): Mode B
  * (Latihan Mandiri) - paket yang boleh dipilih bebas siswa, difilter
  * otomatis per jenjang/tingkat siswa. Jalur B cuma boleh paket publik;
  * Jalur A boleh paket sekolahnya sendiri + paket pusat yang
  * didistribusikan ke sekolahnya.
  */
-export async function getSelfSelectPackagesFor(student: Student) {
+export async function getSelfSelectPackagesFor(
+  student: Student,
+  opts: { includeUpcomingNasional?: boolean } = {},
+) {
   const now = new Date();
   // bukaMulai/bukaSelesai null = selalu terbuka (perilaku lama, dipakai
   // default untuk paket Latihan tanpa jadwal). Ditulis sebagai AND terpisah
@@ -20,10 +41,7 @@ export async function getSelfSelectPackagesFor(student: Student) {
     bolehDipilihSiswa: true,
     jenjang: student.jenjang,
     tingkatList: { has: student.tingkat },
-    AND: [
-      { OR: [{ bukaMulai: null }, { bukaMulai: { lte: now } }] },
-      { OR: [{ bukaSelesai: null }, { bukaSelesai: { gte: now } }] },
-    ],
+    AND: windowFilter(now, opts.includeUpcomingNasional ?? false),
   };
 
   if (student.jalur === "B") {
@@ -71,17 +89,17 @@ export async function getSelfSelectPackagesFor(student: Student) {
  * published sengaja disaring - tidak ada apa pun untuk benar-benar
  * dikerjakan siswa kalau ditampilkan.
  */
-export async function getSelfSelectTryOutGroupsFor(student: Student) {
+export async function getSelfSelectTryOutGroupsFor(
+  student: Student,
+  opts: { includeUpcomingNasional?: boolean } = {},
+) {
   const now = new Date();
   const baseWhere = {
     status: "published" as const,
     jenjang: student.jenjang,
     tingkatList: { has: student.tingkat },
     packages: { some: { status: "published" as const } },
-    AND: [
-      { OR: [{ bukaMulai: null }, { bukaMulai: { lte: now } }] },
-      { OR: [{ bukaSelesai: null }, { bukaSelesai: { gte: now } }] },
-    ],
+    AND: windowFilter(now, opts.includeUpcomingNasional ?? false),
   };
 
   if (student.jalur === "B") {

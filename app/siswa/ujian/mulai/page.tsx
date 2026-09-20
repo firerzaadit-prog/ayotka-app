@@ -15,6 +15,7 @@ type Info = {
   kategori?: "mandiri" | "nasional";
   jenisPaket?: "tryout" | "latihan";
   selesai?: string;
+  bukaMulai?: string | null;
   subject?: { id: string; nama: string };
 } | null;
 
@@ -102,6 +103,10 @@ function InstruksiContent() {
 
   const isNasional = info.kategori === "nasional";
   const isLatihan = info.jenisPaket === "latihan";
+  // Event nasional yang belum dibuka tampil di daftar supaya siswa tahu
+  // jadwalnya, tapi tidak boleh dimulai (server juga menolak, lihat
+  // includeUpcomingNasional di lib/exam/visibility.ts).
+  const belumDibuka = Boolean(info.bukaMulai && new Date(info.bukaMulai) > new Date());
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-6">
@@ -221,7 +226,13 @@ function InstruksiContent() {
         </ul>
       </Alert>
 
-      <Button onClick={handleMulai} disabled={starting} className="w-full py-2.5 font-semibold">
+      {belumDibuka && info.bukaMulai && (
+        <Alert variant="warning">
+          Try out ini baru dibuka pada {new Date(info.bukaMulai).toLocaleString("id-ID", { dateStyle: "full", timeStyle: "short" })}. Kamu bisa mulai mengerjakan begitu jadwalnya tiba.
+        </Alert>
+      )}
+
+      <Button onClick={handleMulai} disabled={starting || belumDibuka} className="w-full py-2.5 font-semibold">
         {starting ? "Memulai Ujian..." : "Mulai Ujian"}
       </Button>
     </div>

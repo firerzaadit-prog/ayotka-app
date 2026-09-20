@@ -15,9 +15,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ schools: [] });
   }
 
+  // Opsional: batasi ke jenjang yang dipilih siswa (SD tidak perlu melihat SMP).
+  const jenjangParam = new URL(request.url).searchParams.get("jenjang");
+  const jenjang = jenjangParam === "SD" || jenjangParam === "SMP" ? jenjangParam : undefined;
+
   const schools = await prisma.school.findMany({
     where: {
       status: { not: "pending_verifikasi" },
+      ...(jenjang ? { jenjang } : {}),
       OR: [{ nama: { contains: q, mode: "insensitive" } }, { npsn: { contains: q } }],
     },
     select: { id: true, nama: true, npsn: true, jenjang: true },

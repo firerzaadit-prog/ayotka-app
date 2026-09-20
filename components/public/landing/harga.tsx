@@ -8,7 +8,6 @@ import {
   Sparkles,
   Award,
   Bot,
-  TrendingUp,
   GraduationCap,
   Building2,
   Users,
@@ -127,10 +126,6 @@ export function Harga() {
                     <Bot className="h-4 w-4 shrink-0 text-indigo-600 font-bold" />
                     <span><strong>Plus 1x Learning Analytics AI</strong> per mapel</span>
                   </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 shrink-0 text-emerald-600 font-bold" />
-                    <span><strong>Laporan bulanan berkala</strong> untuk orang tua</span>
-                  </li>
                   <li className="flex items-start gap-2 text-slate-400">
                     <X className="h-4 w-4 shrink-0 text-slate-400 font-bold" />
                     <span className="line-through">Tidak termasuk Try Out Nasional</span>
@@ -205,10 +200,6 @@ export function Harga() {
                   <li className="flex items-start gap-2">
                     <Sparkles className="h-4 w-4 shrink-0 text-amber-300 font-bold" />
                     <span><strong>Plus 1x Learning Analytics AI</strong> per mapel (TO Mandiri)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <TrendingUp className="h-4 w-4 shrink-0 text-white font-bold" />
-                    <span><strong>Laporan berkala mendalam</strong> untuk orang tua</span>
                   </li>
                 </ul>
               </div>
@@ -359,11 +350,6 @@ export function Harga() {
                     <td className="px-6 py-3.5 text-center bg-amber-100/50 font-bold text-indigo-900">
                       Termasuk Otomatis (Semua Sesi)
                     </td>
-                  </tr>
-                  <tr>
-                    <td className="px-6 py-3.5 font-medium text-slate-900">Laporan Berkala untuk Orang Tua</td>
-                    <td className="px-6 py-3.5 text-center text-slate-700">Laporan Bulanan</td>
-                    <td className="px-6 py-3.5 text-center bg-indigo-50/30 text-slate-900 font-semibold">Laporan Berkala Komprehensif</td>
                   </tr>
                   <tr>
                     <td className="px-6 py-3.5 font-medium text-slate-900">Masa Aktif Akun</td>

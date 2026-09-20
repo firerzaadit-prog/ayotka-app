@@ -13,8 +13,7 @@ import { sendViaResendApi } from "@/lib/email/resend";
  * dari Jalur A - akun dibuat belum terkonfirmasi, siswa wajib klik link
  * konfirmasi dulu (Jalur A memakai email_confirm:true langsung karena
  * sekolah sudah memvouch identitasnya). Pembayaran menyusul di Fase 6 -
- * untuk sekarang status Student tetap "pending" sampai admin pusat
- * aktivasi manual (lihat /api/admin-pusat/siswa-mandiri).
+ * untuk sekarang status Student langsung "active" (lihat komentar di bawah).
  *
  * Email konfirmasi dikirim manual lewat Resend API (lib/email/resend.ts),
  * BUKAN lewat Supabase auth.resend(). Ditemukan lewat investigasi manual
@@ -56,15 +55,28 @@ export async function POST(request: Request) {
     }
     schoolId = school.id;
   } else {
-    const pendingSchool = await prisma.school.create({
-      data: {
-        nama: data.asalSekolahManual!.trim(),
-        jenjang: data.jenjang,
-        kodeSekolah: generateReadableCode(8),
-        status: "pending_verifikasi",
-      },
+    // Sekolah yang diketik manual langsung dipakai TANPA verifikasi admin
+    // pusat (permintaan user). Supaya tidak menumpuk duplikat, nama yang sama
+    // (tanpa peduli huruf besar/kecil & spasi ganda) di jenjang yang sama
+    // memakai baris sekolah yang sudah ada.
+    const namaManual = data.asalSekolahManual!.replace(/\s+/g, " ").trim();
+    const existingSchool = await prisma.school.findFirst({
+      where: { nama: { equals: namaManual, mode: "insensitive" }, jenjang: data.jenjang },
+      select: { id: true },
     });
-    schoolId = pendingSchool.id;
+    if (existingSchool) {
+      schoolId = existingSchool.id;
+    } else {
+      const newSchool = await prisma.school.create({
+        data: {
+          nama: namaManual,
+          jenjang: data.jenjang,
+          kodeSekolah: generateReadableCode(8),
+          status: "aktif",
+        },
+      });
+      schoolId = newSchool.id;
+    }
   }
 
   // Kode referral opsional - kalau tidak ditemukan/salah ketik, daftar tetap
@@ -148,7 +160,9 @@ export async function POST(request: Request) {
           nama: data.nama,
           jalur: "B",
           claimStatus: "sudah_klaim",
-          status: "pending",
+          // Langsung aktif: akses try out diatur entitlement/langganan, bukan
+          // persetujuan admin (status "pending" tidak menahan apa pun di login).
+          status: "active",
           referralCode: newReferralCode,
           referredByStudentId,
         },
@@ -156,9 +170,16 @@ export async function POST(request: Request) {
     ]);
   } catch (err) {
     await supabaseAdmin.auth.admin.deleteUser(authUser.id).catch(() => {});
-    const message = err instanceof Error ? err.message : "Terjadi kesalahan tak terduga.";
+    // Detail teknis (mis. respons mentah Resend) hanya ke log server, bukan ke layar siswa.
+    console.error("[registrasi-mandiri] gagal membuat akun:", err);
+    const message = err instanceof Error ? err.message : "";
+    const emailGagal = message.startsWith("Gagal mengirim email verifikasi");
     return NextResponse.json(
-      { error: `Gagal membuat akun: ${message}. Coba daftar lagi.` },
+      {
+        error: emailGagal
+          ? "Akun belum bisa dibuat karena email verifikasi gagal terkirim. Pastikan alamat emailmu benar, lalu coba lagi. Kalau masih gagal, hubungi admin AyoTKA."
+          : "Akun belum bisa dibuat karena terjadi gangguan. Silakan coba daftar lagi sebentar lagi.",
+      },
       { status: 502 },
     );
   }

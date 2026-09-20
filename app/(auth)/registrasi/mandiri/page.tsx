@@ -22,6 +22,19 @@ function RegistrasiMandiriForm() {
   const [selectedSekolah, setSelectedSekolah] = useState<SchoolOption | null>(null);
   const [tidakAdaDiDaftar, setTidakAdaDiDaftar] = useState(false);
   const [asalSekolahManual, setAsalSekolahManual] = useState("");
+  const [sudahMencari, setSudahMencari] = useState(false);
+
+  const daftarKelas = jenjang === "SD" ? [4, 5, 6] : [7, 8, 9];
+
+  function handleGantiJenjang(nilai: "SD" | "SMP") {
+    setJenjang(nilai);
+    // Kelas & sekolah terpilih milik jenjang sebelumnya tidak berlaku lagi.
+    setTingkat("");
+    setSelectedSekolah(null);
+    setSekolahQuery("");
+    setSekolahHasil([]);
+    setSudahMencari(false);
+  }
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,16 +45,26 @@ function RegistrasiMandiriForm() {
     setSelectedSekolah(null);
     if (value.trim().length < 3) {
       setSekolahHasil([]);
+      setSudahMencari(false);
       return;
     }
-    const res = await fetch(`/api/registrasi/cari-sekolah?q=${encodeURIComponent(value)}`);
+    const res = await fetch(
+      `/api/registrasi/cari-sekolah?q=${encodeURIComponent(value)}&jenjang=${jenjang}`,
+    );
     const data = await res.json();
-    if (res.ok) setSekolahHasil(data.schools ?? []);
+    if (res.ok) {
+      setSekolahHasil(data.schools ?? []);
+      setSudahMencari(true);
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!tidakAdaDiDaftar && !selectedSekolah) {
+      setError("Pilih sekolahmu dari daftar yang muncul, atau klik \"Sekolahku tidak ada di daftar\" lalu ketik namanya.");
+      return;
+    }
     setLoading(true);
 
     const res = await fetch("/api/registrasi/mandiri", {
@@ -117,7 +140,7 @@ function RegistrasiMandiriForm() {
             id="jenjang"
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             value={jenjang}
-            onChange={(e) => setJenjang(e.target.value as "SD" | "SMP")}
+            onChange={(e) => handleGantiJenjang(e.target.value as "SD" | "SMP")}
           >
             <option value="SD">SD</option>
             <option value="SMP">SMP</option>
@@ -125,16 +148,24 @@ function RegistrasiMandiriForm() {
         </div>
         <div>
           <Label htmlFor="tingkat">Kelas</Label>
-          <Input
+          <select
             id="tingkat"
-            type="number"
-            min={jenjang === "SD" ? 4 : 7}
-            max={jenjang === "SD" ? 6 : 9}
             required
+            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
             value={tingkat}
             onChange={(e) => setTingkat(e.target.value)}
-          />
+          >
+            <option value="">Pilih kelas</option>
+            {daftarKelas.map((k) => (
+              <option key={k} value={k}>
+                Kelas {k}
+              </option>
+            ))}
+          </select>
         </div>
+        <p className="col-span-2 -mt-1 text-xs text-slate-500">
+          Tingkat &amp; kelas menentukan try out dan mata pelajaran yang tampil setelah kamu masuk.
+        </p>
       </div>
 
       {!tidakAdaDiDaftar ? (
@@ -159,17 +190,21 @@ function RegistrasiMandiriForm() {
               ))}
             </div>
           )}
+          {sudahMencari && sekolahHasil.length === 0 && !selectedSekolah && (
+            <p className="mt-2 text-sm text-amber-700">Sekolah dengan nama itu belum ada di daftar kami.</p>
+          )}
           <button
             type="button"
             onClick={() => setTidakAdaDiDaftar(true)}
-            className="mt-1 text-xs text-slate-500 hover:text-slate-700"
+            className="mt-2 w-full rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-left text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
           >
-            Sekolahku tidak ada di daftar
+            Sekolahku tidak ada di daftar &rarr; ketik nama sekolahku sendiri
           </button>
+          <p className="mt-1 text-xs text-slate-500">Langsung bisa dipakai, tanpa menunggu verifikasi admin.</p>
         </div>
       ) : (
         <div>
-          <Label htmlFor="asalSekolahManual">Nama sekolah (ketik manual)</Label>
+          <Label htmlFor="asalSekolahManual">Nama sekolahmu</Label>
           <Input
             id="asalSekolahManual"
             required
@@ -177,14 +212,15 @@ function RegistrasiMandiriForm() {
             onChange={(e) => setAsalSekolahManual(e.target.value)}
           />
           <p className="mt-1 text-xs text-slate-500">
-            Data sekolah ini akan diverifikasi tim kami sebelum dipakai untuk laporan resmi.
+            Ketik nama lengkap sekolahmu, mis. &quot;{jenjang === "SD" ? "SD Negeri 1 Kediri" : "SMP Negeri 1 Kediri"}&quot;.
+            Langsung bisa dipakai, tanpa menunggu verifikasi admin.
           </p>
           <button
             type="button"
             onClick={() => setTidakAdaDiDaftar(false)}
-            className="mt-1 text-xs text-slate-500 hover:text-slate-700"
+            className="mt-2 text-sm font-medium text-indigo-600 hover:underline"
           >
-            Cari dari daftar lagi
+            &larr; Cari sekolahku dari daftar lagi
           </button>
         </div>
       )}
