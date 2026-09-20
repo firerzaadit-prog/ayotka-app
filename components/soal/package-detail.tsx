@@ -12,6 +12,7 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
+import { ExcelSoalPanel } from "@/components/soal/excel-soal-panel";
 /** Bersihkan simbol LaTeX untuk preview singkat di tabel */
 function stripLatex(text: string): string {
   return text
@@ -362,6 +363,8 @@ export function PackageDetail({
             </Button>
           )}
         </div>
+
+        <ExcelSoalPanel packageId={packageId} onImported={() => setRefreshKey((k) => k + 1)} />
 
         {showEditForm && editForm && (
           <Card className="mt-4 max-w-xl">
