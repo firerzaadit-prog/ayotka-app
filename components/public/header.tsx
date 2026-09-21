@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -22,6 +22,39 @@ const DAFTAR_CLASS =
 export function PublicHeader({ active }: { active?: string }) {
   const [open, setOpen] = useState(false);
   const [loginMenuOpen, setLoginMenuOpen] = useState(false);
+  const loginMenuRef = useRef<HTMLDivElement>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Buka langsung; tutup dengan jeda singkat supaya kursor yang sedikit keluar jalur
+  // (mis. saat menuju item menu) tidak membuat menu hilang.
+  function openLoginMenu() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setLoginMenuOpen(true);
+  }
+  function scheduleCloseLoginMenu() {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setLoginMenuOpen(false), 200);
+  }
+
+  useEffect(() => {
+    if (!loginMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (!loginMenuRef.current?.contains(e.target as Node)) setLoginMenuOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLoginMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [loginMenuOpen]);
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
 
   function linkClass(href: (typeof NAV_LINKS)[number]["href"]) {
     return href === active
@@ -47,13 +80,15 @@ export function PublicHeader({ active }: { active?: string }) {
           ))}
 
           {/* Tombol Masuk dengan Dropdown Pilihan Portal */}
-          <div className="relative" onMouseLeave={() => setLoginMenuOpen(false)}>
+          <div ref={loginMenuRef} className="relative" onMouseEnter={openLoginMenu} onMouseLeave={scheduleCloseLoginMenu}>
             <button
               type="button"
-              onClick={() => setLoginMenuOpen((v) => !v)}
-              onMouseEnter={() => setLoginMenuOpen(true)}
+              // Klik selalu membuka (tidak toggle): hover sudah membukanya, jadi toggle malah menutup menu saat diklik.
+              // Menutup lewat: klik di luar, tombol Escape, atau kursor keluar.
+              onClick={openLoginMenu}
               className={`${MASUK_CLASS} inline-flex items-center gap-1.5 cursor-pointer`}
               aria-expanded={loginMenuOpen}
+              aria-haspopup="menu"
             >
               <span>Masuk</span>
               <svg
@@ -70,10 +105,9 @@ export function PublicHeader({ active }: { active?: string }) {
             </button>
 
             {loginMenuOpen && (
-              <div
-                className="absolute right-0 top-full mt-2 w-60 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10 transition-all z-50"
-                onMouseEnter={() => setLoginMenuOpen(true)}
-              >
+              // pt-2 (bukan margin) supaya tidak ada celah kosong antara tombol dan menu: kursor yang menyeberang tetap di dalam area hover.
+              <div className="absolute right-0 top-full z-50 w-60 pt-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
                 <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                   Pilih Portal Masuk
                 </div>
@@ -112,6 +146,7 @@ export function PublicHeader({ active }: { active?: string }) {
                   <span className="text-sm font-semibold text-slate-900">Dinas Pendidikan</span>
                   <span className="text-xs text-slate-500">Pantau kesiapan wilayah</span>
                 </Link>
+              </div>
               </div>
             )}
           </div>
