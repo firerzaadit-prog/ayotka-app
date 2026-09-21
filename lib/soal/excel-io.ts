@@ -2,11 +2,13 @@ import "server-only";
 import ExcelJS from "exceljs";
 import {
   KOLOM_SOAL,
+  headerOf,
   questionsToRows,
   resolveHeaders,
   type ColKey,
   type ExcelRow,
   type ExportQuestion,
+  type RowError,
 } from "@/lib/soal/excel-format";
 
 export const SHEET_SOAL = "Soal";
@@ -54,7 +56,16 @@ const PETUNJUK: string[] = [
   "  - Soal yang teksnya sama persis dengan soal yang sudah ada di paket dilewati (aman untuk impor ulang, tidak jadi dobel).",
   "  - Soal BARU ditambahkan ke paket; soal yang sudah ada tidak diubah atau dihapus. Untuk mengubah soal lama, edit lewat halaman soal.",
   "  - Baris yang kolom No-nya berisi \"CONTOH\" diabaikan (dipakai di template). Maksimal 300 soal per file.",
-  "  - Gambar per opsi tidak punya kolom sendiri - pakai sintaks ![](url) di teks opsinya.",
+  "",
+  "GAMBAR (3 cara, boleh dicampur):",
+  "  1. TEMPEL LANGSUNG di Excel: Insert > Pictures > \"Place Over Cells\" (atau copy-paste gambar), lalu geser supaya POJOK KIRI-ATAS gambar berada di sel tujuan.",
+  "     Bisa di kolom Teks Soal, Pembahasan, Media Soal, Opsi A-H, atau Pernyataan 1-3. JANGAN pakai \"Place in Cell\" (gambar di dalam sel) - tidak terbaca.",
+  "  2. LINK GOOGLE DRIVE: tempel link \"Bagikan\" biasa di kolom Media Soal, atau ![](link-drive) di dalam teks. Akses file harus \"Siapa saja yang memiliki link\". Gambar diunduh dan disimpan di sistem.",
+  "  3. LINK GAMBAR LAIN (https://...): di Media Soal, atau ![](https://...) di dalam teks. Gambar tetap ada di alamat aslinya (tidak disalin).",
+  "  Posisi gambar di tengah teks: tulis penanda [gambar] di tempat gambar harus muncul, mis. \"Perhatikan gambar [gambar] lalu hitung luasnya.\"",
+  "     Kalau ada 2 gambar di satu sel: [gambar 1] dan [gambar 2] (urutan = dari atas ke bawah). Gambar tanpa penanda dilekatkan di akhir teks.",
+  "  Media Soal hanya boleh 1 gambar. Format gambar: PNG, JPEG, WEBP, atau GIF, maks 5 MB per gambar.",
+  "  Gambar baru disimpan HANYA kalau seluruh file lolos pemeriksaan.",
 ];
 
 function styleHeader(row: ExcelJS.Row) {
@@ -184,11 +195,26 @@ function cellToString(value: ExcelJS.CellValue): string {
   return String(value);
 }
 
+/** Kolom yang boleh berisi gambar tempelan (kolom lain tidak punya tempat untuk gambar). */
+export const KOLOM_GAMBAR: ReadonlySet<ColKey> = new Set<ColKey>([
+  "teks", "pembahasan", "media",
+  "opsi_a", "opsi_b", "opsi_c", "opsi_d", "opsi_e", "opsi_f", "opsi_g", "opsi_h",
+  "pernyataan_1", "pernyataan_2", "pernyataan_3",
+]);
+
+export type GambarTempel = { buffer: Buffer };
+export type GambarPerKolom = Partial<Record<ColKey, GambarTempel[]>>;
+export type BarisSheet = { row: number; cells: ExcelRow; gambar: GambarPerKolom };
+
 export type SheetParseResult = {
-  rows: Array<{ row: number; cells: ExcelRow }>;
+  rows: BarisSheet[];
   unknownHeaders: string[];
   missingHeaders: string[];
   sheetName: string;
+  /** Gambar yang diletakkan di tempat yang tidak bisa dipakai (kolom salah, baris kosong, dll). */
+  gambarBermasalah: RowError[];
+  /** Ada gambar model "Place in Cell" (Excel 365) - tidak bisa dibaca, harus diubah jadi "Place over Cells". */
+  gambarDiDalamSel: boolean;
 };
 
 /** Baca sheet "Soal" (atau sheet pertama). Baris kosong & baris CONTOH dilewati. */
@@ -204,10 +230,40 @@ export async function readSoalSheet(buffer: Buffer): Promise<SheetParseResult> {
   for (let c = 1; c <= ws.columnCount; c++) headerCells.push(cellToString(headerRow.getCell(c).value).trim());
   const { keys, unknown, missing } = resolveHeaders(headerCells);
 
+  // Gambar yang ditempel: dikelompokkan per (baris, kolom) berdasarkan pojok kiri-atas gambar.
+  // Urutan dalam satu sel = dari atas ke bawah lalu kiri ke kanan (dipakai penanda [gambar 1], [gambar 2]).
+  const gambarPerSel = new Map<string, Array<{ order: number; buffer: Buffer }>>();
+  for (const im of ws.getImages()) {
+    const media = wb.getImage(Number(im.imageId));
+    const tl = im.range.tl as { nativeRow: number; nativeCol: number; row?: number; col?: number };
+    if (!media?.buffer) continue;
+    const key = `${tl.nativeRow + 1}:${tl.nativeCol + 1}`;
+    const list = gambarPerSel.get(key) ?? [];
+    list.push({ order: (tl.row ?? tl.nativeRow) * 1000 + (tl.col ?? tl.nativeCol), buffer: Buffer.from(media.buffer as unknown as Uint8Array) });
+    gambarPerSel.set(key, list);
+  }
+
+  const gambarBermasalah: RowError[] = [];
+  const barisAdaGambar = new Set<number>();
+  for (const key of gambarPerSel.keys()) {
+    const [r, c] = key.split(":").map(Number) as [number, number];
+    barisAdaGambar.add(r);
+    const colKey = keys[c - 1] ?? null;
+    if (r === 1) {
+      gambarBermasalah.push({ row: 1, kolom: "-", pesan: "Ada gambar di baris judul (baris 1). Letakkan gambar di baris soal (baris 2 ke bawah)." });
+    } else if (!colKey) {
+      gambarBermasalah.push({ row: r, kolom: "-", pesan: `Ada gambar di kolom yang bukan kolom soal (kolom ke-${c}). Letakkan gambar di kolom Teks Soal, Media Soal, Opsi, Pernyataan, atau Pembahasan.` });
+    } else if (!KOLOM_GAMBAR.has(colKey)) {
+      gambarBermasalah.push({ row: r, kolom: headerOf(colKey), pesan: `Kolom ${headerOf(colKey)} tidak bisa berisi gambar. Gambar hanya boleh di Teks Soal, Media Soal, Opsi A-H, Pernyataan 1-3, atau Pembahasan.` });
+    }
+  }
+
   const rows: SheetParseResult["rows"] = [];
+  const barisTerbaca = new Set<number>();
   for (let r = 2; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
     const cells: ExcelRow = {};
+    const gambar: GambarPerKolom = {};
     let anyValue = false;
     keys.forEach((key, idx) => {
       if (!key) return;
@@ -215,12 +271,30 @@ export async function readSoalSheet(buffer: Buffer): Promise<SheetParseResult> {
       // Kolom "No" saja tidak cukup untuk dianggap baris berisi (mis. nomor sudah diketik duluan).
       if (key !== "no" && text.trim() !== "") anyValue = true;
       cells[key] = text;
+      const g = gambarPerSel.get(`${r}:${idx + 1}`);
+      if (g && KOLOM_GAMBAR.has(key)) {
+        gambar[key] = g.sort((a, b) => a.order - b.order).map((x) => ({ buffer: x.buffer }));
+        anyValue = true;
+      }
     });
     if (!anyValue) continue;
     if ((cells.no ?? "").trim().toLowerCase() === PENANDA_CONTOH) continue;
-    rows.push({ row: r, cells });
+    barisTerbaca.add(r);
+    rows.push({ row: r, cells, gambar });
   }
 
-  return { rows, unknownHeaders: unknown, missingHeaders: missing, sheetName: ws.name };
-}
+  // Gambar di baris yang tidak dianggap soal (mis. baris kosong di antara soal): jangan dibuang diam-diam.
+  for (const r of barisAdaGambar) {
+    if (r === 1 || barisTerbaca.has(r)) continue;
+    const noCell = keys.findIndex((k) => k === "no");
+    const isContoh = noCell >= 0 && cellToString(ws.getRow(r).getCell(noCell + 1).value).trim().toLowerCase() === PENANDA_CONTOH;
+    if (!isContoh && !gambarBermasalah.some((e) => e.row === r)) {
+      gambarBermasalah.push({ row: r, kolom: "-", pesan: "Ada gambar di baris ini, tetapi baris ini tidak berisi soal." });
+    }
+  }
 
+  // Excel 365 "Place in Cell" menyimpan gambar di struktur lain (richData) yang tidak terbaca pustaka kami.
+  const gambarDiDalamSel = buffer.includes("xl/richData/richValueRel.xml");
+
+  return { rows, unknownHeaders: unknown, missingHeaders: missing, sheetName: ws.name, gambarBermasalah, gambarDiDalamSel };
+}

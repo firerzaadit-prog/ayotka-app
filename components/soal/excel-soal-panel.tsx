@@ -7,7 +7,7 @@ import { Alert } from "@/components/ui/alert";
 
 type ImportError = { row: number; kolom: string; pesan: string };
 type ImportResult =
-  | { tipe: "sukses"; imported: number; dilewati: Array<{ row: number; alasan: string }> }
+  | { tipe: "sukses"; imported: number; dilewati: Array<{ row: number; alasan: string }>; gambar: number }
   | { tipe: "gagal"; pesan: string; errors: ImportError[]; totalErrors?: number };
 
 /**
@@ -45,7 +45,7 @@ export function ExcelSoalPanel({ packageId, onImported }: { packageId: string; o
       });
       return;
     }
-    setHasil({ tipe: "sukses", imported: json.imported, dilewati: json.dilewati ?? [] });
+    setHasil({ tipe: "sukses", imported: json.imported, dilewati: json.dilewati ?? [], gambar: json.gambarDiunggah ?? 0 });
     if (inputRef.current) inputRef.current.value = "";
     setNamaFile(null);
     if (json.imported > 0) onImported();
@@ -57,6 +57,11 @@ export function ExcelSoalPanel({ packageId, onImported }: { packageId: string; o
       <p className="mt-1 text-xs text-slate-500">
         Unduh soal paket ini sebagai Excel untuk diedit atau dipakai ulang, atau isi template lalu unggah untuk
         memasukkan banyak soal sekaligus. Soal baru ditambahkan; soal yang sudah ada tidak diubah.
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        Gambar: tempel langsung di sel Excel (pilih <em>Place Over Cells</em>), atau tulis link Google Drive di kolom
+        Media Soal. Untuk menaruh gambar di tengah teks, tulis <code className="rounded bg-slate-100 px-1">[gambar]</code>{" "}
+        di posisinya. Panduan lengkap ada di sheet &quot;Petunjuk&quot; pada template.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -88,6 +93,7 @@ export function ExcelSoalPanel({ packageId, onImported }: { packageId: string; o
               ? `${hasil.imported} soal berhasil ditambahkan ke paket ini.`
               : "Tidak ada soal baru yang ditambahkan."}
             {hasil.dilewati.length > 0 && ` ${hasil.dilewati.length} soal dilewati karena teksnya sudah ada di paket.`}
+            {hasil.gambar > 0 && ` ${hasil.gambar} gambar disimpan.`}
           </p>
           {hasil.dilewati.length > 0 && (
             <p className="mt-1 text-xs">Baris yang dilewati: {hasil.dilewati.map((d) => d.row).join(", ")}</p>
@@ -111,7 +117,7 @@ export function ExcelSoalPanel({ packageId, onImported }: { packageId: string; o
                 <tbody>
                   {hasil.errors.map((er, i) => (
                     <tr key={i} className="border-t border-rose-100">
-                      <td className="px-2 py-1.5 font-mono">{er.row}</td>
+                      <td className="px-2 py-1.5 font-mono">{er.row || "-"}</td>
                       <td className="px-2 py-1.5">{er.kolom}</td>
                       <td className="px-2 py-1.5">{er.pesan}</td>
                     </tr>

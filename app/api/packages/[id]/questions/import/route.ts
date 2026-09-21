@@ -9,6 +9,8 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { MAKS_BARIS_IMPOR, readSoalSheet } from "@/lib/soal/excel-io";
 import { loadKompetensiForSubject } from "@/lib/soal/kompetensi-ref";
 import { normalizeTeks, rowsToQuestions } from "@/lib/soal/excel-format";
+import { resolveGambar } from "@/lib/soal/resolve-gambar";
+import { uploadImportImages } from "@/lib/supabase/storage";
 
 export const maxDuration = 60;
 
@@ -23,6 +25,10 @@ const MAKS_ERROR_DITAMPILKAN = 100;
  * kalau ada satu baris salah, tidak ada yang disimpan dan seluruh kesalahan
  * dikembalikan. Soal dengan teks yang sudah ada di paket dilewati, jadi
  * mengunggah file yang sama dua kali tidak menggandakan soal.
+ *
+ * Gambar: yang ditempel di sel Excel dan link Google Drive diubah dulu jadi URL
+ * penyimpanan sistem (lib/soal/resolve-gambar.ts). Gambar baru diunggah HANYA
+ * setelah seluruh file lolos validasi.
  */
 export async function POST(request: Request, { params }: RouteParams) {
   let user;
@@ -73,9 +79,22 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: `Maksimal ${MAKS_BARIS_IMPOR} soal per file (ada ${sheet.rows.length}). Pecah menjadi beberapa file.` }, { status: 400 });
   }
 
+  if (sheet.gambarDiDalamSel) {
+    return NextResponse.json(
+      {
+        error:
+          "File ini memakai gambar model \"Place in Cell\" (gambar di dalam sel, fitur Excel 365) yang tidak bisa dibaca. Klik kanan gambarnya > Place Over Cells / \"Letakkan di atas sel\" (atau tempel ulang lewat Insert > Pictures > Place Over Cells), lalu simpan dan unggah lagi.",
+      },
+      { status: 422 },
+    );
+  }
+
   const pkg = await prisma.package.findUniqueOrThrow({ where: { id: packageId }, select: { subjectId: true } });
   const { byKode } = await loadKompetensiForSubject(pkg.subjectId);
-  const { questions, errors } = rowsToQuestions(sheet.rows, byKode);
+
+  const gambar = await resolveGambar(sheet.rows);
+  const { questions, errors: errSoal } = rowsToQuestions(gambar.rows, byKode);
+  const errors = [...sheet.gambarBermasalah, ...gambar.errors, ...errSoal].sort((a, b) => a.row - b.row);
 
   if (errors.length > 0) {
     return NextResponse.json(
@@ -103,7 +122,21 @@ export async function POST(request: Request, { params }: RouteParams) {
   });
 
   if (baru.length === 0) {
-    return NextResponse.json({ imported: 0, dilewati, unknownHeaders: sheet.unknownHeaders });
+    return NextResponse.json({ imported: 0, dilewati, gambarDiunggah: 0, unknownHeaders: sheet.unknownHeaders });
+  }
+
+  // Unggah hanya gambar yang benar-benar dipakai soal yang akan disimpan (soal yang dilewati tidak ikut).
+  const teksBaru = baru.flatMap(({ data }) => [
+    data.teks, data.pembahasan ?? "", data.media ?? "",
+    ...data.options.map((o) => o.teks), ...data.statements.map((st) => st.teks),
+  ]);
+  const gambarDipakai = [...gambar.tertunda.values()].filter((g) => teksBaru.some((t) => t.includes(g.url)));
+  const gagalUnggah = await uploadImportImages(gambarDipakai);
+  if (gagalUnggah) {
+    return NextResponse.json(
+      { error: `Gagal menyimpan gambar ke penyimpanan (${gagalUnggah.error}). Tidak ada soal yang disimpan - coba lagi.` },
+      { status: 502 },
+    );
   }
 
   // createdAt diberi selisih 1 ms per soal: dalam satu transaksi now() sama untuk semua baris,
@@ -164,9 +197,12 @@ export async function POST(request: Request, { params }: RouteParams) {
     aksi: "create",
     entitas: "questions",
     entitasId: packageId,
-    after: { impor: "excel", jumlah: baru.length, dilewati: dilewati.length, file: file.name },
+    after: { impor: "excel", jumlah: baru.length, dilewati: dilewati.length, gambar: gambarDipakai.length, file: file.name },
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ imported: baru.length, dilewati, unknownHeaders: sheet.unknownHeaders }, { status: 201 });
+  return NextResponse.json(
+    { imported: baru.length, dilewati, gambarDiunggah: gambarDipakai.length, unknownHeaders: sheet.unknownHeaders },
+    { status: 201 },
+  );
 }

@@ -126,7 +126,7 @@ const FORMAT_ALIASES: Record<string, ParsedQuestion["format"]> = {
 const PLACEHOLDER_PACKAGE_ID = "00000000-0000-4000-8000-000000000000";
 
 const val = (row: ExcelRow, key: ColKey) => (row[key] ?? "").trim();
-const headerOf = (key: ColKey) => KOLOM_SOAL.find((c) => c.key === key)!.header;
+export const headerOf = (key: ColKey) => KOLOM_SOAL.find((c) => c.key === key)!.header;
 
 /**
  * Validasi & ubah baris-baris sheet menjadi soal siap simpan. Mengumpulkan
