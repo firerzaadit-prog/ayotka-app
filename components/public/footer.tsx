@@ -102,11 +102,11 @@ export function Footer() {
           <ul className="flex flex-col gap-4">
             <li className="flex items-start gap-3">
               <Phone className="w-5 h-5 text-[#6c7cff] shrink-0 mt-0.5" />
-              <span className="text-white/80 text-sm">(0341) 551312</span>
+              <a href="tel:+6282233532724" className="text-white/80 hover:text-white text-sm transition-colors">0822-3353-2724</a>
             </li>
             <li className="flex items-start gap-3">
               <Mail className="w-5 h-5 text-[#6c7cff] shrink-0 mt-0.5" />
-              <span className="text-white/80 text-sm">helpdesk@um.ac.id</span>
+              <a href="mailto:maletech.rg@gmail.com" className="text-white/80 hover:text-white text-sm transition-colors break-all">maletech.rg@gmail.com</a>
             </li>
             <li className="flex items-start gap-3">
               <Clock className="w-5 h-5 text-[#6c7cff] shrink-0 mt-0.5" />
@@ -120,6 +120,9 @@ export function Footer() {
         <p className="text-white/80 text-sm text-center md:text-left">
           &copy; {new Date().getFullYear()}{" "}
           <strong className="font-medium text-white">Universitas Negeri Malang</strong>. Semua hak dilindungi.
+          <span className="mt-1 block text-xs text-white/60">
+            Dikembangkan oleh Grup Riset Media Pembelajaran dan Teknologi Matematika, Departemen Matematika FMIPA UM.
+          </span>
         </p>
         <div className="flex gap-6 text-sm text-white/80">
           <a href="#" className="hover:text-white transition-colors">Kebijakan Privasi</a>

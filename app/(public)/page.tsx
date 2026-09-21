@@ -11,6 +11,7 @@ import { KerangkaAsesmenTeaser } from "@/components/public/landing/kerangka-ases
 import { Harga } from "@/components/public/landing/harga";
 import { Faq } from "@/components/public/landing/faq";
 import { Kontak } from "@/components/public/landing/kontak";
+import { HubungiKami } from "@/components/public/landing/hubungi-kami";
 
 export default function LandingPage() {
   return (
@@ -27,6 +28,7 @@ export default function LandingPage() {
       <Harga />
       <Faq />
       <Kontak />
+      <HubungiKami />
       <Footer />
     </main>
   );

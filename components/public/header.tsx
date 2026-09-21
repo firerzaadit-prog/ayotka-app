@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "/#cara-kerja", label: "Cara Kerja" },
   { href: "/#harga", label: "Harga" },
   { href: "/#faq", label: "Tanya Jawab" },
+  { href: "/#hubungi-kami", label: "Hubungi Kami" },
 ] as const;
 
 const MASUK_CLASS =
@@ -38,7 +39,7 @@ export function PublicHeader({ active }: { active?: string }) {
           <span>AyoTKA</span>
         </Link>
 
-        <nav className="hidden items-center gap-6 sm:flex">
+        <nav className="hidden items-center gap-5 lg:flex">
           {NAV_LINKS.map((link) => (
             <Link key={link.href} href={link.href} className={linkClass(link.href)}>
               {link.label}
@@ -120,7 +121,7 @@ export function PublicHeader({ active }: { active?: string }) {
           </Link>
         </nav>
 
-        <div className="flex items-center gap-2 sm:hidden">
+        <div className="flex items-center gap-2 lg:hidden">
           <Link href="/registrasi" className={DAFTAR_CLASS}>
             Daftar
           </Link>
@@ -143,7 +144,7 @@ export function PublicHeader({ active }: { active?: string }) {
       </div>
 
       {open && (
-        <nav className="mx-auto mt-3 flex max-w-6xl flex-col gap-1 border-t border-slate-100 pt-3 sm:hidden">
+        <nav className="mx-auto mt-3 flex max-w-6xl flex-col gap-1 border-t border-slate-100 pt-3 lg:hidden">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
