@@ -1,10 +1,11 @@
 "use client";
 
-import { Suspense, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { bentukKodeValid, normalizeKodeReferral } from "@/lib/registrasi/referral-format";
 
 type SchoolOption = { id: string; nama: string; npsn: string | null };
 
@@ -16,6 +17,16 @@ function RegistrasiMandiriForm() {
   const [jenjang, setJenjang] = useState<"SD" | "SMP">("SD");
   const [tingkat, setTingkat] = useState("");
   const [kodeReferral, setKodeReferral] = useState(searchParams.get("ref") ?? "");
+  // Hasil cek kode disimpan bersama kode yang dicek; ditampilkan hanya kalau masih sama dengan isian saat ini
+  // (jadi tidak perlu di-reset saat isian berubah, dan hasil lama tidak pernah menempel di kode baru).
+  const [cekKode, setCekKode] = useState<{
+    kode: string;
+    tipe: "voucher" | "siswa" | null;
+    status?: "unused" | "used" | "expired" | "void";
+    paket?: string;
+    mitra?: string;
+  } | null>(null);
+  const kodeBersih = normalizeKodeReferral(kodeReferral);
 
   const [sekolahQuery, setSekolahQuery] = useState("");
   const [sekolahHasil, setSekolahHasil] = useState<SchoolOption[]>([]);
@@ -39,6 +50,28 @@ function RegistrasiMandiriForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (!bentukKodeValid(kodeBersih)) return;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/registrasi/cek-referral?kode=${encodeURIComponent(kodeBersih)}`);
+        if (!res.ok) return;
+        const json = (await res.json()) as {
+          tipe: "voucher" | "siswa" | null;
+          status?: "unused" | "used" | "expired" | "void";
+          paket?: string;
+          mitra?: string;
+        };
+        setCekKode({ kode: kodeBersih, ...json });
+      } catch {
+        // Cek hanya bantuan; pendaftaran tetap jalan tanpa hasilnya.
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [kodeBersih]);
+
+  const hasilCek = cekKode && cekKode.kode === kodeBersih ? cekKode : null;
 
   async function handleCariSekolah(value: string) {
     setSekolahQuery(value);
@@ -226,13 +259,48 @@ function RegistrasiMandiriForm() {
       )}
 
       <div>
-        <Label htmlFor="kodeReferral">Kode referral (opsional)</Label>
+        <Label htmlFor="kodeReferral">Kode voucher mitra / kode referral (opsional)</Label>
         <Input
           id="kodeReferral"
-          placeholder="Punya kode dari teman? Isi di sini"
+          placeholder="Contoh: AB12CD34EF"
+          autoCapitalize="characters"
           value={kodeReferral}
           onChange={(e) => setKodeReferral(e.target.value)}
+          aria-describedby="kodeReferralInfo"
+          className="font-mono uppercase tracking-wider"
         />
+        <div id="kodeReferralInfo" aria-live="polite" className="mt-1.5 text-xs">
+          {hasilCek?.tipe === "voucher" && hasilCek.status === "unused" && (
+            <p className="font-medium text-emerald-700">
+              Kode voucher dikenali: {hasilCek.paket}, dari mitra {hasilCek.mitra}. Begitu daftar, akunmu langsung
+              berlangganan tanpa bayar.
+            </p>
+          )}
+          {hasilCek?.tipe === "voucher" && hasilCek.status === "used" && (
+            <p className="font-medium text-amber-700">
+              Kode voucher ini sudah dipakai. Minta kode lain ke mitramu.
+            </p>
+          )}
+          {hasilCek?.tipe === "voucher" && (hasilCek.status === "expired" || hasilCek.status === "void") && (
+            <p className="font-medium text-amber-700">
+              Kode voucher ini sudah tidak berlaku. Minta kode baru ke mitramu.
+            </p>
+          )}
+          {hasilCek?.tipe === "siswa" && (
+            <p className="font-medium text-emerald-700">Kode referral temanmu dikenali.</p>
+          )}
+          {hasilCek && hasilCek.tipe === null && (
+            <p className="font-medium text-amber-700">
+              Kode ini tidak dikenali. Periksa lagi penulisannya, atau kosongkan kolom ini kalau kamu tidak punya kode.
+            </p>
+          )}
+          <p className={`leading-relaxed text-slate-500 ${hasilCek ? "mt-1" : ""}`}>
+            Dapat kode voucher dari mitra (sekolah atau lembaga yang bekerja sama dengan AyoTKA)? Tulis kodenya di
+            sini: akunmu langsung berlangganan tanpa bayar, dan tiap kode hanya bisa dipakai satu siswa. Kode referral
+            dari temanmu juga bisa diisi di kolom ini. Kalau sudah punya akun, kode voucher bisa ditukar di menu
+            Langganan &amp; Voucher.
+          </p>
+        </div>
       </div>
 
       <Button type="submit" disabled={loading} className="w-full">

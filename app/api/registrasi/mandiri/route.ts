@@ -5,6 +5,8 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generateReadableCode } from "@/lib/utils/generate-code";
 import { generateUniqueStudentReferralCode } from "@/lib/students/create";
+import { resolveKodeReferral } from "@/lib/registrasi/referral";
+import { activateVoucher, VoucherSudahDipakaiError } from "@/lib/billing/vouchers";
 import { daftarMandiriSchema } from "@/lib/validations/registrasi";
 import { sendViaResendApi } from "@/lib/email/resend";
 
@@ -79,15 +81,30 @@ export async function POST(request: Request) {
     }
   }
 
-  // Kode referral opsional - kalau tidak ditemukan/salah ketik, daftar tetap
-  // lanjut tanpa referral (bukan alasan untuk memblokir pendaftaran).
+  // Kolom kode opsional: kode referral teman ATAU kode voucher dari mitra (satu kode per voucher).
+  // Kode yang tidak dikenali/salah ketik tidak memblokir pendaftaran (halaman pendaftaran sudah
+  // memperingatkan lewat /api/registrasi/cek-referral). Sebaliknya kode voucher yang DIKENALI tapi
+  // sudah tidak bisa dipakai ditolak dengan jelas: siswa mengira akan gratis, jangan didaftarkan
+  // diam-diam tanpa akses.
   let referredByStudentId: string | null = null;
+  let voucherUntukDiaktifkan: Extract<NonNullable<Awaited<ReturnType<typeof resolveKodeReferral>>>, { tipe: "voucher" }> | null = null;
   if (data.kodeReferral && data.kodeReferral.trim().length > 0) {
-    const referrer = await prisma.student.findUnique({
-      where: { referralCode: data.kodeReferral.trim().toUpperCase() },
-      select: { id: true },
-    });
-    referredByStudentId = referrer?.id ?? null;
+    const hasil = await resolveKodeReferral(data.kodeReferral);
+    if (hasil?.tipe === "siswa") referredByStudentId = hasil.studentId;
+    if (hasil?.tipe === "voucher") {
+      if (hasil.status !== "unused") {
+        return NextResponse.json(
+          {
+            error:
+              hasil.status === "used"
+                ? "Kode voucher ini sudah dipakai. Minta kode lain ke mitramu, atau kosongkan kolom kode untuk mendaftar tanpa voucher."
+                : "Kode voucher ini sudah tidak berlaku. Minta kode baru ke mitramu, atau kosongkan kolom kode untuk mendaftar tanpa voucher.",
+          },
+          { status: 409 },
+        );
+      }
+      voucherUntukDiaktifkan = hasil;
+    }
   }
   const newReferralCode = await generateUniqueStudentReferralCode();
 
@@ -147,11 +164,11 @@ export async function POST(request: Request) {
       throw new Error(`Gagal mengirim email verifikasi: ${emailResult.error}`);
     }
 
-    await prisma.$transaction([
-      prisma.user.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.user.create({
         data: { id: authUser.id, email: data.email, role: "siswa", status: "aktif" },
-      }),
-      prisma.student.create({
+      });
+      const siswa = await tx.student.create({
         data: {
           userId: authUser.id,
           schoolId,
@@ -166,12 +183,29 @@ export async function POST(request: Request) {
           referralCode: newReferralCode,
           referredByStudentId,
         },
-      }),
-    ]);
+      });
+      // Voucher mitra diaktifkan di transaksi yang sama dengan pembuatan siswa: kalau voucher
+      // keburu dipakai orang lain, akun ikut batal (tidak ada akun yang mengira dapat akses gratis).
+      if (voucherUntukDiaktifkan) {
+        await activateVoucher(tx, {
+          voucherId: voucherUntukDiaktifkan.voucherId,
+          planId: voucherUntukDiaktifkan.planId,
+          partnerId: voucherUntukDiaktifkan.partnerId,
+          durasiHari: voucherUntukDiaktifkan.durasiHari,
+          studentId: siswa.id,
+        });
+      }
+    });
   } catch (err) {
     await supabaseAdmin.auth.admin.deleteUser(authUser.id).catch(() => {});
     // Detail teknis (mis. respons mentah Resend) hanya ke log server, bukan ke layar siswa.
     console.error("[registrasi-mandiri] gagal membuat akun:", err);
+    if (err instanceof VoucherSudahDipakaiError) {
+      return NextResponse.json(
+        { error: "Kode voucher ini baru saja dipakai orang lain. Minta kode lain ke mitramu, lalu coba daftar lagi." },
+        { status: 409 },
+      );
+    }
     const message = err instanceof Error ? err.message : "";
     const emailGagal = message.startsWith("Gagal mengirim email verifikasi");
     return NextResponse.json(

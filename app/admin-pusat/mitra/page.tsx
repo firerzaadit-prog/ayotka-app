@@ -21,6 +21,7 @@ type Partner = {
   totalVoucher: number;
   voucherTerpakai: number;
   totalSekolahRujukan: number;
+  siswaViaKode: number;
 };
 
 type Plan = { id: string; nama: string; harga: number };
@@ -372,6 +373,7 @@ export default function MitraPage() {
                   <Th>Kode referral</Th>
                   <Th>Voucher</Th>
                   <Th>Sekolah rujukan</Th>
+                  <Th>Siswa via voucher</Th>
                 </Tr>
               </Thead>
               <tbody>
@@ -388,6 +390,7 @@ export default function MitraPage() {
                       {p.voucherTerpakai}/{p.totalVoucher} terpakai
                     </Td>
                     <Td>{p.totalSekolahRujukan}</Td>
+                    <Td>{p.siswaViaKode}</Td>
                   </Tr>
                 ))}
               </tbody>

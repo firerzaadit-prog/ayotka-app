@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { generateReadableCode } from "@/lib/utils/generate-code";
 
@@ -50,4 +51,53 @@ export async function generateVoucherBatch(params: {
       }),
     ),
   );
+}
+
+export class VoucherSudahDipakaiError extends Error {
+  constructor() {
+    super("VOUCHER_ALREADY_USED");
+    this.name = "VoucherSudahDipakaiError";
+  }
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+/**
+ * Aktifkan satu voucher untuk satu siswa (dipakai penukaran di menu Langganan DAN pendaftaran
+ * mandiri): tandai voucher terpakai, buat entitlement (tanpa invoice - siswa tidak membayar,
+ * mitra yang sudah membayar), dan catat siswa berasal dari mitra pemilik voucher.
+ * Harus dipanggil di dalam transaksi pemanggil. Kalau voucher keburu dipakai orang lain
+ * (balapan), melempar VoucherSudahDipakaiError sehingga seluruh transaksi pemanggil batal.
+ */
+export async function activateVoucher(
+  tx: Prisma.TransactionClient,
+  params: { voucherId: string; planId: string; partnerId: string; durasiHari: number | null; studentId: string },
+) {
+  const updated = await tx.voucher.updateMany({
+    where: { id: params.voucherId, status: "unused" },
+    data: { status: "used", usedByStudentId: params.studentId, usedAt: new Date() },
+  });
+  if (updated.count === 0) throw new VoucherSudahDipakaiError();
+
+  // Jangan menimpa asal yang sudah tercatat (mis. siswa yang daftar lewat kode mitra lain).
+  await tx.student.updateMany({
+    where: { id: params.studentId, referredByPartnerId: null },
+    data: { referredByPartnerId: params.partnerId },
+  });
+
+  const startsAt = new Date();
+  return tx.entitlement.create({
+    data: {
+      studentId: params.studentId,
+      planId: params.planId,
+      startsAt,
+      endsAt: addDays(startsAt, params.durasiHari ?? 30),
+      source: "voucher",
+      voucherId: params.voucherId,
+    },
+  });
 }

@@ -31,8 +31,12 @@ async function generateUniqueClaimToken(): Promise<string> {
 export async function generateUniqueStudentReferralCode(): Promise<string> {
   for (let attempt = 0; attempt < 10; attempt++) {
     const code = generateReadableCode(6);
-    const existing = await prisma.student.findUnique({ where: { referralCode: code } });
-    if (!existing) return code;
+    // Kolom kode referral di pendaftaran menerima kode siswa maupun mitra, jadi kode tidak boleh kembar antar keduanya.
+    const [siswa, mitra] = await Promise.all([
+      prisma.student.findUnique({ where: { referralCode: code } }),
+      prisma.partner.findUnique({ where: { referralCode: code } }),
+    ]);
+    if (!siswa && !mitra) return code;
   }
   throw new Error("Gagal membuat kode referral unik, coba lagi.");
 }

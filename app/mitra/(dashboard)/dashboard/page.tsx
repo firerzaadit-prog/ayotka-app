@@ -6,10 +6,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconWallet } from "@/components/ui/empty-state-icons";
-import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIBDate, formatWIB } from "@/lib/utils/datetime";
 import Link from "next/link";
 import { buttonClassName } from "@/components/ui/button";
+import { VoucherCodeList } from "@/components/mitra/voucher-code-list";
 
 function formatRupiah(n: number): string {
   return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
@@ -48,6 +48,7 @@ export default async function MitraDashboardPage() {
       orderBy: { minJumlah: "asc" },
     }),
   ]);
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://ayotka.id").replace(/\/+$/, "");
 
   const totalVoucher = vouchers.length;
   const totalTerpakai = vouchers.filter((v) => v.status === "used").length;
@@ -69,11 +70,10 @@ export default async function MitraDashboardPage() {
       />
 
       {/* Ringkasan Statistik */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total voucher" value={totalVoucher} />
-        <StatCard label="Siap dibagikan" value={totalTersedia} />
-        <StatCard label="Sudah terpakai" value={totalTerpakai} />
-        <StatCard label="Kode referral" value={partner.referralCode} />
+        <StatCard label="Belum aktif" value={totalTersedia} hint="Kode siap dibagikan ke siswa" />
+        <StatCard label="Aktif" value={totalTerpakai} hint="Kode sudah dipakai siswa" />
       </div>
 
       {/* Skema Diskon Grosir Mitra Aktif */}
@@ -148,54 +148,19 @@ export default async function MitraDashboardPage() {
         )}
       </section>
 
-      {/* Daftar Kode Akses Voucher yang Bisa Dibagikan */}
+      {/* Daftar kode voucher: satu voucher = satu kode unik = satu siswa */}
       {vouchers.length > 0 && (
-        <section className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Daftar Kode Akses Siswa</h2>
-              <p className="text-xs text-slate-500">
-                Bagikan kode akses ini kepada siswa untuk diaktivasi di menu Langganan akun siswa mereka.
-              </p>
-            </div>
-            <span className="text-xs text-slate-400">Total {vouchers.length} kode</span>
-          </div>
-
-          <TableContainer>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>Kode Akses</Th>
-                  <Th>Paket</Th>
-                  <Th>Status</Th>
-                  <Th>Tanggal Beli</Th>
-                  <Th>Status Pemakaian</Th>
-                </Tr>
-              </Thead>
-              <tbody>
-                {vouchers.map((v) => (
-                  <Tr key={v.id}>
-                    <Td>
-                      <span className="font-mono text-sm font-bold tracking-wider text-indigo-700 bg-indigo-50/70 border border-indigo-200/60 rounded px-2 py-0.5 select-all">
-                        {v.code}
-                      </span>
-                    </Td>
-                    <Td className="font-medium text-slate-900">{v.plan.nama}</Td>
-                    <Td>
-                      <Badge variant={v.status === "unused" ? "success" : v.status === "used" ? "neutral" : "warning"}>
-                        {v.status === "unused" ? "Tersedia" : v.status === "used" ? "Sudah Dipakai" : "Kedaluwarsa"}
-                      </Badge>
-                    </Td>
-                    <Td className="text-xs text-slate-500">{formatWIBDate(v.createdAt)}</Td>
-                    <Td className="text-xs text-slate-500">
-                      {v.usedAt ? `Digunakan ${formatWIB(v.usedAt)}` : "Belum diaktivasi"}
-                    </Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
-          </TableContainer>
-        </section>
+        <VoucherCodeList
+          baseUrl={baseUrl}
+          items={vouchers.map((v) => ({
+            id: v.id,
+            code: v.code,
+            paket: v.plan.nama,
+            status: v.status,
+            dibeli: formatWIBDate(v.createdAt),
+            dipakai: v.usedAt ? formatWIB(v.usedAt) : null,
+          }))}
+        />
       )}
 
       {/* Komisi Rujukan Sekolah jika ada */}

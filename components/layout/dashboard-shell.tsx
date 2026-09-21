@@ -90,7 +90,7 @@ export function DashboardShell({
         <nav className="flex-1 overflow-y-auto px-3 py-4">{nav}</nav>
       </aside>
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-md shadow-[0_1px_3px_rgba(0,0,0,0.03)] sm:px-6">
           <div className="flex items-center gap-3">
             <button

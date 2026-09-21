@@ -3,12 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { voucherRedeemSchema } from "@/lib/validations/partner";
-
-function addDays(date: Date, days: number): Date {
-  const d = new Date(date);
-  d.setDate(d.getDate() + days);
-  return d;
-}
+import { activateVoucher, VoucherSudahDipakaiError } from "@/lib/billing/vouchers";
 
 /**
  * Jalur C (Bagian 5 & 6.5 dokumen rencana): siswa mandiri menukar kode
@@ -49,32 +44,20 @@ export async function POST(request: Request) {
     );
   }
 
-  const startsAt = new Date();
-  const endsAt = voucher.plan.durasiHari ? addDays(startsAt, voucher.plan.durasiHari) : addDays(startsAt, 30);
-
-  const entitlement = await prisma.$transaction(async (tx) => {
-    const updated = await tx.voucher.updateMany({
-      where: { id: voucher.id, status: "unused" },
-      data: { status: "used", usedByStudentId: student.id, usedAt: new Date() },
-    });
-    if (updated.count === 0) {
-      throw new Error("VOUCHER_ALREADY_USED");
-    }
-
-    return tx.entitlement.create({
-      data: {
-        studentId: student.id,
-        planId: voucher.planId,
-        startsAt,
-        endsAt,
-        source: "voucher",
+  const entitlement = await prisma
+    .$transaction((tx) =>
+      activateVoucher(tx, {
         voucherId: voucher.id,
-      },
+        planId: voucher.planId,
+        partnerId: voucher.partnerId,
+        durasiHari: voucher.plan.durasiHari,
+        studentId: student.id,
+      }),
+    )
+    .catch((error) => {
+      if (error instanceof VoucherSudahDipakaiError) return null;
+      throw error;
     });
-  }).catch((error) => {
-    if (error instanceof Error && error.message === "VOUCHER_ALREADY_USED") return null;
-    throw error;
-  });
 
   if (!entitlement) {
     return NextResponse.json({ error: "Kode voucher ini sudah dipakai." }, { status: 409 });

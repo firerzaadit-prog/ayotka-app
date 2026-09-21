@@ -28,6 +28,12 @@ export async function GET() {
     _count: { _all: true },
   });
   const usedByPartner = new Map(usedCounts.map((u) => [u.partnerId, u._count._all]));
+  const siswaCounts = await prisma.student.groupBy({
+    by: ["referredByPartnerId"],
+    where: { referredByPartnerId: { not: null }, deletedAt: null },
+    _count: { _all: true },
+  });
+  const siswaByPartner = new Map(siswaCounts.map((c) => [c.referredByPartnerId, c._count._all]));
 
   return NextResponse.json({
     partners: partners.map((p) => ({
@@ -39,6 +45,7 @@ export async function GET() {
       totalVoucher: p._count.vouchers,
       voucherTerpakai: usedByPartner.get(p.id) ?? 0,
       totalSekolahRujukan: p._count.schools,
+      siswaViaKode: siswaByPartner.get(p.id) ?? 0,
     })),
   });
 }

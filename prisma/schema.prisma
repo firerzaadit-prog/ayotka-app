@@ -259,6 +259,11 @@ model Student {
   /// pertama siswa yang direferensikan, dan dibatasi jumlah maksimum per
   /// bulan per referrer (kasus tepi #4) — lihat app/api/siswa/checkout/route.ts.
   referredByStudentId String?       @map("referred_by_student_id") @db.Uuid
+  /// Kode referral MITRA yang ditulis siswa saat daftar mandiri (kolom kode
+  /// referral di halaman pendaftaran menerima kode teman ATAU kode mitra).
+  /// Hanya pencatatan asal siswa - mitra melihat jumlahnya di dashboard,
+  /// bukan identitas siswa (lihat app/mitra/(dashboard)/dashboard).
+  referredByPartnerId String?       @map("referred_by_partner_id") @db.Uuid
   /// Bagian 7.2: soal & siswa tidak boleh dihapus permanen, hanya soft delete.
   deletedAt           DateTime?     @map("deleted_at")
 
@@ -266,6 +271,7 @@ model Student {
   school            School?             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
   referredBy        Student?            @relation("StudentReferral", fields: [referredByStudentId], references: [id], onDelete: SetNull)
   referrals         Student[]           @relation("StudentReferral")
+  referredByPartner Partner?            @relation("StudentPartnerReferral", fields: [referredByPartnerId], references: [id], onDelete: SetNull)
   enrollments       StudentEnrollment[]
   attempts          Attempt[]
   invoices          Invoice[]
@@ -273,6 +279,7 @@ model Student {
   vouchersUsed      Voucher[]
   saldoTransactions SaldoTransaction[]
 
+  @@index([referredByPartnerId])
   @@map("students")
 }
 
@@ -1030,11 +1037,12 @@ model Partner {
   referralCode String   @unique @map("referral_code")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  user          User                @relation(fields: [userId], references: [id], onDelete: Restrict)
-  vouchers      Voucher[]
-  voucherOrders VoucherOrder[]
-  schools       School[]
-  commissions   PartnerCommission[]
+  user             User                @relation(fields: [userId], references: [id], onDelete: Restrict)
+  vouchers         Voucher[]
+  voucherOrders    VoucherOrder[]
+  schools          School[]
+  commissions      PartnerCommission[]
+  referredStudents Student[]           @relation("StudentPartnerReferral")
 
   @@map("partners")
 }
