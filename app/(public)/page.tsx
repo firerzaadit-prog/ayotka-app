@@ -4,7 +4,6 @@ import { Hero } from "@/components/public/landing/hero";
 import { Beda } from "@/components/public/landing/beda";
 import { CaraKerja } from "@/components/public/landing/cara-kerja";
 import { Analitik } from "@/components/public/landing/analitik";
-import { Siapa } from "@/components/public/landing/siapa";
 import { Jalur } from "@/components/public/landing/jalur";
 import { Mapel } from "@/components/public/landing/mapel";
 import { KerangkaAsesmenTeaser } from "@/components/public/landing/kerangka-asesmen-teaser";
@@ -21,7 +20,6 @@ export default function LandingPage() {
       <Beda />
       <CaraKerja />
       <Analitik />
-      <Siapa />
       <Jalur />
       <Mapel />
       <KerangkaAsesmenTeaser />
