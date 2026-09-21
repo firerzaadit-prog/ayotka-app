@@ -116,12 +116,12 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
+      <div className="max-w-6xl mx-auto pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center md:items-start gap-4">
         <p className="text-white/80 text-sm text-center md:text-left">
           &copy; {new Date().getFullYear()}{" "}
           <strong className="font-medium text-white">Universitas Negeri Malang</strong>. Semua hak dilindungi.
-          <span className="mt-1 block text-xs text-white/60">
-            Dikembangkan oleh Grup Riset Media Pembelajaran dan Teknologi Matematika, Departemen Matematika FMIPA UM.
+          <span className="mt-1.5 block max-w-md text-xs leading-relaxed text-white/70">
+            AyoTKA.id dikembangkan oleh Grup Riset Media Pembelajaran dan Teknologi Matematika, Departemen Matematika FMIPA UM.
           </span>
         </p>
         <div className="flex gap-6 text-sm text-white/80">

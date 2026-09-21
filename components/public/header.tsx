@@ -25,8 +25,8 @@ export function PublicHeader({ active }: { active?: string }) {
 
   function linkClass(href: (typeof NAV_LINKS)[number]["href"]) {
     return href === active
-      ? "text-sm font-semibold text-indigo-600"
-      : "text-sm font-medium text-slate-600 transition-colors hover:text-indigo-600";
+      ? "whitespace-nowrap text-sm font-semibold text-indigo-600"
+      : "whitespace-nowrap text-sm font-medium text-slate-600 transition-colors hover:text-indigo-600";
   }
 
   return (
