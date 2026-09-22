@@ -41,6 +41,7 @@ export default async function AdminPusatLayout({
             <SidebarLink href="/admin-pusat/taxonomy">Taxonomy</SidebarLink>
             <SidebarLink href="/admin-pusat/kisi-kisi">Kisi-kisi</SidebarLink>
             <SidebarLink href="/admin-pusat/bank-soal">Bank Soal</SidebarLink>
+            <SidebarLink href="/admin-pusat/bank-soal/impor">Impor dari soal.ayotka.id</SidebarLink>
           </SidebarSection>
 
           <SidebarSection label="Ujian">
