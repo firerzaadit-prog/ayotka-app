@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { GraduationCap, MapPin, ChevronRight, Phone, Mail, Clock } from "lucide-react";
+import Image from "next/image";
+import { MapPin, ChevronRight, Phone, Mail, Clock } from "lucide-react";
 
 export function Footer() {
   return (
@@ -8,7 +9,9 @@ export function Footer() {
         {/* Col 1 */}
         <div className="flex flex-col gap-5">
           <div className="flex items-center gap-3">
-            <GraduationCap className="w-8 h-8 text-[#6c7cff]" />
+            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white p-1">
+              <Image src="/logo-mark.png" alt="Logo AyoTKA" fill sizes="40px" className="object-contain" />
+            </div>
             <h4 className="text-2xl font-bold">AyoTKA</h4>
           </div>
           <p className="text-white/80 text-sm leading-relaxed">
@@ -117,13 +120,18 @@ export function Footer() {
       </div>
 
       <div className="max-w-6xl mx-auto pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center md:items-start gap-4">
-        <p className="text-white/80 text-sm text-center md:text-left">
-          &copy; {new Date().getFullYear()}{" "}
-          <strong className="font-medium text-white">Universitas Negeri Malang</strong>. Semua hak dilindungi.
-          <span className="mt-1.5 block max-w-md text-xs leading-relaxed text-white/70">
-            AyoTKA.id dikembangkan oleh Grup Riset Media Pembelajaran dan Teknologi Matematika, Departemen Matematika FMIPA UM.
-          </span>
-        </p>
+        <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:items-start sm:text-left">
+          <div className="relative h-10 w-[120px] shrink-0 overflow-hidden rounded-lg ring-1 ring-white/15">
+            <Image src="/maletech-rg-logo.png" alt="Maletech-RG - Mathematics Learning Media and Technology Research Group" fill sizes="120px" className="object-cover" />
+          </div>
+          <p className="text-white/80 text-sm">
+            &copy; {new Date().getFullYear()}{" "}
+            <strong className="font-medium text-white">Mathematics Learning Media And Technology Research Group</strong>. Semua hak dilindungi.
+            <span className="mt-1.5 block max-w-md text-xs leading-relaxed text-white/70">
+              AyoTKA.id dikembangkan oleh Grup Riset Media Pembelajaran dan Teknologi Matematika, Departemen Matematika FMIPA UM.
+            </span>
+          </p>
+        </div>
         <div className="flex gap-6 text-sm text-white/80">
           <a href="#" className="hover:text-white transition-colors">Kebijakan Privasi</a>
           <a href="#" className="hover:text-white transition-colors">Syarat &amp; Ketentuan</a>

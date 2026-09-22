@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ArrowUpRight, Mail, MessageCircle } from "lucide-react";
 import { Reveal } from "@/components/ui/reveal";
 import { buildWhatsAppLink } from "@/lib/utils/whatsapp";
@@ -21,7 +22,11 @@ export function HubungiKami() {
         <div>
           <h2 className="text-3xl font-bold text-balance text-slate-900 sm:text-4xl">Hubungi kami</h2>
 
-          <div className="mt-6 max-w-md">
+          <div className="relative mt-6 h-14 w-[184px] overflow-hidden rounded-xl ring-1 ring-slate-200">
+            <Image src="/maletech-rg-logo.png" alt="Maletech-RG - Mathematics Learning Media and Technology Research Group" fill sizes="184px" className="object-cover" />
+          </div>
+
+          <div className="mt-5 max-w-md">
             <p className="text-sm text-slate-500">AyoTKA.id dikembangkan oleh</p>
             <p className="mt-1.5 text-xl font-semibold leading-snug text-balance text-slate-900">
               Grup Riset Media Pembelajaran dan Teknologi Matematika
