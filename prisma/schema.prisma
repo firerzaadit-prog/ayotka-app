@@ -51,12 +51,14 @@ model User {
   schoolUsers          SchoolUser[]
   studentProfile       Student?
   partnerProfile       Partner?
-  waliKelasOf          Class[]      @relation("ClassWaliKelas")
-  createdQuestions     Question[]   @relation("QuestionCreatedBy")
-  vouchersGenerated    Voucher[]    @relation("VoucherGeneratedBy")
-  schoolSeatsActivated School[]     @relation("SchoolSeatActivatedBy")
+  waliKelasOf          Class[]           @relation("ClassWaliKelas")
+  createdQuestions     Question[]        @relation("QuestionCreatedBy")
+  vouchersGenerated    Voucher[]         @relation("VoucherGeneratedBy")
+  schoolSeatsActivated School[]          @relation("SchoolSeatActivatedBy")
   loginLogs            LoginLog[]
   auditLogs            AuditLog[]
+  taxonomyMappingsMade TaxonomyMapping[] @relation("TaxonomyMappingCreatedBy")
+  soalImportsPerformed SoalImportLog[]   @relation("SoalImportLogImportedBy")
 
   @@map("users")
 }
@@ -214,6 +216,7 @@ model Kompetensi {
   blueprintItems   BlueprintItem[]
   questions        Question[]
   competencyScores CompetencyScore[]
+  taxonomyMappings TaxonomyMapping[]
 
   @@map("kompetensi")
 }
@@ -441,13 +444,14 @@ model Package {
   /// (lihat lib/exam/ranking.ts).
   tryOutGroupId     String?        @map("try_out_group_id") @db.Uuid
 
-  subject     Subject             @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  blueprint   Blueprint?          @relation(fields: [blueprintId], references: [id], onDelete: SetNull)
-  tryOutGroup TryOutGroup?        @relation(fields: [tryOutGroupId], references: [id], onDelete: Cascade)
-  questions   Question[]
-  visibility  PackageVisibility[]
-  assignments Assignment[]
-  attempts    Attempt[]
+  subject       Subject             @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  blueprint     Blueprint?          @relation(fields: [blueprintId], references: [id], onDelete: SetNull)
+  tryOutGroup   TryOutGroup?        @relation(fields: [tryOutGroupId], references: [id], onDelete: Cascade)
+  questions     Question[]
+  visibility    PackageVisibility[]
+  assignments   Assignment[]
+  attempts      Attempt[]
+  soalImportLog SoalImportLog?
 
   @@map("packages")
 }
@@ -533,6 +537,9 @@ model Question {
   kompetensiId     String           @map("kompetensi_id") @db.Uuid
   levelBloom       LevelKognitif    @map("level_bloom")
   pembahasan       String?
+  /// Bacaan/data bersama (mis. teks bacaan Bahasa Indonesia) yang dipakai
+  /// beberapa Question sekaligus - null untuk soal yang berdiri sendiri.
+  stimulusId       String?          @map("stimulus_id") @db.Uuid
   createdBy        String           @map("created_by") @db.Uuid
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at")
@@ -543,6 +550,7 @@ model Question {
   package    Package    @relation(fields: [packageId], references: [id], onDelete: Restrict)
   kompetensi Kompetensi @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
   creator    User       @relation("QuestionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  stimulus   Stimulus?  @relation(fields: [stimulusId], references: [id], onDelete: SetNull)
 
   options        QuestionOption[]
   categories     QuestionCategory[]
@@ -755,41 +763,41 @@ model AiAnalysis {
 /// jatah analisis AI otomatis (lihat lib/ai/auto-trigger.ts). Kalau nanti
 /// ada pengaturan global lain, tambahkan kolom baru di sini, bukan baris baru.
 model AppSetting {
-  id                          String   @id @default("global")
-  aiAutoAnalysisMaxPerSubject Int      @default(3) @map("ai_auto_analysis_max_per_subject")
+  id                            String @id @default("global")
+  aiAutoAnalysisMaxPerSubject   Int    @default(3) @map("ai_auto_analysis_max_per_subject")
   /// Bagian D/G (permintaan user): harga jual satu Learning Analytics
   /// tambahan (di luar jatah plan), didebit dari saldo siswa - lihat
   /// lib/billing/saldo.ts. Admin pusat atur lewat halaman Wallet/Saldo.
-  hargaLearningAnalytics      Int      @default(7500) @map("harga_learning_analytics")
+  hargaLearningAnalytics        Int    @default(7500) @map("harga_learning_analytics")
   /// Bagian D (permintaan user): margin keuntungan per transaksi Learning
   /// Analytics tambahan — dipakai lib/billing/margin.ts saat menghitung
   /// harga jual ke siswa. Default 20% (siswa bayar 120% dari harga dasar).
   marginLearningAnalyticsPersen Int    @default(20) @map("margin_learning_analytics_persen")
 
   // Pengaturan AI (Google Gemini)
-  geminiApiKeyEncrypted        String?  @map("gemini_api_key_encrypted")
-  geminiModel                  String?  @default("gemini-3.6-flash") @map("gemini_model")
+  geminiApiKeyEncrypted String? @map("gemini_api_key_encrypted")
+  geminiModel           String? @default("gemini-3.6-flash") @map("gemini_model")
 
   // Pengaturan Midtrans Payment Gateway
-  midtransServerKeyEncrypted   String?  @map("midtrans_server_key_encrypted")
-  midtransClientKey            String?  @map("midtrans_client_key")
-  midtransIsProduction         Boolean  @default(false) @map("midtrans_is_production")
+  midtransServerKeyEncrypted String? @map("midtrans_server_key_encrypted")
+  midtransClientKey          String? @map("midtrans_client_key")
+  midtransIsProduction       Boolean @default(false) @map("midtrans_is_production")
 
   // Pengaturan Email Resend (Verifikasi Akun)
-  resendApiKeyEncrypted        String?  @map("resend_api_key_encrypted")
-  resendFromEmail              String?  @map("resend_from_email")
+  resendApiKeyEncrypted String? @map("resend_api_key_encrypted")
+  resendFromEmail       String? @map("resend_from_email")
 
   // Pengaturan Email SMTP (Billing / Notifikasi)
-  smtpHost                     String?  @map("smtp_host")
-  smtpPort                     Int?     @map("smtp_port")
-  smtpUser                     String?  @map("smtp_user")
-  smtpPassEncrypted            String?  @map("smtp_pass_encrypted")
+  smtpHost          String? @map("smtp_host")
+  smtpPort          Int?    @map("smtp_port")
+  smtpUser          String? @map("smtp_user")
+  smtpPassEncrypted String? @map("smtp_pass_encrypted")
 
   // Pengaturan Maintenance Mode
-  maintenanceMode              Boolean  @default(false) @map("maintenance_mode")
-  maintenanceBypassSecret      String?  @map("maintenance_bypass_secret")
+  maintenanceMode         Boolean @default(false) @map("maintenance_mode")
+  maintenanceBypassSecret String? @map("maintenance_bypass_secret")
 
-  updatedAt                   DateTime @updatedAt @map("updated_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
 }
@@ -1105,4 +1113,75 @@ model AuditLog {
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Grup 22: stimulus, taxonomy_mappings, soal_import_logs — dokumen "Integrasi
+// Bank Soal TKA": impor satu arah dari soal.ayotka.id, dipicu manual admin
+// pusat. Semua aditif, tidak mengubah makna kolom lama.
+// ---------------------------------------------------------------------------
+
+enum StimulusTipe {
+  teks
+  data
+}
+
+/// Bacaan atau data yang dipakai bersama oleh beberapa Question (mis. teks
+/// bacaan Bahasa Indonesia) - lihat Question.stimulusId. Tidak eksklusif
+/// untuk soal hasil impor, Question mana pun boleh mereferensikan Stimulus.
+model Stimulus {
+  id        String       @id @default(uuid()) @db.Uuid
+  tipe      StimulusTipe
+  judul     String?
+  konten    String
+  createdAt DateTime     @default(now()) @map("created_at")
+
+  questions Question[]
+
+  @@map("stimulus")
+}
+
+/// Satu baris = satu kombinasi label taksonomi sumber (elemen/subElemen/
+/// kompetensi versi soal.ayotka.id) yang sudah pernah dipetakan admin ke
+/// Kompetensi ayotka-app. Dipetakan sekali lewat dropdown di preview impor,
+/// dipakai ulang otomatis untuk paket berikutnya yang memakai label sama.
+model TaxonomyMapping {
+  id               String   @id @default(uuid()) @db.Uuid
+  /// Selalu "soal-ayotka-id" untuk saat ini - field disiapkan untuk sumber
+  /// impor lain di masa depan tanpa perlu migration baru.
+  sumber           String
+  sourceElemen     String   @map("source_elemen")
+  sourceSubElemen  String?  @map("source_sub_elemen")
+  sourceKompetensi String?  @map("source_kompetensi")
+  kompetensiId     String   @map("kompetensi_id") @db.Uuid
+  createdBy        String   @map("created_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  kompetensi Kompetensi @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
+  creator    User       @relation("TaxonomyMappingCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([sumber, sourceElemen])
+  @@map("taxonomy_mappings")
+}
+
+/// Mencatat paket sumber (soal.ayotka.id) yang sudah pernah ditarik ke
+/// ayotka-app - satu baris per proses impor. sourcePaketId SENGAJA tidak
+/// unique: admin boleh impor ulang paket yang sama secara eksplisit (Bagian
+/// 10 kasus tepi #4 dokumen Integrasi Bank Soal TKA), tiap impor ulang jadi
+/// baris + Package baru, bukan menimpa yang lama.
+model SoalImportLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  /// Id paket di database soal.ayotka.id - bukan uuid (format id mereka
+  /// sendiri), jadi disimpan sebagai string biasa.
+  sourcePaketId   String   @map("source_paket_id")
+  sourcePaketCode String   @map("source_paket_code")
+  packageId       String   @unique @map("package_id") @db.Uuid
+  importedBy      String   @map("imported_by") @db.Uuid
+  importedAt      DateTime @default(now()) @map("imported_at")
+
+  package  Package @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  importer User    @relation("SoalImportLogImportedBy", fields: [importedBy], references: [id], onDelete: Restrict)
+
+  @@index([sourcePaketId])
+  @@map("soal_import_logs")
 }
