@@ -1160,7 +1160,10 @@ model TaxonomyMapping {
   kompetensi Kompetensi @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
   creator    User       @relation("TaxonomyMappingCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
 
+  /// Jalur pencocokan Matematika (Bagian 07): elemen.
   @@index([sumber, sourceElemen])
+  /// Jalur pencocokan Bahasa Indonesia (Bagian 07): kompetensi, bukan elemen.
+  @@index([sumber, sourceKompetensi])
   @@map("taxonomy_mappings")
 }
 

@@ -45,6 +45,9 @@ ALTER TABLE "questions" ADD COLUMN "stimulus_id" UUID;
 CREATE INDEX "taxonomy_mappings_sumber_source_elemen_idx" ON "taxonomy_mappings"("sumber", "source_elemen");
 
 -- CreateIndex
+CREATE INDEX "taxonomy_mappings_sumber_source_kompetensi_idx" ON "taxonomy_mappings"("sumber", "source_kompetensi");
+
+-- CreateIndex
 CREATE INDEX "soal_import_logs_source_paket_id_idx" ON "soal_import_logs"("source_paket_id");
 
 -- CreateIndex
