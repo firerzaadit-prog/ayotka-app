@@ -1,9 +1,12 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import type { LevelKognitif, Package, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { buildImportPreview } from "./preview";
 import { translateJenjang, translateStimulusTipe } from "./format-translator";
+import { getQuestionsForPackage } from "./source-db";
+import { resolveSourceImage } from "./media";
+import { importImagePath, publicImageUrl, uploadImportImages } from "@/lib/supabase/storage";
 
 export interface ExecuteImportParams {
   sourcePaketId: string;
@@ -68,6 +71,58 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
     );
   }
 
+  // Fase 4: gambar diunduh/di-encode di sini (bukan saat preview) - persis sekali, tepat sebelum
+  // commit, dan HANYA untuk soal yang sudah lolos semua pemeriksaan lain di atas. Fetch ulang
+  // langsung ke soal.ayotka.id (bukan percaya payload dari client) sesuai prinsip yang sama
+  // dengan buildImportPreview: tidak pernah percaya data soal dari luar fungsi ini.
+  const sourceQuestions = await getQuestionsForPackage(preview.sourcePaket.id);
+  const gambarBySourceId = new Map(sourceQuestions.map((q) => [q.id, q.payload.gambar ?? null]));
+
+  type GambarTerunggah = { path: string; url: string; bytes: Buffer; mime: string };
+  const gambarUntukSoal = new Map<string, GambarTerunggah | null>();
+  const gambarUnik = new Map<string, GambarTerunggah>(); // dedupe by content hash - gambar sama dipakai berkali-kali cukup sekali diunggah
+
+  const KONKURENSI_UNDUH = 4;
+  let idxUnduh = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(KONKURENSI_UNDUH, preview.questions.length) }, async () => {
+      while (idxUnduh < preview.questions.length) {
+        const q = preview.questions[idxUnduh++]!;
+        if (blocked.some((b) => b.sourceId === q.sourceId)) continue; // sudah diblokir alasan lain, jangan tambah kerja
+        const hasil = await resolveSourceImage(gambarBySourceId.get(q.sourceId) ?? null);
+        if (hasil.status === "blocked") {
+          const existing = blocked.find((b) => b.sourceId === q.sourceId);
+          if (existing) existing.reasons.push(hasil.reason);
+          else blocked.push({ sourceId: q.sourceId, code: q.code, reasons: [hasil.reason] });
+          continue;
+        }
+        if (hasil.status === "none") {
+          gambarUntukSoal.set(q.sourceId, null);
+          continue;
+        }
+        const hash = createHash("sha256").update(hasil.bytes).digest("hex");
+        const path = importImagePath(hash, hasil.ext);
+        let entry = gambarUnik.get(path);
+        if (!entry) {
+          entry = { path, url: publicImageUrl(path), bytes: hasil.bytes, mime: hasil.mime };
+          gambarUnik.set(path, entry);
+        }
+        gambarUntukSoal.set(q.sourceId, entry);
+      }
+    }),
+  );
+  if (blocked.length > 0) {
+    throw new ImportBlockedError(blocked);
+  }
+  if (gambarUnik.size > 0) {
+    const gagalUnggah = await uploadImportImages(
+      [...gambarUnik.values()].map(({ path, bytes, mime }) => ({ path, bytes, mime })),
+    );
+    if (gagalUnggah) {
+      throw new Error(`Gagal menyimpan gambar ke penyimpanan (${gagalUnggah.error}). Tidak ada yang diimpor - coba lagi.`);
+    }
+  }
+
   const stimulusIdMap = new Map<string, string>();
   const stimulusCreates: Prisma.StimulusCreateManyInput[] = preview.stimulusList.map((s) => {
     const id = randomUUID();
@@ -89,6 +144,7 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
       packageId,
       format: q.format!,
       teks: q.teks,
+      media: gambarUntukSoal.get(q.sourceId)?.url ?? null,
       bobot: 1,
       tingkatKesulitan: q.tingkatKesulitan!,
       kompetensiId: q.taxonomyKompetensiId!,

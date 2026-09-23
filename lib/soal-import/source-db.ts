@@ -42,7 +42,10 @@ export interface SourceQuestion {
 export interface SoalPayload {
   soal_text: string;
   gambar?: {
-    tipe: "svg" | "url" | "perlu_ilustrasi";
+    // "ilustrasi_kontekstual" ditemukan di data produksi (16 soal per 2026-09-23) - tidak
+    // disebut di dokumen rencana Fase 4, jadi diperlakukan sama seperti "perlu_ilustrasi"
+    // (diblokir dengan pesan jelas) di lib/soal-import/media.ts sampai jelas maksudnya.
+    tipe: "svg" | "url" | "perlu_ilustrasi" | "ilustrasi_kontekstual";
     svg_content?: string;
     url?: string;
     deskripsi_alt: string;

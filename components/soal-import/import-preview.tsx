@@ -29,6 +29,9 @@ type PreviewQuestion = {
   taxonomyKompetensiLabel: string | null;
   levelKognitifSumber: string | null;
   levelBloom: "L1" | "L2" | "L3" | null;
+  gambarTipe: "svg" | "url" | "perlu_ilustrasi" | "ilustrasi_kontekstual" | null;
+  gambarPreviewUrl: string | null;
+  gambarAlt: string | null;
   blockedReasons: string[];
 };
 
@@ -323,6 +326,15 @@ function QuestionRow({
         <span className="text-xs text-slate-400">{question.taxonomyKompetensiLabel ?? "belum dipetakan"}</span>
       </div>
       <p className="mt-1.5 line-clamp-2 text-slate-700">{question.teks}</p>
+
+      {question.gambarPreviewUrl && (
+        // eslint-disable-next-line @next/next/no-img-element -- pratinjau memuat langsung dari soal.ayotka.id atau data-URI svg, belum jadi aset ayotka-app
+        <img
+          src={question.gambarPreviewUrl}
+          alt={question.gambarAlt ?? ""}
+          className="mt-2 max-h-32 rounded-md border border-slate-200 object-contain"
+        />
+      )}
 
       {question.blockedReasons.length > 0 && (
         <ul className="mt-1.5 list-inside list-disc text-xs text-amber-700">

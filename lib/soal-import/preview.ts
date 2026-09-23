@@ -9,6 +9,7 @@ import {
 } from "./source-db";
 import { translateBentukSoal, translateLevelKognitif, translateTingkatKesulitan } from "./format-translator";
 import { resolveTaxonomyMapping } from "./taxonomy-resolver";
+import { precheckSourceGambar, previewImageSrc } from "./media";
 import type { LevelKognitif, QuestionFormat, TingkatKesulitan } from "@prisma/client";
 
 export interface PreviewOption {
@@ -31,7 +32,11 @@ export interface PreviewQuestion {
   tingkatKesulitan: TingkatKesulitan | null;
   teks: string;
   pembahasan: string;
-  hasGambar: boolean;
+  /** null = tidak ada gambar. "perlu_ilustrasi" selalu masuk blockedReasons (lihat Fase 4). */
+  gambarTipe: "svg" | "url" | "perlu_ilustrasi" | "ilustrasi_kontekstual" | null;
+  /** Untuk ditampilkan di preview saja - url sumber langsung, atau data-URI untuk svg. Belum diunduh/disimpan. */
+  gambarPreviewUrl: string | null;
+  gambarAlt: string | null;
   opsi: PreviewOption[];
   kategoriRespons: string[];
   pernyataan: PreviewStatement[];
@@ -162,9 +167,16 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
       // lihat levelBloom di return di bawah - null berarti perlu override.
     }
 
-    const hasGambar = Boolean(q.payload.gambar);
-    if (hasGambar) {
-      blockedReasons.push("Soal ini punya gambar - penanganan media belum dibangun (Fase 4), belum bisa diimpor.");
+    // Fase 4: gambar tidak lagi memblokir impor (svg/url ditangani lib/soal-import/media.ts saat eksekusi).
+    // "perlu_ilustrasi" berarti ilustratornya sendiri belum menggambar apa pun di sumbernya - itu tetap diblokir.
+    const gambarTipe = q.payload.gambar?.tipe ?? null;
+    if (gambarTipe === "perlu_ilustrasi") {
+      blockedReasons.push("Gambar untuk soal ini belum dibuat ilustrator di soal.ayotka.id (status: perlu ilustrasi).");
+    } else if (gambarTipe === "ilustrasi_kontekstual") {
+      blockedReasons.push('Gambar bertipe "ilustrasi_kontekstual" belum didukung fitur impor.');
+    } else {
+      const masalahGambar = precheckSourceGambar(q.payload.gambar);
+      if (masalahGambar) blockedReasons.push(masalahGambar);
     }
 
     const opsi = format === "pg" || format === "pg_kompleks" ? buildOptions(q, blockedReasons) : [];
@@ -180,7 +192,9 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
       tingkatKesulitan,
       teks: q.payload.soal_text,
       pembahasan: q.payload.pembahasan,
-      hasGambar,
+      gambarTipe,
+      gambarPreviewUrl: previewImageSrc(q.payload.gambar),
+      gambarAlt: q.payload.gambar?.deskripsi_alt ?? null,
       opsi,
       kategoriRespons: q.payload.kategori_respons ?? [],
       pernyataan,
