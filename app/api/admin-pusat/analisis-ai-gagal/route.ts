@@ -23,7 +23,7 @@ export async function GET(request: Request) {
   const jalurParam = url.searchParams.get("jalur");
   const jalur = jalurParam === "A" || jalurParam === "B" ? jalurParam : undefined;
 
-  const [attempts, settings] = await Promise.all([
+  const [attempts, settings, menunggu, diproses] = await Promise.all([
     prisma.attempt.findMany({
       where: {
         aiAnalysisLastError: { not: null },
@@ -41,6 +41,12 @@ export async function GET(request: Request) {
       },
     }),
     getAiAutoAnalysisSettings(),
+    // Kedalaman antrean sekarang (lib/ai/queue-worker.ts, dipicu cron tiap
+    // menit) - visibilitas operasional penting saat lonjakan besar (mis.
+    // Try Out Nasional) supaya admin tahu antrean sedang mengular, bukan
+    // macet total.
+    prisma.attempt.count({ where: { aiAnalysisQueuedAt: { not: null }, aiAnalysisProcessingAt: null } }),
+    prisma.attempt.count({ where: { aiAnalysisProcessingAt: { not: null } } }),
   ]);
 
   return NextResponse.json({
@@ -56,6 +62,7 @@ export async function GET(request: Request) {
       error: a.aiAnalysisLastError,
     })),
     maxPerSubject: settings.aiAutoAnalysisMaxPerSubject,
+    queueStats: { menunggu, diproses },
   });
 }
 

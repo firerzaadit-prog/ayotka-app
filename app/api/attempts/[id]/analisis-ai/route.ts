@@ -135,6 +135,14 @@ export async function GET(_request: Request, { params }: RouteParams) {
   if (isProcessing(attempt.aiAnalysisProcessingAt)) {
     return noStoreJson({ status: "processing" });
   }
+  // Menunggu diproses lib/ai/queue-worker.ts (dipicu cron tiap menit) - beda
+  // dari "processing" (panggilan Gemini SEDANG berlangsung sekarang). Saat
+  // antrean panjang (mis. puncak Try Out Nasional), attempt bisa berada di
+  // status ini beberapa menit - AnalisisAiPanel menampilkan pesan berbeda
+  // dan poll lebih jarang untuk status ini (lihat komponennya).
+  if (attempt.aiAnalysisQueuedAt) {
+    return noStoreJson({ status: "queued" });
+  }
   if (attempt.aiAnalysisLastError) {
     // Teks error asli (bisa berisi detail internal/upstream Gemini) cuma
     // relevan buat admin yang punya tombol "Analisis ulang" - siswa cukup

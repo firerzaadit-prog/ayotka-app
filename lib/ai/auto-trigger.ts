@@ -1,14 +1,9 @@
 import "server-only";
-import { after } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-import { runAnalisisAi } from "@/lib/ai/analyze";
-import { tryStartProcessing, finishProcessing, setLastError } from "@/lib/ai/analysis-guard";
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota } from "@/lib/ai/auto-trigger-quota";
 import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
-import { getAiKuotaRemaining } from "@/lib/billing/plan-fitur";
-import { debitSaldoUntukAnalisis, getHargaLearningAnalytics } from "@/lib/billing/saldo";
-import type { Attempt, AnalisisSumber } from "@prisma/client";
+import type { Attempt } from "@prisma/client";
 
 /**
  * Keputusan user (menggantikan keputusan lama Tiket 5.3 "manual-only"):
@@ -21,6 +16,18 @@ import type { Attempt, AnalisisSumber } from "@prisma/client";
  * terjamin terkendali apa pun kondisi kuota attempt-nya. Tombol manual admin pusat/
  * sekolah (app/api/attempts/[id]/analisis-ai/route.ts) SENGAJA tidak lewat
  * fungsi ini - itu tetap tanpa batas seperti sebelumnya.
+ *
+ * PENTING (revisi skala Try Out Nasional): fungsi ini DULU langsung memanggil
+ * Gemini lewat after() begitu lolos semua gerbang di bawah - aman untuk
+ * puluhan/ratusan attempt selesai berdekatan, tapi kalau ribuan siswa
+ * selesai bersamaan (Try Out Nasional), itu jadi ribuan panggilan Gemini
+ * serentak tanpa kendali laju sama sekali (fire-and-forget massal). Sekarang
+ * fungsi ini HANYA menandai attempt "masuk antrean" (aiAnalysisQueuedAt) -
+ * yang benar-benar memanggil Gemini adalah lib/ai/queue-worker.ts, dipicu
+ * cron tiap menit (app/api/cron/proses-antrean-ai), dengan laju panggilan
+ * dibatasi. Semua pengecekan gerbang (jatah, free trial, dst.) tetap di sini
+ * karena murah (baca DB saja) dan supaya attempt yang jelas tidak berhak
+ * tidak usah masuk antrean sama sekali.
  *
  * Rincian Biaya AyoTKA (keputusan produk): free trial TIDAK mendapat
  * Analisis AI sama sekali - hanya skor + peta kompetensi (lihat
@@ -36,17 +43,18 @@ import type { Attempt, AnalisisSumber } from "@prisma/client";
 export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
   try {
     // Idempotent: finalizeAttempt bisa terpanggil lagi untuk attempt yang
-    // sama (mis. race lazy-expiry-check) - jangan proses dobel kalau sudah
-    // ada hasil analisisnya.
+    // sama (mis. race lazy-expiry-check) - jangan masuk antrean dobel kalau
+    // sudah ada hasil analisisnya (atau sudah di antrean/diproses).
     const existing = await prisma.aiAnalysis.findUnique({
       where: { attemptId: attempt.id },
       select: { attemptId: true },
     });
     if (existing) return;
+    if (attempt.aiAnalysisQueuedAt || attempt.aiAnalysisProcessingAt) return;
 
     const pkg = await prisma.package.findUnique({
       where: { id: attempt.packageId },
-      select: { subjectId: true, jenisPaket: true, kategori: true, nama: true, subject: { select: { nama: true } } },
+      select: { subjectId: true, jenisPaket: true },
     });
     if (!pkg) return;
 
@@ -75,74 +83,14 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
       return;
     }
 
-    if (!(await tryStartProcessing(attempt.id))) return;
-
-    after(async () => {
-      try {
-        // Re-check quota di dalam after() sebagai authoritative check - mengatasi
-        // race condition di Vercel multi-instance: dua instance bisa sama-sama lolos
-        // optimistic check di luar (usedCount dihitung sebelum instance lain selesai
-        // tulis aiAutoAnalysisAt). Check ulang di sini mempersempit window race
-        // dari "antara check dan after()" menjadi "antara dua after() callback",
-        // yang jauh lebih kecil dan hanya terjadi kalau dua attempt selesai
-        // dalam waktu hampir bersamaan untuk siswa+mapel yang sama.
-        const freshCount = await prisma.attempt.count({
-          where: {
-            studentId: attempt.studentId,
-            aiAutoAnalysisAt: { not: null },
-            package: { subjectId: pkg.subjectId },
-          },
-        });
-        if (hasReachedAutoAnalysisQuota(freshCount, settings.aiAutoAnalysisMaxPerSubject)) {
-          console.log(
-            `[auto-trigger] quota terlampaui saat re-check (race condition), skip attempt ${attempt.id}`,
-          );
-          return; // finally block akan memanggil finishProcessing
-        }
-
-        // Bagian D/G (permintaan user): tentukan SUMBER pendanaan (jatah
-        // plan atau saldo) TEPAT DI SINI - baris terakhir sebelum benar-benar
-        // memanggil Gemini - supaya kalau gerbang di atas (jatah global,
-        // tryStartProcessing) membatalkan proses, saldo siswa TIDAK pernah
-        // terlanjur didebit untuk analisis yang ternyata tidak jadi jalan.
-        // Try Out Nasional selalu dibundel (sumber "kuota", tidak pernah
-        // didebit) - lihat lib/billing/plan-fitur.ts.
-        let sumber: AnalisisSumber = "kuota";
-        if (pkg.kategori !== "nasional") {
-          const kuota = await getAiKuotaRemaining(attempt.studentId, pkg.subjectId);
-          if (kuota && kuota.sisa > 0) {
-            sumber = "kuota";
-          } else {
-            const harga = await getHargaLearningAnalytics();
-            const debited = await debitSaldoUntukAnalisis({
-              studentId: attempt.studentId,
-              attemptId: attempt.id,
-              subjectNama: pkg.subject.nama,
-              harga,
-            });
-            if (!debited) {
-              // Saldo berubah sejak dicek di app/api/siswa/attempts/route.ts
-              // saat attempt dibuat (kasus langka) - jangan gagalkan
-              // finalizeAttempt, cukup lewati analisis untuk attempt ini.
-              console.warn(`[auto-trigger] saldo tidak cukup saat finalize untuk attempt ${attempt.id}, LA dilewati`);
-              return;
-            }
-            sumber = "saldo";
-          }
-        }
-
-        await runAnalisisAi(attempt, sumber);
-        await prisma.attempt.update({
-          where: { id: attempt.id },
-          data: { aiAutoAnalysisAt: new Date() },
-        });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`[auto-trigger] gagal untuk attempt ${attempt.id}:`, err);
-        await setLastError(attempt.id, message);
-      } finally {
-        await finishProcessing(attempt.id);
-      }
+    // Masuk antrean. Jatah dicek ULANG oleh queue-worker tepat sebelum
+    // memanggil Gemini (baris terakhir, sama seperti pola lama) - ini cuma
+    // gerbang optimistic di titik penyelesaian ujian, bukan keputusan akhir,
+    // karena bisa berjam-jam berlalu antara masuk antrean dan benar-benar
+    // diproses saat backlog sedang panjang.
+    await prisma.attempt.update({
+      where: { id: attempt.id },
+      data: { aiAnalysisQueuedAt: new Date(), aiAnalysisLastError: null },
     });
   } catch (err) {
     // Jaring pengaman: kegagalan di pengecekan jatah/pemicu ini sendiri

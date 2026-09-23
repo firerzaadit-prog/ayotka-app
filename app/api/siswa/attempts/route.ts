@@ -34,8 +34,10 @@ function accessDeniedResponse(access: Extract<AccessCheckResult, { allowed: fals
   return NextResponse.json({ error: quotaRequiredMessage, code: "QUOTA_REQUIRED" }, { status: 402 });
 }
 
-// POST handler memanggil finalizeAttempt (saat expired) yang memicu AI via after().
-export const maxDuration = 300;
+// POST handler bisa memanggil finalizeAttempt (saat expired) - skoring
+// beberapa puluh soal, bukan lagi menunggu Gemini di sini (lihat catatan di
+// app/api/siswa/attempts/[id]/submit/route.ts).
+export const maxDuration = 60;
 
 const startAttemptSchema = z
   .object({

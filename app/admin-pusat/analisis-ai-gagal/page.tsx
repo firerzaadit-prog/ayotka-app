@@ -44,6 +44,7 @@ export default function AnalisisAiGagalPage() {
   const [attempts, setAttempts] = useState<FailedAttempt[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [maxPerSubject, setMaxPerSubject] = useState<number | null>(null);
+  const [queueStats, setQueueStats] = useState<{ menunggu: number; diproses: number } | null>(null);
   const [maxInput, setMaxInput] = useState("");
   const [savingMax, setSavingMax] = useState(false);
   const [filterJalur, setFilterJalur] = useState("");
@@ -64,6 +65,7 @@ export default function AnalisisAiGagalPage() {
         setAttempts(data.attempts ?? []);
         setMaxPerSubject(data.maxPerSubject);
         setMaxInput(String(data.maxPerSubject));
+        setQueueStats(data.queueStats ?? null);
       } else {
         setError(data?.error ?? "Gagal memuat data.");
       }
@@ -72,6 +74,14 @@ export default function AnalisisAiGagalPage() {
       ignore = true;
     };
   }, [filterJalur, refreshKey]);
+
+  // Kedalaman antrean berubah tiap menit (cron lib/ai/queue-worker.ts) -
+  // auto-refresh ringan supaya admin bisa memantau antrean mengalir/mengular
+  // saat lonjakan besar tanpa harus reload manual berulang-ulang.
+  useEffect(() => {
+    const timer = setInterval(() => setRefreshKey((k) => k + 1), 15000);
+    return () => clearInterval(timer);
+  }, []);
 
   async function handleSaveMax() {
     const parsed = Number(maxInput);
@@ -115,6 +125,19 @@ export default function AnalisisAiGagalPage() {
         title="Daftar Analisis AI Gagal"
         description="Attempt yang analisis AI-nya gagal diproses, lintas semua sekolah. Klik Analisis ulang untuk memproses ulang - tombol ini tidak dibatasi jatah."
       />
+
+      {queueStats && (
+        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+          <Card className="!p-4">
+            <p className="text-xs font-medium text-slate-500">Menunggu di antrean</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{queueStats.menunggu}</p>
+          </Card>
+          <Card className="!p-4">
+            <p className="text-xs font-medium text-slate-500">Sedang diproses</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{queueStats.diproses}</p>
+          </Card>
+        </div>
+      )}
 
       <Card className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>

@@ -20,12 +20,19 @@ import { prisma } from "@/lib/db/prisma";
  * diam balik ke "belum dianalisis" tanpa penjelasan.
  *
  * tryStartProcessing pakai SATU UPDATE...WHERE atomik (bukan baca-lalu-
- * tulis terpisah) supaya aman dari race dua klik/trigger bersamaan.
+ * tulis terpisah) supaya aman dari race dua klik/trigger bersamaan - juga
+ * dipakai lib/ai/queue-worker.ts untuk mengklaim item antrean satu-satu,
+ * aman dari dua invocation cron yang tumpang tindih (lihat file itu).
  * isProcessing sengaja fungsi murni (bukan query DB terpisah) - pemanggil
  * di app/api/attempts/[id]/analisis-ai/route.ts sudah men-fetch attempt-nya
  * sendiri, jadi field aiAnalysisProcessingAt tinggal dibaca dari situ.
+ *
+ * STALE_MS diekspor supaya lib/ai/queue-worker.ts pakai ambang yang PERSIS
+ * sama saat memilih kandidat "macet dari run sebelumnya" - dua tempat baca
+ * definisi stale yang berbeda akan bikin perilaku pengambilan-alih tidak
+ * konsisten.
  */
-const STALE_MS = 5 * 60_000;
+export const STALE_MS = 5 * 60_000;
 
 export async function tryStartProcessing(attemptId: string): Promise<boolean> {
   const staleThreshold = new Date(Date.now() - STALE_MS);
@@ -34,7 +41,10 @@ export async function tryStartProcessing(attemptId: string): Promise<boolean> {
       id: attemptId,
       OR: [{ aiAnalysisProcessingAt: null }, { aiAnalysisProcessingAt: { lt: staleThreshold } }],
     },
-    data: { aiAnalysisProcessingAt: new Date(), aiAnalysisLastError: null },
+    // aiAnalysisQueuedAt dikosongkan bersamaan - begitu diklaim untuk diproses,
+    // item ini tidak lagi dianggap "masih menunggu di antrean" (lihat status
+    // GET /api/attempts/[id]/analisis-ai dan hitungan antrean admin).
+    data: { aiAnalysisProcessingAt: new Date(), aiAnalysisQueuedAt: null, aiAnalysisLastError: null },
   });
   return result.count > 0;
 }
@@ -42,7 +52,7 @@ export async function tryStartProcessing(attemptId: string): Promise<boolean> {
 export async function finishProcessing(attemptId: string): Promise<void> {
   await prisma.attempt.updateMany({
     where: { id: attemptId },
-    data: { aiAnalysisProcessingAt: null },
+    data: { aiAnalysisProcessingAt: null, aiAnalysisQueuedAt: null },
   });
 }
 

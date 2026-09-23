@@ -17,12 +17,22 @@ type AnalisisAi = {
 
 type StatusResponse =
   | { status: "none" }
+  | { status: "queued" }
   | { status: "processing" }
   | { status: "ready"; analysis: AnalisisAi; generatedAt: string; outdated: boolean }
   | { status: "error"; error: string };
 
-const POLL_MS = 5000;
-const MAX_POLLS = 24; // ~2 menit (10s + 20s + 40s backoff internal + overhead)
+// "processing" = panggilan Gemini SEDANG berlangsung (biasanya selesai
+// dalam puluhan detik, lihat backoff di lib/ai/gemini.ts) - poll rapat.
+// "queued" = masih menunggu giliran diklaim lib/ai/queue-worker.ts, bisa
+// berlangsung beberapa MENIT saat antrean panjang (mis. puncak Try Out
+// Nasional) - poll lebih jarang supaya ribuan tab siswa yang menunggu
+// bersamaan tidak membanjiri server dengan request status tiap 5 detik.
+const POLL_MS_PROCESSING = 5000;
+const POLL_MS_QUEUED = 15000;
+// Batas total waktu tunggu sebelum berhenti polling otomatis - dihitung dari
+// waktu, bukan jumlah poll, karena interval-nya beda-beda per status di atas.
+const MAX_WAIT_MS = 45 * 60_000;
 
 /**
  * Ditampilkan bergantian selama status "processing" - progres asli tidak
@@ -56,7 +66,7 @@ const FORMAT_TANGGAL = new Intl.DateTimeFormat("id-ID", {
 export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; canTrigger: boolean }) {
   const [data, setData] = useState<StatusResponse | null>(null);
   const [pollTick, setPollTick] = useState(0);
-  const pollCountRef = useRef(0);
+  const pollStartedAtRef = useRef<number | null>(null);
   const [messageIndex, setMessageIndex] = useState(0);
 
   useEffect(() => {
@@ -77,12 +87,11 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
   }, [attemptId, pollTick]);
 
   useEffect(() => {
-    if (data?.status !== "processing") return;
-    if (pollCountRef.current >= MAX_POLLS) return;
-    const timer = setTimeout(() => {
-      pollCountRef.current += 1;
-      setPollTick((t) => t + 1);
-    }, POLL_MS);
+    if (data?.status !== "processing" && data?.status !== "queued") return;
+    if (pollStartedAtRef.current === null) pollStartedAtRef.current = Date.now();
+    if (Date.now() - pollStartedAtRef.current >= MAX_WAIT_MS) return;
+    const intervalMs = data.status === "queued" ? POLL_MS_QUEUED : POLL_MS_PROCESSING;
+    const timer = setTimeout(() => setPollTick((t) => t + 1), intervalMs);
     return () => clearTimeout(timer);
   }, [data]);
 
@@ -118,7 +127,7 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
   }, []);
 
   async function handleTrigger() {
-    pollCountRef.current = 0;
+    pollStartedAtRef.current = null;
     setMessageIndex(0);
     setData({ status: "processing" });
     const res = await fetch(`/api/attempts/${attemptId}/analisis-ai`, { method: "POST" });
@@ -159,6 +168,21 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
             ? "Belum dianalisis - klik tombol untuk mulai."
             : "Analisis AI belum dilakukan oleh admin pusat."}
         </p>
+      )}
+      {data.status === "queued" && (
+        <div className="flex items-center gap-4 py-1">
+          <div className="ai-processing-icon" aria-hidden="true">
+            <div className="ai-processing-icon__glow" />
+            <div className="ai-processing-icon__ring" />
+            <div className="ai-processing-icon__core" />
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <p className="text-sm font-medium text-slate-700">Menunggu giliran diproses...</p>
+            <p className="text-xs text-slate-400">
+              Sedang ramai, hasil akan muncul otomatis di halaman ini begitu selesai.
+            </p>
+          </div>
+        </div>
       )}
       {data.status === "processing" && (
         <div className="flex items-center gap-4 py-1">

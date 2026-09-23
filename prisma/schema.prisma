@@ -663,6 +663,15 @@ model Attempt {
   /// (dulu Set/Map in-memory di lib/ai/analysis-guard.ts), alasan sama.
   aiAnalysisProcessingAt DateTime?     @map("ai_analysis_processing_at")
   aiAnalysisLastError    String?       @map("ai_analysis_last_error")
+  /// Diisi triggerAutoAnalysis saat attempt masuk antrean (belum tentu
+  /// langsung diproses) - dikosongkan lagi begitu tryStartProcessing berhasil
+  /// mengklaimnya (lihat lib/ai/analysis-guard.ts & lib/ai/queue-worker.ts).
+  /// Dulu attempt yang lolos jatah langsung dipanggil Gemini lewat after()
+  /// begitu ujian selesai - kalau ribuan siswa selesai bersamaan (Try Out
+  /// Nasional), itu jadi ribuan panggilan Gemini serentak tanpa kendali laju.
+  /// Sekarang cuma menandai "masuk antrean" di sini; app/api/cron/proses-antrean-ai
+  /// yang benar-benar memanggil Gemini, dengan laju dibatasi.
+  aiAnalysisQueuedAt     DateTime?     @map("ai_analysis_queued_at")
   /// Diisi HANYA saat analisis AI OTOMATIS (dipicu finalizeAttempt, bukan
   /// tombol manual admin) berhasil untuk attempt ini - dipakai menghitung
   /// jatah "maksimal N kali analisis otomatis per siswa per mata pelajaran"
