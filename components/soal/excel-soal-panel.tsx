@@ -4,6 +4,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
+import { ExcelTutorial } from "@/components/soal/excel-tutorial";
 
 type ImportError = { row: number; kolom: string; pesan: string };
 type ImportResult =
@@ -58,11 +59,8 @@ export function ExcelSoalPanel({ packageId, onImported }: { packageId: string; o
         Unduh soal paket ini sebagai Excel untuk diedit atau dipakai ulang, atau isi template lalu unggah untuk
         memasukkan banyak soal sekaligus. Soal baru ditambahkan; soal yang sudah ada tidak diubah.
       </p>
-      <p className="mt-1 text-xs text-slate-500">
-        Gambar: tempel langsung di sel Excel (pilih <em>Place Over Cells</em>), atau tulis link Google Drive di kolom
-        Media Soal. Untuk menaruh gambar di tengah teks, tulis <code className="rounded bg-slate-100 px-1">[gambar]</code>{" "}
-        di posisinya. Panduan lengkap ada di sheet &quot;Petunjuk&quot; pada template.
-      </p>
+
+      <ExcelTutorial />
 
       <div className="mt-3 flex flex-wrap gap-2">
         <a href={`/api/packages/${packageId}/questions/export`} className={buttonClassName("secondary")}>
