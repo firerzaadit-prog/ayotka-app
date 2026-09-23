@@ -39,6 +39,12 @@ function InstruksiContent() {
 
   const [info, setInfo] = useState<Info>(undefined as unknown as Info);
   const [gunakanLA, setGunakanLA] = useState(true);
+  // undefined = belum dicek, null = free trial (tidak ada entitlement aktif).
+  // Dipakai murni untuk TAMPILAN di sini - keputusan sesungguhnya (apakah
+  // Analisis AI benar-benar jalan) tetap gerbang server di
+  // app/api/siswa/attempts/route.ts, ini cuma supaya siswa free trial tidak
+  // dikira bisa checklist sesuatu yang diam-diam diabaikan server.
+  const [entitled, setEntitled] = useState<boolean | undefined>(undefined);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -60,6 +66,14 @@ function InstruksiContent() {
     })();
   }, [assignmentId, packageId, tryOutGroupId]);
 
+  useEffect(() => {
+    (async () => {
+      const res = await fetch("/api/siswa/checkout");
+      const data = await res.json().catch(() => null);
+      setEntitled(res.ok ? Boolean(data?.entitlement) : false);
+    })();
+  }, []);
+
   async function handleMulai() {
     setError(null);
     setErrorCode(null);
@@ -71,8 +85,13 @@ function InstruksiContent() {
       ? { tryOutGroupId }
       : { packageId };
 
-    // Bagian D/G: Sertakan pilihan opt-in Learning Analytics jika try out mandiri
-    if (info?.kategori !== "nasional" && info?.jenisPaket !== "latihan") {
+    // Bagian D/G: Sertakan pilihan opt-in Learning Analytics jika try out
+    // mandiri DAN siswa punya entitlement aktif - untuk free trial (entitled
+    // === false) sengaja tidak dikirim sama sekali, server toh akan
+    // mengabaikannya (lihat lib/ai/auto-trigger.ts), tapi lebih jujur di sisi
+    // klien untuk tidak "meminta" sesuatu yang UI-nya sendiri sudah bilang
+    // tidak tersedia.
+    if (info?.kategori !== "nasional" && info?.jenisPaket !== "latihan" && entitled) {
       payload.gunakanLearningAnalytics = gunakanLA;
     }
 
@@ -190,6 +209,22 @@ function InstruksiContent() {
       ) : isLatihan ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
           Paket latihan mandiri hanya menampilkan skor nilai dan peta kompetensi dasar setelah selesai dikerjakan.
+        </div>
+      ) : entitled === undefined ? (
+        <Skeleton className="h-16 rounded-xl" />
+      ) : entitled === false ? (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex flex-col text-xs">
+            <span className="font-bold text-slate-900">Analisis AI (Learning Analytics) belum tersedia</span>
+            <span className="text-slate-600 mt-1 leading-relaxed">
+              Kamu masih pakai jatah try out gratis, jadi sesi ini cuma dapat skor dan peta kompetensi dasar.
+              Berlangganan paket dulu untuk membuka laporan mendalam capaian kompetensi per subtopik &amp;
+              rekomendasi AI.
+            </span>
+            <Link href="/siswa/langganan" className="mt-2 font-semibold text-indigo-700 hover:text-indigo-800">
+              Lihat pilihan paket →
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/50 p-4">

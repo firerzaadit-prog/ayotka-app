@@ -3,6 +3,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { RankingWidget } from "@/components/dashboard/ranking-widget";
 import { VoucherRedeemCard } from "@/components/siswa/voucher-redeem-card";
+import { getCurrentUser } from "@/lib/auth/session";
+import { prisma } from "@/lib/db/prisma";
 
 const QUICK_LINKS = [
   {
@@ -79,7 +81,20 @@ const QUICK_LINKS = [
   },
 ];
 
-export default function SiswaDashboardPage() {
+export default async function SiswaDashboardPage() {
+  // Jalur A (siswa sekolah): akses try out sudah ditanggung sekolah lewat
+  // admin pusat/admin sekolah, jadi kartu tukar voucher mitra tidak relevan
+  // di sini juga - sama seperti sudah dihapus dari halaman Langganan &
+  // Voucher untuk jalur ini (lihat app/siswa/langganan/page.tsx). Default
+  // ke MENAMPILKAN kalau data siswa/jalur gagal dimuat, konsisten dengan
+  // perilaku lama (selalu tampil) daripada diam-diam menyembunyikan sesuatu
+  // yang mungkin relevan.
+  const user = await getCurrentUser();
+  const student = user
+    ? await prisma.student.findFirst({ where: { userId: user.id }, select: { jalur: true } })
+    : null;
+  const tampilkanVoucher = student?.jalur !== "A";
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Dashboard Siswa" description="Selamat datang kembali di AyoTKA." />
@@ -107,7 +122,7 @@ export default function SiswaDashboardPage() {
         ))}
       </div>
 
-      <VoucherRedeemCard />
+      {tampilkanVoucher && <VoucherRedeemCard />}
 
       <RankingWidget />
     </div>

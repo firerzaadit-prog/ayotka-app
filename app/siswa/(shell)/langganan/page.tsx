@@ -112,8 +112,6 @@ export default function LanggananSiswaPage() {
           </p>
         </Card>
 
-        <VoucherRedeemCard onSuccess={refreshData} />
-
         <Card>
           <p className="text-sm text-slate-500">Kode referral kamu</p>
           <p className="mt-1 text-sm text-slate-600">
