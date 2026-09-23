@@ -14,7 +14,7 @@ import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
-type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; tingkat: number };
+type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; tingkatList: number[] };
 type PackageListItem = {
   id: string;
   nama: string;
@@ -251,7 +251,7 @@ export function PackageList({ basePath }: { basePath: string }) {
               >
                 <option value="">Tanpa kisi-kisi</option>
                 {blueprints
-                  .filter((b) => b.jenjang === form.jenjang && form.tingkatList.includes(b.tingkat))
+                  .filter((b) => b.jenjang === form.jenjang && b.tingkatList.some((t) => form.tingkatList.includes(t)))
                   .map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.nama}

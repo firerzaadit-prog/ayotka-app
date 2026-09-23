@@ -309,12 +309,15 @@ model StudentEnrollment {
 // ---------------------------------------------------------------------------
 
 model Blueprint {
-  id        String  @id @default(uuid()) @db.Uuid
-  subjectId String  @map("subject_id") @db.Uuid
-  jenjang   Jenjang
-  tingkat   Int
-  nama      String
-  totalSoal Int     @map("total_soal")
+  id          String  @id @default(uuid()) @db.Uuid
+  subjectId   String  @map("subject_id") @db.Uuid
+  jenjang     Jenjang
+  /// Bisa lebih dari satu tingkat (mis. kisi-kisi yang sama dipakai kelas 7 & 8
+  /// sekaligus) - sama pola dengan Package.tingkatList. Dulu kolom "tingkat"
+  /// Int tunggal.
+  tingkatList Int[]   @map("tingkat_list")
+  nama        String
+  totalSoal   Int     @map("total_soal")
 
   subject  Subject         @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   items    BlueprintItem[]

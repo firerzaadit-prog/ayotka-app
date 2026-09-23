@@ -12,10 +12,12 @@ type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type BlueprintListItem = {
   id: string;
   nama: string;
-  tingkat: number;
+  tingkatList: number[];
   totalSoal: number;
   _count: { items: number };
 };
+
+const TINGKAT_OPTIONS = [4, 5, 6, 7, 8, 9];
 
 export default function KisiKisiSubjectPage({
   params,
@@ -27,7 +29,7 @@ export default function KisiKisiSubjectPage({
   const [blueprints, setBlueprints] = useState<BlueprintListItem[] | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [nama, setNama] = useState("");
-  const [tingkat, setTingkat] = useState("");
+  const [tingkatList, setTingkatList] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -62,7 +64,7 @@ export default function KisiKisiSubjectPage({
     const res = await fetch("/api/blueprints", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subjectId, jenjang: subject.jenjang, tingkat, nama }),
+      body: JSON.stringify({ subjectId, jenjang: subject.jenjang, tingkatList, nama }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -73,7 +75,7 @@ export default function KisiKisiSubjectPage({
     }
 
     setNama("");
-    setTingkat("");
+    setTingkatList([]);
     setShowForm(false);
     setRefreshKey((k) => k + 1);
   }
@@ -100,16 +102,26 @@ export default function KisiKisiSubjectPage({
           {error && (
             <p className="w-full rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
           )}
-          <div className="w-24">
-            <label className="mb-1 block text-sm font-medium text-slate-700">Tingkat</label>
-            <Input
-              type="number"
-              min={1}
-              max={12}
-              required
-              value={tingkat}
-              onChange={(e) => setTingkat(e.target.value)}
-            />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Tingkat kelas</label>
+            <div className="flex flex-wrap gap-3 pt-1">
+              {TINGKAT_OPTIONS.map((t) => (
+                <label key={t} className="flex items-center gap-1.5 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={tingkatList.includes(t)}
+                    onChange={(e) =>
+                      setTingkatList((prev) =>
+                        e.target.checked ? [...prev, t] : prev.filter((v) => v !== t),
+                      )
+                    }
+                    className="accent-indigo-600"
+                  />
+                  {t}
+                </label>
+              ))}
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Bisa pilih lebih dari satu kalau kisi-kisi ini dipakai lintas tingkat.</p>
           </div>
           <div className="flex-1">
             <label className="mb-1 block text-sm font-medium text-slate-700">Nama kisi-kisi</label>
@@ -120,7 +132,7 @@ export default function KisiKisiSubjectPage({
               onChange={(e) => setNama(e.target.value)}
             />
           </div>
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting || tingkatList.length === 0}>
             {submitting ? "Menyimpan..." : "Simpan"}
           </Button>
         </form>
@@ -159,7 +171,7 @@ export default function KisiKisiSubjectPage({
                       {bp.nama}
                     </Link>
                   </td>
-                  <td className="px-4 py-2">{bp.tingkat}</td>
+                  <td className="px-4 py-2">{bp.tingkatList.join(", ")}</td>
                   <td className="px-4 py-2">{bp.totalSoal}</td>
                   <td className="px-4 py-2">{bp._count.items}</td>
                 </tr>

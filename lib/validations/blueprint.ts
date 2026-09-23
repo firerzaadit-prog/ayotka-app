@@ -3,7 +3,7 @@ import { z } from "zod";
 export const blueprintCreateSchema = z.object({
   subjectId: z.string().uuid(),
   jenjang: z.enum(["SD", "SMP"]),
-  tingkat: z.coerce.number().int().min(1).max(12),
+  tingkatList: z.array(z.coerce.number().int().min(1).max(12)).min(1, "Pilih minimal satu tingkat kelas"),
   nama: z.string().trim().min(3, "Nama kisi-kisi minimal 3 karakter"),
 });
 

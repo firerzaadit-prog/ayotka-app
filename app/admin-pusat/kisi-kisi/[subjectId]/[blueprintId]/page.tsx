@@ -26,7 +26,7 @@ type BlueprintItem = {
 type BlueprintDetail = {
   id: string;
   nama: string;
-  tingkat: number;
+  tingkatList: number[];
   totalSoal: number;
   subject: { id: string; nama: string };
   items: BlueprintItem[];
@@ -91,7 +91,7 @@ export default function BlueprintDetailPage({
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-900">{blueprint.nama}</h1>
         <p className="text-sm text-slate-500">
-          {blueprint.subject.nama} · Tingkat {blueprint.tingkat} · Total {blueprint.totalSoal} soal
+          {blueprint.subject.nama} · Tingkat {blueprint.tingkatList.join(", ")} · Total {blueprint.totalSoal} soal
           ditarget
         </p>
       </div>
