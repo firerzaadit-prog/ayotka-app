@@ -45,6 +45,8 @@ export default function AnalisisAiGagalPage() {
   const [error, setError] = useState<string | null>(null);
   const [maxPerSubject, setMaxPerSubject] = useState<number | null>(null);
   const [queueStats, setQueueStats] = useState<{ menunggu: number; diproses: number } | null>(null);
+  const [mode, setMode] = useState<"langsung" | "antrean" | null>(null);
+  const [savingMode, setSavingMode] = useState(false);
   const [maxInput, setMaxInput] = useState("");
   const [savingMax, setSavingMax] = useState(false);
   const [filterJalur, setFilterJalur] = useState("");
@@ -66,6 +68,7 @@ export default function AnalisisAiGagalPage() {
         setMaxPerSubject(data.maxPerSubject);
         setMaxInput(String(data.maxPerSubject));
         setQueueStats(data.queueStats ?? null);
+        setMode(data.mode ?? "langsung");
       } else {
         setError(data?.error ?? "Gagal memuat data.");
       }
@@ -106,6 +109,28 @@ export default function AnalisisAiGagalPage() {
     }
   }
 
+  async function handleGantiMode(baru: "langsung" | "antrean") {
+    if (baru === mode) return;
+    setSavingMode(true);
+    const res = await fetch("/api/admin-pusat/analisis-ai-gagal", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: baru }),
+    });
+    const data = await res.json().catch(() => null);
+    setSavingMode(false);
+    if (res.ok) {
+      setMode(data.mode);
+      toast.success(
+        data.mode === "antrean"
+          ? "Mode antrean diaktifkan - pastikan cron per menit & CRON_SECRET sudah aktif."
+          : "Mode langsung diaktifkan - Analisis AI diproses begitu ujian selesai.",
+      );
+    } else {
+      toast.error(data?.error ?? "Gagal mengubah mode.");
+    }
+  }
+
   async function handleRetry(id: string) {
     setRetryingId(id);
     const res = await fetch(`/api/attempts/${id}/analisis-ai`, { method: "POST" });
@@ -125,6 +150,55 @@ export default function AnalisisAiGagalPage() {
         title="Daftar Analisis AI Gagal"
         description="Attempt yang analisis AI-nya gagal diproses, lintas semua sekolah. Klik Analisis ulang untuk memproses ulang - tombol ini tidak dibatasi jatah."
       />
+
+      {mode && (
+        <Card className="flex flex-col gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Cara Memproses Analisis AI Otomatis</p>
+            <p className="mt-0.5 max-w-2xl text-sm text-slate-500">
+              Menentukan kapan Gemini dipanggil setelah siswa selesai ujian.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {(
+              [
+                {
+                  nilai: "langsung",
+                  judul: "Langsung (default)",
+                  isi: "Diproses begitu ujian selesai, hasil keluar dalam sekitar satu menit. Cocok untuk trafik normal dan plan Vercel Hobby.",
+                },
+                {
+                  nilai: "antrean",
+                  judul: "Antrean berlaju terkendali",
+                  isi: "Untuk lonjakan Try Out Nasional: siswa masuk antrean, cron memanggil Gemini beberapa per detik. WAJIB cron per menit (Vercel Pro) dan CRON_SECRET sudah terpasang.",
+                },
+              ] as const
+            ).map((opsi) => (
+              <label
+                key={opsi.nilai}
+                className={`flex cursor-pointer gap-3 rounded-lg border p-3 text-sm transition-colors ${
+                  mode === opsi.nilai
+                    ? "border-indigo-500 bg-indigo-50/60"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="modeAnalisis"
+                  checked={mode === opsi.nilai}
+                  disabled={savingMode}
+                  onChange={() => handleGantiMode(opsi.nilai)}
+                  className="mt-1 accent-indigo-600"
+                />
+                <span>
+                  <span className="block font-semibold text-slate-900">{opsi.judul}</span>
+                  <span className="mt-0.5 block text-slate-600">{opsi.isi}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {queueStats && (
         <div className="grid grid-cols-2 gap-3 sm:max-w-md">

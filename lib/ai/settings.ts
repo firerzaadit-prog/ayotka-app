@@ -24,6 +24,15 @@ export async function setAiAutoAnalysisMaxPerSubject(max: number) {
   });
 }
 
+/** "langsung" atau "antrean" - lihat AppSetting.aiAnalysisMode & lib/ai/auto-trigger.ts. */
+export async function setAiAnalysisMode(mode: "langsung" | "antrean") {
+  return prisma.appSetting.upsert({
+    where: { id: SETTINGS_ID },
+    create: { id: SETTINGS_ID, aiAnalysisMode: mode },
+    update: { aiAnalysisMode: mode },
+  });
+}
+
 /** Bagian D/G (permintaan user): harga jual satu Learning Analytics tambahan, didebit dari saldo siswa. */
 export async function setHargaLearningAnalytics(harga: number) {
   return prisma.appSetting.upsert({

@@ -1,7 +1,10 @@
 import "server-only";
+import { after } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
-import { hasReachedAutoAnalysisQuota } from "@/lib/ai/auto-trigger-quota";
+import { hasReachedAutoAnalysisQuota, normalisasiModeAnalisis } from "@/lib/ai/auto-trigger-quota";
+import { tryStartProcessing, finishProcessing } from "@/lib/ai/analysis-guard";
+import { prosesSatuAnalisis } from "@/lib/ai/queue-worker";
 import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
 import type { Attempt } from "@prisma/client";
 
@@ -17,17 +20,17 @@ import type { Attempt } from "@prisma/client";
  * sekolah (app/api/attempts/[id]/analisis-ai/route.ts) SENGAJA tidak lewat
  * fungsi ini - itu tetap tanpa batas seperti sebelumnya.
  *
- * PENTING (revisi skala Try Out Nasional): fungsi ini DULU langsung memanggil
- * Gemini lewat after() begitu lolos semua gerbang di bawah - aman untuk
- * puluhan/ratusan attempt selesai berdekatan, tapi kalau ribuan siswa
- * selesai bersamaan (Try Out Nasional), itu jadi ribuan panggilan Gemini
- * serentak tanpa kendali laju sama sekali (fire-and-forget massal). Sekarang
- * fungsi ini HANYA menandai attempt "masuk antrean" (aiAnalysisQueuedAt) -
- * yang benar-benar memanggil Gemini adalah lib/ai/queue-worker.ts, dipicu
- * cron tiap menit (app/api/cron/proses-antrean-ai), dengan laju panggilan
- * dibatasi. Semua pengecekan gerbang (jatah, free trial, dst.) tetap di sini
- * karena murah (baca DB saja) dan supaya attempt yang jelas tidak berhak
- * tidak usah masuk antrean sama sekali.
+ * DUA MODE (AppSetting.aiAnalysisMode, diatur admin pusat):
+ * - "langsung" (DEFAULT): lolos semua gerbang di bawah -> Gemini dipanggil
+ *   lewat after() begitu ujian selesai. Aman untuk puluhan/ratusan attempt
+ *   berdekatan dan satu-satunya pilihan yang masuk akal di plan Vercel Hobby.
+ * - "antrean": kalau ribuan siswa selesai bersamaan (Try Out Nasional),
+ *   panggilan langsung = ribuan panggilan Gemini serentak tanpa kendali laju.
+ *   Di mode ini fungsi ini HANYA menandai attempt "masuk antrean"
+ *   (aiAnalysisQueuedAt) - yang memanggil Gemini adalah lib/ai/queue-worker.ts,
+ *   dipicu cron (app/api/cron/proses-antrean-ai) dengan laju dibatasi. Butuh
+ *   cron per menit (Vercel Pro) & CRON_SECRET, jangan dinyalakan sebelum itu.
+ * Semua pengecekan gerbang (jatah, free trial, dst.) sama di kedua mode.
  *
  * Rincian Biaya AyoTKA (keputusan produk): free trial TIDAK mendapat
  * Analisis AI sama sekali - hanya skor + peta kompetensi (lihat
@@ -83,11 +86,33 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
       return;
     }
 
-    // Masuk antrean. Jatah dicek ULANG oleh queue-worker tepat sebelum
-    // memanggil Gemini (baris terakhir, sama seperti pola lama) - ini cuma
-    // gerbang optimistic di titik penyelesaian ujian, bukan keputusan akhir,
-    // karena bisa berjam-jam berlalu antara masuk antrean dan benar-benar
-    // diproses saat backlog sedang panjang.
+    // Mode "langsung" (DEFAULT, atur admin pusat di halaman Analisis AI Gagal):
+    // proses begitu ujian selesai seperti perilaku lama - dipakai selama
+    // trafik normal atau plan Vercel Hobby (cron cuma sekali/hari, terlalu
+    // lambat untuk antrean). Klaim atomik (tryStartProcessing) dulu supaya
+    // tidak dobel, lalu jalankan di background setelah respons terkirim -
+    // jatah & sumber dana dicek ulang di dalam prosesSatuAnalisis.
+    if (normalisasiModeAnalisis(settings.aiAnalysisMode) === "langsung") {
+      if (!(await tryStartProcessing(attempt.id))) return;
+      try {
+        after(async () => {
+          await prosesSatuAnalisis(attempt.id);
+        });
+        return;
+      } catch (err) {
+        // after() cuma valid di dalam request (mis. tidak untuk skrip di luar
+        // Next). Lepas klaim & jatuh ke penandaan antrean di bawah supaya
+        // attempt tidak menggantung "sedang diproses" sampai lewat STALE_MS.
+        console.error(`[auto-trigger] after() gagal untuk attempt ${attempt.id}, dialihkan ke antrean:`, err);
+        await finishProcessing(attempt.id);
+      }
+    }
+
+    // Mode "antrean": cuma ditandai masuk antrean. Jatah dicek ULANG oleh
+    // queue-worker tepat sebelum memanggil Gemini (baris terakhir, sama
+    // seperti pola lama) - ini cuma gerbang optimistic di titik penyelesaian
+    // ujian, bukan keputusan akhir, karena bisa berjam-jam berlalu antara
+    // masuk antrean dan benar-benar diproses saat backlog sedang panjang.
     await prisma.attempt.update({
       where: { id: attempt.id },
       data: { aiAnalysisQueuedAt: new Date(), aiAnalysisLastError: null },

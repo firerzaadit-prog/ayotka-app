@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { getAiAutoAnalysisSettings, setAiAutoAnalysisMaxPerSubject } from "@/lib/ai/settings";
+import { getAiAutoAnalysisSettings, setAiAutoAnalysisMaxPerSubject, setAiAnalysisMode } from "@/lib/ai/settings";
+import { normalisasiModeAnalisis } from "@/lib/ai/auto-trigger-quota";
 import { z } from "zod";
 
 /**
@@ -62,13 +63,19 @@ export async function GET(request: Request) {
       error: a.aiAnalysisLastError,
     })),
     maxPerSubject: settings.aiAutoAnalysisMaxPerSubject,
+    mode: normalisasiModeAnalisis(settings.aiAnalysisMode),
     queueStats: { menunggu, diproses },
   });
 }
 
-const patchSchema = z.object({
-  aiAutoAnalysisMaxPerSubject: z.number().int().min(0).max(100),
-});
+const patchSchema = z
+  .object({
+    aiAutoAnalysisMaxPerSubject: z.number().int().min(0).max(100).optional(),
+    mode: z.enum(["langsung", "antrean"]).optional(),
+  })
+  .refine((d) => d.aiAutoAnalysisMaxPerSubject !== undefined || d.mode !== undefined, {
+    message: "Tidak ada perubahan yang dikirim.",
+  });
 
 /** Ubah jatah global analisis AI OTOMATIS per siswa per mata pelajaran (lib/ai/auto-trigger.ts). */
 export async function PATCH(request: Request) {
@@ -89,7 +96,13 @@ export async function PATCH(request: Request) {
   }
 
   const before = await getAiAutoAnalysisSettings();
-  const after = await setAiAutoAnalysisMaxPerSubject(parsed.data.aiAutoAnalysisMaxPerSubject);
+  let after = before;
+  if (parsed.data.aiAutoAnalysisMaxPerSubject !== undefined) {
+    after = await setAiAutoAnalysisMaxPerSubject(parsed.data.aiAutoAnalysisMaxPerSubject);
+  }
+  if (parsed.data.mode !== undefined) {
+    after = await setAiAnalysisMode(parsed.data.mode);
+  }
 
   await logAudit({
     userId: user.id,
@@ -101,5 +114,8 @@ export async function PATCH(request: Request) {
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ maxPerSubject: after.aiAutoAnalysisMaxPerSubject });
+  return NextResponse.json({
+    maxPerSubject: after.aiAutoAnalysisMaxPerSubject,
+    mode: normalisasiModeAnalisis(after.aiAnalysisMode),
+  });
 }

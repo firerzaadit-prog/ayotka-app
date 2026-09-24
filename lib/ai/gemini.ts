@@ -37,6 +37,13 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
   const client = new GoogleGenAI({ apiKey, vertexai: false });
 
   let lastError: unknown = new Error("Gagal memanggil AI.");
+  // Keluaran terstruktur (responseSchema) lebih berat bagi Gemini dan terbukti
+  // bisa terus-menerus 503 saat model padat, padahal permintaan tanpa skema
+  // tetap dilayani. Percobaan pertama memakai skema; kalau kena error server
+  // (5xx), percobaan berikutnya turun ke mode JSON biasa - prompt sudah
+  // menjelaskan 5 field-nya dan analisisSchema (Zod) di bawah tetap memvalidasi
+  // ulang, jadi kualitas/keamanan hasil tidak berkurang.
+  let pakaiSkema = true;
 
   for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
     try {
@@ -45,7 +52,7 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
         contents: prompt,
         config: {
           responseMimeType: "application/json",
-          responseSchema: geminiResponseSchema,
+          ...(pakaiSkema ? { responseSchema: geminiResponseSchema } : {}),
         },
       });
 
@@ -67,6 +74,7 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
       return result.data;
     } catch (err) {
       lastError = err;
+      if (err instanceof ApiError && err.status >= 500) pakaiSkema = false;
       if (attempt < BACKOFF_MS.length && isRetriable(err)) {
         await sleep(BACKOFF_MS[attempt]!);
         continue;

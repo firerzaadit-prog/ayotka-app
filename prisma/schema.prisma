@@ -777,6 +777,12 @@ model AiAnalysis {
 model AppSetting {
   id                            String @id @default("global")
   aiAutoAnalysisMaxPerSubject   Int    @default(3) @map("ai_auto_analysis_max_per_subject")
+  /// "langsung" (default) = Analisis AI diproses begitu ujian selesai (after(),
+  /// perilaku lama, cocok untuk trafik normal & plan Vercel Hobby). "antrean" =
+  /// cuma ditandai masuk antrean, diproses cron berlaju terkendali (lib/ai/
+  /// queue-worker.ts) - untuk lonjakan Try Out Nasional, butuh cron per menit
+  /// (Vercel Pro) & CRON_SECRET. Diatur admin pusat di halaman Analisis AI Gagal.
+  aiAnalysisMode                String @default("langsung") @map("ai_analysis_mode")
   /// Bagian D/G (permintaan user): harga jual satu Learning Analytics
   /// tambahan (di luar jatah plan), didebit dari saldo siswa - lihat
   /// lib/billing/saldo.ts. Admin pusat atur lewat halaman Wallet/Saldo.

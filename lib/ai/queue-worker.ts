@@ -37,7 +37,7 @@ export type HasilProsesAntrean = { diklaim: number; selesai: number; gagal: numb
  * Gemini - supaya kalau attempt ternyata harus dilewati, saldo siswa tidak
  * pernah terlanjur didebit.
  */
-async function processOne(attemptId: string): Promise<HasilProsesSatu> {
+export async function prosesSatuAnalisis(attemptId: string): Promise<HasilProsesSatu> {
   try {
     const attempt = await prisma.attempt.findUnique({ where: { id: attemptId } });
     if (!attempt) return "dilewati";
@@ -137,7 +137,7 @@ export async function processAiQueue(): Promise<HasilProsesAntrean> {
   hasil.diklaim = claimed.length;
 
   await runWithRateLimit(
-    claimed.map((id) => () => processOne(id)),
+    claimed.map((id) => () => prosesSatuAnalisis(id)),
     {
       intervalMs: DISPATCH_INTERVAL_MS,
       maxConcurrent: MAX_CONCURRENT,

@@ -111,6 +111,23 @@ describe("generateAnalisis retry/backoff", () => {
     expect(generateContentMock).toHaveBeenCalledTimes(4);
   });
 
+  it("kena 503 dengan responseSchema -> retry berikutnya tanpa responseSchema (mode JSON biasa)", async () => {
+    const { generateAnalisis } = await import("@/lib/ai/gemini");
+    const { ApiError } = await import("@google/genai");
+    generateContentMock
+      .mockRejectedValueOnce(new ApiError({ message: "high demand", status: 503 }))
+      .mockResolvedValueOnce({ text: JSON.stringify(validPayload) });
+
+    const promise = generateAnalisis("prompt");
+    await vi.advanceTimersByTimeAsync(10_000);
+    const result = await promise;
+
+    expect(result.ringkasan).toBe("Ringkasan.");
+    expect(generateContentMock.mock.calls[0]![0].config.responseSchema).toBeDefined();
+    expect(generateContentMock.mock.calls[1]![0].config.responseSchema).toBeUndefined();
+    expect(generateContentMock.mock.calls[1]![0].config.responseMimeType).toBe("application/json");
+  });
+
   it("tidak retry untuk error non-retriable (mis. 400 bad request)", async () => {
     const { generateAnalisis } = await import("@/lib/ai/gemini");
     const { ApiError } = await import("@google/genai");

@@ -5,13 +5,12 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { loadOwnedAttempt, sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { finalizeAttempt } from "@/lib/exam/finalize";
 
-// finalizeAttempt men-skor semua jawaban (bisa 40-50 soal) dengan batas
-// konkurensi ke database - maxDuration dilebihkan dari default sebagai jaga-
-// jaga. Analisis AI TIDAK lagi dipanggil langsung di sini (dulu via after());
-// sekarang cuma ditandai "masuk antrean" (murah, sekali update) - Gemini
-// benar-benar dipanggil lib/ai/queue-worker.ts lewat cron terpisah, lihat
-// lib/ai/auto-trigger.ts untuk alasan lengkapnya.
-export const maxDuration = 60;
+// finalizeAttempt men-skor semua jawaban dan (mode Analisis AI "langsung",
+// default) memicu Gemini via after() - limit Vercel perlu tinggi supaya
+// panggilan Gemini (bisa 30-60 detik dengan retry) tidak di-kill di tengah
+// jalan. Di mode "antrean" cuma ditandai masuk antrean; lihat
+// lib/ai/auto-trigger.ts.
+export const maxDuration = 300;
 
 type RouteParams = { params: Promise<{ id: string }> };
 
