@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendViaResendApi } from "@/lib/email/resend";
+import { kirimEmail } from "@/lib/email/kirim";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Format email tidak valid."),
@@ -124,20 +124,21 @@ export async function POST(request: NextRequest) {
     </div>
   `;
 
-  let emailSent = false;
-  if (process.env.RESEND_API_KEY) {
-    const emailResult = await sendViaResendApi({
-      to: user.email,
-      subject: `Konfirmasi Atur Ulang Password Akun ${roleLabel} AyoTKA`,
-      html: emailHtml,
-    });
-    emailSent = emailResult.ok;
-    if (!emailResult.ok) {
-      console.warn("Resend API gagal mengirim email reset password:", emailResult.error);
-    }
+  // kirimEmail: Resend dulu, Mailketing sebagai cadangan otomatis (lihat
+  // lib/email/kirim.ts). Sebelumnya dijaga `if (process.env.RESEND_API_KEY)`
+  // yang cuma membaca env - padahal kunci Resend bisa datang dari Pengaturan
+  // Sistem (database), jadi email reset tidak terkirim kalau cuma diisi di sana.
+  const emailResult = await kirimEmail({
+    to: user.email,
+    subject: `Konfirmasi Atur Ulang Password Akun ${roleLabel} AyoTKA`,
+    html: emailHtml,
+  });
+  const emailSent = emailResult.ok;
+  if (!emailResult.ok) {
+    console.warn("Gagal mengirim email reset password:", emailResult.error);
   }
 
-  // Fallback: jika Resend API key belum terpasang, coba mekanisme built-in Supabase
+  // Fallback terakhir: jika semua penyedia gagal, coba mekanisme built-in Supabase
   if (!emailSent) {
     await supabaseAdmin.auth
       .resetPasswordForEmail(user.email, {

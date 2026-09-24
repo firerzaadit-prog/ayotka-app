@@ -1,4 +1,4 @@
-import { sendViaResendApi, type SendViaResendResult } from "@/lib/email/resend";
+import { kirimEmail, type KirimEmailResult } from "@/lib/email/kirim";
 
 export type PeranKonfirmasi = "siswa" | "mitra";
 
@@ -32,7 +32,7 @@ export async function kirimEmailKonfirmasi(params: {
   tokenHash: string;
   type: "signup" | "magiclink";
   peran: PeranKonfirmasi;
-}): Promise<SendViaResendResult> {
+}): Promise<KirimEmailResult> {
   const konfig = KONFIG[params.peran];
   const confirmUrl = new URL(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`);
   confirmUrl.searchParams.set("token_hash", params.tokenHash);
@@ -40,7 +40,7 @@ export async function kirimEmailKonfirmasi(params: {
   confirmUrl.searchParams.set("next", konfig.next);
   const url = confirmUrl.toString();
 
-  return sendViaResendApi({
+  return kirimEmail({
     to: params.email,
     subject: konfig.subject,
     html: [

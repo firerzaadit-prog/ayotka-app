@@ -25,7 +25,8 @@
 export type SendViaResendInput = { to: string; subject: string; html: string };
 export type SendViaResendResult =
   | { ok: true }
-  | { ok: false; error: string; kuotaHabis: boolean };
+  /** status = kode HTTP terakhir dari Resend; undefined kalau tidak sampai (jaringan/API key kosong). */
+  | { ok: false; error: string; kuotaHabis: boolean; status?: number };
 
 type SendOptions = { retryDelaysMs?: number[] };
 
@@ -60,8 +61,10 @@ export async function sendViaResendApi(
   const delays = options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
 
   let lastError = "Gagal mengirim email.";
+  let lastStatus: number | undefined;
   for (let attempt = 0; attempt <= delays.length; attempt++) {
     let retryable = false;
+    lastStatus = undefined;
     try {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
@@ -76,7 +79,10 @@ export async function sendViaResendApi(
 
       const body = await res.text().catch(() => "");
       lastError = `Resend API error ${res.status}: ${body || res.statusText}`;
-      if (isKuotaHabis(res.status, body)) return { ok: false, error: lastError, kuotaHabis: true };
+      lastStatus = res.status;
+      if (isKuotaHabis(res.status, body)) {
+        return { ok: false, error: lastError, kuotaHabis: true, status: res.status };
+      }
       retryable = res.status === 429 || res.status >= 500;
     } catch (err) {
       lastError = `Resend tidak terjangkau: ${err instanceof Error ? err.message : String(err)}`;
@@ -87,5 +93,5 @@ export async function sendViaResendApi(
     await sleep(delays[attempt]!);
   }
 
-  return { ok: false, error: lastError, kuotaHabis: false };
+  return { ok: false, error: lastError, kuotaHabis: false, status: lastStatus };
 }
