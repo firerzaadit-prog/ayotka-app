@@ -78,7 +78,7 @@ export function Hero() {
               ))}
             </div>
             <Link
-              href="/registrasi"
+              href="#peta-kompetensi"
               className="mt-5 inline-block text-sm font-semibold text-indigo-600 hover:text-indigo-700"
             >
               Lihat peta lengkap →

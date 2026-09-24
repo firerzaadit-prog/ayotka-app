@@ -1,0 +1,16 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "components/public/landing/hero.tsx"
+        ],
+        "createdAt": "2026-09-24T14:33:17.714Z"
+      }
+    ]
+  }
+}

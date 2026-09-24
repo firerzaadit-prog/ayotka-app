@@ -6,6 +6,7 @@ import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
 import { runAnalisisAi } from "@/lib/ai/analyze";
 import { isProcessing, tryStartProcessing, finishProcessing, setLastError } from "@/lib/ai/analysis-guard";
 import { PROMPT_VERSION } from "@/lib/ai/version";
+import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
 import type { Attempt } from "@prisma/client";
 
 // Gemini API bisa butuh 30-60 detik - naikkan limit Vercel dari default 10 detik.
@@ -77,6 +78,20 @@ export async function POST(_request: Request, { params }: RouteParams) {
   if (pkg?.jenisPaket === "latihan") {
     return NextResponse.json(
       { error: "Paket ini berkategori Latihan - tidak disertai analisis AI." },
+      { status: 400 },
+    );
+  }
+
+  // Rincian Biaya AyoTKA (keputusan produk, lihat lib/ai/auto-trigger.ts):
+  // free trial TIDAK PERNAH mendapat Analisis AI, apa pun kondisinya - berlaku
+  // mutlak, bukan cuma di jalur pemicu otomatis. Tombol ini dipakai di
+  // beberapa halaman admin (Riwayat Siswa, Jadwal Ujian, monitoring ujian
+  // sekolah) yang canTrigger-nya diset per HALAMAN, bukan per attempt, jadi
+  // tanpa gerbang server-side ini admin bisa tanpa sengaja memicu biaya
+  // Gemini untuk percobaan gratis siswa hanya dengan mengklik tombolnya.
+  if (await wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt)) {
+    return NextResponse.json(
+      { error: "Percobaan gratis (free trial) tidak disertai analisis AI." },
       { status: 400 },
     );
   }
