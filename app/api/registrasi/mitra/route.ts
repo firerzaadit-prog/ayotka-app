@@ -5,7 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generateUniqueReferralCode } from "@/lib/partners/create";
 import { daftarMitraSchema } from "@/lib/validations/registrasi";
-import { sendViaResendApi } from "@/lib/email/resend";
+import { kirimEmailKonfirmasi, pesanEmailBelumTerkirim } from "@/lib/email/konfirmasi";
 
 /**
  * Bagian A (permintaan user): mitra/reseller daftar sendiri tanpa perlu
@@ -61,26 +61,6 @@ export async function POST(request: Request) {
       throw new Error(`Gagal menyiapkan akun: ${roleError.message}`);
     }
 
-    const confirmUrl = new URL(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`);
-    confirmUrl.searchParams.set("token_hash", linkData.properties.hashed_token);
-    confirmUrl.searchParams.set("type", "signup");
-    confirmUrl.searchParams.set("next", "/mitra/dashboard");
-
-    const emailResult = await sendViaResendApi({
-      to: data.email,
-      subject: "Konfirmasi akun Mitra AyoTKA kamu",
-      html: [
-        `<p>Halo ${data.nama},</p>`,
-        `<p>Terima kasih sudah mendaftar sebagai mitra AyoTKA. Klik tombol di bawah untuk mengonfirmasi akunmu:</p>`,
-        `<p><a href="${confirmUrl.toString()}" style="display:inline-block;padding:10px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px;">Konfirmasi Akun</a></p>`,
-        `<p>Atau salin tautan ini ke browser: ${confirmUrl.toString()}</p>`,
-        `<p>Kalau kamu tidak merasa mendaftar di AyoTKA, abaikan saja email ini.</p>`,
-      ].join(""),
-    });
-    if (!emailResult.ok) {
-      throw new Error(`Gagal mengirim email verifikasi: ${emailResult.error}`);
-    }
-
     await prisma.$transaction([
       prisma.user.create({
         data: { id: authUser.id, email: data.email, role: "mitra", status: "aktif" },
@@ -97,14 +77,8 @@ export async function POST(request: Request) {
   } catch (err) {
     await supabaseAdmin.auth.admin.deleteUser(authUser.id).catch(() => {});
     console.error("[registrasi-mitra] gagal membuat akun:", err);
-    const message = err instanceof Error ? err.message : "";
-    const emailGagal = message.startsWith("Gagal mengirim email verifikasi");
     return NextResponse.json(
-      {
-        error: emailGagal
-          ? "Akun belum bisa dibuat karena email verifikasi gagal terkirim. Pastikan alamat emailmu benar, lalu coba lagi. Kalau masih gagal, hubungi admin AyoTKA."
-          : "Akun belum bisa dibuat karena terjadi gangguan. Silakan coba daftar lagi sebentar lagi.",
-      },
+      { error: "Akun belum bisa dibuat karena terjadi gangguan. Silakan coba daftar lagi sebentar lagi." },
       { status: 502 },
     );
   }
@@ -118,5 +92,23 @@ export async function POST(request: Request) {
     ip,
   });
 
-  return NextResponse.json({ ok: true });
+  // Sama seperti /api/registrasi/mandiri: email dikirim setelah akun tersimpan,
+  // kegagalannya tidak menghapus akun (ada tombol kirim ulang di layar).
+  const emailResult = await kirimEmailKonfirmasi({
+    email: data.email,
+    nama: data.nama,
+    tokenHash: linkData.properties.hashed_token,
+    type: "signup",
+    peran: "mitra",
+  });
+  if (!emailResult.ok) {
+    console.error("[registrasi-mitra] akun dibuat tapi email konfirmasi gagal:", emailResult.error);
+    return NextResponse.json({
+      ok: true,
+      emailTerkirim: false,
+      pesan: pesanEmailBelumTerkirim(emailResult.kuotaHabis),
+    });
+  }
+
+  return NextResponse.json({ ok: true, emailTerkirim: true });
 }

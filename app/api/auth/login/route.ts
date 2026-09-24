@@ -53,7 +53,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "Email kamu belum dikonfirmasi. Cek kotak masuk (atau folder spam) untuk link konfirmasi yang dikirim saat mendaftar, lalu coba masuk lagi.",
+          "Email kamu belum dikonfirmasi. Cek kotak masuk (atau folder spam) untuk link konfirmasi yang dikirim saat mendaftar, lalu coba masuk lagi. Belum menerima emailnya? Kirim ulang lewat tombol di bawah.",
+        code: "EMAIL_BELUM_DIKONFIRMASI",
       },
       { status: 401 },
     );

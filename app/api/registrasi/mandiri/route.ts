@@ -8,7 +8,7 @@ import { generateUniqueStudentReferralCode } from "@/lib/students/create";
 import { resolveKodeReferral } from "@/lib/registrasi/referral";
 import { activateVoucher, VoucherSudahDipakaiError } from "@/lib/billing/vouchers";
 import { daftarMandiriSchema } from "@/lib/validations/registrasi";
-import { sendViaResendApi } from "@/lib/email/resend";
+import { kirimEmailKonfirmasi, pesanEmailBelumTerkirim } from "@/lib/email/konfirmasi";
 
 /**
  * Tiket 3.3 (Bagian 3.1 brief, Jalur B): registrasi siswa mandiri. Beda
@@ -144,26 +144,6 @@ export async function POST(request: Request) {
       throw new Error(`Gagal menyiapkan akun: ${roleError.message}`);
     }
 
-    const confirmUrl = new URL(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`);
-    confirmUrl.searchParams.set("token_hash", linkData.properties.hashed_token);
-    confirmUrl.searchParams.set("type", "signup");
-    confirmUrl.searchParams.set("next", "/siswa/dashboard");
-
-    const emailResult = await sendViaResendApi({
-      to: data.email,
-      subject: "Konfirmasi akun AyoTKA kamu",
-      html: [
-        `<p>Halo ${data.nama},</p>`,
-        `<p>Terima kasih sudah mendaftar di AyoTKA. Klik tombol di bawah untuk mengonfirmasi akunmu:</p>`,
-        `<p><a href="${confirmUrl.toString()}" style="display:inline-block;padding:10px 20px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px;">Konfirmasi Akun</a></p>`,
-        `<p>Atau salin tautan ini ke browser: ${confirmUrl.toString()}</p>`,
-        `<p>Kalau kamu tidak merasa mendaftar di AyoTKA, abaikan saja email ini.</p>`,
-      ].join(""),
-    });
-    if (!emailResult.ok) {
-      throw new Error(`Gagal mengirim email verifikasi: ${emailResult.error}`);
-    }
-
     await prisma.$transaction(async (tx) => {
       await tx.user.create({
         data: { id: authUser.id, email: data.email, role: "siswa", status: "aktif" },
@@ -206,14 +186,8 @@ export async function POST(request: Request) {
         { status: 409 },
       );
     }
-    const message = err instanceof Error ? err.message : "";
-    const emailGagal = message.startsWith("Gagal mengirim email verifikasi");
     return NextResponse.json(
-      {
-        error: emailGagal
-          ? "Akun belum bisa dibuat karena email verifikasi gagal terkirim. Pastikan alamat emailmu benar, lalu coba lagi. Kalau masih gagal, hubungi admin AyoTKA."
-          : "Akun belum bisa dibuat karena terjadi gangguan. Silakan coba daftar lagi sebentar lagi.",
-      },
+      { error: "Akun belum bisa dibuat karena terjadi gangguan. Silakan coba daftar lagi sebentar lagi." },
       { status: 502 },
     );
   }
@@ -227,5 +201,27 @@ export async function POST(request: Request) {
     ip,
   });
 
-  return NextResponse.json({ ok: true });
+  // Email dikirim SETELAH akun benar-benar tersimpan, di luar try/catch di
+  // atas: kegagalan email (kuota Resend habis, gangguan sesaat) TIDAK boleh
+  // menghapus akun yang sudah jadi - dulu itu bikin pendaftar dituduh salah
+  // ketik email lalu kehilangan akunnya. Sekarang akun tetap ada dan siswa
+  // diberi tombol "Kirim ulang email konfirmasi" (lihat
+  // app/api/auth/kirim-ulang-konfirmasi).
+  const emailResult = await kirimEmailKonfirmasi({
+    email: data.email,
+    nama: data.nama,
+    tokenHash: linkData.properties.hashed_token,
+    type: "signup",
+    peran: "siswa",
+  });
+  if (!emailResult.ok) {
+    console.error("[registrasi-mandiri] akun dibuat tapi email konfirmasi gagal:", emailResult.error);
+    return NextResponse.json({
+      ok: true,
+      emailTerkirim: false,
+      pesan: pesanEmailBelumTerkirim(emailResult.kuotaHabis),
+    });
+  }
+
+  return NextResponse.json({ ok: true, emailTerkirim: true });
 }

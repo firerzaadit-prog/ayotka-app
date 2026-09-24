@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label, FieldError } from "@/components/ui/input";
+import { KirimUlangKonfirmasi } from "@/components/auth/kirim-ulang-konfirmasi";
 
 /**
  * Form login yang dipakai bersama oleh siswa, admin sekolah, dan admin
@@ -31,10 +32,12 @@ export function LoginForm({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [belumKonfirmasi, setBelumKonfirmasi] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setBelumKonfirmasi(false);
     setLoading(true);
 
     try {
@@ -47,6 +50,7 @@ export function LoginForm({
 
       if (!res.ok) {
         setError(data.error ?? "Gagal masuk. Coba lagi.");
+        setBelumKonfirmasi(data.code === "EMAIL_BELUM_DIKONFIRMASI");
         return;
       }
 
@@ -63,6 +67,9 @@ export function LoginForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       {error && (
         <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>
+      )}
+      {belumKonfirmasi && emailOrNisn.includes("@") && (
+        <KirimUlangKonfirmasi email={emailOrNisn.trim()} />
       )}
 
       <div>

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { KirimUlangKonfirmasi } from "@/components/auth/kirim-ulang-konfirmasi";
 import { bentukKodeValid, normalizeKodeReferral } from "@/lib/registrasi/referral-format";
 
 type SchoolOption = { id: string; nama: string; npsn: string | null };
@@ -50,6 +51,8 @@ function RegistrasiMandiriForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  // Terisi kalau akun sudah dibuat tapi email konfirmasi belum terkirim.
+  const [emailPesan, setEmailPesan] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bentukKodeValid(kodeBersih)) return;
@@ -121,17 +124,25 @@ function RegistrasiMandiriForm() {
       setError(data.error ?? "Gagal mendaftar.");
       return;
     }
+    setEmailPesan(data.emailTerkirim === false ? (data.pesan ?? "Email konfirmasi belum terkirim.") : null);
     setDone(true);
   }
 
   if (done) {
     return (
       <div className="flex flex-col gap-3 text-center">
-        <h1 className="text-lg font-semibold text-slate-900">Cek email kamu</h1>
-        <p className="text-sm text-slate-600">
-          Kami sudah mengirim link verifikasi ke {email}. Klik link itu untuk mengaktifkan
-          akunmu, lalu masuk ke AyoTKA.
-        </p>
+        <h1 className="text-lg font-semibold text-slate-900">
+          {emailPesan ? "Akunmu sudah dibuat" : "Cek email kamu"}
+        </h1>
+        {emailPesan ? (
+          <p className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-800">{emailPesan}</p>
+        ) : (
+          <p className="text-sm text-slate-600">
+            Kami sudah mengirim link verifikasi ke {email}. Klik link itu untuk mengaktifkan
+            akunmu, lalu masuk ke AyoTKA. Belum masuk? Cek juga folder spam.
+          </p>
+        )}
+        <KirimUlangKonfirmasi email={email} />
         <Link href="/login" className="text-sm text-slate-500 hover:text-slate-700">
           Kembali ke halaman masuk
         </Link>
