@@ -141,6 +141,44 @@ export async function getResolvedResendConfig(): Promise<{
 }
 
 /**
+ * Resolver email CADANGAN Mailketing (lib/email/kirim.ts): Prioritas Database
+ * Admin Pusat -> Fallback ke Vercel env. Token kosong = cadangan mati.
+ */
+export async function getResolvedMailketingConfig(): Promise<{
+  apiToken: string;
+  fromEmail: string;
+  source: "database" | "env" | "none";
+}> {
+  const fromEnv = () => {
+    const apiToken = process.env.MAILKETING_API_TOKEN || "";
+    return {
+      apiToken,
+      fromEmail: process.env.MAILKETING_FROM_EMAIL || "",
+      source: (apiToken ? "env" : "none") as "env" | "none",
+    };
+  };
+
+  if (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST)) return fromEnv();
+
+  try {
+    const settings = await getGlobalAppSettings();
+    const dbToken = decryptSecret(settings.mailketingApiTokenEncrypted);
+
+    if (dbToken) {
+      return {
+        apiToken: dbToken,
+        fromEmail: settings.mailketingFromEmail || process.env.MAILKETING_FROM_EMAIL || "",
+        source: "database",
+      };
+    }
+  } catch (err) {
+    console.warn("[settings] Gagal membaca Mailketing config dari database, memakai fallback env:", err);
+  }
+
+  return fromEnv();
+}
+
+/**
  * Resolver SMTP Email: Prioritas Database Admin Pusat -> Fallback ke Vercel env.
  */
 export async function getResolvedSmtpConfig(): Promise<{

@@ -28,6 +28,12 @@ type SettingsData = {
     isConfigured: boolean;
     source: "database" | "env" | "none";
   };
+  mailketing: {
+    apiTokenMasked: string;
+    fromEmail: string;
+    isConfigured: boolean;
+    source: "database" | "env" | "none";
+  };
   smtp: {
     host: string;
     port: number;
@@ -64,6 +70,9 @@ export default function PengaturanSistemPage() {
   const [resendApiKey, setResendApiKey] = useState("");
   const [resendFromEmail, setResendFromEmail] = useState("");
 
+  const [mailketingApiToken, setMailketingApiToken] = useState("");
+  const [mailketingFromEmail, setMailketingFromEmail] = useState("");
+
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState(587);
   const [smtpUser, setSmtpUser] = useState("");
@@ -95,6 +104,9 @@ export default function PengaturanSistemPage() {
 
       setResendApiKey(json.resend.apiKeyMasked || "");
       setResendFromEmail(json.resend.fromEmail || "");
+
+      setMailketingApiToken(json.mailketing.apiTokenMasked || "");
+      setMailketingFromEmail(json.mailketing.fromEmail || "");
 
       setSmtpHost(json.smtp.host || "");
       setSmtpPort(json.smtp.port || 587);
@@ -133,6 +145,8 @@ export default function PengaturanSistemPage() {
           midtransIsProduction,
           resendApiKey,
           resendFromEmail,
+          mailketingApiToken,
+          mailketingFromEmail,
           smtpHost,
           smtpPort: Number(smtpPort) || 587,
           smtpUser,
@@ -155,7 +169,7 @@ export default function PengaturanSistemPage() {
     }
   }
 
-  async function runTest(target: "ai" | "midtrans" | "resend") {
+  async function runTest(target: "ai" | "midtrans" | "resend" | "mailketing") {
     setTesting(target);
     setTestResult(null);
     try {
@@ -168,6 +182,8 @@ export default function PengaturanSistemPage() {
         payload.isProduction = midtransIsProduction;
       } else if (target === "resend") {
         payload.apiKey = resendApiKey;
+      } else if (target === "mailketing") {
+        payload.apiKey = mailketingApiToken;
       }
 
       const res = await fetch("/api/admin-pusat/pengaturan/test", {
@@ -462,7 +478,7 @@ export default function PengaturanSistemPage() {
         <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-6">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">Pengiriman Email Sistem (Resend & SMTP)</h2>
+              <h2 className="text-lg font-bold text-slate-900">Pengiriman Email Sistem (Resend, Mailketing & SMTP)</h2>
               <p className="text-sm text-slate-500">
                 Kelola kredensial email verifikasi pendaftaran akun siswa dan pengingat tagihan langganan sekolah.
               </p>
@@ -510,10 +526,69 @@ export default function PengaturanSistemPage() {
             </div>
           </div>
 
-          {/* Sub-section 2: SMTP Polos */}
+          {/* Sub-section 2: Mailketing (cadangan otomatis Resend) */}
+          <div className="pt-4 border-t border-slate-100">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-700">
+                2. Mailketing API (Cadangan Otomatis Resend)
+              </h3>
+              {renderStatusBadge(data?.mailketing.source || "none", data?.mailketing.isConfigured || false)}
+            </div>
+            <p className="mb-3 text-xs text-slate-500">
+              Dipakai HANYA saat Resend menolak (kuota harian/bulanan habis atau gangguan); begitu Resend pulih,
+              pengiriman otomatis kembali ke Resend. Prabayar per email, kosongkan token untuk mematikan cadangan ini.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mailketingApiToken">Mailketing API Token</Label>
+                <div className="relative">
+                  <Input
+                    id="mailketingApiToken"
+                    type={showSecrets["mailketing"] ? "text" : "password"}
+                    value={mailketingApiToken}
+                    onChange={(e) => setMailketingApiToken(e.target.value)}
+                    placeholder="Token dari Mailketing > Integrasi"
+                    autoComplete="off"
+                    className="pr-20 font-mono text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => toggleSecretVisibility("mailketing")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 hover:text-slate-800"
+                  >
+                    {showSecrets["mailketing"] ? "Sembunyikan" : "Tampilkan"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mailketingFromEmail">Email Pengirim (Sender From)</Label>
+                <Input
+                  id="mailketingFromEmail"
+                  value={mailketingFromEmail}
+                  onChange={(e) => setMailketingFromEmail(e.target.value)}
+                  placeholder="AyoTKA <noreply@ayotka.id>"
+                  className="text-sm"
+                />
+                <p className="text-xs text-slate-500">Domain pengirim harus sudah verified di Mailketing &gt; Setup Domain.</p>
+              </div>
+            </div>
+            <div className="mt-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => runTest("mailketing")}
+                disabled={testing === "mailketing"}
+              >
+                {testing === "mailketing" ? "Menguji Mailketing..." : "🧪 Uji Koneksi Mailketing (cek saldo)"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Sub-section 3: SMTP Polos */}
           <div className="pt-4 border-t border-slate-100">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3">
-              2. SMTP Server (Pengingat Tagihan & Notifikasi Langganan)
+              3. SMTP Server (Pengingat Tagihan & Notifikasi Langganan)
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex flex-col gap-2">

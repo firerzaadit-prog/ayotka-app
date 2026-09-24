@@ -5,6 +5,7 @@ import {
   getResolvedAiConfig,
   getResolvedMidtransConfig,
   getResolvedResendConfig,
+  getResolvedMailketingConfig,
 } from "@/lib/settings/app-settings";
 import { isMaskedPlaceholder } from "@/lib/security/crypto";
 
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json().catch(() => ({}));
-  const target = body.target as "ai" | "midtrans" | "resend";
+  const target = body.target as "ai" | "midtrans" | "resend" | "mailketing";
 
   if (target === "ai") {
     let apiKey = body.apiKey as string | undefined;
@@ -93,6 +94,50 @@ export async function POST(request: NextRequest) {
       const msg = err instanceof Error ? err.message : String(err);
       return NextResponse.json(
         { ok: false, error: `Gagal memanggil API Resend: ${msg}` },
+        { status: 400 },
+      );
+    }
+  }
+
+  if (target === "mailketing") {
+    let apiToken = body.apiKey as string | undefined;
+
+    if (!apiToken || isMaskedPlaceholder(apiToken)) {
+      const resolved = await getResolvedMailketingConfig();
+      apiToken = resolved.apiToken;
+    }
+
+    if (!apiToken) {
+      return NextResponse.json(
+        { ok: false, error: "Token Mailketing belum diisi." },
+        { status: 400 },
+      );
+    }
+
+    // Cek saldo kredit - tidak mengirim email apa pun (tidak memotong kredit).
+    try {
+      const res = await fetch("https://api.mailketing.co.id/api/v2/credits", {
+        headers: { "X-Api-Token": apiToken },
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { success?: boolean; data?: { credits?: number }; message?: string }
+        | null;
+
+      if (res.ok && json?.success) {
+        return NextResponse.json({
+          ok: true,
+          message: `Koneksi ke Mailketing Berhasil! Token valid, sisa saldo ${json.data?.credits ?? 0} kredit.`,
+        });
+      }
+
+      return NextResponse.json(
+        { ok: false, error: `Mailketing merespons status ${res.status}: ${json?.message ?? res.statusText}` },
+        { status: 400 },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return NextResponse.json(
+        { ok: false, error: `Gagal memanggil API Mailketing: ${msg}` },
         { status: 400 },
       );
     }

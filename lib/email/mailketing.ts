@@ -5,16 +5,18 @@
  * https://api.mailketing.co.id/api/v2/send (JSON, header X-Api-Token,
  * respons "Email queued successfully" = sudah diterima antrean Mailketing).
  *
- * Dikonfigurasi lewat env (MAILKETING_API_TOKEN, MAILKETING_FROM_EMAIL) -
- * kalau token kosong, penyedia ini dianggap MATI (bukan error) dan
- * kirim.ts cuma memakai Resend seperti sebelumnya.
+ * Kredensial dibaca lewat getResolvedMailketingConfig: Pengaturan Sistem
+ * (database, terenkripsi) diutamakan, env (MAILKETING_API_TOKEN /
+ * MAILKETING_FROM_EMAIL) sebagai cadangan. Token kosong = penyedia ini MATI
+ * (bukan error) dan kirim.ts cuma memakai Resend seperti sebelumnya.
  *
  * Bounce dikenai penalti kredit di Mailketing (30 kredit per email bounce),
  * itulah alasan modul ini sengaja HANYA jalur cadangan, bukan utama.
  *
- * Tanpa "server-only": sama seperti lib/email/resend.ts, cuma membaca
- * process.env saat runtime.
+ * Tanpa "server-only": sama seperti lib/email/resend.ts.
  */
+
+import { getResolvedMailketingConfig } from "@/lib/settings/app-settings";
 
 export type SendViaMailketingInput = { to: string; subject: string; html: string };
 export type SendViaMailketingResult =
@@ -24,8 +26,8 @@ export type SendViaMailketingResult =
 const ENDPOINT = "https://api.mailketing.co.id/api/v2/send";
 const DEFAULT_FROM = "AyoTKA <noreply@ayotka.id>";
 
-export function mailketingTersedia(): boolean {
-  return Boolean(process.env.MAILKETING_API_TOKEN);
+export async function mailketingTersedia(): Promise<boolean> {
+  return Boolean((await getResolvedMailketingConfig()).apiToken);
 }
 
 /** Pecah `Nama <alamat@domain>` jadi nama + alamat (Mailketing minta dua field terpisah). */
@@ -40,16 +42,16 @@ export async function sendViaMailketingApi({
   subject,
   html,
 }: SendViaMailketingInput): Promise<SendViaMailketingResult> {
-  const token = process.env.MAILKETING_API_TOKEN;
-  if (!token) {
-    return { ok: false, error: "MAILKETING_API_TOKEN belum diisi di .env" };
+  const { apiToken, fromEmail } = await getResolvedMailketingConfig();
+  if (!apiToken) {
+    return { ok: false, error: "Token Mailketing belum diisi di Pengaturan Sistem atau .env" };
   }
-  const pengirim = parseAlamatPengirim(process.env.MAILKETING_FROM_EMAIL || DEFAULT_FROM);
+  const pengirim = parseAlamatPengirim(fromEmail || DEFAULT_FROM);
 
   try {
     const res = await fetch(ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Api-Token": token },
+      headers: { "Content-Type": "application/json", "X-Api-Token": apiToken },
       body: JSON.stringify({
         from_name: pengirim.nama,
         from_email: pengirim.email,

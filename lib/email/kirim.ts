@@ -22,7 +22,7 @@ export async function kirimEmail(input: SendViaResendInput): Promise<KirimEmailR
   if (resend.ok) return { ok: true, lewat: "resend" };
 
   const penerimaDitolak = resend.status === 400 || resend.status === 422;
-  if (penerimaDitolak || !mailketingTersedia()) {
+  if (penerimaDitolak || !(await mailketingTersedia())) {
     return { ok: false, error: resend.error, kuotaHabis: resend.kuotaHabis };
   }
 

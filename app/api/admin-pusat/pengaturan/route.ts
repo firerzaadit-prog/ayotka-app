@@ -13,6 +13,7 @@ import {
   getResolvedAiConfig,
   getResolvedMidtransConfig,
   getResolvedResendConfig,
+  getResolvedMailketingConfig,
   getResolvedSmtpConfig,
   getResolvedMaintenanceConfig,
 } from "@/lib/settings/app-settings";
@@ -32,6 +33,10 @@ const updateSettingsSchema = z.object({
   // Resend
   resendApiKey: z.string().optional(),
   resendFromEmail: z.string().optional(),
+
+  // Mailketing (email cadangan)
+  mailketingApiToken: z.string().optional(),
+  mailketingFromEmail: z.string().optional(),
 
   // SMTP
   smtpHost: z.string().optional(),
@@ -56,6 +61,7 @@ export async function GET() {
   const aiResolved = await getResolvedAiConfig();
   const midtransResolved = await getResolvedMidtransConfig();
   const resendResolved = await getResolvedResendConfig();
+  const mailketingResolved = await getResolvedMailketingConfig();
   const smtpResolved = await getResolvedSmtpConfig();
   const maintenanceResolved = await getResolvedMaintenanceConfig();
 
@@ -78,6 +84,12 @@ export async function GET() {
       fromEmail: resendResolved.fromEmail,
       isConfigured: Boolean(resendResolved.apiKey),
       source: resendResolved.source,
+    },
+    mailketing: {
+      apiTokenMasked: maskSecret(mailketingResolved.apiToken),
+      fromEmail: mailketingResolved.fromEmail,
+      isConfigured: Boolean(mailketingResolved.apiToken),
+      source: mailketingResolved.source,
     },
     smtp: {
       host: smtpResolved.host,
@@ -165,6 +177,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Mailketing (email cadangan)
+  if (data.mailketingApiToken !== undefined && !isMaskedPlaceholder(data.mailketingApiToken)) {
+    updateData.mailketingApiTokenEncrypted = data.mailketingApiToken.trim()
+      ? encryptSecret(data.mailketingApiToken.trim())
+      : null;
+  }
+  if (data.mailketingFromEmail !== undefined) {
+    const raw = data.mailketingFromEmail.trim();
+    if (raw === "") {
+      updateData.mailketingFromEmail = null;
+    } else {
+      const normalized = normalizeFromAddress(raw);
+      if (!normalized) {
+        return NextResponse.json(
+          { error: 'Email pengirim Mailketing tidak valid. Pakai format "nama@domain.com" atau "Nama <nama@domain.com>".' },
+          { status: 400 },
+        );
+      }
+      updateData.mailketingFromEmail = normalized;
+    }
+  }
+
   // SMTP
   if (data.smtpHost !== undefined) updateData.smtpHost = data.smtpHost.trim() || null;
   if (data.smtpPort !== undefined) updateData.smtpPort = data.smtpPort || 587;
@@ -202,6 +236,9 @@ export async function POST(request: NextRequest) {
       geminiModel: updated.geminiModel,
       midtransIsProduction: updated.midtransIsProduction,
       maintenanceMode: updated.maintenanceMode,
+      // NAMA kolom kunci rahasia yang diubah/dihapus kali ini (bukan nilainya) -
+      // supaya ada jejak audit siapa mengganti kunci API kapan, tanpa membocorkan isinya.
+      kunciRahasiaDiubah: Object.keys(updateData).filter((k) => k.endsWith("Encrypted")),
     },
   });
 

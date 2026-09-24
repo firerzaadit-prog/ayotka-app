@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/email/resend", () => ({ sendViaResendApi: vi.fn() }));
+// Resolver aslinya menyentuh Prisma/server-only; di sini cukup meniru jalur env-nya.
+vi.mock("@/lib/settings/app-settings", () => ({
+  getResolvedMailketingConfig: vi.fn(async () => ({
+    apiToken: process.env.MAILKETING_API_TOKEN ?? "",
+    fromEmail: process.env.MAILKETING_FROM_EMAIL ?? "",
+    source: process.env.MAILKETING_API_TOKEN ? "env" : "none",
+  })),
+}));
 
 import { sendViaResendApi } from "@/lib/email/resend";
 import { kirimEmail } from "@/lib/email/kirim";

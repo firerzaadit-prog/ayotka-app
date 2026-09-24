@@ -799,6 +799,11 @@ model AppSetting {
   resendApiKeyEncrypted String? @map("resend_api_key_encrypted")
   resendFromEmail       String? @map("resend_from_email")
 
+  // Email CADANGAN Mailketing (lib/email/kirim.ts): dipakai hanya kalau Resend
+  // menolak (kuota habis/gangguan). Token disimpan terenkripsi seperti Resend.
+  mailketingApiTokenEncrypted String? @map("mailketing_api_token_encrypted")
+  mailketingFromEmail         String? @map("mailketing_from_email")
+
   // Pengaturan Email SMTP (Billing / Notifikasi)
   smtpHost          String? @map("smtp_host")
   smtpPort          Int?    @map("smtp_port")
