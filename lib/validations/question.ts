@@ -11,14 +11,10 @@ export const packageCreateSchema = z.object({
   durasiMenit: z.coerce.number().int().min(1, "Durasi wajib diisi"),
   jumlahSoal: z.coerce.number().int().min(1, "Jumlah soal wajib diisi"),
   blueprintId: z.string().uuid().optional().or(z.literal("")),
-  modePembahasan: z.enum(["langsung", "setelah_tutup"]).optional(),
   bolehDipilihSiswa: z.boolean().optional(),
-  // Bagian 8/10 (permintaan user): "tryout" (dianalisis AI) vs "latihan"
-  // (skor + peta kompetensi saja, tanpa AI) - lihat enum JenisPaket di
-  // schema.prisma. bukaMulai/bukaSelesai: jendela pengerjaan untuk paket
-  // self-select (kosong "" berarti selalu terbuka, dikonversi ke null di
-  // route API sebelum disimpan).
-  jenisPaket: z.enum(["tryout", "latihan"]).optional(),
+  // bukaMulai/bukaSelesai: jendela pengerjaan untuk paket self-select
+  // (kosong "" berarti selalu terbuka, dikonversi ke null di route API
+  // sebelum disimpan).
   bukaMulai: z.string().optional().or(z.literal("")),
   bukaSelesai: z.string().optional().or(z.literal("")),
   visibilityMode: z.enum(["privat", "semua", "sekolah", "publik"]).optional(),
@@ -30,41 +26,12 @@ export const packageCreateSchema = z.object({
       schoolId: z.string().optional(),
     }))
     .optional(),
+  // Keputusan user (25 Sep 2026): Try Out Nasional dikelola langsung di sini
+  // (bukan lewat menu Grup Try Out terpisah yang sudah dihapus) - cukup
+  // pilih kategori "nasional" & atur jendela bukaMulai/bukaSelesai di atas.
   kategori: z.enum(["mandiri", "nasional"]).optional(),
-  // Bagian 8/10 (permintaan user, "paket soal yang banyak, diacak"): kalau
-  // diisi, ini adalah paket VARIASI dari sebuah TryOutGroup - field jadwal/
-  // target/mapel lain diabaikan dan diturunkan dari grupnya (lihat
-  // app/api/packages/route.ts) supaya semua variasi selalu konsisten.
-  tryOutGroupId: z.string().uuid().optional(),
 });
 export type PackageCreateInput = z.infer<typeof packageCreateSchema>;
-
-export const tryOutGroupCreateSchema = z.object({
-  subjectId: z.string().uuid(),
-  nama: z.string().trim().min(3, "Nama try out minimal 3 karakter"),
-  jenjang: z.enum(["SD", "SMP"]),
-  tingkatList: z
-    .array(z.coerce.number().int().min(1).max(12))
-    .min(1, "Pilih minimal satu tingkat kelas")
-    .transform((arr) => [...new Set(arr)].sort((a, b) => a - b)),
-  durasiMenit: z.coerce.number().int().min(1, "Durasi wajib diisi"),
-  jumlahSoal: z.coerce.number().int().min(1, "Jumlah soal wajib diisi"),
-  maxAttempt: z.coerce.number().int().min(1).optional().nullable(),
-  modePembahasan: z.enum(["langsung", "setelah_tutup"]).optional(),
-  targetSiswa: z.enum(["sekolah", "mandiri", "semua"]).optional(),
-  kategori: z.enum(["mandiri", "nasional"]).optional(),
-  bukaMulai: z.string().optional().or(z.literal("")),
-  bukaSelesai: z.string().optional().or(z.literal("")),
-  visibilityMode: z.enum(["privat", "semua", "sekolah", "publik"]).optional(),
-  visibilitySchoolIds: z.array(z.string()).optional(),
-  visibilityEntries: z
-    .array(z.object({
-      targetType: z.enum(["semua", "sekolah", "publik"]),
-      schoolId: z.string().optional(),
-    }))
-    .optional(),
-});
-export type TryOutGroupCreateInput = z.infer<typeof tryOutGroupCreateSchema>;
 
 /** "" -> null (selalu terbuka), undefined -> undefined (field tidak dikirim, jangan diubah), string lain -> Date. */
 export function toNullableDate(value: string | undefined): Date | null | undefined {

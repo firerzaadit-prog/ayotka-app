@@ -50,7 +50,6 @@ async function generateSamplePdf() {
       siswa: { nama: "FIRERZA PRADITYA PERDANA", idSamar: "008***42 · ID-a4fac53e" },
       canShowPembahasan: true,
       isFreeTrial: false,
-      isLatihan: false,
       ranking: { peringkatSaya: 3, totalPeserta: 45, papan: [] },
       materiScores: [
         { materiNama: "Bilangan", jmlBenar: 5, jmlSoal: 6, persentase: 83 },

@@ -25,7 +25,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
     where: { id },
     include: {
       subject: true,
-      tryOutGroup: { select: { nama: true } },
       visibility: { include: { school: { select: { id: true, nama: true } } } },
       blueprint: { include: { items: { include: { kompetensi: true } } } },
       questions: {

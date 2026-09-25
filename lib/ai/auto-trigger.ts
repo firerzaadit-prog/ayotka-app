@@ -57,14 +57,9 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
 
     const pkg = await prisma.package.findUnique({
       where: { id: attempt.packageId },
-      select: { subjectId: true, jenisPaket: true },
+      select: { subjectId: true },
     });
     if (!pkg) return;
-
-    // Bagian 8/10 (permintaan user): paket Latihan tidak pernah dianalisis
-    // AI, berlaku di semua jalur - independen dari status free-trial/
-    // berlangganan di bawah ini.
-    if (pkg.jenisPaket === "latihan") return;
 
     // Bagian D/G (permintaan user): sejak Learning Analytics jadi opt-in
     // berbayar (jatah plan atau saldo, lihat app/api/siswa/attempts/route.ts

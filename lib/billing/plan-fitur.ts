@@ -58,9 +58,9 @@ export type NasionalKuotaStatus = KuotaStatus & { usedEventIds: Set<string> };
 
 /**
  * Jatah Try Out Nasional yang tersisa untuk mapel ini - dihitung dari
- * banyaknya EVENT nasional berbeda yang sudah diikuti (satu TryOutGroup /
- * paket standalone = satu event), bukan banyaknya attempt (retry pada event
- * yang sama tidak menambah pemakaian jatah - lihat usedEventIds, dicek di
+ * banyaknya PAKET nasional berbeda yang sudah diikuti (satu paket = satu
+ * event), bukan banyaknya attempt (retry pada paket yang sama tidak
+ * menambah pemakaian jatah - lihat usedEventIds, dicek di
  * app/api/siswa/attempts/route.ts sebelum menolak attempt baru).
  */
 export async function getTryOutNasionalKuotaRemaining(studentId: string, subjectId: string): Promise<NasionalKuotaStatus> {
@@ -83,9 +83,9 @@ export async function getTryOutNasionalKuotaRemaining(studentId: string, subject
       mulaiAt: { gte: active.entitlement.startsAt, lte: active.entitlement.endsAt },
       package: { subjectId, kategori: "nasional" },
     },
-    select: { package: { select: { id: true, tryOutGroupId: true } } },
+    select: { package: { select: { id: true } } },
   });
-  const usedEventIds = new Set(attempts.map((a) => a.package.tryOutGroupId ?? a.package.id));
+  const usedEventIds = new Set(attempts.map((a) => a.package.id));
 
   return {
     sisa: Math.max(0, totalKuota - usedEventIds.size),

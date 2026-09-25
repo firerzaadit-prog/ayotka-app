@@ -22,19 +22,18 @@ type PackageListItem = {
   tingkatList: number[];
   status: string;
   jumlahSoal: number;
-  jenisPaket: "tryout" | "latihan";
+  kategori: "mandiri" | "nasional";
   subject: Subject;
-  tryOutGroup: { nama: string } | null;
   _count: { questions: number };
 };
 
-const JENIS_PAKET_BADGE_VARIANT: Record<"tryout" | "latihan", "neutral" | "success"> = {
-  tryout: "success",
-  latihan: "neutral",
+const KATEGORI_BADGE_VARIANT: Record<"mandiri" | "nasional", "neutral" | "success"> = {
+  mandiri: "neutral",
+  nasional: "success",
 };
-const JENIS_PAKET_LABEL: Record<"tryout" | "latihan", string> = {
-  tryout: "Try Out",
-  latihan: "Latihan",
+const KATEGORI_LABEL: Record<"mandiri" | "nasional", string> = {
+  mandiri: "Try Out Mandiri",
+  nasional: "Try Out Nasional",
 };
 
 const TINGKAT_OPTIONS = [4, 5, 6, 7, 8, 9];
@@ -47,9 +46,8 @@ const emptyForm = {
   durasiMenit: "",
   jumlahSoal: "",
   blueprintId: "",
-  modePembahasan: "setelah_tutup" as "langsung" | "setelah_tutup",
+  kategori: "mandiri" as "mandiri" | "nasional",
   bolehDipilihSiswa: false,
-  jenisPaket: "tryout" as "tryout" | "latihan",
   bukaMulai: "",
   bukaSelesai: "",
 };
@@ -260,48 +258,43 @@ export function PackageList({ basePath }: { basePath: string }) {
               </select>
             </div>
             <div>
-              <Label htmlFor="modePembahasan">Tampilkan pembahasan</Label>
+              <Label htmlFor="kategori">Kategori</Label>
               <select
-                id="modePembahasan"
+                id="kategori"
                 className={selectClassName}
-                value={form.modePembahasan}
-                onChange={(e) =>
+                value={form.kategori}
+                onChange={(e) => {
+                  const kategori = e.target.value as "mandiri" | "nasional";
                   setForm({
                     ...form,
-                    modePembahasan: e.target.value as "langsung" | "setelah_tutup",
-                  })
-                }
+                    kategori,
+                    // Try Out Nasional cuma bisa ditemukan siswa lewat menu self-select
+                    // yang sama dengan Try Out Mandiri (lihat getSelfSelectPackagesFor) -
+                    // tanpa ini dicentang, paket nasional tidak akan pernah tampil ke siapa pun.
+                    bolehDipilihSiswa: kategori === "nasional" ? true : form.bolehDipilihSiswa,
+                  });
+                }}
               >
-                <option value="setelah_tutup">Setelah jendela ujian ditutup (aman dari bocor ke teman sekelas)</option>
-                <option value="langsung">Langsung setelah siswa submit</option>
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="jenisPaket">Jenis paket</Label>
-              <select
-                id="jenisPaket"
-                className={selectClassName}
-                value={form.jenisPaket}
-                onChange={(e) => setForm({ ...form, jenisPaket: e.target.value as "tryout" | "latihan" })}
-              >
-                <option value="tryout">Try Out (dianalisis AI)</option>
-                <option value="latihan">Latihan (skor + peta kompetensi saja, tanpa AI)</option>
+                <option value="mandiri">Try Out Mandiri (kapan saja, sepuasnya)</option>
+                <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis AI otomatis)</option>
               </select>
               <p className="mt-1 text-xs text-slate-500">
-                Latihan tidak pernah memicu analisis AI, apa pun status berlangganan siswanya.
+                Try Out Nasional otomatis menyertakan Analisis AI dan dihitung ke jatah Try Out
+                Nasional langganan siswa - pastikan isi jendela &quot;Buka mulai/selesai&quot; di bawah.
               </p>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={form.bolehDipilihSiswa}
+                disabled={form.kategori === "nasional"}
                 onChange={(e) => setForm({ ...form, bolehDipilihSiswa: e.target.checked })}
                 className="accent-indigo-600"
               />
-              Boleh dipilih bebas siswa (Latihan Mandiri)
+              Boleh dipilih bebas siswa (Try Out Mandiri)
             </label>
             <p className="text-xs text-slate-500">
-              Kalau aktif, siswa bisa memilih paket ini sendiri lewat menu Latihan Mandiri
+              Kalau aktif, siswa bisa memilih paket ini sendiri lewat menu Try Out Mandiri
               (di luar jadwal ujian) - selama paket sudah di-publish dan distribusinya
               (lihat halaman detail paket) mengizinkan siswa tersebut melihatnya.
             </p>
@@ -361,7 +354,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                   <tr>
                     <Th>Nama</Th>
                     <Th>Mapel</Th>
-                    <Th>Jenis</Th>
+                    <Th>Kategori</Th>
                     <Th>Tingkat</Th>
                     <Th>Status</Th>
                     <Th>Soal</Th>
@@ -375,14 +368,11 @@ export function PackageList({ basePath }: { basePath: string }) {
                         <Link href={`${basePath}/${pkg.id}`} className="font-medium text-slate-900 hover:underline">
                           {pkg.nama}
                         </Link>
-                        {pkg.tryOutGroup && (
-                          <p className="text-xs text-slate-400">Variasi dari: {pkg.tryOutGroup.nama}</p>
-                        )}
                       </Td>
                       <Td>{pkg.subject.nama}</Td>
                       <Td>
-                        <Badge variant={JENIS_PAKET_BADGE_VARIANT[pkg.jenisPaket]}>
-                          {JENIS_PAKET_LABEL[pkg.jenisPaket]}
+                        <Badge variant={KATEGORI_BADGE_VARIANT[pkg.kategori]}>
+                          {KATEGORI_LABEL[pkg.kategori]}
                         </Badge>
                       </Td>
                       <Td>{pkg.tingkatList.join(", ")}</Td>

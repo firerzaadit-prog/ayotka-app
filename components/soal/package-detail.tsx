@@ -48,13 +48,11 @@ type PackageDetail = {
   jumlahSoal: number;
   subjectId: string;
   ownerType: "pusat" | "sekolah";
-  modePembahasan: "langsung" | "setelah_tutup";
   bolehDipilihSiswa: boolean;
   targetSiswa: "sekolah" | "mandiri" | "semua";
-  jenisPaket: "tryout" | "latihan";
+  kategori: "mandiri" | "nasional";
   bukaMulai: string | null;
   bukaSelesai: string | null;
-  tryOutGroup: { nama: string } | null;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -66,9 +64,8 @@ type EditForm = {
   tingkatList: number[];
   durasiMenit: string;
   jumlahSoal: string;
-  modePembahasan: "langsung" | "setelah_tutup";
   bolehDipilihSiswa: boolean;
-  jenisPaket: "tryout" | "latihan";
+  kategori: "mandiri" | "nasional";
   bukaMulai: string;
   bukaSelesai: string;
   // Distribusi: dua target independen yang bisa aktif bersamaan
@@ -78,24 +75,19 @@ type EditForm = {
   forMandiri: boolean;         // paket bisa diakses siswa mandiri
 };
 
-const MODE_PEMBAHASAN_LABEL: Record<"langsung" | "setelah_tutup", string> = {
-  langsung: "Langsung setelah siswa submit",
-  setelah_tutup: "Setelah jendela ujian ditutup",
-};
-
 const STATUS_BADGE_VARIANT: Record<string, "neutral" | "success" | "warning"> = {
   draft: "neutral",
   published: "success",
   archived: "warning",
 };
 
-const JENIS_PAKET_BADGE_VARIANT: Record<"tryout" | "latihan", "neutral" | "success"> = {
-  tryout: "success",
-  latihan: "neutral",
+const KATEGORI_BADGE_VARIANT: Record<"mandiri" | "nasional", "neutral" | "success"> = {
+  mandiri: "neutral",
+  nasional: "success",
 };
-const JENIS_PAKET_LABEL: Record<"tryout" | "latihan", string> = {
-  tryout: "Try Out",
-  latihan: "Latihan",
+const KATEGORI_LABEL: Record<"mandiri" | "nasional", string> = {
+  mandiri: "Try Out Mandiri",
+  nasional: "Try Out Nasional",
 };
 
 /**
@@ -129,9 +121,8 @@ function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): Edit
     tingkatList: pkg.tingkatList,
     durasiMenit: String(pkg.durasiMenit),
     jumlahSoal: String(pkg.jumlahSoal),
-    modePembahasan: pkg.modePembahasan,
     bolehDipilihSiswa: pkg.bolehDipilihSiswa,
-    jenisPaket: pkg.jenisPaket,
+    kategori: pkg.kategori,
     bukaMulai: toDatetimeLocalValue(pkg.bukaMulai),
     bukaSelesai: toDatetimeLocalValue(pkg.bukaSelesai),
     forSekolah: hasSekolah,
@@ -258,9 +249,8 @@ export function PackageDetail({
       tingkatList: editForm.tingkatList,
       durasiMenit: editForm.durasiMenit,
       jumlahSoal: editForm.jumlahSoal,
-      modePembahasan: editForm.modePembahasan,
       bolehDipilihSiswa: editForm.bolehDipilihSiswa,
-      jenisPaket: editForm.jenisPaket,
+      kategori: editForm.kategori,
       bukaMulai: editForm.bukaMulai,
       bukaSelesai: editForm.bukaSelesai,
       ...(visibilityEntries
@@ -326,21 +316,15 @@ export function PackageDetail({
         <div className="mt-1 flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold text-slate-900">{pkg.nama}</h1>
           <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
-          <Badge variant={JENIS_PAKET_BADGE_VARIANT[pkg.jenisPaket]}>{JENIS_PAKET_LABEL[pkg.jenisPaket]}</Badge>
+          <Badge variant={KATEGORI_BADGE_VARIANT[pkg.kategori]}>{KATEGORI_LABEL[pkg.kategori]}</Badge>
         </div>
-        {pkg.tryOutGroup && (
-          <p className="mt-1 text-xs text-slate-400">
-            Variasi dari grup try out: <span className="font-medium text-slate-500">{pkg.tryOutGroup.nama}</span> - jadwal & target diatur di halaman Grup Try Out.
-          </p>
-        )}
         <p className="text-sm text-slate-500">
           {pkg.questions.length}/{pkg.jumlahSoal} soal
           {" · Tingkat: "}{pkg.tingkatList.join(", ")}
           {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
-          {" · Pembahasan: "}
-          {MODE_PEMBAHASAN_LABEL[pkg.modePembahasan]}
+          {" · Pembahasan: langsung setelah siswa submit"}
           {" · Target: "}{describeVisibility(pkg.visibility ?? [])}
-          {pkg.jenisPaket === "tryout" && (pkg.bukaMulai || pkg.bukaSelesai) && (
+          {(pkg.bukaMulai || pkg.bukaSelesai) && (
             <>
               {" · Jendela: "}
               {pkg.bukaMulai ? formatWIB(pkg.bukaMulai) : "kapan saja"}
@@ -452,80 +436,55 @@ export function PackageDetail({
               </div>
 
               <div>
-                <Label htmlFor="editPkgPembahasan">Tampilkan pembahasan</Label>
+                <Label htmlFor="editPkgKategori">Kategori</Label>
                 <select
-                  id="editPkgPembahasan"
+                  id="editPkgKategori"
                   className={selectClassName}
-                  value={editForm.modePembahasan}
-                  onChange={(e) =>
+                  value={editForm.kategori}
+                  onChange={(e) => {
+                    const kategori = e.target.value as "mandiri" | "nasional";
                     setEditForm({
                       ...editForm,
-                      modePembahasan: e.target.value as "langsung" | "setelah_tutup",
-                    })
-                  }
+                      kategori,
+                      // Try Out Nasional cuma bisa ditemukan siswa lewat menu self-select
+                      // yang sama dengan Try Out Mandiri - tanpa ini aktif, paket nasional
+                      // tidak akan pernah tampil ke siapa pun.
+                      bolehDipilihSiswa: kategori === "nasional" ? true : editForm.bolehDipilihSiswa,
+                    });
+                  }}
                 >
-                  <option value="setelah_tutup">
-                    Setelah jendela ujian ditutup (aman dari bocor ke teman sekelas)
-                  </option>
-                  <option value="langsung">Langsung setelah siswa submit</option>
+                  <option value="mandiri">Try Out Mandiri (kapan saja, sepuasnya)</option>
+                  <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis AI otomatis)</option>
                 </select>
               </div>
 
-              {pkg.tryOutGroup ? (
-                <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                  Jenis paket, jadwal, dan target pengguna variasi ini mengikuti grup try out{" "}
-                  <span className="font-medium text-slate-700">{pkg.tryOutGroup.nama}</span> - ubah di halaman
-                  Grup Try Out, bukan di sini.
-                </p>
-              ) : (
-                <>
+              {editForm.bolehDipilihSiswa && (
+                <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
                   <div>
-                    <Label htmlFor="editPkgJenisPaket">Jenis paket</Label>
-                    <select
-                      id="editPkgJenisPaket"
-                      className={selectClassName}
-                      value={editForm.jenisPaket}
-                      onChange={(e) =>
-                        setEditForm({ ...editForm, jenisPaket: e.target.value as "tryout" | "latihan" })
-                      }
-                    >
-                      <option value="tryout">Try Out (dianalisis AI)</option>
-                      <option value="latihan">Latihan (skor + peta kompetensi saja, tanpa AI)</option>
-                    </select>
-                    <p className="mt-1 text-xs text-slate-500">
-                      Latihan tidak pernah memicu analisis AI, apa pun status berlangganan siswanya.
-                    </p>
+                    <Label htmlFor="editPkgBukaMulai">Buka mulai (opsional)</Label>
+                    <Input
+                      id="editPkgBukaMulai"
+                      type="datetime-local"
+                      value={editForm.bukaMulai}
+                      onChange={(e) => setEditForm({ ...editForm, bukaMulai: e.target.value })}
+                    />
                   </div>
-
-                  {editForm.bolehDipilihSiswa && (
-                    <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                      <div>
-                        <Label htmlFor="editPkgBukaMulai">Buka mulai (opsional)</Label>
-                        <Input
-                          id="editPkgBukaMulai"
-                          type="datetime-local"
-                          value={editForm.bukaMulai}
-                          onChange={(e) => setEditForm({ ...editForm, bukaMulai: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="editPkgBukaSelesai">Buka selesai (opsional)</Label>
-                        <Input
-                          id="editPkgBukaSelesai"
-                          type="datetime-local"
-                          value={editForm.bukaSelesai}
-                          onChange={(e) => setEditForm({ ...editForm, bukaSelesai: e.target.value })}
-                        />
-                      </div>
-                      <p className="col-span-2 text-xs text-slate-500">
-                        Kosongkan berdua kalau paket ini selalu terbuka untuk siswa yang berhak melihatnya.
-                      </p>
-                    </div>
-                  )}
-                </>
+                  <div>
+                    <Label htmlFor="editPkgBukaSelesai">Buka selesai (opsional)</Label>
+                    <Input
+                      id="editPkgBukaSelesai"
+                      type="datetime-local"
+                      value={editForm.bukaSelesai}
+                      onChange={(e) => setEditForm({ ...editForm, bukaSelesai: e.target.value })}
+                    />
+                  </div>
+                  <p className="col-span-2 text-xs text-slate-500">
+                    Kosongkan berdua kalau paket ini selalu terbuka untuk siswa yang berhak melihatnya.
+                  </p>
+                </div>
               )}
 
-              {pkg.ownerType === "pusat" && !pkg.tryOutGroup && (
+              {pkg.ownerType === "pusat" && (
                 <div className="pt-2 border-t border-slate-200 mt-2 flex flex-col gap-3">
                   <Label className="block">Distribusi / Target Pengguna</Label>
                   <p className="text-xs text-slate-500 -mt-2">Pilih satu atau keduanya. Paket bisa sekaligus dijadwalkan sekolah dan diakses siswa mandiri.</p>

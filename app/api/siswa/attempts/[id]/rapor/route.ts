@@ -45,18 +45,16 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const hasil = await buildHasil(attempt);
 
   // Bagian 8/10: sinkron dengan halaman hasil web (app/siswa/(shell)/hasil/[id]/page.tsx)
-  // yang menyembunyikan Analisis AI di balik teaser untuk free trial dan tidak
-  // pernah menampilkannya untuk paket Latihan - PDF ini dulu mengambil
-  // aiAnalysis TANPA gerbang ini, jadi siswa free trial/latihan yang attempt-nya
-  // KEBETULAN sudah punya baris AiAnalysis (mis. sebelum status free-trial-nya
-  // berubah, atau dari analisis manual admin) tetap bisa membaca full analisis
-  // lewat unduh PDF walau halaman web-nya menampilkan blur "Berlangganan untuk
-  // lihat analisis lengkap". PDF wajib sama ketatnya dengan web, bukan jalur
-  // pintas kedua.
-  const aiAnalysis =
-    hasil.isFreeTrial || hasil.isLatihan
-      ? null
-      : await prisma.aiAnalysis.findUnique({ where: { attemptId: attempt.id } });
+  // yang menyembunyikan Analisis AI di balik teaser untuk free trial - PDF ini
+  // dulu mengambil aiAnalysis TANPA gerbang ini, jadi siswa free trial yang
+  // attempt-nya KEBETULAN sudah punya baris AiAnalysis (mis. sebelum status
+  // free-trial-nya berubah, atau dari analisis manual admin) tetap bisa
+  // membaca full analisis lewat unduh PDF walau halaman web-nya menampilkan
+  // blur "Berlangganan untuk lihat analisis lengkap". PDF wajib sama
+  // ketatnya dengan web, bukan jalur pintas kedua.
+  const aiAnalysis = hasil.isFreeTrial
+    ? null
+    : await prisma.aiAnalysis.findUnique({ where: { attemptId: attempt.id } });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   const logoBuffer = appUrl ? await fetchImageBuffer(`${appUrl}/logo.png`) : null;

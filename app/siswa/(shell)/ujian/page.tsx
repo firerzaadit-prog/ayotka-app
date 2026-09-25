@@ -21,18 +21,6 @@ type PackageItem = {
   nama: string;
   jumlahSoal: number;
   durasiMenit: number;
-  jenisPaket: "tryout" | "latihan";
-  kategori: KategoriTO;
-  bukaMulai: string | null;
-  bukaSelesai: string | null;
-  subject: SubjectInfo;
-};
-
-type TryOutGroupItem = {
-  id: string;
-  nama: string;
-  jumlahSoal: number;
-  durasiMenit: number;
   kategori: KategoriTO;
   bukaMulai: string | null;
   bukaSelesai: string | null;
@@ -50,7 +38,6 @@ type AttemptSummary = {
   id: string;
   assignmentId: string | null;
   packageId: string;
-  tryOutGroupId: string | null;
   status: "berjalan" | "selesai" | "kedaluwarsa" | "paused";
   skorAkhir: number | null;
   mulaiAt: string;
@@ -121,7 +108,6 @@ function UjianContent() {
   const [activePlan, setActivePlan] = useState<ActivePlanInfo | null>(null);
   const [assignments, setAssignments] = useState<AssignmentItem[] | null>(null);
   const [packages, setPackages] = useState<PackageItem[] | null>(null);
-  const [tryOutGroups, setTryOutGroups] = useState<TryOutGroupItem[] | null>(null);
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
 
   const handleKategoriChange = (newKategori: KategoriTO) => {
@@ -140,7 +126,6 @@ function UjianContent() {
         setActivePlan(data.activePlan ?? null);
         setAssignments(data.assignments ?? []);
         setPackages(data.packages ?? []);
-        setTryOutGroups(data.tryOutGroups ?? []);
         setAttempts(data.attempts ?? []);
       }
     })();
@@ -153,10 +138,6 @@ function UjianContent() {
     return attempts.find((a) =>
       assignmentId ? a.assignmentId === assignmentId : a.packageId === packageId && !a.assignmentId,
     );
-  }
-
-  function attemptForGroup(groupId: string) {
-    return attempts.find((a) => a.tryOutGroupId === groupId);
   }
 
   function actionLabel(attempt: AttemptSummary | undefined) {
@@ -175,24 +156,7 @@ function UjianContent() {
     return `/siswa/ujian/mulai?${qs}`;
   }
 
-  function actionHrefGroup(attempt: AttemptSummary | undefined, groupId: string) {
-    if (attempt?.status === "berjalan") return `/siswa/attempt/${attempt.id}`;
-    if (attempt?.status === "selesai" || attempt?.status === "kedaluwarsa") {
-      return `/siswa/hasil/${attempt.id}`;
-    }
-    return `/siswa/ujian/mulai?tryOutGroupId=${groupId}`;
-  }
-
-  // Filter paket dan grup berdasarkan kategori aktif
-  const filteredGroups = useMemo(() => {
-    if (!tryOutGroups) return [];
-    return tryOutGroups.filter((g) => {
-      const matchKategori = g.kategori === kategori;
-      const matchSubject = selectedSubject === "semua" || g.subject.nama === selectedSubject;
-      return matchKategori && matchSubject;
-    });
-  }, [tryOutGroups, kategori, selectedSubject]);
-
+  // Filter paket berdasarkan kategori aktif
   const filteredPackages = useMemo(() => {
     if (!packages) return [];
     return packages.filter((p) => {
@@ -215,16 +179,13 @@ function UjianContent() {
       subjectsMap.set("Bahasa Inggris", "Bahasa Inggris");
     }
 
-    // Tambahkan juga mapel nyata yang ada dari data packages & grup
-    tryOutGroups?.forEach((g) => {
-      if (g.kategori === kategori) subjectsMap.set(g.subject.nama, g.subject.nama);
-    });
+    // Tambahkan juga mapel nyata yang ada dari data packages
     packages?.forEach((p) => {
       if (p.kategori === kategori) subjectsMap.set(p.subject.nama, p.subject.nama);
     });
 
     return Array.from(subjectsMap.values());
-  }, [jenjang, tryOutGroups, packages, kategori]);
+  }, [jenjang, packages, kategori]);
 
   if (jalur === null) {
     return <PageSkeleton />;
@@ -233,13 +194,8 @@ function UjianContent() {
   // Khusus Jalur A (Sekolah) jika ada tugas sekolah aktif
   const showAssignments = jalur === "A" && assignments && assignments.length > 0;
 
-  const totalNasionalCount =
-    (tryOutGroups?.filter((g) => g.kategori === "nasional").length ?? 0) +
-    (packages?.filter((p) => p.kategori === "nasional").length ?? 0);
-
-  const totalMandiriCount =
-    (tryOutGroups?.filter((g) => g.kategori === "mandiri").length ?? 0) +
-    (packages?.filter((p) => p.kategori === "mandiri").length ?? 0);
+  const totalNasionalCount = packages?.filter((p) => p.kategori === "nasional").length ?? 0;
+  const totalMandiriCount = packages?.filter((p) => p.kategori === "mandiri").length ?? 0;
 
   const isNasional = kategori === "nasional";
   const noNasionalQuota = isNasional && activePlan && activePlan.tryOutNasionalKuotaPerMapel === 0;
@@ -441,7 +397,7 @@ function UjianContent() {
             Pilih Mata Pelajaran {jenjang ? `(${jenjang})` : ""}
           </p>
           <span className="text-xs text-slate-400">
-            {filteredGroups.length + filteredPackages.length} paket ditemukan
+            {filteredPackages.length} paket ditemukan
           </span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -476,13 +432,10 @@ function UjianContent() {
       </div>
 
       {/* State Loading */}
-      {(packages === null || tryOutGroups === null) && <ListSkeleton items={4} />}
+      {packages === null && <ListSkeleton items={4} />}
 
       {/* State Kosong */}
-      {packages !== null &&
-        tryOutGroups !== null &&
-        filteredGroups.length === 0 &&
-        filteredPackages.length === 0 && (
+      {packages !== null && filteredPackages.length === 0 && (
           <EmptyState
             icon={<IconClipboardCheck />}
             title={
@@ -502,102 +455,12 @@ function UjianContent() {
           />
         )}
 
-      {/* Daftar Try Out Group (Variasi diacak & Terjadwal) */}
-      {filteredGroups.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-              {isNasional ? "Event Try Out Nasional Terjadwal" : "Grup Try Out"}
-            </h2>
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-              {filteredGroups.length}
-            </span>
-          </div>
-
-          <div className="flex flex-col gap-2.5">
-            {filteredGroups.map((g) => {
-              const attempt = attemptForGroup(g.id);
-              const jadwal = getJadwalStatus(g.bukaMulai, g.bukaSelesai);
-              const label = actionLabel(attempt);
-              const disabled = !attempt && !jadwal.canStart;
-
-              return (
-                <Card
-                  key={g.id}
-                  className="flex flex-col gap-4 p-4 transition-all hover:border-slate-300 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
-                >
-                  <div className="flex items-start gap-3.5">
-                    <MapelIconBadge nama={g.subject.nama} />
-                    <div className="flex flex-col gap-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-slate-900">{g.nama}</h3>
-                        {g.kategori === "nasional" && (
-                          <span className="shrink-0 rounded-md bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">
-                            Nasional
-                          </span>
-                        )}
-                        <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                          Soal diacak
-                        </span>
-                      </div>
-
-                      <p className="text-xs text-slate-500">
-                        <span className="font-medium text-slate-700">{g.subject.nama}</span> · {g.jumlahSoal} soal ·{" "}
-                        {g.durasiMenit} menit
-                      </p>
-
-                      {/* Info Jadwal Pelaksanaan */}
-                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                        <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${jadwal.colorClass}`}>
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                          {jadwal.label}
-                        </span>
-                        {g.bukaMulai && (
-                          <span className="text-slate-400">
-                            Mulai: {formatWIB(g.bukaMulai)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 sm:self-center">
-                    {disabled ? (
-                      <button
-                        type="button"
-                        disabled
-                        className="w-full rounded-xl bg-slate-100 px-4 py-2 text-center text-sm font-semibold text-slate-400 sm:w-auto"
-                      >
-                        Belum Dibuka
-                      </button>
-                    ) : (
-                      <Link
-                        href={actionHrefGroup(attempt, g.id)}
-                        className={`${buttonClassName(
-                          attempt?.status === "berjalan"
-                            ? "primary"
-                            : isNasional
-                            ? "primary"
-                            : "secondary",
-                        )} w-full text-center sm:w-auto`}
-                      >
-                        {label}
-                      </Link>
-                    )}
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Daftar Paket Mandiri Langsung (Non-Group) */}
+      {/* Daftar Paket */}
       {filteredPackages.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-              {isNasional ? "Paket Soal Nasional" : "Paket Latihan Soal"}
+              {isNasional ? "Paket Soal Nasional" : "Paket Try Out Mandiri"}
             </h2>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
               {filteredPackages.length}
@@ -628,11 +491,6 @@ function UjianContent() {
                         ) : (
                           <span className="shrink-0 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
                             Mandiri
-                          </span>
-                        )}
-                        {p.jenisPaket === "latihan" && (
-                          <span className="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">
-                            Latihan Soal
                           </span>
                         )}
                       </div>

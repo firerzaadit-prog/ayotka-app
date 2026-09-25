@@ -7,39 +7,17 @@ export type RankingBoard = { peringkatSaya: number; totalPeserta: number; papan:
 const TOP_N = 20;
 
 /**
- * Cakupan ranking satu "Try Out" (permintaan user, Bagian 8/10): kalau
- * paketnya salah satu VARIASI dari TryOutGroup, cakupannya SEMUA paket
- * variasi dalam grup itu - siswa dirangking bareng meski dapat variasi
- * soal yang berbeda-beda karena diacak (lihat app/api/siswa/attempts/route.ts).
- * Kalau bukan bagian grup, cakupannya paket itu sendiri saja, supaya
- * "setiap ada try out ada ranking" tetap berlaku untuk try out tunggal.
- */
-async function getRankingScopePackageIds(packageId: string): Promise<string[]> {
-  const pkg = await prisma.package.findUnique({
-    where: { id: packageId },
-    select: { tryOutGroupId: true },
-  });
-  if (!pkg?.tryOutGroupId) return [packageId];
-
-  const siblings = await prisma.package.findMany({
-    where: { tryOutGroupId: pkg.tryOutGroupId },
-    select: { id: true },
-  });
-  return siblings.map((s) => s.id);
-}
-
-/**
- * Peringkat siswa di antara SEMUA peserta try out ini - skor TERBAIK per
- * siswa kalau sempat mencoba berulang (sama seperti konvensi ranking
- * analitik admin, lihat lib/analytics/sekolah.ts). Nama ditampilkan APA
- * ADANYA (keputusan user) - beda dari watermark rapor yang menyamarkan
- * identitas, papan ranking ini memang dimaksudkan terlihat sesama peserta.
+ * Peringkat siswa di antara SEMUA peserta try out ini (satu paket - fitur
+ * pooling beberapa "variasi" lewat TryOutGroup dihapus 25 Sep 2026, dulu
+ * cakupannya bisa lintas variasi) - skor TERBAIK per siswa kalau sempat
+ * mencoba berulang (sama seperti konvensi ranking analitik admin, lihat
+ * lib/analytics/sekolah.ts). Nama ditampilkan APA ADANYA (keputusan user) -
+ * beda dari watermark rapor yang menyamarkan identitas, papan ranking ini
+ * memang dimaksudkan terlihat sesama peserta.
  */
 export async function buildRanking(packageId: string, studentId: string): Promise<RankingBoard | null> {
-  const packageIds = await getRankingScopePackageIds(packageId);
-
   const attempts = await prisma.attempt.findMany({
-    where: { packageId: { in: packageIds }, skorAkhir: { not: null } },
+    where: { packageId, skorAkhir: { not: null } },
     select: { studentId: true, skorAkhir: true, student: { select: { nama: true } } },
   });
 
@@ -84,15 +62,19 @@ export type LatestRanking = { attemptId: string; tryOutNama: string; ranking: Ra
  * halaman hasil masing-masing attempt). Dipoll berkala oleh client supaya
  * papan ranking terasa realtime tanpa perlu refresh manual - lihat
  * components/dashboard/ranking-widget.tsx.
+ *
+ * Keputusan user (25 Sep 2026): ranking cuma untuk Try Out Nasional - Try Out
+ * Mandiri difilter di sini juga (bukan cuma di buildHasil) supaya widget
+ * dashboard tidak pernah menunjukkan ranking dari attempt Mandiri.
  */
 export async function getLatestRankingForStudent(studentId: string): Promise<LatestRanking | null> {
   const attempt = await prisma.attempt.findFirst({
-    where: { studentId, skorAkhir: { not: null }, package: { jenisPaket: "tryout" } },
+    where: { studentId, skorAkhir: { not: null }, package: { kategori: "nasional" } },
     orderBy: { mulaiAt: "desc" },
     select: {
       id: true,
       packageId: true,
-      package: { select: { nama: true, tryOutGroup: { select: { nama: true } } } },
+      package: { select: { nama: true } },
     },
   });
   if (!attempt) return null;
@@ -102,7 +84,7 @@ export async function getLatestRankingForStudent(studentId: string): Promise<Lat
 
   return {
     attemptId: attempt.id,
-    tryOutNama: attempt.package.tryOutGroup?.nama ?? attempt.package.nama,
+    tryOutNama: attempt.package.nama,
     ranking,
   };
 }

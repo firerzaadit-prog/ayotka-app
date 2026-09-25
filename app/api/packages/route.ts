@@ -24,7 +24,6 @@ export async function GET() {
     orderBy: { nama: "asc" },
     include: {
       subject: true,
-      tryOutGroup: { select: { nama: true } },
       _count: { select: { questions: { where: { deletedAt: null } } } },
     },
   });
@@ -54,51 +53,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { blueprintId, visibilityMode, visibilitySchoolIds, bukaMulai, bukaSelesai, tryOutGroupId, ...rest } =
-    parsed.data;
-
-  // Bagian 8/10 (permintaan user): paket VARIASI dari TryOutGroup - mapel/
-  // jenjang/tingkat/durasi/jumlah soal WAJIB sama dengan grupnya (diturunkan
-  // di sini, mengabaikan apa pun yang dikirim client untuk field itu) supaya
-  // tiap variasi tidak bisa diam-diam beda dari saudara-saudaranya. Variasi
-  // tidak pernah tampil sendiri ke siswa (bolehDipilihSiswa dipaksa false) -
-  // hanya grupnya yang tampil, lihat getSelfSelectTryOutGroupsFor.
-  if (tryOutGroupId) {
-    const group = await prisma.tryOutGroup.findUnique({ where: { id: tryOutGroupId } });
-    if (!group || group.ownerType !== scope.ownerType || group.ownerId !== scope.ownerId) {
-      return NextResponse.json({ error: "Try out tidak ditemukan." }, { status: 404 });
-    }
-
-    const pkg = await prisma.package.create({
-      data: {
-        nama: rest.nama,
-        subjectId: group.subjectId,
-        jenjang: group.jenjang,
-        tingkatList: group.tingkatList,
-        durasiMenit: group.durasiMenit,
-        jumlahSoal: group.jumlahSoal,
-        maxAttempt: group.maxAttempt,
-        modePembahasan: group.modePembahasan,
-        blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
-        jenisPaket: "tryout",
-        bolehDipilihSiswa: false,
-        kategori: group.kategori,
-        tryOutGroupId: group.id,
-        ...scope,
-      },
-    });
-
-    await logAudit({
-      userId: user.id,
-      aksi: "create",
-      entitas: "packages",
-      entitasId: pkg.id,
-      after: pkg,
-      ip: getClientIp(request),
-    });
-
-    return NextResponse.json({ package: pkg }, { status: 201 });
-  }
+  const { blueprintId, visibilityMode, visibilitySchoolIds, bukaMulai, bukaSelesai, ...rest } = parsed.data;
 
   const bukaMulaiDate = toNullableDate(bukaMulai);
   const bukaSelesaiDate = toNullableDate(bukaSelesai);

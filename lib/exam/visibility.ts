@@ -81,64 +81,6 @@ export async function getSelfSelectPackagesFor(
 }
 
 /**
- * Bagian 8/10 (permintaan user, "paket soal yang banyak, diacak"): sama
- * persis polanya dengan getSelfSelectPackagesFor di atas, tapi untuk
- * TryOutGroup - siswa lihat SATU entri per grup (bukan satu per variasi),
- * sistem baru memilih satu variasi published SECARA ACAK saat attempt
- * dibuat (lihat app/api/siswa/attempts/route.ts). Grup dengan nol variasi
- * published sengaja disaring - tidak ada apa pun untuk benar-benar
- * dikerjakan siswa kalau ditampilkan.
- */
-export async function getSelfSelectTryOutGroupsFor(
-  student: Student,
-  opts: { includeUpcomingNasional?: boolean } = {},
-) {
-  const now = new Date();
-  const baseWhere = {
-    status: "published" as const,
-    jenjang: student.jenjang,
-    tingkatList: { has: student.tingkat },
-    packages: { some: { status: "published" as const } },
-    AND: windowFilter(now, opts.includeUpcomingNasional ?? false),
-  };
-
-  if (student.jalur === "B") {
-    return prisma.tryOutGroup.findMany({
-      where: {
-        ...baseWhere,
-        targetSiswa: { in: ["mandiri", "semua"] },
-        visibility: { some: { targetType: "publik" as const } },
-      },
-      orderBy: { nama: "asc" },
-      include: { subject: true },
-    });
-  }
-
-  if (!student.schoolId) return [];
-  return prisma.tryOutGroup.findMany({
-    where: {
-      ...baseWhere,
-      targetSiswa: { in: ["sekolah", "semua"] },
-      OR: [
-        { ownerType: "sekolah" as const, ownerId: student.schoolId },
-        {
-          visibility: {
-            some: {
-              OR: [
-                { targetType: "semua" as const },
-                { targetType: "sekolah" as const, schoolId: student.schoolId },
-              ],
-            },
-          },
-        },
-      ],
-    },
-    orderBy: { nama: "asc" },
-    include: { subject: true },
-  });
-}
-
-/**
  * Mode A (Ujian Terjadwal) - penugasan aktif yang jendela waktunya sedang
  * terbuka untuk kelas siswa saat ini (enrollment tahun ajaran aktif).
  */

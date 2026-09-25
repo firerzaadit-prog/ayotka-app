@@ -4,7 +4,6 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
 import { AnalisisAiTeaser } from "@/components/ai/analisis-teaser";
-import { LatihanAiNotice } from "@/components/ai/latihan-notice";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { buttonClassName } from "@/components/ui/button";
@@ -25,7 +24,6 @@ type Hasil = {
   siswa: { nama: string; idSamar: string };
   canShowPembahasan: boolean;
   isFreeTrial: boolean;
-  isLatihan: boolean;
   ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
   materiScores: { materiNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
@@ -122,9 +120,7 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         </Card>
       )}
 
-      {hasil.isLatihan ? (
-        <LatihanAiNotice />
-      ) : hasil.isFreeTrial ? (
+      {hasil.isFreeTrial ? (
         <AnalisisAiTeaser />
       ) : (
         <AnalisisAiPanel attemptId={id} canTrigger={false} />

@@ -13,7 +13,6 @@ type Info = {
   jumlahSoal: number;
   durasiMenit: number;
   kategori?: "mandiri" | "nasional";
-  jenisPaket?: "tryout" | "latihan";
   selesai?: string;
   bukaMulai?: string | null;
   subject?: { id: string; nama: string };
@@ -35,7 +34,6 @@ function InstruksiContent() {
   const searchParams = useSearchParams();
   const assignmentId = searchParams.get("assignmentId");
   const packageId = searchParams.get("packageId");
-  const tryOutGroupId = searchParams.get("tryOutGroupId");
 
   const [info, setInfo] = useState<Info>(undefined as unknown as Info);
   const [gunakanLA, setGunakanLA] = useState(true);
@@ -56,15 +54,12 @@ function InstruksiContent() {
       if (assignmentId) {
         const a = (data.assignments ?? []).find((x: { id: string }) => x.id === assignmentId);
         setInfo(a ? { ...a.package, selesai: a.selesai, kategori: a.package.kategori ?? "mandiri" } : null);
-      } else if (tryOutGroupId) {
-        const g = (data.tryOutGroups ?? []).find((x: { id: string }) => x.id === tryOutGroupId);
-        setInfo(g ?? null);
       } else {
         const p = (data.packages ?? []).find((x: { id: string }) => x.id === packageId);
         setInfo(p ?? null);
       }
     })();
-  }, [assignmentId, packageId, tryOutGroupId]);
+  }, [assignmentId, packageId]);
 
   useEffect(() => {
     (async () => {
@@ -79,11 +74,7 @@ function InstruksiContent() {
     setErrorCode(null);
     setStarting(true);
 
-    const payload: Record<string, unknown> = assignmentId
-      ? { assignmentId }
-      : tryOutGroupId
-      ? { tryOutGroupId }
-      : { packageId };
+    const payload: Record<string, unknown> = assignmentId ? { assignmentId } : { packageId };
 
     // Bagian D/G: Sertakan pilihan opt-in Learning Analytics jika try out
     // mandiri DAN siswa punya entitlement aktif - untuk free trial (entitled
@@ -91,7 +82,7 @@ function InstruksiContent() {
     // mengabaikannya (lihat lib/ai/auto-trigger.ts), tapi lebih jujur di sisi
     // klien untuk tidak "meminta" sesuatu yang UI-nya sendiri sudah bilang
     // tidak tersedia.
-    if (info?.kategori !== "nasional" && info?.jenisPaket !== "latihan" && entitled) {
+    if (info?.kategori !== "nasional" && entitled) {
       payload.gunakanLearningAnalytics = gunakanLA;
     }
 
@@ -121,7 +112,6 @@ function InstruksiContent() {
   }
 
   const isNasional = info.kategori === "nasional";
-  const isLatihan = info.jenisPaket === "latihan";
   // Event nasional yang belum dibuka tampil di daftar supaya siswa tahu
   // jadwalnya, tapi tidak boleh dimulai (server juga menolak, lihat
   // includeUpcomingNasional di lib/exam/visibility.ts).
@@ -134,10 +124,6 @@ function InstruksiContent() {
           {isNasional ? (
             <span className="rounded-md bg-violet-100 px-2 py-0.5 text-xs font-bold text-violet-700">
               Try Out Nasional
-            </span>
-          ) : isLatihan ? (
-            <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
-              Latihan Soal
             </span>
           ) : (
             <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-bold text-indigo-700">
@@ -206,10 +192,6 @@ function InstruksiContent() {
             </div>
           </div>
         </div>
-      ) : isLatihan ? (
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
-          Paket latihan mandiri hanya menampilkan skor nilai dan peta kompetensi dasar setelah selesai dikerjakan.
-        </div>
       ) : entitled === undefined ? (
         <Skeleton className="h-16 rounded-xl" />
       ) : entitled === false ? (
@@ -251,9 +233,7 @@ function InstruksiContent() {
       <Alert variant="warning">
         <p className="font-semibold">Petunjuk sebelum mulai:</p>
         <ul className="mt-1 list-disc pl-5 text-xs leading-relaxed">
-          {tryOutGroupId && (
-            <li>Soal dipilih secara acak dari beberapa variasi resmi dan dirangking setara bersama seluruh peserta.</li>
-          )}
+          <li>Urutan soal dan pilihan jawaban diacak per siswa.</li>
           <li>Timer mulai berjalan begitu kamu menekan tombol &quot;Mulai Ujian&quot;.</li>
           <li>Jawaban tersimpan otomatis secara real-time ke server.</li>
           <li>Jika waktu habis, lembar jawaban akan langsung tersubmit otomatis.</li>

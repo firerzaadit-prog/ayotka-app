@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
-import { getActiveAssignmentsFor, getSelfSelectPackagesFor, getSelfSelectTryOutGroupsFor } from "@/lib/exam/visibility";
+import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
 import { getActiveEntitlement } from "@/lib/billing/entitlements";
 import { parsePlanFitur } from "@/lib/billing/plan-fitur";
 
@@ -23,10 +23,9 @@ export async function GET() {
   // Try Out Mandiri & Nasional selain Ujian Terjadwal, sesuai konfirmasi klien.
   const isJalurA = student.jalur === "A";
 
-  const [assignments, packages, tryOutGroups, attempts, activeEntitlement] = await Promise.all([
+  const [assignments, packages, attempts, activeEntitlement] = await Promise.all([
     isJalurA ? getActiveAssignmentsFor(student) : Promise.resolve([]),
     getSelfSelectPackagesFor(student, { includeUpcomingNasional: true }),
-    getSelfSelectTryOutGroupsFor(student, { includeUpcomingNasional: true }),
     prisma.attempt.findMany({
       where: { studentId: student.id },
       select: {
@@ -36,7 +35,6 @@ export async function GET() {
         status: true,
         skorAkhir: true,
         mulaiAt: true,
-        package: { select: { tryOutGroupId: true } },
       },
       orderBy: { mulaiAt: "desc" },
     }),
@@ -66,35 +64,22 @@ export async function GET() {
     tingkat: student.tingkat,
     activePlan,
     assignments,
-    // Sertakan field "kategori" di packages & tryOutGroups supaya UI bisa
-    // memisahkan menu "Try Out Nasional" dan "Try Out Mandiri" tanpa
-    // re-fetch tambahan.
+    // Sertakan field "kategori" di packages supaya UI bisa memisahkan menu
+    // "Try Out Nasional" dan "Try Out Mandiri" tanpa re-fetch tambahan.
     packages: packages.map((p) => ({
       id: p.id,
       nama: p.nama,
       jumlahSoal: p.jumlahSoal,
       durasiMenit: p.durasiMenit,
-      jenisPaket: p.jenisPaket,
       kategori: p.kategori,
       bukaSelesai: p.bukaSelesai,
       bukaMulai: p.bukaMulai,
       subject: p.subject,
     })),
-    tryOutGroups: tryOutGroups.map((g) => ({
-      id: g.id,
-      nama: g.nama,
-      jumlahSoal: g.jumlahSoal,
-      durasiMenit: g.durasiMenit,
-      kategori: g.kategori,
-      bukaSelesai: g.bukaSelesai,
-      bukaMulai: g.bukaMulai,
-      subject: g.subject,
-    })),
     attempts: attempts.map((a) => ({
       id: a.id,
       assignmentId: a.assignmentId,
       packageId: a.packageId,
-      tryOutGroupId: a.package.tryOutGroupId,
       status: a.status,
       skorAkhir: a.skorAkhir,
       mulaiAt: a.mulaiAt,

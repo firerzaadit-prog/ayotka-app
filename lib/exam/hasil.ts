@@ -7,13 +7,6 @@ import { aggregateMateriScores } from "@/lib/exam/materi-scores";
 import { buildRanking } from "@/lib/exam/ranking";
 
 /**
- * Tiket 4.10 + Bagian 7.1 brief ("Tampil pembahasan"): siswa sekolah (Jalur
- * A) baru lihat pembahasan setelah jendela ujian ditutup (mencegah bocor ke
- * teman sekelas yang belum selesai); siswa mandiri (Jalur B) & latihan
- * tanpa penugasan langsung lihat begitu submit. package.mode_pembahasan
- * "langsung" selalu menang; "setelah_tutup" digerbang oleh assignment.selesai.
- */
-/**
  * Tiket 5.9: ID separuh disamarkan untuk watermark - cukup untuk dilacak
  * balik oleh admin kalau ada kebocoran soal, tapi tidak menampilkan NISN
  * penuh ke siapa pun yang melihat/screenshot halaman.
@@ -26,14 +19,10 @@ function maskIdentifier(nisn: string | null, attemptId: string): string {
 }
 
 export async function buildHasil(attempt: Attempt) {
-  const [pkg, assignment, answers, competencyScores, student, isFreeTrial] = await Promise.all([
+  const [pkg, answers, competencyScores, student, isFreeTrial] = await Promise.all([
     prisma.package.findUniqueOrThrow({
       where: { id: attempt.packageId },
-      include: { tryOutGroup: { select: { nama: true } } },
     }),
-    attempt.assignmentId
-      ? prisma.assignment.findUnique({ where: { id: attempt.assignmentId } })
-      : Promise.resolve(null),
     prisma.attemptAnswer.findMany({
       where: { attemptId: attempt.id },
       include: {
@@ -65,8 +54,13 @@ export async function buildHasil(attempt: Attempt) {
     wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt),
   ]);
 
-  const canShowPembahasan =
-    pkg.modePembahasan === "langsung" || !assignment || assignment.selesai.getTime() < Date.now();
+  // Keputusan user (25 Sep 2026): pembahasan sekarang SELALU tampil langsung
+  // begitu attempt selesai/kedaluwarsa - dulu digerbang assignment.selesai
+  // (siswa sekolah baru lihat setelah jendela ujian ditutup), disederhanakan
+  // untuk meminimalkan risiko bug dari gerbang jadwal itu. buildHasil cuma
+  // dipanggil untuk attempt yang sudah difinalisasi (lihat pemanggilnya),
+  // jadi selalu true di sini.
+  const canShowPembahasan = true;
 
   // Urutan+label opsi & baris di sini HARUS sama persis dengan yang dilihat
   // siswa saat mengerjakan (lihat app/api/siswa/attempts/[id]/route.ts,
@@ -108,12 +102,13 @@ export async function buildHasil(attempt: Attempt) {
     };
   });
 
-  // Bagian 8/10 (permintaan user): "setiap ada try out ada ranking" - hanya
-  // untuk paket Try Out (bukan Latihan), dan hanya kalau attempt ini sudah
-  // punya skor akhir (belum tentu true untuk status "berjalan"/"paused" yang
-  // tetap bisa lewat sini lewat jalur retry polling di halaman hasil).
+  // Keputusan user (25 Sep 2026): ranking cuma berlaku untuk Try Out Nasional
+  // - Try Out Mandiri (kapan saja, sepuasnya, soal bisa diulang bebas) tidak
+  // pantas dirangking bareng peserta lain. Tetap butuh skor akhir (belum
+  // tentu ada untuk status "berjalan"/"paused" yang tetap bisa lewat sini
+  // lewat jalur retry polling di halaman hasil).
   const ranking =
-    pkg.jenisPaket === "tryout" && attempt.skorAkhir != null
+    pkg.kategori === "nasional" && attempt.skorAkhir != null
       ? await buildRanking(attempt.packageId, attempt.studentId)
       : null;
 
@@ -126,17 +121,10 @@ export async function buildHasil(attempt: Attempt) {
       mulaiAt: attempt.mulaiAt,
       selesaiAt: attempt.selesaiAt,
     },
-    // Bagian 8/10: kalau paket ini salah satu variasi dari TryOutGroup, tampilkan
-    // nama GRUP-nya (mis. "Try Out Januari") - nama paket sendiri cuma label
-    // internal admin untuk variasinya (mis. "Variasi A"), tidak berarti apa-apa buat siswa.
-    package: { nama: pkg.tryOutGroup?.nama ?? pkg.nama },
+    package: { nama: pkg.nama },
     siswa: { nama: student.nama, idSamar: maskIdentifier(student.nisn, attempt.id) },
     canShowPembahasan,
     isFreeTrial,
-    // Bagian 8/10 (permintaan user): paket Latihan tidak pernah dapat
-    // analisis AI, berlaku di semua jalur - independen dari status
-    // free-trial/berlangganan (lihat lib/ai/auto-trigger.ts).
-    isLatihan: pkg.jenisPaket === "latihan",
     ranking,
     perSoal,
     competencyScores: competencyScores.map((c) => ({

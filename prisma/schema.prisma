@@ -91,7 +91,6 @@ model School {
   classes               Class[]
   students              Student[]
   packageVisibility     PackageVisibility[]
-  tryOutGroupVisibility TryOutGroupVisibility[]
   assignments           Assignment[]
   seatActivatedBy       User?                   @relation("SchoolSeatActivatedBy", fields: [seatActivatedById], references: [id], onDelete: SetNull)
   referredByPartner     Partner?                @relation(fields: [referredByPartnerId], references: [id], onDelete: SetNull)
@@ -112,12 +111,11 @@ model Subject {
   nama    String
   jenjang Jenjang
 
-  materi       Materi[]
-  blueprints   Blueprint[]
-  packages     Package[]
-  plans        Plan[]
-  invoices     Invoice[]
-  tryOutGroups TryOutGroup[]
+  materi     Materi[]
+  blueprints Blueprint[]
+  packages   Package[]
+  plans      Plan[]
+  invoices   Invoice[]
 
   @@map("subjects")
 }
@@ -362,11 +360,6 @@ enum TipePaket {
   bertingkat
 }
 
-enum ModePembahasan {
-  langsung
-  setelah_tutup
-}
-
 enum PackageStatus {
   draft
   published
@@ -379,24 +372,21 @@ enum TargetSiswa {
   semua
 }
 
-/// Bagian 8/10 (permintaan user): "Try Out" resmi (skor + peta kompetensi +
-/// analisis AI, biasanya dijadwalkan lewat bukaMulai/bukaSelesai) vs
-/// "Latihan" (skor + peta kompetensi saja, TANPA analisis AI sama sekali,
-/// berlaku di semua jalur - lihat lib/ai/auto-trigger.ts &
-/// app/api/attempts/[id]/analisis-ai/route.ts). Default "tryout" supaya
-/// paket lama yang sudah ada tetap berperilaku persis seperti sebelum
-/// kolom ini ada.
-enum JenisPaket {
-  tryout
-  latihan
-}
-
 /// Bagian B/F/G (permintaan user): kategori Try Out yang siswa lihat sebagai
 /// dua menu terpisah dengan ikon masing-masing - "nasional" (dijadwalkan
-/// admin pusat, dipooling+diacak lewat TryOutGroup, kuota & analisis AI-nya
-/// otomatis termasuk sesuai plan) vs "mandiri" (kapan saja, sepuasnya,
-/// Learning Analytics opsional per percobaan). Default "mandiri" supaya
-/// paket/grup yang sudah ada tidak berubah perilaku.
+/// admin pusat lewat Bank Soal, jadwal/kuota/analisis AI-nya otomatis
+/// termasuk sesuai plan) vs "mandiri" (kapan saja, sepuasnya, Learning
+/// Analytics opsional per percobaan). Default "mandiri" supaya paket yang
+/// sudah ada tidak berubah perilaku.
+///
+/// Keputusan user (25 Sep 2026): paket yang disebarkan ke siswa nyatanya
+/// selalu satu saja (bukan beberapa "variasi" yang dipooling & diacak
+/// per-siswa seperti TryOutGroup dulu) - soal & urutan opsi tetap teracak
+/// per siswa lewat Package.acakSoal/acakOpsi, jadi TryOutGroup dihapus
+/// total (lihat migration 20260925000000_hapus_tryout_group_jenis_paket_
+/// mode_pembahasan). Try Out Nasional sekarang dibuat & dikelola langsung
+/// di Bank Soal sama seperti Try Out Mandiri, cukup lewat field kategori
+/// ini - tidak ada lagi menu/tabel terpisah.
 enum TryOutKategori {
   mandiri
   nasional
@@ -420,7 +410,6 @@ model Package {
   acakOpsi          Boolean        @default(true) @map("acak_opsi")
   maxAttempt        Int?           @map("max_attempt")
   tipePaket         TipePaket      @default(paralel) @map("tipe_paket")
-  jenisPaket        JenisPaket     @default(tryout) @map("jenis_paket")
   kategori          TryOutKategori @default(mandiri)
   /// Jendela pengerjaan untuk paket self-select (siswa mandiri & siswa
   /// sekolah lewat Latihan Mandiri) - dicek di getSelfSelectPackagesFor.
@@ -434,22 +423,11 @@ model Package {
   blueprintId       String?        @map("blueprint_id") @db.Uuid
   bolehDipilihSiswa Boolean        @default(false) @map("boleh_dipilih_siswa")
   targetSiswa       TargetSiswa    @default(semua) @map("target_siswa")
-  modePembahasan    ModePembahasan @default(setelah_tutup) @map("mode_pembahasan")
   status            PackageStatus  @default(draft)
   publishedAt       DateTime?      @map("published_at")
-  /// Bagian 8/10 (permintaan user, "paket soal yang banyak, diacak"): kalau
-  /// diisi, paket ini adalah salah satu VARIASI dari TryOutGroup - tidak
-  /// pernah ditampilkan sendiri-sendiri ke siswa (bolehDipilihSiswa selalu
-  /// false untuk variasi), hanya grupnya yang tampil. Sistem memilih satu
-  /// variasi published SECARA ACAK per siswa saat attempt dibuat (lihat
-  /// app/api/siswa/attempts/route.ts) - semua siswa yang mengikuti grup yang
-  /// sama dirangking bareng meskipun dapat variasi paket yang berbeda-beda
-  /// (lihat lib/exam/ranking.ts).
-  tryOutGroupId     String?        @map("try_out_group_id") @db.Uuid
 
   subject       Subject             @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   blueprint     Blueprint?          @relation(fields: [blueprintId], references: [id], onDelete: SetNull)
-  tryOutGroup   TryOutGroup?        @relation(fields: [tryOutGroupId], references: [id], onDelete: Cascade)
   questions     Question[]
   visibility    PackageVisibility[]
   assignments   Assignment[]
@@ -457,53 +435,6 @@ model Package {
   soalImportLog SoalImportLog?
 
   @@map("packages")
-}
-
-/// Bagian 8/10 (permintaan user): satu "Try Out" yang siswa lihat sebagai
-/// SATU entri, dibungkus dari beberapa Package "variasi" (soal berbeda,
-/// setting jadwal/target sama - lihat Package.tryOutGroupId). Dipisah dari
-/// Package (bukan cukup field grouping di Package) supaya field jadwal/
-/// target/visibility cukup diisi SEKALI oleh admin per Try Out, bukan
-/// diulang identik di tiap variasi dan rawan tidak sinkron.
-model TryOutGroup {
-  id             String         @id @default(uuid()) @db.Uuid
-  ownerType      OwnerType      @map("owner_type")
-  ownerId        String         @map("owner_id") @db.Uuid
-  subjectId      String         @map("subject_id") @db.Uuid
-  jenjang        Jenjang
-  tingkatList    Int[]          @map("tingkat_list")
-  nama           String
-  durasiMenit    Int            @map("durasi_menit")
-  jumlahSoal     Int            @map("jumlah_soal")
-  maxAttempt     Int?           @map("max_attempt")
-  kategori       TryOutKategori @default(mandiri)
-  targetSiswa    TargetSiswa    @default(semua) @map("target_siswa")
-  modePembahasan ModePembahasan @default(setelah_tutup) @map("mode_pembahasan")
-  status         PackageStatus  @default(draft)
-  bukaMulai      DateTime?      @map("buka_mulai")
-  bukaSelesai    DateTime?      @map("buka_selesai")
-  publishedAt    DateTime?      @map("published_at")
-  createdAt      DateTime       @default(now()) @map("created_at")
-
-  subject    Subject                 @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  packages   Package[]
-  visibility TryOutGroupVisibility[]
-
-  @@map("try_out_groups")
-}
-
-/// Sama persis polanya dengan PackageVisibility, untuk TryOutGroup.
-model TryOutGroupVisibility {
-  id         String           @id @default(uuid()) @db.Uuid
-  groupId    String           @map("group_id") @db.Uuid
-  targetType VisibilityTarget @map("target_type")
-  schoolId   String?          @map("school_id") @db.Uuid
-
-  group  TryOutGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  school School?     @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-
-  @@unique([groupId, targetType, schoolId])
-  @@map("try_out_group_visibility")
 }
 
 enum VisibilityTarget {

@@ -69,19 +69,6 @@ export async function POST(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Ujian belum selesai, belum bisa dianalisis." }, { status: 400 });
   }
 
-  // Bagian 8/10 (permintaan user): paket Latihan tidak pernah dianalisis AI,
-  // termasuk lewat tombol manual admin ini - berlaku di semua jalur.
-  const pkg = await prisma.package.findUnique({
-    where: { id: attempt.packageId },
-    select: { jenisPaket: true },
-  });
-  if (pkg?.jenisPaket === "latihan") {
-    return NextResponse.json(
-      { error: "Paket ini berkategori Latihan - tidak disertai analisis AI." },
-      { status: 400 },
-    );
-  }
-
   // Rincian Biaya AyoTKA (keputusan produk, lihat lib/ai/auto-trigger.ts):
   // free trial TIDAK PERNAH mendapat Analisis AI, apa pun kondisinya - berlaku
   // mutlak, bukan cuma di jalur pemicu otomatis. Tombol ini dipakai di
