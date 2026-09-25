@@ -288,6 +288,29 @@ export function PackageDetail({
     setRefreshKey((k) => k + 1);
   }
 
+  async function handleUnpublish() {
+    if (
+      !window.confirm(
+        "Sembunyikan paket ini? Paket hilang dari daftar siswa dan kembali ke draft supaya bisa diedit. " +
+          "Siswa yang sedang mengerjakan tetap bisa melanjutkan, dan hasil yang sudah ada tidak berubah. " +
+          "Klik Publish lagi setelah selesai mengedit.",
+      )
+    ) {
+      return;
+    }
+    setPublishError(null);
+    setPublishing(true);
+    const res = await fetch(`/api/packages/${packageId}/unpublish`, { method: "POST" });
+    const data = await res.json().catch(() => null);
+    setPublishing(false);
+
+    if (!res.ok) {
+      setPublishError(data?.error ?? "Gagal menyembunyikan paket.");
+      return;
+    }
+    setRefreshKey((k) => k + 1);
+  }
+
   async function handleDeleteQuestion(questionId: string) {
     if (
       !window.confirm(
@@ -341,7 +364,11 @@ export function PackageDetail({
           <Link href={`${basePath}/${packageId}/soal/baru`} className={buttonClassName("primary")}>
             Tambah soal
           </Link>
-          {pkg.status !== "published" && (
+          {pkg.status === "published" ? (
+            <Button variant="secondary" onClick={handleUnpublish} disabled={publishing}>
+              {publishing ? "Memproses..." : "Sembunyikan (jadikan draft)"}
+            </Button>
+          ) : (
             <Button onClick={handlePublish} disabled={publishing}>
               {publishing ? "Memproses..." : "Publish"}
             </Button>

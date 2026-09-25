@@ -1,4 +1,6 @@
 import "server-only";
+import fs from "node:fs";
+import path from "node:path";
 import type { buildHasil } from "@/lib/exam/hasil";
 import { latexToPlainText } from "@/lib/pdf/latex-to-text";
 import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color";
@@ -37,6 +39,56 @@ const FORMAT_LABEL: Record<string, string> = {
   pg_kategori: "PG Kategori",
 };
 
+/**
+ * Font PDF. Font standar pdfkit (Helvetica) cuma mendukung WinAnsi, jadi
+ * simbol matematika (π ≤ ≥ √ ∠ ✓ ●) dan superskrip/subskrip (x², L₁) tampil
+ * sebagai karakter acak (mis. legenda "%Ï Baik ("e70%)"). DejaVu Sans
+ * (lib/pdf/fonts, lisensi bebas) mencakup semuanya - dimuat dari disk sekali
+ * lalu di-cache. Kalau file font tidak ikut ter-bundle di server (mis.
+ * konfigurasi tracing salah), jatuh kembali ke Helvetica + konversi teks
+ * mode aman (lihat lib/pdf/latex-to-text.ts) supaya rapor tetap terunduh,
+ * bukan gagal total - tapi dicatat di log supaya ketahuan.
+ */
+type PdfFonts = {
+  regular: string;
+  bold: string;
+  /** true kalau font Unicode berhasil dimuat. */
+  unicode: boolean;
+  /** Skala ukuran huruf: DejaVu ~7% lebih lebar dari Helvetica di ukuran nominal yang sama. */
+  sz: (n: number) => number;
+};
+
+let fontBuffers: { regular: Buffer; bold: Buffer } | null | undefined;
+
+function loadFontBuffers(): { regular: Buffer; bold: Buffer } | null {
+  if (fontBuffers !== undefined) return fontBuffers;
+  try {
+    const dir = path.join(process.cwd(), "lib", "pdf", "fonts");
+    fontBuffers = {
+      regular: fs.readFileSync(path.join(dir, "DejaVuSans.ttf")),
+      bold: fs.readFileSync(path.join(dir, "DejaVuSans-Bold.ttf")),
+    };
+  } catch (err) {
+    console.warn("[rapor-pdf] font DejaVu tidak ditemukan, memakai Helvetica (simbol matematika akan disederhanakan):", err);
+    fontBuffers = null;
+  }
+  return fontBuffers;
+}
+
+function setupFonts(doc: PDFKit.PDFDocument): PdfFonts {
+  const buffers = loadFontBuffers();
+  if (buffers) {
+    try {
+      doc.registerFont("Body", buffers.regular);
+      doc.registerFont("Body-Bold", buffers.bold);
+      return { regular: "Body", bold: "Body-Bold", unicode: true, sz: (n) => Math.round(n * 0.93 * 10) / 10 };
+    } catch (err) {
+      console.warn("[rapor-pdf] gagal mendaftarkan font DejaVu, memakai Helvetica:", err);
+    }
+  }
+  return { regular: "Helvetica", bold: "Helvetica-Bold", unicode: false, sz: (n) => n };
+}
+
 export async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
     const res = await fetch(url);
@@ -47,13 +99,55 @@ export async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   }
 }
 
+type Align = "center" | "justify" | "left" | "right";
+
+/**
+ * Pecah teks di sekitar tag perataan ala editor soal ([center]...[/center],
+ * lihat components/soal/question-form.tsx) SEBELUM dipecah di gambar. Versi
+ * lama memecah di gambar dulu, sehingga "[center]" tertinggal di potongan
+ * sebelum gambar dan "[/center]" di potongan sesudahnya - tak ada potongan
+ * yang memuat pasangan lengkap, jadi kedua tag bocor mentah ke rapor.
+ * Tag tunggal tanpa pasangan dibuang (jaring pengaman).
+ */
+function splitAlignment(text: string): { text: string; align?: Align }[] {
+  const segments: { text: string; align?: Align }[] = [];
+  const regex = /\[(left|center|right|justify)\]([\s\S]*?)\[\/\1\]/gi;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(text)) !== null) {
+    if (m.index > last) segments.push({ text: text.slice(last, m.index) });
+    segments.push({ text: m[2]!, align: m[1]!.toLowerCase() as Align });
+    last = regex.lastIndex;
+  }
+  if (last < text.length) segments.push({ text: text.slice(last) });
+  return segments.map((s) => ({ ...s, text: s.text.replace(/\[\/?(left|center|right|justify)\]/gi, "") }));
+}
+
 async function renderTextWithImages(
   doc: PDFKit.PDFDocument,
   text: string | null | undefined,
-  options: { width: number; align?: "center" | "justify" | "left" | "right"; color?: string },
+  options: { width: number; align?: Align; color?: string },
+  fonts: PdfFonts,
 ) {
   if (!text) return;
+  for (const segment of splitAlignment(text)) {
+    await renderSegmentWithImages(
+      doc,
+      segment.text,
+      { ...options, align: segment.align ?? options.align },
+      fonts,
+    );
+  }
+}
+
+async function renderSegmentWithImages(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  options: { width: number; align?: Align; color?: string },
+  fonts: PdfFonts,
+) {
   doc.fillColor(options.color ?? COLOR.body);
+  const toText = (t: string) => latexToPlainText(t, { unicode: fonts.unicode });
   const regex = /!\[.*?\]\((.*?)\)/g;
   let lastIndex = 0;
   let match;
@@ -61,7 +155,7 @@ async function renderTextWithImages(
   while ((match = regex.exec(text)) !== null) {
     const preText = text.substring(lastIndex, match.index);
     if (preText.trim()) {
-      doc.text(latexToPlainText(preText), options);
+      doc.text(toText(preText), options);
       doc.moveDown(0.4);
     }
 
@@ -88,20 +182,27 @@ async function renderTextWithImages(
 
   const postText = text.substring(lastIndex);
   if (postText.trim()) {
-    doc.text(latexToPlainText(postText), options);
+    doc.text(toText(postText), options);
     doc.moveDown(0.4);
   }
 }
 
 /** Badge kecil bergaya pill (mis. "Benar"/"Salah") - mengembalikan lebar yang dipakai. */
-function drawBadge(doc: PDFKit.PDFDocument, text: string, x: number, y: number, variant: "success" | "danger"): number {
+function drawBadge(
+  doc: PDFKit.PDFDocument,
+  text: string,
+  x: number,
+  y: number,
+  variant: "success" | "danger",
+  fonts: PdfFonts,
+): number {
   const color = variant === "success" ? COLOR.success : COLOR.danger;
   const bg = variant === "success" ? COLOR.successBg : COLOR.dangerBg;
-  doc.fontSize(9).font("Helvetica-Bold");
+  doc.fontSize(fonts.sz(9)).font(fonts.bold);
   const width = doc.widthOfString(text) + 16;
   doc.roundedRect(x, y, width, 17, 8.5).fill(bg);
   doc.fillColor(color).text(text, x + 8, y + 4, { lineBreak: false });
-  doc.font("Helvetica");
+  doc.font(fonts.regular);
   return width;
 }
 
@@ -129,6 +230,7 @@ function drawCompetencyChart(
   x: number,
   y: number,
   width: number,
+  fonts: PdfFonts,
 ): number {
   const labelW = 165;
   const pctLabelW = 40;
@@ -147,9 +249,12 @@ function drawCompetencyChart(
   scores.forEach((s, i) => {
     const rowY = y + i * rowH;
     const accent = COMPETENCY_TIER_HEX[competencyTier(s.persentase)];
-    const label = s.materiNama.length > 32 ? `${s.materiNama.slice(0, 31)}…` : s.materiNama;
+    // Font Unicode lebih lebar dari Helvetica - batas karakter label dikurangi
+    // supaya label panjang tidak menabrak batang di sebelahnya.
+    const maxLabel = fonts.unicode ? 27 : 32;
+    const label = s.materiNama.length > maxLabel ? `${s.materiNama.slice(0, maxLabel - 1)}…` : s.materiNama;
 
-    doc.fontSize(8.5).font("Helvetica-Bold").fillColor(COLOR.ink)
+    doc.fontSize(fonts.sz(8.5)).font(fonts.bold).fillColor(COLOR.ink)
       .text(label, x, rowY + 3, { width: labelW, lineBreak: false });
 
     const barY = rowY + 3;
@@ -157,13 +262,13 @@ function drawCompetencyChart(
     const fillW = Math.max(3, (barW * Math.min(100, s.persentase)) / 100);
     doc.roundedRect(barX, barY, fillW, barH, 3).fill(accent);
 
-    doc.fontSize(8).font("Helvetica-Bold").fillColor(accent)
+    doc.fontSize(fonts.sz(8)).font(fonts.bold).fillColor(accent)
       .text(`${s.persentase.toFixed(0)}%`, barX + barW + 6, barY + 2, { width: pctLabelW, lineBreak: false });
   });
-  doc.font("Helvetica");
+  doc.font(fonts.regular);
 
   const axisY = y + chartH + 4;
-  doc.fontSize(7).fillColor(COLOR.faint);
+  doc.fontSize(fonts.sz(7)).fillColor(COLOR.faint);
   for (const pct of [0, 25, 50, 75, 100]) {
     const gx = barX + (barW * pct) / 100;
     doc.text(`${pct}%`, gx - 10, axisY, { width: 20, align: "center", lineBreak: false });
@@ -176,7 +281,7 @@ function drawCompetencyChart(
  * dokumen (rapor PDF adalah artefak paling gampang disebarluaskan, jadi versi
  * cetak/download ini justru paling butuh proteksi ini, sama seperti yang
  * sudah dipasang di halaman web hasil - Tiket 5.9). */
-function drawWatermark(doc: PDFKit.PDFDocument, label: string) {
+function drawWatermark(doc: PDFKit.PDFDocument, label: string, fonts: PdfFonts) {
   // doc.save()/restore() cuma menyimpan graphics state (rotasi, opacity, dst) -
   // BUKAN posisi kursor doc.x/doc.y. Tiap doc.text() dalam loop ubin di bawah
   // ikut menggeser doc.x/doc.y ke titik ubin terakhir (jauh di luar halaman,
@@ -189,7 +294,10 @@ function drawWatermark(doc: PDFKit.PDFDocument, label: string) {
   const savedY = doc.y;
   doc.save();
   doc.rotate(-28, { origin: [doc.page.width / 2, doc.page.height / 2] });
-  doc.fontSize(9).font("Helvetica").fillColor(COLOR.ink).opacity(0.06);
+  // Font watermark = font isi (bukan Helvetica tetap): doc.font() bukan bagian
+  // dari save()/restore(), jadi font yang dipakai di sini menjadi font aktif
+  // untuk teks pertama di halaman baru - harus konsisten dengan isi rapor.
+  doc.fontSize(9).font(fonts.regular).fillColor(COLOR.ink).opacity(0.06);
   const tileW = 190;
   const tileH = 95;
   const pad = 160;
@@ -232,10 +340,12 @@ export async function renderRaporPdf(
 ) {
   const contentWidth = doc.page.width - 96;
   const watermarkLabel = `${hasil.siswa.nama} · ${hasil.siswa.idSamar}`;
+  const fonts = setupFonts(doc);
+  doc.font(fonts.regular);
 
-  drawWatermark(doc, watermarkLabel);
+  drawWatermark(doc, watermarkLabel, fonts);
   doc.on("pageAdded", () => {
-    drawWatermark(doc, watermarkLabel);
+    drawWatermark(doc, watermarkLabel, fonts);
   });
 
   // --- HEADER: gradien indigo->violet, logo, judul, identitas ---
@@ -251,13 +361,13 @@ export async function renderRaporPdf(
       // Format tidak didukung pdfkit - lanjut tanpa logo, jangan gagalkan seluruh rapor.
     }
   }
-  doc.fillColor("#ffffff").fontSize(11).font("Helvetica-Bold").text("AyoTKA", 90, 40);
-  doc.fillColor("#ffffff").fontSize(20).font("Helvetica-Bold").text("Rapor Hasil Ujian", 48, 62);
-  doc.font("Helvetica");
+  doc.fillColor("#ffffff").fontSize(fonts.sz(11)).font(fonts.bold).text("AyoTKA", 90, 40);
+  doc.fillColor("#ffffff").fontSize(fonts.sz(20)).font(fonts.bold).text("Rapor Hasil Ujian", 48, 62);
+  doc.font(fonts.regular);
 
-  doc.fontSize(10).fillColor("#e0e7ff").text(hasil.package.nama, 48, 48, { align: "right", width: contentWidth });
+  doc.fontSize(fonts.sz(10)).fillColor("#e0e7ff").text(hasil.package.nama, 48, 48, { align: "right", width: contentWidth });
   doc.fillColor("#c7d2fe").text(hasil.siswa.nama, { align: "right", width: contentWidth });
-  doc.fillColor("#c7d2fe").fontSize(9).text(hasil.siswa.idSamar, { align: "right", width: contentWidth });
+  doc.fillColor("#c7d2fe").fontSize(fonts.sz(9)).text(hasil.siswa.idSamar, { align: "right", width: contentWidth });
 
   doc.y = headerH + 24;
 
@@ -266,26 +376,26 @@ export async function renderRaporPdf(
   const summaryH = 74;
   doc.roundedRect(48, summaryY, contentWidth, summaryH, 10).fill(COLOR.cardBg).stroke(COLOR.border);
 
-  doc.fontSize(9).fillColor(COLOR.muted).text("NILAI AKHIR", 68, summaryY + 16);
-  doc.fontSize(30).font("Helvetica-Bold").fillColor(COLOR.primaryFrom)
+  doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text("NILAI AKHIR", 68, summaryY + 16);
+  doc.fontSize(fonts.sz(30)).font(fonts.bold).fillColor(COLOR.primaryFrom)
     .text(hasil.attempt.skorAkhir?.toFixed(1) ?? "-", 68, summaryY + 30);
-  doc.font("Helvetica");
+  doc.font(fonts.regular);
 
   const totalBenar = hasil.perSoal.filter((s) => (s.skor ?? 0) >= s.skorMaks).length;
   const statCol2X = 68 + 150;
-  doc.fontSize(9).fillColor(COLOR.muted).text("JAWABAN BENAR", statCol2X, summaryY + 16);
-  doc.fontSize(16).font("Helvetica-Bold").fillColor(COLOR.ink)
+  doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text("JAWABAN BENAR", statCol2X, summaryY + 16);
+  doc.fontSize(fonts.sz(16)).font(fonts.bold).fillColor(COLOR.ink)
     .text(`${totalBenar} / ${hasil.perSoal.length}`, statCol2X, summaryY + 32);
-  doc.font("Helvetica");
+  doc.font(fonts.regular);
 
   const statCol3X = statCol2X + 150;
   const statusLabel =
     hasil.attempt.status === "kedaluwarsa" ? "Waktu habis (auto-submit)" : "Selesai";
-  doc.fontSize(9).fillColor(COLOR.muted).text("STATUS", statCol3X, summaryY + 16);
-  doc.fontSize(11).font("Helvetica-Bold").fillColor(COLOR.ink).text(statusLabel, statCol3X, summaryY + 34, {
+  doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text("STATUS", statCol3X, summaryY + 16);
+  doc.fontSize(fonts.sz(11)).font(fonts.bold).fillColor(COLOR.ink).text(statusLabel, statCol3X, summaryY + 34, {
     width: contentWidth - (statCol3X - 48) - 20,
   });
-  doc.font("Helvetica");
+  doc.font(fonts.regular);
 
   doc.y = summaryY + summaryH + 10;
 
@@ -297,7 +407,7 @@ export async function renderRaporPdf(
   // seperti salah hitung padahal bukan - beri catatan hanya saat itu terjadi.
   const naivePct = hasil.perSoal.length > 0 ? (totalBenar / hasil.perSoal.length) * 100 : 0;
   if (Math.abs(naivePct - (hasil.attempt.skorAkhir ?? 0)) > 1) {
-    doc.fontSize(8).fillColor(COLOR.faint).text(
+    doc.fontSize(fonts.sz(8)).fillColor(COLOR.faint).text(
       "Catatan: Nilai Akhir adalah skor tertimbang (tiap soal bisa punya bobot berbeda), bukan sekadar persentase jumlah soal benar.",
       48,
       doc.y,
@@ -314,16 +424,20 @@ export async function renderRaporPdf(
     // halaman ini, pindah halaman DULU (bukan di tengah-tengah menggambar).
     if (doc.y + 44 + chartH > doc.page.height - 48) doc.addPage();
 
-    doc.fontSize(14).font("Helvetica-Bold").fillColor(COLOR.ink).text("Peta Kompetensi", 48, doc.y);
-    doc.font("Helvetica");
+    doc.fontSize(fonts.sz(14)).font(fonts.bold).fillColor(COLOR.ink).text("Peta Kompetensi", 48, doc.y);
+    doc.font(fonts.regular);
     doc.moveDown(0.8);
 
-    doc.y = drawCompetencyChart(doc, hasil.materiScores, 48, doc.y, contentWidth);
+    doc.y = drawCompetencyChart(doc, hasil.materiScores, 48, doc.y, contentWidth, fonts);
 
+    // Legenda: "●" dan "≥" tidak ada di font default (WinAnsi) - dulu tampil
+    // sebagai "%Ï Baik ("e70%)". Di mode cadangan diganti padanan ASCII.
+    const dot = fonts.unicode ? "●" : "•";
+    const gte = fonts.unicode ? "≥" : ">=";
     const legendY = doc.y;
-    doc.fontSize(7.5).fillColor(COMPETENCY_TIER_HEX.baik).text("● Baik (≥70%)", 48, legendY, { continued: true, lineBreak: false });
-    doc.fillColor(COMPETENCY_TIER_HEX.cukup).text("   ● Cukup (50-69%)", { continued: true, lineBreak: false });
-    doc.fillColor(COMPETENCY_TIER_HEX.kurang).text("   ● Perlu latihan (<50%)", { lineBreak: false });
+    doc.fontSize(fonts.sz(7.5)).fillColor(COMPETENCY_TIER_HEX.baik).text(`${dot} Baik (${gte}70%)`, 48, legendY, { continued: true, lineBreak: false });
+    doc.fillColor(COMPETENCY_TIER_HEX.cukup).text(`   ${dot} Cukup (50-69%)`, { continued: true, lineBreak: false });
+    doc.fillColor(COMPETENCY_TIER_HEX.kurang).text(`   ${dot} Perlu latihan (<50%)`, { lineBreak: false });
     doc.y = legendY + 14;
     doc.moveDown(0.6);
   }
@@ -333,60 +447,60 @@ export async function renderRaporPdf(
   if (analysis) {
     if (doc.y > doc.page.height - 220) doc.addPage();
 
-    doc.fontSize(14).font("Helvetica-Bold").fillColor(COLOR.ink).text("Analisis AI", 48, doc.y);
-    doc.font("Helvetica");
+    doc.fontSize(fonts.sz(14)).font(fonts.bold).fillColor(COLOR.ink).text("Analisis AI", 48, doc.y);
+    doc.font(fonts.regular);
     doc.moveDown(0.4);
 
     const accentY = doc.y;
     doc.rect(48, accentY, contentWidth, 3).fill(COLOR.primaryFrom);
     doc.y = accentY + 14;
 
-    doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Ringkasan Kemampuan");
-    doc.font("Helvetica").fontSize(9.5).fillColor(COLOR.body).text(analysis.ringkasan || "-", {
+    doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Ringkasan Kemampuan");
+    doc.font(fonts.regular).fontSize(fonts.sz(9.5)).fillColor(COLOR.body).text(analysis.ringkasan || "-", {
       width: contentWidth,
       align: "justify",
     });
     doc.moveDown(0.7);
 
     if (analysis.petaKompetensi && analysis.petaKompetensi.length > 0) {
-      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Peta Kompetensi AI");
-      doc.font("Helvetica");
+      doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Peta Kompetensi AI");
+      doc.font(fonts.regular);
       doc.moveDown(0.2);
       for (const k of analysis.petaKompetensi) {
-        doc.fontSize(9.5).fillColor(COLOR.ink).font("Helvetica-Bold")
+        doc.fontSize(fonts.sz(9.5)).fillColor(COLOR.ink).font(fonts.bold)
           .text(`${k.kode}  `, { continued: true, width: contentWidth });
-        doc.font("Helvetica").fillColor(COLOR.body).text(k.narasi, { width: contentWidth });
+        doc.font(fonts.regular).fillColor(COLOR.body).text(k.narasi, { width: contentWidth });
       }
       doc.moveDown(0.7);
     }
 
     const kelebihan = analysis.kelebihanSiswa || analysis.levelKognitif;
     if (kelebihan) {
-      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Kelebihan Siswa");
-      doc.font("Helvetica").fontSize(9.5).fillColor(COLOR.body)
+      doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Kelebihan Siswa");
+      doc.font(fonts.regular).fontSize(fonts.sz(9.5)).fillColor(COLOR.body)
         .text(kelebihan, { width: contentWidth, align: "justify" });
       doc.moveDown(0.7);
     }
 
     const kekurangan = analysis.kekuranganSiswa || analysis.polaKesalahan;
     if (kekurangan) {
-      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Kekurangan Siswa");
-      doc.font("Helvetica").fontSize(9.5).fillColor(COLOR.body)
+      doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Kekurangan Siswa");
+      doc.font(fonts.regular).fontSize(fonts.sz(9.5)).fillColor(COLOR.body)
         .text(kekurangan, { width: contentWidth, align: "justify" });
       doc.moveDown(0.7);
     }
 
     if (analysis.rekomendasi && analysis.rekomendasi.length > 0) {
-      doc.fontSize(10.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Rekomendasi Belajar");
-      doc.font("Helvetica");
+      doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Rekomendasi Belajar");
+      doc.font(fonts.regular);
       doc.moveDown(0.2);
       for (const rec of analysis.rekomendasi) {
-        doc.fontSize(9.5).fillColor(COLOR.body).text(`•  ${rec}`, { width: contentWidth, align: "justify" });
+        doc.fontSize(fonts.sz(9.5)).fillColor(COLOR.body).text(`•  ${rec}`, { width: contentWidth, align: "justify" });
       }
     }
 
     doc.moveDown(0.6);
-    doc.fontSize(8).fillColor(COLOR.faint)
+    doc.fontSize(fonts.sz(8)).fillColor(COLOR.faint)
       .text("Analisis ini dibuat otomatis oleh AI sebagai alat bantu belajar, bukan penilaian final.", {
         align: "center",
         width: contentWidth,
@@ -396,19 +510,9 @@ export async function renderRaporPdf(
 
   // --- RINCIAN JAWABAN ---
   doc.addPage();
-  doc.fontSize(14).font("Helvetica-Bold").fillColor(COLOR.ink).text("Rincian Jawaban", 48, 48);
-  doc.font("Helvetica");
+  doc.fontSize(fonts.sz(14)).font(fonts.bold).fillColor(COLOR.ink).text("Rincian Jawaban", 48, 48);
+  doc.font(fonts.regular);
   doc.moveDown(0.6);
-
-  if (!hasil.canShowPembahasan) {
-    doc.roundedRect(48, doc.y, contentWidth, 34, 6).fill(COLOR.warnBg);
-    doc.fontSize(9.5).fillColor(COLOR.warnText)
-      .text("Pembahasan lengkap akan tersedia setelah jendela ujian kelas ditutup.", 60, doc.y + 11, {
-        width: contentWidth - 24,
-      });
-    doc.y += 34;
-    doc.moveDown(1);
-  }
 
   for (let i = 0; i < hasil.perSoal.length; i++) {
     const s = hasil.perSoal[i]!;
@@ -423,15 +527,15 @@ export async function renderRaporPdf(
     // sesudah itu, hasilnya bisa tumpang tindih (Y nyangkut di baris yang sama)
     // atau ke-wrap jadi kolom sempit (X nyangkut dekat tepi kanan bekas badge).
     const headingY = doc.y;
-    doc.fontSize(11).font("Helvetica-Bold").fillColor(COLOR.ink)
+    doc.fontSize(fonts.sz(11)).font(fonts.bold).fillColor(COLOR.ink)
       .text(`Soal ${i + 1}`, 48, headingY, { continued: true, lineBreak: false });
-    doc.font("Helvetica").fillColor(COLOR.faint)
+    doc.font(fonts.regular).fillColor(COLOR.faint)
       .text(`  ·  ${FORMAT_LABEL[s.format] ?? s.format}`, { continued: false, lineBreak: false });
-    drawBadge(doc, benar ? "Benar" : "Salah", doc.page.width - 48 - 60, headingY - 3, benar ? "success" : "danger");
+    drawBadge(doc, benar ? "Benar" : "Salah", doc.page.width - 48 - 60, headingY - 3, benar ? "success" : "danger", fonts);
     doc.x = 48;
     doc.y = headingY + 24;
 
-    await renderTextWithImages(doc, s.teks, { width: contentWidth, color: COLOR.body });
+    await renderTextWithImages(doc, s.teks, { width: contentWidth, color: COLOR.body }, fonts);
     doc.moveDown(0.3);
 
     if (hasil.canShowPembahasan) {
@@ -444,35 +548,54 @@ export async function renderRaporPdf(
       // dari cabang statements).
       if (s.options && s.options.length > 0) {
         const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
-        const selectedId = jawaban?.option_id;
-        const selectedIds = new Set(jawaban?.option_ids ?? []);
-        const chosenOptions = s.options.filter((o) =>
-          s.format === "pg" ? o.id === selectedId : selectedIds.has(o.id),
+        const selectedIds = new Set<string>(
+          s.format === "pg" ? (jawaban?.option_id ? [jawaban.option_id] : []) : (jawaban?.option_ids ?? []),
         );
-        const kunciOptions = s.options.filter((o) => o.isCorrect);
 
-        doc.fontSize(9.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Jawaban Siswa:");
-        doc.font("Helvetica");
-        if (chosenOptions.length > 0) {
-          for (const opt of chosenOptions) {
-            await renderTextWithImages(doc, `${opt.label}. ${opt.teks}`, {
-              width: contentWidth,
-              color: opt.isCorrect ? COLOR.success : COLOR.danger,
-            });
+        // Semua pilihan dicetak lengkap (A, B, C, D, ...) seperti di layar,
+        // bukan cuma yang dipilih siswa dan kuncinya - versi lama membuat
+        // rapor tidak bisa dibaca sebagai soal utuh (pilihan lain yang
+        // menjadi pengecoh tidak kelihatan). Penanda di ujung baris:
+        // hijau = benar (dipilih benar / kunci yang terlewat), merah =
+        // pilihan siswa yang salah, tanpa warna = pilihan lain.
+        const tick = fonts.unicode ? "✓" : "[v]";
+        const cross = fonts.unicode ? "✗" : "[x]";
+
+        doc.fontSize(fonts.sz(9.5)).font(fonts.bold).fillColor(COLOR.ink).text("Pilihan jawaban:");
+        doc.font(fonts.regular);
+        for (const opt of s.options) {
+          const dipilih = selectedIds.has(opt.id);
+          let marker = "";
+          let color: string = COLOR.body;
+          if (dipilih && opt.isCorrect) {
+            marker = `   ${tick} Jawaban siswa (benar)`;
+            color = COLOR.success;
+          } else if (dipilih) {
+            marker = `   ${cross} Jawaban siswa (salah)`;
+            color = COLOR.danger;
+          } else if (opt.isCorrect) {
+            marker = `   ${tick} Kunci jawaban`;
+            color = COLOR.success;
           }
-        } else {
-          doc.fontSize(9.5).fillColor(COLOR.faint).text("Kosong / Tidak dijawab");
+          await renderTextWithImages(
+            doc,
+            `${opt.label}. ${opt.teks}${marker}`,
+            { width: contentWidth, color },
+            fonts,
+          );
         }
-        doc.moveDown(0.4);
 
-        doc.fontSize(9.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Kunci Jawaban:");
-        doc.font("Helvetica");
-        for (const opt of kunciOptions) {
-          await renderTextWithImages(doc, `${opt.label}. ${opt.teks}`, {
-            width: contentWidth,
-            color: COLOR.success,
-          });
-        }
+        // Ringkasan satu baris untuk dibaca sekilas.
+        const allOptions = s.options;
+        const labelsOf = (pred: (o: (typeof allOptions)[number]) => boolean) =>
+          allOptions.filter(pred).map((o) => o.label).join(", ");
+        const dipilihLabel = labelsOf((o) => selectedIds.has(o.id));
+        const kunciLabel = labelsOf((o) => o.isCorrect);
+        doc.moveDown(0.1);
+        doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text(
+          `Jawaban siswa: ${dipilihLabel || "tidak dijawab"}   ·   Kunci: ${kunciLabel || "-"}`,
+          { width: contentWidth },
+        );
       }
 
       if (s.statements && s.statements.length > 0) {
@@ -489,8 +612,14 @@ export async function renderRaporPdf(
             ? (s.jawabanJson as Record<string, string>)
             : {};
 
-        doc.fontSize(9.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Kunci & Jawaban Siswa:");
-        doc.font("Helvetica");
+        doc.fontSize(fonts.sz(9.5)).font(fonts.bold).fillColor(COLOR.ink).text("Kunci & Jawaban Siswa:");
+        doc.font(fonts.regular);
+        if (s.categories && s.categories.length > 0) {
+          doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text(
+            `Pilihan kategori: ${s.categories.map((c) => c.label).join("  /  ")}`,
+            { width: contentWidth },
+          );
+        }
         for (const st of s.statements) {
           const categoryId = studentChoices[st.id];
           const siswaJawab = categoryId
@@ -498,7 +627,10 @@ export async function renderRaporPdf(
             : "Kosong";
           const isCorrect = siswaJawab === st.correctLabel;
 
-          doc.fontSize(9.5).fillColor(COLOR.body).text(`- ${latexToPlainText(st.teks)}`, { width: contentWidth });
+          doc.fontSize(fonts.sz(9.5)).fillColor(COLOR.body).text(
+            `- ${latexToPlainText(st.teks, { unicode: fonts.unicode })}`,
+            { width: contentWidth },
+          );
           doc.fillColor(isCorrect ? COLOR.success : COLOR.danger)
             .text(`  Siswa: ${siswaJawab}${isCorrect ? " (benar)" : ` (Kunci: ${st.correctLabel})`}`, {
               width: contentWidth,
@@ -508,9 +640,9 @@ export async function renderRaporPdf(
 
       if (s.pembahasan) {
         doc.moveDown(0.4);
-        doc.fontSize(9.5).font("Helvetica-Bold").fillColor(COLOR.ink).text("Pembahasan:");
-        doc.font("Helvetica");
-        await renderTextWithImages(doc, s.pembahasan, { width: contentWidth, color: COLOR.muted });
+        doc.fontSize(fonts.sz(9.5)).font(fonts.bold).fillColor(COLOR.ink).text("Pembahasan:");
+        doc.font(fonts.regular);
+        await renderTextWithImages(doc, s.pembahasan, { width: contentWidth, color: COLOR.muted }, fonts);
       }
     }
 

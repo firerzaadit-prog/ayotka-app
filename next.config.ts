@@ -5,6 +5,13 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined;
 
 const nextConfig: NextConfig = {
+  // Font Unicode untuk rapor PDF dibaca lewat fs saat runtime (lib/pdf/
+  // rapor-renderer.ts) - bukan import, jadi tidak otomatis ikut ter-bundle di
+  // fungsi serverless Vercel. Kalau file ini tidak ikut, rapor tetap jadi
+  // tapi jatuh ke font default tanpa simbol matematika (x², π, ≥, ✓).
+  outputFileTracingIncludes: {
+    "/api/siswa/attempts/\\[id\\]/rapor": ["./lib/pdf/fonts/**/*"],
+  },
   images: {
     remotePatterns: supabaseHostname
       ? [{ protocol: "https", hostname: supabaseHostname }]
