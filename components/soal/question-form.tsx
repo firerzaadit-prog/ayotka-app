@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -300,7 +301,11 @@ export function QuestionForm({
       <Alert variant="warning">
         Soal ini sudah pernah dijawab siswa dan paketnya sedang dipublish, jadi tidak bisa diedit.
         Kembali ke paket, klik <strong>Sembunyikan (jadikan draft)</strong>, lalu edit soalnya dan
-        Publish lagi setelah selesai.
+        Publish lagi setelah selesai. Kalau yang ingin diubah hanya <strong>pembahasan</strong>, pakai{" "}
+        <Link href={`${basePath}/${packageId}/pembahasan`} className="font-semibold underline">
+          Isi / Edit Pembahasan
+        </Link>{" "}
+        - bisa kapan saja tanpa menyembunyikan paket.
       </Alert>
     );
   }

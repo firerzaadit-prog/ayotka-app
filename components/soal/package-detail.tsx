@@ -28,6 +28,7 @@ type Question = {
   id: string;
   format: string;
   teks: string;
+  pembahasan?: string | null;
   tingkatKesulitan: string;
   kompetensi: { kode: string };
   _count: { attemptAnswers: number };
@@ -345,7 +346,7 @@ export function PackageDetail({
           {pkg.questions.length}/{pkg.jumlahSoal} soal
           {" · Tingkat: "}{pkg.tingkatList.join(", ")}
           {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
-          {" · Pembahasan: langsung setelah siswa submit"}
+          {` · Pembahasan: ${pkg.questions.filter((q) => (q.pembahasan ?? "").trim().length > 0).length}/${pkg.questions.length} soal terisi (tampil langsung setelah siswa submit)`}
           {" · Target: "}{describeVisibility(pkg.visibility ?? [])}
           {(pkg.bukaMulai || pkg.bukaSelesai) && (
             <>
@@ -363,6 +364,9 @@ export function PackageDetail({
           </Button>
           <Link href={`${basePath}/${packageId}/soal/baru`} className={buttonClassName("primary")}>
             Tambah soal
+          </Link>
+          <Link href={`${basePath}/${packageId}/pembahasan`} className={buttonClassName("secondary")}>
+            Isi / Edit Pembahasan
           </Link>
           {pkg.status === "published" ? (
             <Button variant="secondary" onClick={handleUnpublish} disabled={publishing}>
