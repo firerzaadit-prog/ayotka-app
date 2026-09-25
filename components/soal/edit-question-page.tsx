@@ -17,6 +17,7 @@ export function EditQuestionPage({
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [initial, setInitial] = useState<QuestionFormInitial | null>(null);
   const [locked, setLocked] = useState(false);
+  const [answeredCount, setAnsweredCount] = useState(0);
 
   useEffect(() => {
     let ignore = false;
@@ -31,6 +32,7 @@ export function EditQuestionPage({
 
       setSubjectId(pkgData.package?.subjectId ?? null);
       setLocked(Boolean(qData.locked));
+      setAnsweredCount(Number(qData.answeredCount ?? 0));
 
       const q = qData.question;
       if (q) {
@@ -79,6 +81,7 @@ export function EditQuestionPage({
         basePath={basePath}
         initial={initial}
         locked={locked}
+        answeredCount={answeredCount}
       />
     </div>
   );

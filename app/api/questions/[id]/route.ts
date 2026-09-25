@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
 import { questionUpdateSchema } from "@/lib/validations/question";
+import { syncQuestionChildren } from "@/lib/soal/sync-question-children";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -14,9 +15,23 @@ async function loadQuestionWithAnswerCount(id: string) {
       options: { orderBy: { urutan: "asc" } },
       categories: { orderBy: { urutan: "asc" } },
       statements: { orderBy: { urutan: "asc" } },
+      package: { select: { status: true } },
       _count: { select: { attemptAnswers: true } },
     },
   });
+}
+
+/**
+ * Keputusan user (25 Sep 2026): soal yang sudah pernah dijawab siswa tetap
+ * bisa diedit SELAMA paketnya tidak sedang dipublish (draft/arsip) - admin
+ * cukup "Sembunyikan" paket dulu (lihat packages/[id]/unpublish), edit, lalu
+ * Publish lagi. Dulu terkunci total, jadi memperbaiki pembahasan/salah ketik
+ * pada soal yang sudah dijawab mustahil. Saat paket dipublish, soal yang
+ * sudah dijawab tetap terkunci - itu yang melindungi ujian yang sedang
+ * berjalan/hasil siswa dari perubahan diam-diam.
+ */
+function isLocked(q: NonNullable<Awaited<ReturnType<typeof loadQuestionWithAnswerCount>>>): boolean {
+  return q._count.attemptAnswers > 0 && q.package.status === "published";
 }
 
 export async function GET(_request: Request, { params }: RouteParams) {
@@ -33,13 +48,21 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Soal tidak ditemukan." }, { status: 404 });
   }
 
-  return NextResponse.json({ question, locked: question._count.attemptAnswers > 0 });
+  return NextResponse.json({
+    question,
+    locked: isLocked(question),
+    answeredCount: question._count.attemptAnswers,
+  });
 }
 
 /**
- * Tiket 2.9: soal yang sudah punya jawaban tersimpan (attempt_answers)
- * tidak boleh diubah isinya sama sekali (Bagian 7.2 brief) - buat versi
- * baru lewat POST /api/packages/[id]/questions kalau perlu revisi.
+ * Tiket 2.9 (dilonggarkan 25 Sep 2026, lihat isLocked): soal yang sudah punya
+ * jawaban tersimpan (attempt_answers) hanya boleh diedit kalau paketnya tidak
+ * sedang dipublish. Untuk soal yang sudah dijawab, isi diperbarui DI TEMPAT
+ * (ID opsi/pernyataan/kategori dipertahankan) - menghapus lalu membuat ulang
+ * akan membuat jawaban lama siswa menunjuk ID yang sudah tidak ada (dan untuk
+ * PG Kategori bahkan ditolak database, relasi Restrict). Konsekuensinya
+ * jumlah opsi/pernyataan tidak boleh dikurangi setelah ada yang menjawab.
  */
 export async function PATCH(request: Request, { params }: RouteParams) {
   let user;
@@ -55,15 +78,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Soal tidak ditemukan." }, { status: 404 });
   }
 
-  if (existing._count.attemptAnswers > 0) {
+  if (isLocked(existing)) {
     return NextResponse.json(
       {
         error:
-          "Soal ini sudah pernah dijawab siswa, tidak bisa diedit. Buat versi soal baru untuk perbaikan.",
+          "Soal ini sudah pernah dijawab siswa dan paketnya sedang dipublish, jadi tidak bisa diedit. Sembunyikan paket (jadikan draft) dulu, edit, lalu Publish lagi.",
       },
       { status: 409 },
     );
   }
+  const sudahDijawab = existing._count.attemptAnswers > 0;
 
   const body = await request.json().catch(() => null);
   const parsed = questionUpdateSchema.safeParse({ ...body, packageId: existing.packageId });
@@ -83,6 +107,23 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     );
   }
 
+  if (sudahDijawab) {
+    const jumlahBaru =
+      input.format === "pg_kategori" ? input.statements.length : input.options.length;
+    const jumlahLama =
+      input.format === "pg_kategori" ? existing.statements.length : existing.options.length;
+    if (jumlahBaru < jumlahLama) {
+      return NextResponse.json(
+        {
+          error: `Soal ini sudah pernah dijawab siswa, jumlah ${
+            input.format === "pg_kategori" ? "pernyataan" : "pilihan jawaban"
+          } tidak boleh dikurangi (sekarang ${jumlahLama}). Ubah isinya saja, atau buat soal baru.`,
+        },
+        { status: 409 },
+      );
+    }
+  }
+
   const question = await prisma.$transaction(async (tx) => {
     const updated = await tx.question.update({
       where: { id },
@@ -100,34 +141,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       },
     });
 
-    if (input.format === "pg" || input.format === "pg_kompleks") {
-      await tx.questionOption.deleteMany({ where: { questionId: id } });
-      await tx.questionOption.createMany({
-        data: input.options.map((opt) => ({ ...opt, questionId: id })),
-      });
-    }
-
-    if (input.format === "pg_kategori") {
-      await tx.questionStatement.deleteMany({ where: { questionId: id } });
-      await tx.questionCategory.deleteMany({ where: { questionId: id } });
-
-      const benar = await tx.questionCategory.create({
-        data: { questionId: id, label: "Benar", urutan: 0 },
-      });
-      const salah = await tx.questionCategory.create({
-        data: { questionId: id, label: "Salah", urutan: 1 },
-      });
-
-      await tx.questionStatement.createMany({
-        data: input.statements.map((s) => ({
-          questionId: id,
-          teks: s.teks,
-          media: s.media ?? null,
-          urutan: s.urutan,
-          correctCategoryId: s.correctCategory === "Benar" ? benar.id : salah.id,
-        })),
-      });
-    }
+    await syncQuestionChildren(tx, id, existing, input, sudahDijawab);
 
     return updated;
   });

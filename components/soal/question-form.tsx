@@ -119,12 +119,15 @@ export function QuestionForm({
   basePath,
   initial,
   locked,
+  answeredCount = 0,
 }: {
   packageId: string;
   subjectId: string;
   basePath: string;
   initial?: QuestionFormInitial;
   locked?: boolean;
+  /** Berapa jawaban siswa yang sudah tersimpan untuk soal ini (0 = belum pernah dijawab). */
+  answeredCount?: number;
 }) {
   const router = useRouter();
   const [format, setFormat] = useState<Format>(initial?.format ?? "pg");
@@ -220,8 +223,16 @@ export function QuestionForm({
     ]);
   }
 
+  // Soal yang sudah pernah dijawab: jumlah pilihan/pernyataan tidak boleh
+  // berkurang dari yang tersimpan (ditolak juga di server, PATCH /api/questions/[id]).
+  const minOptions = Math.max(
+    format === "pg" ? 4 : 2,
+    answeredCount > 0 ? (initial?.options.length ?? 0) : 0,
+  );
+  const minStatements = Math.max(1, answeredCount > 0 ? (initial?.statements.length ?? 0) : 0);
+
   function removeOption(index: number) {
-    if (options.length <= (format === "pg" ? 4 : 2)) return;
+    if (options.length <= minOptions) return;
     setOptions((prev) => prev.filter((_, i) => i !== index).map((o, i) => ({ ...o, urutan: i })));
   }
 
@@ -238,7 +249,7 @@ export function QuestionForm({
   }
 
   function removeStatement(index: number) {
-    if (statements.length <= 1) return;
+    if (statements.length <= minStatements) return;
     setStatements((prev) => prev.filter((_, i) => i !== index).map((s, i) => ({ ...s, urutan: i })));
   }
 
@@ -287,8 +298,9 @@ export function QuestionForm({
   if (locked) {
     return (
       <Alert variant="warning">
-        Soal ini sudah pernah dijawab siswa dan tidak bisa diedit lagi. Buat soal baru kalau perlu
-        perbaikan.
+        Soal ini sudah pernah dijawab siswa dan paketnya sedang dipublish, jadi tidak bisa diedit.
+        Kembali ke paket, klik <strong>Sembunyikan (jadikan draft)</strong>, lalu edit soalnya dan
+        Publish lagi setelah selesai.
       </Alert>
     );
   }
@@ -297,6 +309,15 @@ export function QuestionForm({
     <Card>
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {error && <Alert variant="danger">{error}</Alert>}
+
+        {answeredCount > 0 && (
+          <Alert variant="warning">
+            Soal ini sudah dijawab {answeredCount} kali oleh siswa. Memperbaiki pembahasan atau salah
+            ketik aman. Tapi nilai yang sudah tersimpan tidak dihitung ulang, jadi kalau kunci jawaban
+            diubah, hasil siswa lama bisa terlihat tidak cocok dengan nilainya. Jumlah pilihan jawaban
+            tidak bisa dikurangi.
+          </Alert>
+        )}
 
         {!initial && (
           <div>

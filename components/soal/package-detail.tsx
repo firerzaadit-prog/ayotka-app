@@ -685,7 +685,7 @@ export function PackageDetail({
                             href={`${basePath}/${packageId}/soal/${q.id}`}
                             className="text-sm font-medium text-slate-500 hover:text-indigo-600 transition-colors"
                           >
-                            {q._count.attemptAnswers > 0 ? "Lihat" : "Edit"}
+                            {q._count.attemptAnswers > 0 && pkg.status === "published" ? "Lihat" : "Edit"}
                           </Link>
                           <button
                             onClick={() => handleDeleteQuestion(q.id)}
