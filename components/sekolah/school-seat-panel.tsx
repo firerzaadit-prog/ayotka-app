@@ -113,8 +113,7 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
           )}
           {status.seatsUsed >= status.seatQuota && (
             <Alert variant="warning" className="mt-3">
-              Kuota penuh - siswa baru sekolah ini akan diminta menunggu sampai kuota ditambah (progres tidak
-              hilang, otomatis lanjut sendiri).
+              Kuota penuh - admin sekolah tidak bisa menambah atau mengimpor siswa baru sampai kuota ditambah.
             </Alert>
           )}
         </div>

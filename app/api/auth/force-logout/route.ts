@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { closeOpenLoginSession } from "@/lib/auth/logout";
 import { ACTING_AS_SCHOOL_COOKIE } from "@/lib/schools/scope";
+import { safeNext } from "@/lib/utils/safe-next";
 
 /**
  * Dituju lewat redirect() dari layout ber-role (bukan fetch dari client),
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
   }
   await supabase.auth.signOut({ scope: "local" });
 
-  const next = new URL(request.url).searchParams.get("next") ?? "/login";
+  const next = safeNext(new URL(request.url).searchParams.get("next"), "/login");
   const response = NextResponse.redirect(new URL(next, request.url));
   // Hapus konteks mode "Kelola Sekolah" supaya tidak nyangkut ke sesi
   // admin_pusat lain kalau browser ini dipakai bergantian (lihat

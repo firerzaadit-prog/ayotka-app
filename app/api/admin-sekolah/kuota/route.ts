@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
+import { hitungKursiTerpakai } from "@/lib/students/create";
 
 /**
  * Status kursi (seat) sekolah - read-only, dipakai dashboard admin sekolah
@@ -26,16 +27,13 @@ export async function GET() {
     where: { id: schoolId },
     select: { seatQuota: true, validUntil: true },
   });
-  const seatsUsed = await prisma.entitlement.count({
-    where: { schoolId, source: "school_seat", revokedAt: null },
-  });
+  const seatsUsed = await hitungKursiTerpakai(schoolId);
 
   return NextResponse.json({
     seatQuota: school?.seatQuota ?? null,
     validUntil: school?.validUntil ?? null,
     seatsUsed,
-    /** Bagian 9 kasus tepi #6: begitu ini true, siswa baru yang mencoba try
-     * out akan diminta menunggu (otomatis lanjut sendiri saat kuota ditambah). */
+    /** true = tidak bisa menambah/impor siswa lagi sampai admin pusat menambah kuota. */
     isFull: school?.seatQuota != null && seatsUsed >= school.seatQuota,
   });
 }

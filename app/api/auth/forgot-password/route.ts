@@ -1,12 +1,29 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, after, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { kirimEmail } from "@/lib/email/kirim";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/audit/log";
+import { escapeHtml } from "@/lib/utils/escape-html";
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email("Format email tidak valid."),
+  email: z.string().trim().toLowerCase().email("Format email tidak valid."),
 });
+
+// Satu pesan untuk semua kasus (terdaftar, tidak terdaftar, nonaktif, gagal
+// kirim): kalau pesannya beda, halaman ini bisa dipakai menebak email mana
+// yang punya akun AyoTKA.
+const PESAN_UMUM =
+  "Jika email tersebut terdaftar di AyoTKA, tautan atur ulang password sudah dikirim. Cek kotak masuk atau folder spam dalam beberapa menit.";
+
+const ROLE_LABEL: Record<string, string> = {
+  mitra: "Mitra",
+  admin_sekolah: "Admin Sekolah",
+  dinas_pendidikan: "Dinas Pendidikan",
+  admin_pusat: "Admin Pusat",
+  siswa: "Siswa",
+};
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
@@ -19,14 +36,27 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const cleanEmail = parsed.data.email.toLowerCase().trim();
+  const cleanEmail = parsed.data.email;
+  const ip = getClientIp(request) ?? "unknown";
 
-  // Cari user di database kita untuk menentukan identitas & role
+  // Dibatasi per IP dan per email (sama seperti kirim ulang konfirmasi) supaya
+  // tidak bisa dipakai membanjiri kotak masuk orang lain atau menghabiskan
+  // kuota email kita. Batas per email berlaku sama untuk email terdaftar
+  // maupun tidak, jadi tidak membocorkan apa-apa.
+  if (
+    !checkRateLimit(`lupa-password:ip:${ip}`, 10, 10 * 60_000) ||
+    !checkRateLimit(`lupa-password:email:${cleanEmail}`, 3, 10 * 60_000)
+  ) {
+    return NextResponse.json(
+      { error: "Terlalu banyak permintaan atur ulang password. Coba lagi beberapa menit lagi." },
+      { status: 429 },
+    );
+  }
+
   // Tidak peka huruf besar/kecil: baris lama bisa tersimpan dengan huruf kapital.
   const user = await prisma.user.findFirst({
     where: { email: { equals: cleanEmail, mode: "insensitive" } },
     select: {
-      id: true,
       email: true,
       role: true,
       status: true,
@@ -36,51 +66,34 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  // Jika email tidak terdaftar, tetap berikan respons sukses demi mencegah enumerasi akun (security best practice)
-  if (!user) {
-    return NextResponse.json({
-      ok: true,
-      message: "Jika email Anda terdaftar, tautan konfirmasi reset password telah dikirimkan ke kotak masuk email Anda.",
-    });
+  // Akun nonaktif tidak dikirimi tautan, tapi pesannya tetap sama.
+  if (user && user.status !== "nonaktif") {
+    const nama =
+      user.partnerProfile?.nama ??
+      user.studentProfile?.nama ??
+      user.schoolUsers?.[0]?.school?.nama ??
+      "Pengguna AyoTKA";
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+    // Dikirim setelah respons: waktu respons jadi sama untuk email terdaftar
+    // maupun tidak, jadi lamanya pun tidak membocorkan apa-apa.
+    after(() => kirimTautanReset({ email: user.email, nama, roleLabel: ROLE_LABEL[user.role] ?? "Pengguna", appUrl }));
   }
 
-  if (user.status === "nonaktif") {
-    return NextResponse.json(
-      { error: "Akun Anda saat ini sedang dinonaktifkan. Silakan hubungi Admin Pusat." },
-      { status: 403 },
-    );
-  }
+  return NextResponse.json({ ok: true, message: PESAN_UMUM });
+}
 
-  const nama =
-    user.partnerProfile?.nama ??
-    user.studentProfile?.nama ??
-    user.schoolUsers?.[0]?.school?.nama ??
-    "Pengguna AyoTKA";
-
-  const roleLabelMap: Record<string, string> = {
-    mitra: "Mitra",
-    admin_sekolah: "Admin Sekolah",
-    dinas_pendidikan: "Dinas Pendidikan",
-    admin_pusat: "Admin Pusat",
-    siswa: "Siswa",
-  };
-  const roleLabel = roleLabelMap[user.role] ?? "Pengguna";
-
-  // Generate recovery link via Supabase Admin API
+async function kirimTautanReset(params: { email: string; nama: string; roleLabel: string; appUrl: string }) {
+  const { email, nama, roleLabel, appUrl } = params;
   const supabaseAdmin = createAdminClient();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
 
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
-    email: user.email,
+    email,
   });
 
   if (linkError || !linkData.properties?.hashed_token) {
     console.error("Gagal generate link reset password:", linkError);
-    return NextResponse.json(
-      { error: "Gagal membuat tautan reset password. Silakan coba lagi beberapa saat lagi." },
-      { status: 500 },
-    );
+    return;
   }
 
   // Bangun URL konfirmasi yang mengarah ke alur konfirmasi aman aplikasi
@@ -100,10 +113,10 @@ export async function POST(request: NextRequest) {
         Atur Ulang Password Akun Anda
       </h1>
       <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 0 0 16px 0;">
-        Halo <strong>${nama}</strong>,
+        Halo <strong>${escapeHtml(nama)}</strong>,
       </p>
       <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 0 0 24px 0;">
-        Kami menerima permintaan untuk mengatur ulang password akun <strong>${roleLabel}</strong> AyoTKA Anda (${user.email}). Klik tombol konfirmasi di bawah untuk membuat password baru:
+        Kami menerima permintaan untuk mengatur ulang password akun <strong>${roleLabel}</strong> AyoTKA Anda (${escapeHtml(email)}). Klik tombol konfirmasi di bawah untuk membuat password baru:
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${confirmUrl.toString()}" style="display: inline-block; background: #4f46e5; color: #ffffff; padding: 14px 32px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 10px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
@@ -130,30 +143,21 @@ export async function POST(request: NextRequest) {
   // yang cuma membaca env - padahal kunci Resend bisa datang dari Pengaturan
   // Sistem (database), jadi email reset tidak terkirim kalau cuma diisi di sana.
   const emailResult = await kirimEmail({
-    to: user.email,
+    to: email,
     subject: `Konfirmasi Atur Ulang Password Akun ${roleLabel} AyoTKA`,
     html: emailHtml,
   });
-  const emailSent = emailResult.ok;
   if (!emailResult.ok) {
     console.warn("Gagal mengirim email reset password:", emailResult.error);
-  }
-
-  // Fallback terakhir: jika semua penyedia gagal, coba mekanisme built-in Supabase
-  if (!emailSent) {
+    // Fallback terakhir: jika semua penyedia gagal, coba mekanisme built-in Supabase
     await supabaseAdmin.auth
-      .resetPasswordForEmail(user.email, {
+      .resetPasswordForEmail(email, {
         redirectTo: `${appUrl}/api/auth/confirm?next=/reset-password`,
       })
       .catch((err) => console.warn("Supabase reset fallback error:", err));
   }
 
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[RESET PASSWORD LINK for ${user.email}]:`, confirmUrl.toString());
+    console.log(`[RESET PASSWORD LINK for ${email}]:`, confirmUrl.toString());
   }
-
-  return NextResponse.json({
-    ok: true,
-    message: `Tautan atur ulang password telah dikirim ke ${user.email}. Silakan cek kotak masuk atau folder spam email Anda.`,
-  });
 }

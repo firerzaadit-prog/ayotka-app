@@ -5,6 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
 import { questionUpdateSchema } from "@/lib/validations/question";
 import { syncQuestionChildren } from "@/lib/soal/sync-question-children";
+import { cekTaksonomiSoal } from "@/lib/soal/validasi-taksonomi";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -105,6 +106,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
       { error: "Format soal tidak bisa diganti saat edit - buat soal baru." },
       { status: 400 },
     );
+  }
+
+  const errorTaksonomi = await cekTaksonomiSoal(existing.packageId, input);
+  if (errorTaksonomi) {
+    return NextResponse.json({ error: errorTaksonomi }, { status: 400 });
   }
 
   if (sudahDijawab) {

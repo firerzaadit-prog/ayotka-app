@@ -1,4 +1,5 @@
 import { kirimEmail, type KirimEmailResult } from "@/lib/email/kirim";
+import { escapeHtml } from "@/lib/utils/escape-html";
 
 export type PeranKonfirmasi = "siswa" | "mitra";
 
@@ -14,10 +15,6 @@ const KONFIG: Record<PeranKonfirmasi, { subject: string; sapaan: string; next: s
     next: "/mitra/dashboard",
   },
 };
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
 
 /**
  * Dipakai bersama oleh pendaftaran (type "signup", token dari generateLink

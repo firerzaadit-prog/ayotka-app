@@ -115,8 +115,11 @@ export async function grantSchoolSeatIfAvailable(
     return { granted: false, reason: "not_activated" };
   }
 
+  // Siswa yang sudah dihapus tidak lagi memakan kursi - kalau tidak, sekolah
+  // yang mengganti siswa bisa kena "kuota penuh" padahal jumlah siswa
+  // terdaftarnya masih di bawah kuota (lihat hitungKursiTerpakai).
   const seatsUsed = await prisma.entitlement.count({
-    where: { schoolId, source: "school_seat", revokedAt: null },
+    where: { schoolId, source: "school_seat", revokedAt: null, student: { deletedAt: null } },
   });
   if (seatsUsed >= school.seatQuota) {
     return { granted: false, reason: "seat_full" };

@@ -3,10 +3,11 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { schoolSeatActivateSchema } from "@/lib/validations/school-seat";
+import { hitungKursiTerpakai } from "@/lib/students/create";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-/** GET: status kursi sekolah saat ini + jumlah kursi terpakai (live count, bukan counter). */
+/** GET: status kursi sekolah saat ini + jumlah kursi terpakai (siswa Jalur A terdaftar, live count). */
 export async function GET(_request: Request, { params }: RouteParams) {
   try {
     await requireRole("admin_pusat");
@@ -23,9 +24,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 404 });
   }
 
-  const seatsUsed = await prisma.entitlement.count({
-    where: { schoolId, source: "school_seat", revokedAt: null },
-  });
+  const seatsUsed = await hitungKursiTerpakai(schoolId);
   const partners = await prisma.partner.findMany({ orderBy: { nama: "asc" } });
 
   return NextResponse.json({

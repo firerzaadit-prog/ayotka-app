@@ -317,7 +317,9 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
             const data = await res.json().catch(() => null);
             if (data?.error === "SESI_DIAMBIL_ALIH") {
               setSessionTakenOver(true);
-            } else if (!pendingSaves.current.has(questionId)) {
+            } else if (res.status !== 400 && !pendingSaves.current.has(questionId)) {
+              // 400 = jawaban ditolak server (tidak cocok dengan soal) - dikirim
+              // ulang pun tetap ditolak, jadi tidak diantre lagi.
               // Gagal (mis. 429/500 sesaat) & belum ada jawaban lebih baru menunggu -
               // taruh lagi ke pending supaya ikut ter-flush di resync berkala atau saat submit,
               // bukan hilang diam-diam.

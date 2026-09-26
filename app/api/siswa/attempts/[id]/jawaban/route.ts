@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
 import { checkAndClaimSession } from "@/lib/exam/session-guard";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { jawabanCocokDenganSoal } from "@/lib/exam/jawaban-cocok";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -65,6 +66,16 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   const answer = await prisma.attemptAnswer.findUnique({
     where: { attemptId_questionId: { attemptId: attempt.id, questionId: parsed.data.questionId } },
+    include: {
+      question: {
+        select: {
+          format: true,
+          options: { select: { id: true } },
+          statements: { select: { id: true } },
+          categories: { select: { id: true } },
+        },
+      },
+    },
   });
   if (!answer) {
     return NextResponse.json({ error: "Soal tidak ditemukan di attempt ini." }, { status: 404 });
@@ -72,6 +83,16 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
   const jawaban = parsed.data.jawabanJson;
   const isKategori = !("option_id" in jawaban) && !("option_ids" in jawaban);
+
+  // ID pilihan/pernyataan/kategori wajib milik soal ini dan cocok dengan
+  // formatnya. Dulu ID asal diterima: untuk PG Kategori gagal di foreign key
+  // (HTTP 500, dan jawabanJson sudah terlanjur tertimpa), untuk PG tersimpan
+  // sebagai jawaban yang tidak menunjuk pilihan mana pun. Objek kosong tetap
+  // boleh untuk semua format: dikirim halaman ujian saat soal yang belum
+  // dijawab ditandai ragu-ragu.
+  if (!jawabanCocokDenganSoal(jawaban, answer.question)) {
+    return NextResponse.json({ error: "Jawaban tidak cocok dengan soal ini." }, { status: 400 });
+  }
 
   // Tidak pakai $transaction interaktif di sini - Supabase pgBouncer (port 6543)
   // dalam transaction mode tidak mendukung prepared statements yang dibuat

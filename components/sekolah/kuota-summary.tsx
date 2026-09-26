@@ -44,9 +44,8 @@ export function KuotaSummary() {
       )}
       {status.isFull && (
         <Alert variant="warning" className="mt-3">
-          Kuota kursi sudah penuh. Siswa baru yang mencoba try out akan diminta menunggu - progresnya tidak
-          hilang, dan otomatis lanjut begitu admin pusat menambah kuota. Hubungi admin pusat kalau perlu
-          menambah kuota sekarang.
+          Kuota kursi sudah penuh - siswa baru belum bisa ditambahkan atau diimpor. Hubungi admin pusat untuk
+          menambah kuota.
         </Alert>
       )}
     </div>

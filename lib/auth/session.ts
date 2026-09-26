@@ -17,6 +17,10 @@ export type CurrentUser = Pick<
  * untuk gerbang cepat sebelum halaman dirender - lihat middleware.ts.
  */
 export async function getCurrentUser(): Promise<CurrentUser | null> {
+  return (await loadCurrentUser())?.user ?? null;
+}
+
+async function loadCurrentUser(): Promise<{ user: CurrentUser; mustChangePassword: boolean } | null> {
   const supabase = await createClient();
   const {
     data: { user: authUser },
@@ -32,7 +36,10 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (!user || user.status !== "aktif") return null;
   if (!(await hasActiveSchoolAccess(user.id, user.role))) return null;
 
-  return user;
+  const mustChangePassword = Boolean(
+    (authUser.user_metadata as { must_change_password?: boolean } | undefined)?.must_change_password,
+  );
+  return { user, mustChangePassword };
 }
 
 /**
@@ -71,9 +78,14 @@ export async function hasActiveSchoolAccess(userId: string, role: Role): Promise
 }
 
 export async function requireRole(...roles: Role[]): Promise<CurrentUser> {
-  const user = await getCurrentUser();
-  if (!user || !roles.includes(user.role)) {
+  const current = await loadCurrentUser();
+  // Akun berpassword sementara (dibuat/di-reset admin) wajib ganti password
+  // dulu. proxy.ts sudah memaksa semua HALAMAN ke /reset-password, tapi API
+  // harus ikut ditutup - kalau tidak, password sementara yang bocor tetap bisa
+  // dipakai lewat API selamanya. /reset-password sendiri memanggil Supabase
+  // langsung dari browser, jadi tidak terhalang aturan ini.
+  if (!current || current.mustChangePassword || !roles.includes(current.user.role)) {
     throw new Error("UNAUTHORIZED");
   }
-  return user;
+  return current.user;
 }

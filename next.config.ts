@@ -31,6 +31,12 @@ const nextConfig: NextConfig = {
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // Anti-clickjacking: situs lain tidak boleh memuat halaman AyoTKA di
+          // dalam iframe (mis. tombol "Bayar"/"Hapus" disamarkan di bawah
+          // tampilan palsu). Aplikasi ini sendiri tidak memakai iframe.
+          // X-Frame-Options untuk browser lama, frame-ancestors untuk yang baru.
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'" },
         ],
       },
     ];

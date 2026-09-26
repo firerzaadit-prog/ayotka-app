@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
 import { questionCreateSchema } from "@/lib/validations/question";
+import { cekTaksonomiSoal } from "@/lib/soal/validasi-taksonomi";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -58,6 +59,11 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const input = parsed.data;
+
+  const errorTaksonomi = await cekTaksonomiSoal(packageId, input);
+  if (errorTaksonomi) {
+    return NextResponse.json({ error: errorTaksonomi }, { status: 400 });
+  }
 
   const question = await prisma.$transaction(async (tx) => {
     const created = await tx.question.create({
