@@ -132,8 +132,16 @@ export async function POST(request: Request) {
       customerEmail: user.email,
     });
   } catch (error) {
+    // Catatan invoice sudah dibuat berstatus pending SEBELUM memanggil Midtrans - kalau
+    // Midtrans gagal (kunci belum diisi, salah mode, gangguan) dan dibiarkan, catatan itu
+    // tertinggal pending dan memblokir percobaan berikutnya (409 "masih ada yang belum
+    // dibayar") sampai kedaluwarsa 24 jam. Tidak ada uang/akses yang terlibat di titik ini,
+    // jadi aman dihapus. Detail teknis hanya ke log server - pesan seperti "MIDTRANS_SERVER_KEY
+    // belum diisi" atau respons mentah Midtrans tidak pantas tampil di layar siswa.
+    await prisma.invoice.delete({ where: { id: invoice.id } }).catch(() => {});
+    console.error("[pembayaran] gagal membuat transaksi Midtrans (invoice):", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Gagal membuat transaksi pembayaran." },
+      { error: "Pembayaran belum dapat diproses saat ini. Silakan coba lagi beberapa saat lagi." },
       { status: 502 },
     );
   }
