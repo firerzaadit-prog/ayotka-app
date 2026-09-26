@@ -41,6 +41,15 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     );
   }
 
+  // Urutan waktu dicek dari nilai AKHIR (lama + yang diubah): mengubah salah
+  // satunya saja juga bisa membuat selesai jatuh sebelum mulai. Skema update
+  // tidak bisa mengecek ini karena kedua field opsional.
+  const mulai = parsed.data.mulai ?? before.mulai;
+  const selesai = parsed.data.selesai ?? before.selesai;
+  if (selesai <= mulai) {
+    return NextResponse.json({ error: "Waktu selesai harus setelah waktu mulai." }, { status: 400 });
+  }
+
   const assignment = await prisma.assignment.update({ where: { id }, data: parsed.data });
 
   await logAudit({

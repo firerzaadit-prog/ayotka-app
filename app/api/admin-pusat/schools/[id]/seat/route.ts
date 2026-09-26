@@ -80,6 +80,19 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     );
   }
 
+  // Kuota tidak boleh di bawah jumlah siswa yang sudah terdaftar - kalau
+  // tidak, tampilan jadi "12/10 kursi" dan tidak jelas siswa mana yang
+  // seharusnya kehilangan kursinya.
+  const terdaftar = await hitungKursiTerpakai(schoolId);
+  if (parsed.data.seatQuota < terdaftar) {
+    return NextResponse.json(
+      {
+        error: `Kuota tidak bisa di bawah jumlah siswa yang sudah terdaftar (${terdaftar} siswa). Isi minimal ${terdaftar}, atau hapus dulu siswa yang sudah tidak aktif di sekolah ini.`,
+      },
+      { status: 400 },
+    );
+  }
+
   const school = await prisma.$transaction(async (tx) => {
     const updated = await tx.school.update({
       where: { id: schoolId },

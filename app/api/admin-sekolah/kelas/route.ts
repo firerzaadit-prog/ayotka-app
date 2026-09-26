@@ -68,6 +68,18 @@ export async function POST(request: Request) {
 
   const { waliKelasId, tingkat, namaRombel } = parsed.data;
 
+  // Tingkat harus sesuai jenjang sekolah (batas atas sama dengan naik-kelas).
+  // Dulu kelas "3" di sekolah SMP diterima, dan siswanya tidak cocok dengan
+  // paket/jadwal ujian mana pun.
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { jenjang: true } });
+  const [tingkatMin, tingkatMaks] = school?.jenjang === "SD" ? [1, 6] : [7, 9];
+  if (tingkat < tingkatMin || tingkat > tingkatMaks) {
+    return NextResponse.json(
+      { error: `Tingkat untuk sekolah ${school?.jenjang ?? "ini"} harus antara ${tingkatMin} dan ${tingkatMaks}.` },
+      { status: 400 },
+    );
+  }
+
   const existing = await prisma.class.findFirst({
     where: { schoolId, academicYearId: academicYear.id, tingkat, namaRombel },
   });

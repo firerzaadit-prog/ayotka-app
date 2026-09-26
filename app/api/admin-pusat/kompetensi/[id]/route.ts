@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { z } from "zod";
+import { kodeKompetensiSudahDipakai } from "@/lib/soal/kompetensi-ref";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -31,6 +32,13 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const before = await prisma.kompetensi.findUnique({ where: { id } });
   if (!before) {
     return NextResponse.json({ error: "Kompetensi tidak ditemukan." }, { status: 404 });
+  }
+
+  if (parsed.data.kode && (await kodeKompetensiSudahDipakai(parsed.data.kode, before.subMateriId, id))) {
+    return NextResponse.json(
+      { error: `Kode "${parsed.data.kode}" sudah dipakai kompetensi lain di mata pelajaran ini.` },
+      { status: 409 },
+    );
   }
 
   const kompetensi = await prisma.kompetensi.update({ where: { id }, data: parsed.data });

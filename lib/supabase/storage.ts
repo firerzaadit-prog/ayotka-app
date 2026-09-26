@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sniffGambar } from "@/lib/soal/gambar-format";
 
 /** Bagian 9 brief: maks. 5 MB per file, hanya tipe gambar. */
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -18,16 +19,6 @@ async function ensureBucketExists(): Promise<void> {
   });
 }
 
-/** Tiket 8.2: nama ekstensi diturunkan dari MIME type yang SUDAH divalidasi,
- * bukan dari file.name (bisa dipalsukan klien) - mencegah nilai aneh masuk
- * ke object key di Storage. */
-const EXT_BY_MIME: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/gif": "gif",
-};
-
 export async function uploadQuestionImage(
   file: File,
 ): Promise<{ url: string } | { error: string }> {
@@ -37,14 +28,21 @@ export async function uploadQuestionImage(
   if (file.size > MAX_IMAGE_BYTES) {
     return { error: "Ukuran file melebihi 5 MB." };
   }
+  // file.type cuma label dari browser (bisa dipalsukan). Isi file dicek juga
+  // lewat magic bytes, sama seperti gambar impor Excel - file HTML/skrip yang
+  // diberi label image/png tidak ikut tersimpan di bucket publik.
+  const info = sniffGambar(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+  if (!info) {
+    return { error: "Isi file bukan gambar PNG/JPEG/WEBP/GIF yang valid." };
+  }
 
   await ensureBucketExists();
 
   const admin = createAdminClient();
-  const path = `${crypto.randomUUID()}.${EXT_BY_MIME[file.type]}`;
+  const path = `${crypto.randomUUID()}.${info.ext}`;
 
   const { error } = await admin.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type,
+    contentType: info.mime,
     upsert: false,
   });
 

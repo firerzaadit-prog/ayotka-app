@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { kompetensiCreateSchema } from "@/lib/validations/taxonomy";
+import { kodeKompetensiSudahDipakai } from "@/lib/soal/kompetensi-ref";
 
 export async function GET(request: Request) {
   try {
@@ -44,6 +45,13 @@ export async function POST(request: Request) {
   const subMateri = await prisma.subMateri.findUnique({ where: { id: parsed.data.subMateriId } });
   if (!subMateri) {
     return NextResponse.json({ error: "Sub materi tidak ditemukan." }, { status: 404 });
+  }
+
+  if (await kodeKompetensiSudahDipakai(parsed.data.kode, parsed.data.subMateriId)) {
+    return NextResponse.json(
+      { error: `Kode "${parsed.data.kode}" sudah dipakai kompetensi lain di mata pelajaran ini.` },
+      { status: 409 },
+    );
   }
 
   const kompetensi = await prisma.kompetensi.create({ data: parsed.data });

@@ -40,7 +40,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   // Tiket 4.13: satu sesi aktif per attempt - tab/device lain yang masih
   // aktif mengerjakan attempt yang sama ditolak di sini.
   const tabToken = request.nextUrl.searchParams.get("tabToken");
-  if (tabToken && !(await checkAndClaimSession(attempt.id, tabToken))) {
+  // Tanpa tabToken hanya status yang dikirim (dipakai halaman hasil yang
+  // menunggu finalize selesai). Soal & jawaban hanya untuk tab yang ikut aturan
+  // satu sesi aktif - dulu tabToken opsional, jadi perangkat kedua cukup tidak
+  // mengirimnya untuk melewati batas satu sesi per ujian.
+  if (!tabToken) {
+    return NextResponse.json({ attempt: sanitizeAttemptForClient(attempt), questions: [], answers: [] });
+  }
+  if (!(await checkAndClaimSession(attempt.id, tabToken))) {
     return NextResponse.json(
       { error: "SESI_DIAMBIL_ALIH", message: "Ujian ini sedang dibuka di tab/perangkat lain." },
       { status: 409 },

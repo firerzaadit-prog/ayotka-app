@@ -62,49 +62,55 @@ export async function POST(request: Request) {
     }
   }
 
+  // Akun admin sekolah dibuat DULU (kalau diminta): kalau gagal, sekolah tidak
+  // ikut disimpan. Dulu sekolah tetap tersimpan tanpa admin dan responsnya tetap
+  // 201, jadi admin pusat mengira akunnya sudah jadi.
+  let adminAuth: { id: string; email: string; password: string } | null = null;
+  if (adminEmail) {
+    const tempPassword = generateTempPassword();
+    const { data: authData, error: authError } = await createAdminClient().auth.admin.createUser({
+      email: adminEmail,
+      password: tempPassword,
+      email_confirm: true,
+      app_metadata: { role: "admin_sekolah" },
+      user_metadata: { must_change_password: true, nama: adminNama || parsed.data.nama },
+    });
+    if (authError || !authData.user) {
+      console.error("[admin-pusat/schools] gagal membuat akun admin sekolah:", authError);
+      return NextResponse.json(
+        { error: "Akun admin sekolah gagal dibuat, jadi sekolah belum disimpan. Periksa emailnya lalu coba lagi." },
+        { status: 502 },
+      );
+    }
+    adminAuth = { id: authData.user.id, email: adminEmail, password: tempPassword };
+  }
+
   try {
     const parsedValidUntil = validUntil ? new Date(validUntil) : null;
-    const school = await prisma.school.create({
-      data: {
-        ...rest,
-        npsn: npsn && npsn.length > 0 ? npsn : null,
-        alamat: alamat && alamat.length > 0 ? alamat : null,
-        kodeSekolah,
-        status: "aktif",
-        seatQuota: seatQuota ?? null,
-        validUntil: parsedValidUntil,
-        seatActivatedById: seatQuota ? user.id : null,
-      },
+    // Satu transaksi: sekolah + baris akun admin tersimpan bersama atau tidak sama sekali.
+    const school = await prisma.$transaction(async (tx) => {
+      const created = await tx.school.create({
+        data: {
+          ...rest,
+          npsn: npsn && npsn.length > 0 ? npsn : null,
+          alamat: alamat && alamat.length > 0 ? alamat : null,
+          kodeSekolah,
+          status: "aktif",
+          seatQuota: seatQuota ?? null,
+          validUntil: parsedValidUntil,
+          seatActivatedById: seatQuota ? user.id : null,
+        },
+      });
+      if (adminAuth) {
+        await tx.user.create({
+          data: { id: adminAuth.id, email: adminAuth.email, role: "admin_sekolah", status: "aktif" },
+        });
+        await tx.schoolUser.create({ data: { userId: adminAuth.id, schoolId: created.id } });
+      }
+      return created;
     });
 
-    let tempPasswordInfo: { email: string; password: string } | null = null;
-
-    // Jika adminEmail diisi, buatkan akun admin sekolah pertama dengan password sementara
-    if (adminEmail) {
-      const tempPassword = generateTempPassword();
-      const supabaseAdmin = createAdminClient();
-
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: adminEmail,
-        password: tempPassword,
-        email_confirm: true,
-        app_metadata: { role: "admin_sekolah" },
-        user_metadata: { must_change_password: true, nama: adminNama || parsed.data.nama },
-      });
-
-      if (!authError && authData.user) {
-        await prisma.$transaction([
-          prisma.user.create({
-            data: { id: authData.user.id, email: adminEmail, role: "admin_sekolah", status: "aktif" },
-          }),
-          prisma.schoolUser.create({
-            data: { userId: authData.user.id, schoolId: school.id },
-          }),
-        ]);
-
-        tempPasswordInfo = { email: adminEmail, password: tempPassword };
-      }
-    }
+    const tempPasswordInfo = adminAuth ? { email: adminAuth.email, password: adminAuth.password } : null;
 
     await logAudit({
       userId: user.id,
@@ -117,6 +123,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ school, tempPassword: tempPasswordInfo }, { status: 201 });
   } catch (error) {
+    // Sekolah gagal disimpan: akun login admin yang sudah terlanjur dibuat
+    // dihapus lagi supaya emailnya bisa dipakai saat mencoba ulang.
+    if (adminAuth) {
+      await createAdminClient().auth.admin.deleteUser(adminAuth.id).catch(() => {});
+    }
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"

@@ -17,7 +17,9 @@ const jawabanSchema = z.object({
     z.record(z.string(), z.string()),
   ]),
   ragu: z.boolean().optional(),
-  tabToken: z.string().optional(),
+  // Wajib (dulu opsional): tanpa token, batas satu sesi aktif per ujian bisa
+  // dilewati perangkat kedua. Halaman ujian selalu mengirimnya.
+  tabToken: z.string().min(1),
 });
 
 /** Tiket 4.8: auto-save satu jawaban (dipanggil debounced dari client). */
@@ -57,7 +59,7 @@ export async function PUT(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Data jawaban tidak valid." }, { status: 400 });
   }
 
-  if (parsed.data.tabToken && !(await checkAndClaimSession(attempt.id, parsed.data.tabToken))) {
+  if (!(await checkAndClaimSession(attempt.id, parsed.data.tabToken))) {
     return NextResponse.json(
       { error: "SESI_DIAMBIL_ALIH", message: "Ujian ini sedang dibuka di tab/perangkat lain." },
       { status: 409 },
