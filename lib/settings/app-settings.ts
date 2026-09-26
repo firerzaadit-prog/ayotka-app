@@ -241,21 +241,22 @@ export async function getResolvedMaintenanceConfig(): Promise<{
     const envMode = process.env.MAINTENANCE_MODE === "true";
     return {
       isMaintenance: envMode,
-      bypassSecret: process.env.MAINTENANCE_BYPASS_SECRET || "ayotka-bypass",
+      bypassSecret: process.env.MAINTENANCE_BYPASS_SECRET || "",
       source: "env",
     };
   }
 
   try {
     const settings = await getGlobalAppSettings();
+    // Kunci dari DB dikembalikan juga saat maintenance mati: halaman Pengaturan
+    // mengirim balik nilai ini setiap kali disimpan, jadi harus kunci yang
+    // benar-benar tersimpan (bukan env) supaya tidak tertimpa diam-diam.
+    const bypassSecret = settings.maintenanceBypassSecret || process.env.MAINTENANCE_BYPASS_SECRET || "";
     // Kalau kolom maintenanceMode di DB true, utamakan DB
     if (settings.maintenanceMode) {
-      return {
-        isMaintenance: true,
-        bypassSecret: settings.maintenanceBypassSecret || process.env.MAINTENANCE_BYPASS_SECRET || "ayotka-bypass",
-        source: "database",
-      };
+      return { isMaintenance: true, bypassSecret, source: "database" };
     }
+    return { isMaintenance: process.env.MAINTENANCE_MODE === "true", bypassSecret, source: "env" };
   } catch (err) {
     console.warn("[settings] Gagal membaca maintenance config dari database:", err);
   }
@@ -263,7 +264,7 @@ export async function getResolvedMaintenanceConfig(): Promise<{
   const envMode = process.env.MAINTENANCE_MODE === "true";
   return {
     isMaintenance: envMode,
-    bypassSecret: process.env.MAINTENANCE_BYPASS_SECRET || "ayotka-bypass",
+    bypassSecret: process.env.MAINTENANCE_BYPASS_SECRET || "",
     source: "env",
   };
 }

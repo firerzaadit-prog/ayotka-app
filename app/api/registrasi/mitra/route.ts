@@ -31,7 +31,11 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
 
-  const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
+  // Tidak peka huruf besar/kecil - lihat catatan yang sama di /api/registrasi/mandiri.
+  const existingUser = await prisma.user.findFirst({
+    where: { email: { equals: data.email, mode: "insensitive" } },
+    select: { id: true },
+  });
   if (existingUser) {
     return NextResponse.json({ error: "Email ini sudah dipakai akun lain." }, { status: 409 });
   }
@@ -52,6 +56,13 @@ export async function POST(request: Request) {
     );
   }
   const authUser = linkData.user;
+
+  // Akun lama yang belum dikonfirmasi ikut dikembalikan generateLink - jangan
+  // disentuh/dihapus (lihat catatan yang sama di /api/registrasi/mandiri).
+  const akunLama = await prisma.user.findUnique({ where: { id: authUser.id }, select: { id: true } });
+  if (akunLama) {
+    return NextResponse.json({ error: "Email ini sudah dipakai akun lain." }, { status: 409 });
+  }
 
   try {
     const { error: roleError } = await supabaseAdmin.auth.admin.updateUserById(authUser.id, {

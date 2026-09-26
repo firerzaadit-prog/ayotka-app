@@ -6,10 +6,10 @@ const SALT = "ayotka-settings-salt-2026";
 const IV_LENGTH = 12;
 
 function getEncryptionKey(): Buffer {
-  const secret =
-    process.env.APP_ENCRYPTION_KEY ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    "ayotka-master-platform-key-fallback-32b";
+  const secret = process.env.APP_ENCRYPTION_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Tidak ada kunci cadangan tertulis di kode: repo ini publik, jadi kunci
+  // bawaan sama saja dengan tidak dienkripsi.
+  if (!secret) throw new Error("APP_ENCRYPTION_KEY belum di-set.");
   return crypto.scryptSync(secret, SALT, 32);
 }
 

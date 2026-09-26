@@ -16,7 +16,7 @@ export const klaimSchema = z
     kodeKlaim: z.string().trim().optional().or(z.literal("")),
     tanggalLahir: z.coerce.date().optional(),
     punyaEmail: z.boolean(),
-    email: z.string().trim().email("Email tidak valid").optional().or(z.literal("")),
+    email: z.string().trim().toLowerCase().email("Email tidak valid").optional().or(z.literal("")),
     password: z.string().min(8, "Password minimal 8 karakter"),
   })
   .refine((data) => (data.kodeKlaim && data.kodeKlaim.length > 0) || data.tanggalLahir, {
@@ -31,7 +31,7 @@ export const klaimSchema = z
 export const daftarMandiriSchema = z
   .object({
     nama: z.string().trim().min(2, "Nama minimal 2 karakter"),
-    email: z.string().trim().email("Email tidak valid"),
+    email: z.string().trim().toLowerCase().email("Email tidak valid"),
     password: z.string().min(8, "Password minimal 8 karakter"),
     jenjang: z.enum(["SD", "SMP"]),
     tingkat: z.coerce.number().int().min(1).max(12),
@@ -59,7 +59,7 @@ export const daftarMandiriSchema = z
 /** Bagian A (permintaan user): mitra daftar sendiri, langsung aktif tanpa perlu admin approve. */
 export const daftarMitraSchema = z.object({
   nama: z.string().trim().min(2, "Nama minimal 2 karakter"),
-  email: z.string().trim().email("Email tidak valid"),
+  email: z.string().trim().toLowerCase().email("Email tidak valid"),
   password: z.string().min(8, "Password minimal 8 karakter"),
   kontak: z.string().trim().optional().or(z.literal("")),
 });

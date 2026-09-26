@@ -79,7 +79,7 @@ export default function PengaturanSistemPage() {
   const [smtpPass, setSmtpPass] = useState("");
 
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  const [maintenanceBypassSecret, setMaintenanceBypassSecret] = useState("ayotka-bypass");
+  const [maintenanceBypassSecret, setMaintenanceBypassSecret] = useState("");
 
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
@@ -114,7 +114,7 @@ export default function PengaturanSistemPage() {
       setSmtpPass(json.smtp.passMasked || "");
 
       setMaintenanceMode(json.maintenance.isActive);
-      setMaintenanceBypassSecret(json.maintenance.bypassSecret || "ayotka-bypass");
+      setMaintenanceBypassSecret(json.maintenance.bypassSecret || "");
     } catch {
       toast.error("Gagal memuat pengaturan sistem.");
     } finally {
@@ -722,7 +722,7 @@ export default function PengaturanSistemPage() {
                 id="maintenanceBypassSecret"
                 value={maintenanceBypassSecret}
                 onChange={(e) => setMaintenanceBypassSecret(e.target.value)}
-                placeholder="ayotka-bypass"
+                placeholder="Kosongkan lalu simpan untuk membuat kunci acak baru"
                 className="max-w-md font-mono text-sm bg-white"
               />
             </div>
@@ -730,12 +730,12 @@ export default function PengaturanSistemPage() {
               Saat mode maintenance aktif, Anda sebagai Admin Pusat tetap dapat membuka website secara normal dengan membuka URL berparameter bypass di browser Anda:
             </p>
             <div className="p-3 rounded-lg bg-slate-900 text-slate-100 font-mono text-xs overflow-x-auto flex items-center justify-between">
-              <code>{`https://ayotka.id?bypass=${maintenanceBypassSecret || "ayotka-bypass"}`}</code>
+              <code>{`https://ayotka.id?bypass=${maintenanceBypassSecret || "KUNCI-BYPASS"}`}</code>
               <button
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(
-                    `${window.location.origin}?bypass=${maintenanceBypassSecret || "ayotka-bypass"}`
+                    `${window.location.origin}?bypass=${maintenanceBypassSecret || "KUNCI-BYPASS"}`
                   );
                   toast.success("Tautan bypass disalin ke clipboard!");
                 }}

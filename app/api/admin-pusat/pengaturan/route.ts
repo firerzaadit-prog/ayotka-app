@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { normalizeFromAddress } from "@/lib/email/from-address";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireRole } from "@/lib/auth/session";
@@ -46,7 +47,11 @@ const updateSettingsSchema = z.object({
 
   // Maintenance
   maintenanceMode: z.boolean().optional(),
-  maintenanceBypassSecret: z.string().optional(),
+  maintenanceBypassSecret: z
+    .string()
+    .trim()
+    .refine((v) => v === "" || v.length >= 16, "Kunci bypass minimal 16 karakter (kosongkan untuk dibuat otomatis).")
+    .optional(),
 });
 
 export async function GET() {
@@ -214,7 +219,8 @@ export async function POST(request: NextRequest) {
     updateData.maintenanceMode = data.maintenanceMode;
   }
   if (data.maintenanceBypassSecret !== undefined) {
-    updateData.maintenanceBypassSecret = data.maintenanceBypassSecret.trim() || "ayotka-bypass";
+    // Dikosongkan = minta kunci acak baru (dipakai juga untuk mengganti kunci yang bocor).
+    updateData.maintenanceBypassSecret = data.maintenanceBypassSecret || randomBytes(24).toString("hex");
   }
 
   const updated = await prisma.appSetting.update({

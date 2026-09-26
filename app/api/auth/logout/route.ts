@@ -13,7 +13,10 @@ export async function POST() {
     await closeOpenLoginSession(user.id);
   }
 
-  await supabase.auth.signOut();
+  // scope "local": hanya sesi browser ini. Default Supabase ("global")
+  // mencabut sesi akun di SEMUA perangkat - siswa yang logout di HP ikut
+  // mengeluarkan dirinya sendiri yang sedang ujian di laptop.
+  await supabase.auth.signOut({ scope: "local" });
 
   const response = NextResponse.json({ ok: true });
   // Hapus konteks mode "Kelola Sekolah" supaya tidak nyangkut ke sesi

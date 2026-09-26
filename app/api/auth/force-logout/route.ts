@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   if (user) {
     await closeOpenLoginSession(user.id);
   }
-  await supabase.auth.signOut();
+  await supabase.auth.signOut({ scope: "local" });
 
   const next = new URL(request.url).searchParams.get("next") ?? "/login";
   const response = NextResponse.redirect(new URL(next, request.url));

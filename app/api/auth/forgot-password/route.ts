@@ -22,8 +22,9 @@ export async function POST(request: NextRequest) {
   const cleanEmail = parsed.data.email.toLowerCase().trim();
 
   // Cari user di database kita untuk menentukan identitas & role
-  const user = await prisma.user.findUnique({
-    where: { email: cleanEmail },
+  // Tidak peka huruf besar/kecil: baris lama bisa tersimpan dengan huruf kapital.
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: cleanEmail, mode: "insensitive" } },
     select: {
       id: true,
       email: true,

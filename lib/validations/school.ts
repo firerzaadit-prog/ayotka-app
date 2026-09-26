@@ -12,7 +12,7 @@ export const schoolCreateSchema = z.object({
   alamat: z.string().trim().optional().or(z.literal("")),
   seatQuota: z.coerce.number().int().positive("Kuota kursi harus lebih dari 0").optional(),
   validUntil: z.string().optional().or(z.literal("")),
-  adminEmail: z.string().trim().email("Format email admin tidak valid").optional().or(z.literal("")),
+  adminEmail: z.string().trim().toLowerCase().email("Format email admin tidak valid").optional().or(z.literal("")),
   adminNama: z.string().trim().min(2, "Nama admin minimal 2 karakter").optional().or(z.literal("")),
 });
 

@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     select: { status: true, role: true },
   });
   if (!localUser || localUser.status !== "aktif") {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     return NextResponse.json(
       { error: "Email/NISN atau password salah." },
       { status: 401 },
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     const isAdminPusatOnSekolahPortal =
       portal === "admin_sekolah" && role === "admin_pusat";
     if (!isAdminPusatOnSekolahPortal) {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: "local" });
       const PORTAL_LABEL: Record<string, string> = {
         siswa: "siswa",
         admin_sekolah: "admin sekolah",
@@ -132,7 +132,7 @@ export async function POST(request: Request) {
   // (sama seperti email_not_confirmed di atas), jadi tidak menambah celah
   // untuk menebak akun yang valid.
   if (!(await hasActiveSchoolAccess(data.user.id, localUser.role))) {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     return NextResponse.json(
       {
         error:

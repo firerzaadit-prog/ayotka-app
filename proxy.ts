@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -71,6 +72,44 @@ const PUBLIC_AUTH_PATHS = [
   "/admin/dinas-pendidikan",
 ];
 
+// Status maintenance dibaca pakai service_role (proxy jalan di server - Node.js
+// runtime - jadi kuncinya tidak pernah sampai ke browser). Dulu pakai anon key,
+// sehingga tabel app_settings harus dibuka untuk publik lewat RLS dan ikut
+// membocorkan kunci bypass maintenance serta kolom kunci API terenkripsi.
+// Hasilnya disimpan sebentar di memori supaya tidak menambah satu panggilan ke
+// Supabase di setiap request: toggle maintenance berlaku paling lambat
+// MAINTENANCE_CACHE_MS setelah disimpan.
+const MAINTENANCE_CACHE_MS = 10_000;
+let maintenanceCache: { at: number; mode: boolean; secret: string | null } | null = null;
+
+async function readMaintenanceSetting() {
+  if (maintenanceCache && Date.now() - maintenanceCache.at < MAINTENANCE_CACHE_MS) {
+    return maintenanceCache;
+  }
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) return null;
+  try {
+    const admin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data, error } = await admin
+      .from("app_settings")
+      .select("maintenance_mode, maintenance_bypass_secret")
+      .eq("id", "global")
+      .maybeSingle();
+    // Query gagal sesaat: pakai nilai terakhir yang diketahui.
+    if (error) return maintenanceCache;
+    maintenanceCache = {
+      at: Date.now(),
+      mode: Boolean(data?.maintenance_mode),
+      secret: data?.maintenance_bypass_secret || null,
+    };
+    return maintenanceCache;
+  } catch {
+    return maintenanceCache;
+  }
+}
+
 export default async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const response = NextResponse.next({ request });
@@ -107,24 +146,15 @@ export default async function proxy(request: NextRequest) {
 
   // Cek mode maintenance: prioritas env var -> lalu cek status toggle database
   let isMaintenance = process.env.MAINTENANCE_MODE === "true";
-  let bypassSecret = process.env.MAINTENANCE_BYPASS_SECRET || "ayotka-bypass";
+  // Tidak ada kunci bypass bawaan: repo ini publik, kunci yang tertulis di
+  // kode sama saja dengan tanpa kunci. Tanpa kunci, hanya admin pusat yang lolos.
+  let bypassSecret: string | null = process.env.MAINTENANCE_BYPASS_SECRET || null;
 
   if (!isMaintenance) {
-    try {
-      const { data: dbSetting } = await supabase
-        .from("app_settings")
-        .select("maintenance_mode, maintenance_bypass_secret")
-        .eq("id", "global")
-        .maybeSingle();
-
-      if (dbSetting?.maintenance_mode) {
-        isMaintenance = true;
-        if (dbSetting.maintenance_bypass_secret) {
-          bypassSecret = dbSetting.maintenance_bypass_secret;
-        }
-      }
-    } catch {
-      // Abaikan jika ada kegagalan query sementara
+    const setting = await readMaintenanceSetting();
+    if (setting?.mode) {
+      isMaintenance = true;
+      if (setting.secret) bypassSecret = setting.secret;
     }
   }
 
@@ -133,8 +163,7 @@ export default async function proxy(request: NextRequest) {
   // Admin pusat yang sedang login otomatis dibebaskan agar tidak terkunci
   const isBypassed =
     role === "admin_pusat" ||
-    (queryBypass && queryBypass === bypassSecret) ||
-    (cookieBypass && cookieBypass === bypassSecret);
+    (bypassSecret !== null && (queryBypass === bypassSecret || cookieBypass === bypassSecret));
 
   if (pathname === "/maintenance") {
     // Jika sistem TIDAK sedang maintenance (atau user memiliki akses bypass),
@@ -148,7 +177,7 @@ export default async function proxy(request: NextRequest) {
 
   if (isMaintenance) {
     if (isBypassed) {
-      if (queryBypass === bypassSecret) {
+      if (bypassSecret && queryBypass === bypassSecret) {
         response.cookies.set("maintenance_bypass", bypassSecret, {
           path: "/",
           httpOnly: true,

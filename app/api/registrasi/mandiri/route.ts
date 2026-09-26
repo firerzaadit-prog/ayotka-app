@@ -44,7 +44,13 @@ export async function POST(request: Request) {
   }
   const data = parsed.data;
 
-  const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
+  // Email sudah dinormalisasi huruf kecil oleh skema, tapi pencarian tetap
+  // tidak peka huruf besar/kecil supaya baris lama yang tersimpan dengan
+  // huruf kapital ("Budi@..") juga dianggap terpakai.
+  const existingUser = await prisma.user.findFirst({
+    where: { email: { equals: data.email, mode: "insensitive" } },
+    select: { id: true },
+  });
   if (existingUser) {
     return NextResponse.json({ error: "Email ini sudah dipakai akun lain." }, { status: 409 });
   }
@@ -128,6 +134,15 @@ export async function POST(request: Request) {
     );
   }
   const authUser = linkData.user;
+
+  // generateLink "signup" untuk email yang sudah terdaftar tapi belum
+  // dikonfirmasi mengembalikan akun LAMA itu, bukan akun baru. Akun itu milik
+  // pendaftar sebelumnya - jangan diubah role-nya, apalagi dihapus di catch
+  // bawah (dulu begitu: akun pertama jadi mati, tidak bisa login/daftar ulang).
+  const akunLama = await prisma.user.findUnique({ where: { id: authUser.id }, select: { id: true } });
+  if (akunLama) {
+    return NextResponse.json({ error: "Email ini sudah dipakai akun lain." }, { status: 409 });
+  }
 
   // Akun Supabase & baris User/Student kita hidup di dua sistem terpisah -
   // tidak bisa satu transaksi ACID. Kalau ADA SAJA yang gagal setelah akun
