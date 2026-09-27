@@ -59,6 +59,7 @@ model User {
   auditLogs            AuditLog[]
   taxonomyMappingsMade TaxonomyMapping[] @relation("TaxonomyMappingCreatedBy")
   soalImportsPerformed SoalImportLog[]   @relation("SoalImportLogImportedBy")
+  dinasProfile         DinasAdmin?
 
   @@map("users")
 }
@@ -86,6 +87,9 @@ model School {
   /// Bagian 4.1: rujukan mitra WAJIB dicatat sebelum seatQuota diaktifkan,
   /// bukan sesudah — lihat lib/billing/partner-commission.ts.
   referredByPartnerId String?      @map("referred_by_partner_id") @db.Uuid
+  /// Kota/kabupaten terstruktur (dropdown Jawa Timur) - dipakai untuk filter
+  /// wilayah akun dinas pendidikan, menggantikan pencarian substring alamat.
+  kabupatenKota       String?      @map("kabupaten_kota")
 
   schoolUsers           SchoolUser[]
   classes               Class[]
@@ -754,6 +758,23 @@ model AppSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
+}
+
+/// Profil akun dinas pendidikan: menyimpan nama, instansi, dan wilayah
+/// cakupan (kabupaten/kota Jawa Timur). Setiap akun dinas terikat ke SATU
+/// kota/kabupaten - semua query sekolah/analitik/kesiapan otomatis difilter
+/// berdasarkan wilayah ini. Dibuat admin pusat lewat /admin-pusat/dinas-pendidikan.
+model DinasAdmin {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  nama          String
+  instansi      String
+  kabupatenKota String   @map("kabupaten_kota")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("dinas_admins")
 }
 
 // ---------------------------------------------------------------------------

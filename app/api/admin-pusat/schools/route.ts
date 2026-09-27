@@ -94,6 +94,7 @@ export async function POST(request: Request) {
           ...rest,
           npsn: npsn && npsn.length > 0 ? npsn : null,
           alamat: alamat && alamat.length > 0 ? alamat : null,
+          kabupatenKota: rest.kabupatenKota && rest.kabupatenKota.length > 0 ? rest.kabupatenKota : null,
           kodeSekolah,
           status: "aktif",
           seatQuota: seatQuota ?? null,

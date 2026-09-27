@@ -41,7 +41,10 @@ describe("normalisasi email di skema pembuatan akun", () => {
 
   it("akun yang dibuat admin pusat", () => {
     expect(partnerCreateSchema.parse({ email: KETIK, nama: "Budi" }).email).toBe(SIMPAN);
-    expect(dinasAdminCreateSchema.parse({ email: KETIK, nama: "Budi", instansi: "Dinas Kediri" }).email).toBe(SIMPAN);
+    expect(
+      dinasAdminCreateSchema.parse({ email: KETIK, nama: "Budi", instansi: "Dinas Kediri", kabupatenKota: "Kota Kediri" })
+        .email,
+    ).toBe(SIMPAN);
     expect(
       schoolAdminCreateSchema.parse({ schoolId: "7d9f1c2e-5b3a-4c8d-9e1f-2a3b4c5d6e7f", email: KETIK, nama: "Budi" }).email,
     ).toBe(SIMPAN);

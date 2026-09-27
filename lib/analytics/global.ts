@@ -21,6 +21,9 @@ export type AnalitikGlobalFilter = {
    * dijalankan sebagai pencarian substring pada alamat, bukan dropdown
    * wilayah baku. */
   wilayah?: string | null;
+  /** Filter kota/kabupaten terstruktur (dropdown Jawa Timur) - dipakai
+   * akun dinas pendidikan untuk membatasi data ke wilayah cakupannya. */
+  kabupatenKota?: string | null;
 };
 
 /**
@@ -46,6 +49,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
       ...(filter.wilayah
         ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
         : {}),
+      ...(filter.kabupatenKota ? { kabupatenKota: filter.kabupatenKota } : {}),
     },
     select: { id: true, nama: true, jenjang: true },
   });
@@ -226,6 +230,7 @@ export async function buildStatistikMataPelajaran(
         ...(filter.wilayah
           ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
           : {}),
+        ...(filter.kabupatenKota ? { kabupatenKota: filter.kabupatenKota } : {}),
       },
       select: { id: true },
     }),
@@ -319,6 +324,7 @@ export async function buildStatistikMataPelajaran(
 export type KesiapanAntarSekolahFilter = {
   jenjang?: "SD" | "SMP" | null;
   wilayah?: string | null;
+  kabupatenKota?: string | null;
 };
 
 export type KesiapanPerSekolah = {
@@ -343,6 +349,7 @@ export async function buildKesiapanAntarSekolah(
       ...(filter.wilayah
         ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
         : {}),
+      ...(filter.kabupatenKota ? { kabupatenKota: filter.kabupatenKota } : {}),
     },
     select: { id: true, nama: true, jenjang: true },
   });
@@ -415,6 +422,7 @@ export async function buildDaftarSiswaKesiapanAntarSekolah(filter: {
   jenjang?: "SD" | "SMP" | null;
   wilayah?: string | null;
   schoolId?: string | null;
+  kabupatenKota?: string | null;
 }): Promise<SiswaKesiapanAntarSekolah[]> {
   const schools = await prisma.school.findMany({
     where: {
@@ -424,6 +432,7 @@ export async function buildDaftarSiswaKesiapanAntarSekolah(filter: {
       ...(filter.wilayah
         ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
         : {}),
+      ...(filter.kabupatenKota ? { kabupatenKota: filter.kabupatenKota } : {}),
     },
     select: { id: true, nama: true },
   });

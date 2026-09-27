@@ -13,6 +13,7 @@ import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconSchool } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
+import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
 
 type SchoolStatus = "pending_verifikasi" | "aktif" | "suspend";
 
@@ -23,6 +24,7 @@ type SchoolListItem = {
   kodeSekolah: string;
   status: SchoolStatus;
   seatQuota?: number | null;
+  kabupatenKota?: string | null;
   _count: { schoolUsers: number; students: number };
 };
 
@@ -42,6 +44,7 @@ type SchoolFormState = {
   npsn: string;
   jenjang: "SD" | "SMP";
   alamat: string;
+  kabupatenKota: string;
   seatQuota: string;
   validUntil: string;
   adminEmail: string;
@@ -53,6 +56,7 @@ const emptyForm: SchoolFormState = {
   npsn: "",
   jenjang: "SD",
   alamat: "",
+  kabupatenKota: "",
   seatQuota: "",
   validUntil: "",
   adminEmail: "",
@@ -100,6 +104,7 @@ export default function SekolahPage() {
       npsn: form.npsn || undefined,
       jenjang: form.jenjang,
       alamat: form.alamat || undefined,
+      kabupatenKota: form.kabupatenKota || undefined,
       seatQuota: form.seatQuota ? Number(form.seatQuota) : undefined,
       validUntil: form.validUntil || undefined,
       adminEmail: form.adminEmail || undefined,
@@ -245,6 +250,26 @@ export default function SekolahPage() {
             />
           </div>
 
+          <div>
+            <Label htmlFor="kabupatenKota">Kota/Kabupaten (opsional)</Label>
+            <select
+              id="kabupatenKota"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              value={form.kabupatenKota}
+              onChange={(e) => setForm({ ...form, kabupatenKota: e.target.value })}
+            >
+              <option value="">Belum dipilih</option>
+              {KABUPATEN_KOTA_JATIM.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Wajib diisi supaya sekolah ini muncul di dashboard dinas pendidikan wilayahnya.
+            </p>
+          </div>
+
           <div className="border-t border-slate-100 pt-3">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
               Kuota Siswa (Kerjasama / Setara Paket Semester)
@@ -315,7 +340,7 @@ export default function SekolahPage() {
         </form>
       )}
 
-      {schools === null && <TableSkeleton columns={7} />}
+      {schools === null && <TableSkeleton columns={8} />}
 
       {schools?.length === 0 && (
         <EmptyState
@@ -338,6 +363,7 @@ export default function SekolahPage() {
                     <Th>Nama</Th>
                     <Th>Jenjang</Th>
                     <Th>Kode Sekolah</Th>
+                    <Th>Wilayah</Th>
                     <Th>Status</Th>
                     <Th>Admin</Th>
                     <Th>Siswa / Kuota</Th>
@@ -357,6 +383,7 @@ export default function SekolahPage() {
                       </Td>
                       <Td>{school.jenjang}</Td>
                       <Td className="font-mono text-xs font-medium text-slate-600">{school.kodeSekolah}</Td>
+                      <Td className="text-slate-600">{school.kabupatenKota ?? <span className="text-slate-400">—</span>}</Td>
                       <Td>
                         <Badge variant={STATUS_BADGE_VARIANT[school.status]}>
                           {STATUS_LABEL[school.status]}

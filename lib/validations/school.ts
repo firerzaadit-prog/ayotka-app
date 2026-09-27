@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
 
 export const schoolCreateSchema = z.object({
   nama: z.string().trim().min(3, "Nama sekolah minimal 3 karakter"),
@@ -10,6 +11,17 @@ export const schoolCreateSchema = z.object({
     .or(z.literal("")),
   jenjang: z.enum(["SD", "SMP"]),
   alamat: z.string().trim().optional().or(z.literal("")),
+  /// Opsional (bukan wajib) supaya sekolah lama & sekolah yang dibuat lewat
+  /// jalur lain (registrasi mandiri, approve antrean pending) tidak diblokir -
+  /// tapi WAJIB diisi kalau sekolah ini ingin muncul di dashboard dinas
+  /// pendidikan wilayahnya (lihat lib/dinas/wilayah.ts).
+  kabupatenKota: z
+    .string()
+    .refine((v) => (KABUPATEN_KOTA_JATIM as readonly string[]).includes(v), {
+      message: "Pilih kota/kabupaten yang valid",
+    })
+    .optional()
+    .or(z.literal("")),
   seatQuota: z.coerce.number().int().positive("Kuota kursi harus lebih dari 0").optional(),
   validUntil: z.string().optional().or(z.literal("")),
   adminEmail: z.string().trim().toLowerCase().email("Format email admin tidak valid").optional().or(z.literal("")),

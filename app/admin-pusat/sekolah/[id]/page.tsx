@@ -14,6 +14,7 @@ import { SchoolSeatPanel } from "@/components/sekolah/school-seat-panel";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { IconUsers } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
+import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
 
 type SchoolAdmin = {
   userId: string;
@@ -29,6 +30,7 @@ type SchoolDetail = {
   jenjang: "SD" | "SMP";
   npsn: string | null;
   alamat: string | null;
+  kabupatenKota: string | null;
   status: SchoolStatus;
   schoolUsers: SchoolAdmin[];
 };
@@ -38,6 +40,7 @@ type EditForm = {
   jenjang: "SD" | "SMP";
   npsn: string;
   alamat: string;
+  kabupatenKota: string;
 };
 
 function toEditForm(school: SchoolDetail): EditForm {
@@ -46,6 +49,7 @@ function toEditForm(school: SchoolDetail): EditForm {
     jenjang: school.jenjang,
     npsn: school.npsn ?? "",
     alamat: school.alamat ?? "",
+    kabupatenKota: school.kabupatenKota ?? "",
   };
 }
 
@@ -166,6 +170,7 @@ export default function SekolahDetailPage({
         jenjang: editForm.jenjang,
         npsn: editForm.npsn,
         alamat: editForm.alamat,
+        kabupatenKota: editForm.kabupatenKota,
       }),
     });
     const data = await res.json().catch(() => null);
@@ -233,7 +238,13 @@ export default function SekolahDetailPage({
         </div>
         <p className="text-sm text-slate-500">
           Kode Sekolah <span className="font-mono">{school.kodeSekolah}</span> · {school.jenjang}
+          {school.kabupatenKota ? ` · ${school.kabupatenKota}` : ""}
         </p>
+        {!school.kabupatenKota && (
+          <p className="mt-1 text-sm text-amber-700">
+            Kota/kabupaten belum diisi — sekolah ini belum muncul di dashboard dinas pendidikan manapun.
+          </p>
+        )}
         {!isSchoolActive(school) && (
           <p className="mt-1 text-sm text-amber-700">
             Sekolah ini tidak aktif — pendaftaran siswa Jalur A baru akan ditolak, dan akun admin
@@ -325,6 +336,25 @@ export default function SekolahDetailPage({
                 value={editForm.alamat}
                 onChange={(e) => setEditForm({ ...editForm, alamat: e.target.value })}
               />
+            </div>
+            <div>
+              <Label htmlFor="editKabupatenKota">Kota/Kabupaten</Label>
+              <select
+                id="editKabupatenKota"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                value={editForm.kabupatenKota}
+                onChange={(e) => setEditForm({ ...editForm, kabupatenKota: e.target.value })}
+              >
+                <option value="">Belum dipilih</option>
+                {KABUPATEN_KOTA_JATIM.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                Wajib diisi supaya sekolah ini muncul di dashboard dinas pendidikan wilayahnya.
+              </p>
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={editSubmitting}>

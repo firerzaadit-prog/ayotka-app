@@ -13,21 +13,40 @@ export async function GET() {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  const dinasAdmins = await prisma.user.findMany({
+  const users = await prisma.user.findMany({
     where: { role: "dinas_pendidikan" },
-    select: { id: true, email: true, status: true },
+    select: { id: true, email: true, status: true, dinasProfile: true },
     orderBy: { email: "asc" },
   });
+
+  // Akun bisa saja belum punya profil dinas (mis. dibuat sebelum kolom
+  // wilayah ada) - tetap ditampilkan supaya admin pusat sadar dan bisa
+  // melengkapi lewat PATCH, bukan hilang diam-diam dari daftar.
+  const dinasAdmins = users.map((u) => ({
+    id: u.id,
+    email: u.email,
+    status: u.status,
+    nama: u.dinasProfile?.nama ?? null,
+    instansi: u.dinasProfile?.instansi ?? null,
+    kabupatenKota: u.dinasProfile?.kabupatenKota ?? null,
+  }));
 
   return NextResponse.json({ dinasAdmins });
 }
 
 /**
  * Admin pusat membuat akun dinas pendidikan (read-only, akses kesiapan TKA
- * lintas sekolah) - pola sama persis dengan pembuatan akun admin sekolah
- * (app/api/admin-pusat/school-admins), cuma tanpa baris penghubung sekolah
- * karena akses dinas memang lintas sekolah, bukan terikat 1 sekolah. Password
- * sementara HANYA dikembalikan sekali di response ini, tidak pernah disimpan.
+ * lintas sekolah), diikat ke SATU kota/kabupaten wilayah cakupannya - semua
+ * endpoint /api/dinas-pendidikan/* otomatis memfilter berdasarkan wilayah ini
+ * (lihat lib/dinas/wilayah.ts). Boleh ada lebih dari satu akun dinas untuk
+ * kota/kabupaten yang sama maupun berbeda - tidak ada batasan satu akun per
+ * wilayah, supaya bisa dibuatkan akun cadangan atau beberapa penanggung jawab.
+ *
+ * Pola sama persis dengan pembuatan akun admin sekolah
+ * (app/api/admin-pusat/school-admins), cuma baris profilnya masuk tabel
+ * DinasAdmin (bukan SchoolUser) karena akses dinas memang lintas sekolah.
+ * Password sementara HANYA dikembalikan sekali di response ini, tidak pernah
+ * disimpan.
  */
 export async function POST(request: Request) {
   let actor;
@@ -46,7 +65,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { email, nama, instansi } = parsed.data;
+  const { email, nama, instansi, kabupatenKota } = parsed.data;
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -71,18 +90,35 @@ export async function POST(request: Request) {
     );
   }
 
-  const user = await prisma.user.create({
-    data: { id: data.user.id, email, role: "dinas_pendidikan", status: "aktif" },
-  });
+  try {
+    await prisma.$transaction(async (tx) => {
+      await tx.user.create({
+        data: { id: data.user.id, email, role: "dinas_pendidikan", status: "aktif" },
+      });
+      await tx.dinasAdmin.create({
+        data: { userId: data.user.id, nama, instansi, kabupatenKota },
+      });
+    });
+  } catch (err) {
+    // Baris User/DinasAdmin gagal disimpan: akun login yang sudah terlanjur
+    // dibuat dihapus lagi supaya emailnya bisa dipakai coba lagi (sama pola
+    // dengan registrasi mandiri/mitra, lihat catatan di sana).
+    await supabaseAdmin.auth.admin.deleteUser(data.user.id).catch(() => {});
+    console.error("[admin-pusat/dinas-admins] gagal membuat akun:", err);
+    return NextResponse.json(
+      { error: "Akun belum bisa dibuat karena terjadi gangguan. Silakan coba lagi." },
+      { status: 502 },
+    );
+  }
 
   await logAudit({
     userId: actor.id,
     aksi: "create",
     entitas: "users",
     entitasId: data.user.id,
-    after: { userId: data.user.id, email, role: "dinas_pendidikan", instansi },
+    after: { userId: data.user.id, email, role: "dinas_pendidikan", nama, instansi, kabupatenKota },
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ user, tempPassword }, { status: 201 });
+  return NextResponse.json({ user: { id: data.user.id, email }, tempPassword }, { status: 201 });
 }
