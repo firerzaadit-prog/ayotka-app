@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ReloadButton } from "@/components/maintenance/reload-button";
+import { buildWhatsAppLink } from "@/lib/utils/whatsapp";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -126,7 +127,7 @@ export default function MaintenancePage() {
           <ReloadButton />
 
           <Link
-            href="https://wa.me/6281234567890?text=Halo%20Admin%20AyoTKA,%20saya%20ingin%20menanyakan%20status%20pemeliharaan%20sistem"
+            href={buildWhatsAppLink("Halo Admin AyoTKA, saya ingin menanyakan status pemeliharaan sistem")}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 active:bg-white/20 text-slate-200 text-xs sm:text-sm font-medium border border-white/10 backdrop-blur-sm transition-all"
