@@ -7,6 +7,7 @@ import { translateJenjang, translateStimulusTipe } from "./format-translator";
 import { getQuestionsForPackage } from "./source-db";
 import { resolveSourceImage } from "./media";
 import { importImagePath, publicImageUrl, uploadImportImages } from "@/lib/supabase/storage";
+import { autoResolveOrCreateTaxonomy } from "./taxonomy-resolver";
 
 export interface ExecuteImportParams {
   sourcePaketId: string;
@@ -35,7 +36,10 @@ export class ImportBlockedError extends Error {
  * transaksi, dan mencatat SoalImportLog (dokumen Bagian 08 langkah 5).
  * Selalu membangun ulang preview dari sumber sebelum eksekusi - tidak
  * pernah percaya data soal dari client, cuma pilihan admin (subject,
- * tingkat, kategori, override level kognitif) yang dipakai dari input.
+ * kategori, override level kognitif) yang dipakai dari input.
+ *
+ * Taksonomi (Elemen & Kompetensi) otomatis dibuat dari label sumber
+ * soal.ayotka.id jika belum ada - admin TIDAK perlu mapping manual.
  */
 export async function executeImport(params: ExecuteImportParams): Promise<ExecuteImportResult> {
   const preview = await buildImportPreview(params.sourcePaketId);
@@ -70,16 +74,26 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
     );
   }
 
-  // Fase 4: gambar diunduh/di-encode di sini (bukan saat preview) - persis sekali, tepat sebelum
-  // commit, dan HANYA untuk soal yang sudah lolos semua pemeriksaan lain di atas. Fetch ulang
-  // langsung ke soal.ayotka.id (bukan percaya payload dari client) sesuai prinsip yang sama
-  // dengan buildImportPreview: tidak pernah percaya data soal dari luar fungsi ini.
+  // AUTO-RESOLVE taksonomi: buat Elemen/Kompetensi dari label sumber otomatis
+  const taxonomyBySourceId = new Map<string, { kompetensiId: string; elemenId: string }>();
+  for (const q of preview.questions) {
+    const level = effectiveLevelBloom.get(q.sourceId) ?? "L1";
+    const resolved = await autoResolveOrCreateTaxonomy(prisma, {
+      subjectId: params.subjectId,
+      source: { elemen: q.elemen, subElemen: q.subElemen, kompetensi: q.kompetensi },
+      levelKognitif: level,
+      createdBy: params.importedBy,
+    });
+    taxonomyBySourceId.set(q.sourceId, resolved);
+  }
+
+  // Fase 4: gambar diunduh/di-encode di sini (bukan saat preview)
   const sourceQuestions = await getQuestionsForPackage(preview.sourcePaket.id);
   const gambarBySourceId = new Map(sourceQuestions.map((q) => [q.id, q.payload.gambar ?? null]));
 
   type GambarTerunggah = { path: string; url: string; bytes: Buffer; mime: string };
   const gambarUntukSoal = new Map<string, GambarTerunggah | null>();
-  const gambarUnik = new Map<string, GambarTerunggah>(); // dedupe by content hash - gambar sama dipakai berkali-kali cukup sekali diunggah
+  const gambarUnik = new Map<string, GambarTerunggah>();
 
   const KONKURENSI_UNDUH = 4;
   let idxUnduh = 0;
@@ -87,7 +101,7 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
     Array.from({ length: Math.min(KONKURENSI_UNDUH, preview.questions.length) }, async () => {
       while (idxUnduh < preview.questions.length) {
         const q = preview.questions[idxUnduh++]!;
-        if (blocked.some((b) => b.sourceId === q.sourceId)) continue; // sudah diblokir alasan lain, jangan tambah kerja
+        if (blocked.some((b) => b.sourceId === q.sourceId)) continue;
         const hasil = await resolveSourceImage(gambarBySourceId.get(q.sourceId) ?? null);
         if (hasil.status === "blocked") {
           const existing = blocked.find((b) => b.sourceId === q.sourceId);
@@ -138,6 +152,7 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
 
   preview.questions.forEach((q, i) => {
     const questionId = randomUUID();
+    const taxonomy = taxonomyBySourceId.get(q.sourceId)!;
     questionRows.push({
       id: questionId,
       packageId,
@@ -146,8 +161,8 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
       media: gambarUntukSoal.get(q.sourceId)?.url ?? null,
       bobot: 1,
       tingkatKesulitan: q.tingkatKesulitan!,
-      kompetensiId: q.taxonomyKompetensiId!,
-      elemenId: q.taxonomyElemenId,
+      kompetensiId: taxonomy.kompetensiId,
+      elemenId: taxonomy.elemenId,
       levelBloom: effectiveLevelBloom.get(q.sourceId)!,
       pembahasan: q.pembahasan,
       stimulusId: q.stimulusId ? (stimulusIdMap.get(q.stimulusId) ?? null) : null,

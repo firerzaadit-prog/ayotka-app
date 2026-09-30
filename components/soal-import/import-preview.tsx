@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,6 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
-type Elemen = { id: string; nama: string };
-type Kompetensi = { id: string; subElemen: string; deskripsi: string };
 
 type PreviewQuestion = {
   sourceId: string;
@@ -46,10 +44,6 @@ const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 const LEVEL_OPTIONS = ["L1", "L2", "L3"] as const;
-
-function taxonomyMatchKey(mapel: string, q: PreviewQuestion): string | null {
-  return mapel === "Bahasa Indonesia" ? q.kompetensi : q.elemen;
-}
 
 export function ImportPreview({ paketId }: { paketId: string }) {
   const toast = useToast();
@@ -91,18 +85,6 @@ export function ImportPreview({ paketId }: { paketId: string }) {
     return subjects.filter((s) => s.nama === preview.sourcePaket.mapel);
   }, [subjects, preview]);
 
-  const unmappedLabels = useMemo(() => {
-    if (!preview) return [];
-    const seen = new Map<string, { elemen: string; subElemen: string | null; kompetensi: string | null }>();
-    for (const q of preview.questions) {
-      if (q.taxonomyMapped) continue;
-      const key = taxonomyMatchKey(preview.sourcePaket.mapel, q);
-      if (!key || seen.has(key)) continue;
-      seen.set(key, { elemen: q.elemen, subElemen: q.subElemen, kompetensi: q.kompetensi });
-    }
-    return [...seen.values()];
-  }, [preview]);
-
   const questionsNeedingLevel = useMemo(
     () => preview?.questions.filter((q) => !q.levelBloom) ?? [],
     [preview],
@@ -111,10 +93,14 @@ export function ImportPreview({ paketId }: { paketId: string }) {
   if (error) return <Alert variant="danger">{error}</Alert>;
   if (!preview) return <PageSkeleton />;
 
+  // Taksonomi otomatis — admin cuma perlu isi Tujuan Impor (subject, durasi,
+  // kategori) dan optional level kognitif override. Elemen/Kompetensi dibuat
+  // otomatis dari label sumber saat eksekusi.
   const canConfirm =
-    preview.readyToImport === false
-      ? unmappedLabels.length === 0 && questionsNeedingLevel.every((q) => levelOverrides[q.sourceId])
-      : true;
+    subjectId !== "" &&
+    preview.questions.length > 0 &&
+    preview.questions.every((q) => q.blockedReasons.length === 0) &&
+    questionsNeedingLevel.every((q) => levelOverrides[q.sourceId]);
 
   async function handleConfirm() {
     if (!subjectId) {
@@ -179,33 +165,6 @@ export function ImportPreview({ paketId }: { paketId: string }) {
         </Card>
       )}
 
-      {unmappedLabels.length > 0 && (
-        <Card>
-          <h2 className="mb-1 text-sm font-semibold text-slate-900">
-            Pemetaan taksonomi belum lengkap ({unmappedLabels.length})
-          </h2>
-          <p className="mb-3 text-sm text-slate-500">
-            Pilih Kompetensi ayotka-app untuk tiap label di bawah. Pilih subject tujuan dulu supaya daftar materi
-            sesuai.
-          </p>
-          {!subjectId ? (
-            <Alert variant="warning">Pilih subject tujuan di bagian &ldquo;Tujuan impor&rdquo; di bawah dulu.</Alert>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {unmappedLabels.map((label) => (
-                <TaxonomyMappingRow
-                  key={`${label.elemen}|${label.subElemen}|${label.kompetensi}`}
-                  subjectId={subjectId}
-                  mapel={preview.sourcePaket.mapel}
-                  label={label}
-                  onMapped={() => setRefreshKey((k) => k + 1)}
-                />
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
-
       <Card>
         <h2 className="mb-3 text-sm font-semibold text-slate-900">Tujuan impor</h2>
         <div className="flex flex-wrap items-end gap-3">
@@ -245,6 +204,11 @@ export function ImportPreview({ paketId }: { paketId: string }) {
             </select>
           </div>
         </div>
+
+        <p className="mt-3 text-xs text-slate-500">
+          Taksonomi (Elemen, Sub Elemen, Kompetensi) otomatis diambil dari data soal.ayotka.id dan dibuat di
+          ayotka-app jika belum ada &mdash; tidak perlu dipetakan manual.
+        </p>
       </Card>
 
       <Card>
@@ -293,7 +257,10 @@ function QuestionRow({
           </span>
           {isReady ? <Badge variant="success">Siap</Badge> : <Badge variant="warning">Perlu perhatian</Badge>}
         </div>
-        <span className="text-xs text-slate-400">{question.taxonomyKompetensiLabel ?? "belum dipetakan"}</span>
+        <div className="flex flex-col items-end gap-0.5 text-xs text-slate-400">
+          <span>{question.elemen}</span>
+          {question.subElemen && <span>{question.subElemen}</span>}
+        </div>
       </div>
       <p className="mt-1.5 line-clamp-2 text-slate-700">{question.teks}</p>
 
@@ -335,235 +302,5 @@ function QuestionRow({
         </div>
       )}
     </div>
-  );
-}
-
-function TaxonomyMappingRow({
-  subjectId,
-  mapel,
-  label,
-  onMapped,
-}: {
-  subjectId: string;
-  mapel: string;
-  label: { elemen: string; subElemen: string | null; kompetensi: string | null };
-  onMapped: () => void;
-}) {
-  const toast = useToast();
-  const [elemenList, setElemenList] = useState<Elemen[]>([]);
-  const [kompetensiList, setKompetensiList] = useState<Kompetensi[]>([]);
-  const [elemenId, setElemenId] = useState("");
-  // "" = pilih dari daftar (elemenId), "__new__" = buat elemen baru dari namaElemenBaru.
-  const [elemenMode, setElemenMode] = useState<"pilih" | "baru">("pilih");
-  const [namaElemenBaru, setNamaElemenBaru] = useState(label.elemen);
-  const [kompetensiId, setKompetensiId] = useState("");
-  const [kompetensiMode, setKompetensiMode] = useState<"pilih" | "baru">("baru");
-  const [subElemenBaru, setSubElemenBaru] = useState(label.subElemen ?? "");
-  const [deskripsiBaru, setDeskripsiBaru] = useState(label.kompetensi ?? "");
-  const [levelBaru, setLevelBaru] = useState<(typeof LEVEL_OPTIONS)[number]>("L1");
-  const [submitting, setSubmitting] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      const res = await fetch(`/api/admin-pusat/elemen?subjectId=${subjectId}`);
-      const data = await res.json();
-      if (!ignore) setElemenList(data.elemen ?? []);
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [subjectId]);
-
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      if (!elemenId || elemenMode !== "pilih") {
-        if (!ignore) setKompetensiList([]);
-        return;
-      }
-      const res = await fetch(`/api/admin-pusat/kompetensi?elemenId=${elemenId}`);
-      const data = await res.json();
-      if (!ignore) setKompetensiList(data.kompetensi ?? []);
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [elemenId, elemenMode]);
-
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      let resolvedKompetensiId = kompetensiId;
-
-      let resolvedElemenId = elemenId;
-      if (elemenMode === "baru") {
-        if (!namaElemenBaru.trim()) {
-          toast.error("Isi nama elemen dulu.");
-          return;
-        }
-        const res = await fetch("/api/admin-pusat/elemen", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subjectId, nama: namaElemenBaru }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          toast.error(data?.error ?? "Gagal membuat elemen baru.");
-          return;
-        }
-        resolvedElemenId = data.elemen.id;
-      }
-
-      if (kompetensiMode === "baru") {
-        if (!subElemenBaru.trim() || !deskripsiBaru.trim()) {
-          toast.error("Isi Sub Elemen dan Kompetensi (Kisi-kisi) dulu.");
-          return;
-        }
-        const res = await fetch("/api/admin-pusat/kompetensi", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            elemenId: resolvedElemenId,
-            subElemen: subElemenBaru,
-            deskripsi: deskripsiBaru,
-            levelKognitif: levelBaru,
-          }),
-        });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          toast.error(data?.error ?? "Gagal membuat kompetensi baru.");
-          return;
-        }
-        resolvedKompetensiId = data.kompetensi.id;
-      } else if (!resolvedKompetensiId) {
-        toast.error("Pilih kompetensi dulu.");
-        return;
-      }
-
-      const res = await fetch("/api/admin-pusat/soal-import/taxonomy-mapping", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...label, kompetensiId: resolvedKompetensiId }),
-      });
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
-        toast.error(data?.error ?? "Gagal menyimpan pemetaan.");
-        return;
-      }
-      setSaved(true);
-      onMapped();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  const displayLabel = mapel === "Bahasa Indonesia" ? label.kompetensi : label.elemen;
-
-  if (saved) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-        <Badge variant="success">Tersimpan</Badge> &ldquo;{displayLabel}&rdquo; dipetakan.
-      </div>
-    );
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3">
-      <div className="text-sm font-medium text-slate-800">&ldquo;{displayLabel}&rdquo;</div>
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="w-48">
-          <select
-            className={selectClassName}
-            value={elemenMode === "baru" ? "__new__" : elemenId}
-            onChange={(e) => {
-              if (e.target.value === "__new__") {
-                setElemenMode("baru");
-                setElemenId("");
-              } else {
-                setElemenMode("pilih");
-                setElemenId(e.target.value);
-                setKompetensiId("");
-              }
-            }}
-          >
-            <option value="">Pilih elemen</option>
-            {elemenList.map((el) => (
-              <option key={el.id} value={el.id}>
-                {el.nama}
-              </option>
-            ))}
-            <option value="__new__">+ Buat elemen baru</option>
-          </select>
-          {elemenMode === "baru" && (
-            <Input
-              className="mt-1"
-              placeholder="Nama elemen baru"
-              value={namaElemenBaru}
-              onChange={(e) => setNamaElemenBaru(e.target.value)}
-            />
-          )}
-        </div>
-
-        {elemenMode === "pilih" && elemenId && (
-          <div className="w-56">
-            <select
-              className={selectClassName}
-              value={kompetensiMode === "baru" ? "__new__" : kompetensiId}
-              onChange={(e) => {
-                if (e.target.value === "__new__") {
-                  setKompetensiMode("baru");
-                  setKompetensiId("");
-                } else {
-                  setKompetensiMode("pilih");
-                  setKompetensiId(e.target.value);
-                }
-              }}
-            >
-              <option value="">Pilih kompetensi</option>
-              {kompetensiList.map((k) => (
-                <option key={k.id} value={k.id}>
-                  {k.subElemen} · {k.deskripsi}
-                </option>
-              ))}
-              <option value="__new__">+ Buat kompetensi baru</option>
-            </select>
-          </div>
-        )}
-
-        <Button type="submit" variant="secondary" disabled={submitting}>
-          {submitting ? "Menyimpan..." : "Simpan"}
-        </Button>
-      </div>
-
-      {(kompetensiMode === "baru" || elemenMode === "baru") && (
-        <div className="flex flex-wrap items-end gap-2 rounded-md bg-slate-50 p-2">
-          <div className="w-40">
-            <label className="mb-1 block text-xs font-medium text-slate-700">Sub Elemen</label>
-            <Input value={subElemenBaru} onChange={(e) => setSubElemenBaru(e.target.value)} />
-          </div>
-          <div className="w-24">
-            <label className="mb-1 block text-xs font-medium text-slate-700">Level</label>
-            <select
-              className={selectClassName}
-              value={levelBaru}
-              onChange={(e) => setLevelBaru(e.target.value as (typeof LEVEL_OPTIONS)[number])}
-            >
-              {LEVEL_OPTIONS.map((l) => (
-                <option key={l} value={l}>
-                  {l}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex-1">
-            <label className="mb-1 block text-xs font-medium text-slate-700">Kompetensi (Kisi-kisi)</label>
-            <Input value={deskripsiBaru} onChange={(e) => setDeskripsiBaru(e.target.value)} />
-          </div>
-        </div>
-      )}
-    </form>
   );
 }

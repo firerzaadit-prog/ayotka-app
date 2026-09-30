@@ -212,7 +212,11 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
       levelKognitifSumber: q.levelKognitif,
       levelBloom,
       stimulusId: q.stimulusId,
-      blockedReasons: taxonomy === null ? [...blockedReasons, "Label taksonomi belum pernah dipetakan ke Kompetensi ayotka-app."] : blockedReasons,
+      // Label taksonomi yang belum pernah dipetakan TIDAK memblokir impor -
+      // executeImport otomatis membuat Elemen/Kompetensi baru (resmi=false)
+      // dari label sumbernya sendiri (keputusan user: admin cuma perlu isi
+      // Tujuan Impor, taksonomi tidak perlu dipetakan manual satu-satu).
+      blockedReasons,
     };
   });
 
