@@ -4,10 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 
-type RouteParams = { params: Promise<{ id: string }> };
-
-/** Tiket 3.5: cetak PDF kartu kode klaim per kelas, untuk dibagikan wali kelas. */
-export async function GET(_request: Request, { params }: RouteParams) {
+/** Tiket 3.5: cetak PDF kartu kode klaim untuk semua siswa yang belum klaim di satu sekolah. */
+export async function GET(request: Request) {
   let user;
   try {
     user = await requireRole("admin_pusat", "admin_sekolah");
@@ -15,28 +13,25 @@ export async function GET(_request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  const { id } = await params;
-  const kelas = await prisma.class.findUnique({ where: { id }, include: { school: true } });
-  if (!kelas) {
-    return NextResponse.json({ error: "Kelas tidak ditemukan." }, { status: 404 });
+  const requestedSchoolId = new URL(request.url).searchParams.get("schoolId");
+  const schoolId = await resolveSchoolId(user, requestedSchoolId);
+  if (!schoolId) {
+    return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 400 });
   }
-  const allowedSchoolId = await resolveSchoolId(user, kelas.schoolId);
-  if (allowedSchoolId !== kelas.schoolId) {
-    return NextResponse.json({ error: "Kelas tidak ditemukan." }, { status: 404 });
+
+  const school = await prisma.school.findUnique({ where: { id: schoolId } });
+  if (!school) {
+    return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 404 });
   }
 
   const students = await prisma.student.findMany({
-    where: {
-      deletedAt: null,
-      claimStatus: "belum_klaim",
-      enrollments: { some: { classId: id } },
-    },
+    where: { schoolId, deletedAt: null, claimStatus: "belum_klaim" },
     orderBy: { nama: "asc" },
   });
 
   if (students.length === 0) {
     return NextResponse.json(
-      { error: "Tidak ada siswa yang belum klaim di kelas ini." },
+      { error: "Tidak ada siswa yang belum klaim di sekolah ini." },
       { status: 400 },
     );
   }
@@ -62,12 +57,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
     doc
       .fontSize(10)
       .fillColor("#64748b")
-      .text(`${kelas.school.nama} - Kartu Klaim Akun AyoTKA`, 56, y + 14);
+      .text(`${school.nama} - Kartu Klaim Akun AyoTKA`, 56, y + 14);
     doc.fontSize(16).fillColor("#0f172a").text(student.nama, 56, y + 30);
     doc
       .fontSize(9)
       .fillColor("#64748b")
-      .text(`Kode Sekolah: ${kelas.school.kodeSekolah}`, 56, y + 56);
+      .text(`Kode Sekolah: ${school.kodeSekolah}`, 56, y + 56);
     doc.fontSize(9).text("Kode Klaim:", 56, y + 72);
     doc
       .fontSize(20)
@@ -92,7 +87,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="kartu-klaim-${kelas.tingkat}${kelas.namaRombel}.pdf"`,
+      "Content-Disposition": `attachment; filename="kartu-klaim-${school.kodeSekolah}.pdf"`,
     },
   });
 }

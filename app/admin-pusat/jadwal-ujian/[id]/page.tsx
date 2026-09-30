@@ -57,11 +57,7 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
       if (!ignore) {
         if (res.ok) {
           const a = data.assignment;
-          setJudul(
-            a
-              ? `${a.package.nama}${a.class ? ` — ${a.class.tingkat}${a.class.namaRombel}` : ""} · ${a.school?.nama ?? "-"}`
-              : "",
-          );
+          setJudul(a ? `${a.package.nama} · ${a.school?.nama ?? "-"}` : "");
           setAttempts(data.attempts ?? []);
         } else {
           setError(data?.error ?? "Gagal memuat data.");

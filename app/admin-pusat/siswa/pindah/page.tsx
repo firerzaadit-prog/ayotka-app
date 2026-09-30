@@ -9,7 +9,6 @@ import { Alert } from "@/components/ui/alert";
 
 type SchoolOption = { id: string; nama: string };
 type StudentOption = { id: string; nama: string };
-type ClassOption = { id: string; tingkat: number; namaRombel: string };
 
 const SELECT_CLASS =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
@@ -21,8 +20,6 @@ export default function PindahSekolahPage() {
   const [studentId, setStudentId] = useState("");
 
   const [tujuanSekolahId, setTujuanSekolahId] = useState("");
-  const [classes, setClasses] = useState<ClassOption[]>([]);
-  const [classId, setClassId] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -58,30 +55,8 @@ export default function PindahSekolahPage() {
     };
   }, [asalSekolahId]);
 
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      if (!tujuanSekolahId) {
-        if (!ignore) {
-          setClasses([]);
-          setClassId("");
-        }
-        return;
-      }
-      const res = await fetch(`/api/admin-sekolah/kelas?schoolId=${tujuanSekolahId}`);
-      const data = await res.json();
-      if (!ignore) {
-        setClasses(data.classes ?? []);
-        setClassId("");
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [tujuanSekolahId]);
-
   async function handleSubmit() {
-    if (!studentId || !classId) return;
+    if (!studentId || !tujuanSekolahId) return;
     setError(null);
     setSuccess(null);
     setSubmitting(true);
@@ -89,7 +64,7 @@ export default function PindahSekolahPage() {
     const res = await fetch(`/api/admin-pusat/siswa/${studentId}/pindah-sekolah`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classId }),
+      body: JSON.stringify({ schoolId: tujuanSekolahId }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -108,7 +83,7 @@ export default function PindahSekolahPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Pindah Sekolah"
-        description="Riwayat nilai siswa di sekolah lama tetap melekat di sana - hanya enrollment tahun berjalan yang dipindah ke sekolah tujuan."
+        description="Riwayat nilai siswa di sekolah lama tetap melekat di sana - hanya schoolId siswa yang dipindah ke sekolah tujuan."
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -169,26 +144,7 @@ export default function PindahSekolahPage() {
           </select>
         </div>
 
-        <div>
-          <Label htmlFor="tujuanKelas">Rombel tujuan</Label>
-          <select
-            id="tujuanKelas"
-            disabled={!tujuanSekolahId}
-            className={`${SELECT_CLASS} disabled:bg-slate-100`}
-            value={classId}
-            onChange={(e) => setClassId(e.target.value)}
-          >
-            <option value="">Pilih rombel</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.tingkat}
-                {c.namaRombel}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <Button onClick={handleSubmit} disabled={!studentId || !classId || submitting} className="w-fit">
+        <Button onClick={handleSubmit} disabled={!studentId || !tujuanSekolahId || submitting} className="w-fit">
           {submitting ? "Memproses..." : "Pindahkan"}
         </Button>
       </Card>

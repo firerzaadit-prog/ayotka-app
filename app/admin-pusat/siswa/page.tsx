@@ -16,7 +16,6 @@ import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
 
 type SchoolOption = { id: string; nama: string };
-type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type StudentRow = {
   id: string;
   nama: string;
@@ -25,7 +24,6 @@ type StudentRow = {
   claimStatus: "belum_klaim" | "sudah_klaim";
   status: "pending" | "active" | "nonaktif";
   school: { id: string; nama: string } | null;
-  enrollments: { class: { tingkat: number; namaRombel: string } }[];
 };
 
 const JALUR_LABEL: Record<string, string> = { A: "Jalur A (sekolah)", B: "Jalur B (mandiri)" };
@@ -56,8 +54,6 @@ export default function SemuaSiswaPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [formSchoolId, setFormSchoolId] = useState("");
-  const [classes, setClasses] = useState<ClassOption[]>([]);
-  const [classId, setClassId] = useState("");
   const [nama, setNama] = useState("");
   const [nisn, setNisn] = useState("");
   const [tanggalLahir, setTanggalLahir] = useState("");
@@ -94,32 +90,10 @@ export default function SemuaSiswaPage() {
     };
   }, [filterSchoolId, filterJalur, refreshKey]);
 
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      if (!formSchoolId) {
-        if (!ignore) {
-          setClasses([]);
-          setClassId("");
-        }
-        return;
-      }
-      const res = await fetch(`/api/admin-sekolah/kelas?schoolId=${formSchoolId}`);
-      const data = await res.json();
-      if (!ignore) {
-        setClasses(data.classes ?? []);
-        setClassId("");
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [formSchoolId]);
-
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
-    if (!classId) {
-      setError("Pilih sekolah & rombel dulu.");
+    if (!formSchoolId) {
+      setError("Pilih sekolah dulu.");
       return;
     }
     setError(null);
@@ -128,7 +102,7 @@ export default function SemuaSiswaPage() {
     const res = await fetch("/api/admin-sekolah/siswa", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nama, nisn, tanggalLahir, classId }),
+      body: JSON.stringify({ nama, nisn, tanggalLahir, schoolId: formSchoolId }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -142,7 +116,6 @@ export default function SemuaSiswaPage() {
     setNisn("");
     setTanggalLahir("");
     setFormSchoolId("");
-    setClassId("");
     setShowForm(false);
     setRefreshKey((k) => k + 1);
   }
@@ -235,43 +208,22 @@ export default function SemuaSiswaPage() {
             Menambah siswa lewat sini selalu Jalur A (siswa dapat kode klaim) — untuk Jalur B,
             siswa mendaftar mandiri sendiri lewat halaman registrasi.
           </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="formSchool">Sekolah</Label>
-              <select
-                id="formSchool"
-                required
-                className={SELECT_CLASS}
-                value={formSchoolId}
-                onChange={(e) => setFormSchoolId(e.target.value)}
-              >
-                <option value="">Pilih sekolah</option>
-                {schools.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nama}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="formClass">Rombel</Label>
-              <select
-                id="formClass"
-                required
-                disabled={!formSchoolId}
-                className={`${SELECT_CLASS} disabled:bg-slate-100`}
-                value={classId}
-                onChange={(e) => setClassId(e.target.value)}
-              >
-                <option value="">{formSchoolId ? "Pilih rombel" : "Pilih sekolah dulu"}</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.tingkat}
-                    {c.namaRombel}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <Label htmlFor="formSchool">Sekolah</Label>
+            <select
+              id="formSchool"
+              required
+              className={SELECT_CLASS}
+              value={formSchoolId}
+              onChange={(e) => setFormSchoolId(e.target.value)}
+            >
+              <option value="">Pilih sekolah</option>
+              {schools.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.nama}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -323,7 +275,6 @@ export default function SemuaSiswaPage() {
                 <Th>Nama</Th>
                 <Th>Sekolah</Th>
                 <Th>Jalur</Th>
-                <Th>Rombel</Th>
                 <Th>Klaim</Th>
                 <Th>Status</Th>
                 <Th></Th>
@@ -339,11 +290,6 @@ export default function SemuaSiswaPage() {
                   </Td>
                   <Td>{s.school?.nama ?? "-"}</Td>
                   <Td>{JALUR_LABEL[s.jalur]}</Td>
-                  <Td>
-                    {s.enrollments[0]
-                      ? `${s.enrollments[0].class.tingkat}${s.enrollments[0].class.namaRombel}`
-                      : "-"}
-                  </Td>
                   <Td>{CLAIM_LABEL[s.claimStatus]}</Td>
                   <Td>{STATUS_LABEL[s.status]}</Td>
                   <Td className="text-right">

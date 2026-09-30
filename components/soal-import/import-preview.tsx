@@ -47,7 +47,6 @@ const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 const LEVEL_OPTIONS = ["L1", "L2", "L3"] as const;
-const TINGKAT_BY_JENJANG: Record<"SD" | "SMP", number[]> = { SD: [4, 5, 6], SMP: [7, 8, 9] };
 
 function taxonomyMatchKey(mapel: string, q: PreviewQuestion): string | null {
   return mapel === "Bahasa Indonesia" ? q.kompetensi : q.elemen;
@@ -61,7 +60,6 @@ export function ImportPreview({ paketId }: { paketId: string }) {
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectId, setSubjectId] = useState("");
-  const [tingkatList, setTingkatList] = useState<number[]>([]);
   const [durasiMenit, setDurasiMenit] = useState("60");
   const [kategori, setKategori] = useState<"mandiri" | "nasional">("nasional");
   const [levelOverrides, setLevelOverrides] = useState<Record<string, "L1" | "L2" | "L3">>({});
@@ -94,8 +92,6 @@ export function ImportPreview({ paketId }: { paketId: string }) {
     return subjects.filter((s) => s.nama === preview.sourcePaket.mapel);
   }, [subjects, preview]);
 
-  const selectedSubject = matchingSubjects.find((s) => s.id === subjectId) ?? null;
-
   const unmappedLabels = useMemo(() => {
     if (!preview) return [];
     const seen = new Map<string, { elemen: string; subElemen: string | null; kompetensi: string | null }>();
@@ -126,17 +122,12 @@ export function ImportPreview({ paketId }: { paketId: string }) {
       toast.error("Pilih subject tujuan dulu.");
       return;
     }
-    if (tingkatList.length === 0) {
-      toast.error("Pilih minimal satu tingkat kelas.");
-      return;
-    }
     setSubmitting(true);
     const res = await fetch(`/api/admin-pusat/soal-import/packages/${paketId}/import`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         subjectId,
-        tingkatList,
         durasiMenit: Number(durasiMenit),
         kategori,
         levelBloomOverrides: levelOverrides,
@@ -224,10 +215,7 @@ export function ImportPreview({ paketId }: { paketId: string }) {
             <select
               className={selectClassName}
               value={subjectId}
-              onChange={(e) => {
-                setSubjectId(e.target.value);
-                setTingkatList([]);
-              }}
+              onChange={(e) => setSubjectId(e.target.value)}
             >
               <option value="">Pilih subject</option>
               {matchingSubjects.map((s) => (
@@ -241,23 +229,6 @@ export function ImportPreview({ paketId }: { paketId: string }) {
                 Tidak ada subject &ldquo;{preview.sourcePaket.mapel}&rdquo; untuk jenjang ini di ayotka-app.
               </p>
             )}
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Tingkat kelas</label>
-            <div className="flex gap-2">
-              {(selectedSubject ? TINGKAT_BY_JENJANG[selectedSubject.jenjang] : []).map((t) => (
-                <label key={t} className="flex items-center gap-1.5 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={tingkatList.includes(t)}
-                    onChange={(e) =>
-                      setTingkatList((prev) => (e.target.checked ? [...prev, t] : prev.filter((v) => v !== t)))
-                    }
-                  />
-                  {t}
-                </label>
-              ))}
-            </div>
           </div>
           <div className="w-32">
             <label className="mb-1 block text-xs font-medium text-slate-700">Durasi (menit)</label>

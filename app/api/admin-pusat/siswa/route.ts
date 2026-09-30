@@ -8,7 +8,7 @@ import { requireRole } from "@/lib/auth/session";
  * beda dari GET /api/admin-sekolah/siswa yang selalu Jalur A dan satu
  * sekolah saja. Menambah/menghapus siswa tetap lewat endpoint
  * admin-sekolah/siswa yang sudah ada (sudah menerima admin_pusat + resolusi
- * sekolah lewat classId/schoolId).
+ * sekolah lewat schoolId).
  */
 export async function GET(request: Request) {
   try {
@@ -30,11 +30,6 @@ export async function GET(request: Request) {
     orderBy: [{ school: { nama: "asc" } }, { nama: "asc" }],
     include: {
       school: { select: { id: true, nama: true } },
-      enrollments: {
-        orderBy: { academicYear: { mulai: "desc" } },
-        take: 1,
-        include: { class: true },
-      },
     },
   });
 

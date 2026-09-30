@@ -23,8 +23,9 @@ function windowFilter(now: Date, includeUpcomingNasional: boolean) {
 /**
  * Tiket 4.4 (Bagian 3.2 brief, "Masuk ke Paket Soal - dua mode"): Mode B
  * (Latihan Mandiri) - paket yang boleh dipilih bebas siswa, difilter
- * otomatis per jenjang/tingkat siswa. Jalur B cuma boleh paket publik;
- * Jalur A boleh paket sekolahnya sendiri + paket pusat yang
+ * otomatis per jenjang siswa (TKA lintas-jenjang, tidak ada tingkat/kelas -
+ * lihat keputusan penghapusan tingkat 1 Okt 2026). Jalur B cuma boleh paket
+ * publik; Jalur A boleh paket sekolahnya sendiri + paket pusat yang
  * didistribusikan ke sekolahnya.
  */
 export async function getSelfSelectPackagesFor(
@@ -40,7 +41,6 @@ export async function getSelfSelectPackagesFor(
     status: "published" as const,
     bolehDipilihSiswa: true,
     jenjang: student.jenjang,
-    tingkatList: { has: student.tingkat },
     AND: windowFilter(now, opts.includeUpcomingNasional ?? false),
   };
 
@@ -82,30 +82,19 @@ export async function getSelfSelectPackagesFor(
 
 /**
  * Mode A (Ujian Terjadwal) - penugasan aktif yang jendela waktunya sedang
- * terbuka untuk kelas siswa saat ini (enrollment tahun ajaran aktif).
+ * terbuka untuk sekolah siswa (target seluruh sekolah, bukan per rombel -
+ * fitur Kelas/Rombel dihapus total 1 Okt 2026).
  */
 export async function getActiveAssignmentsFor(student: Student) {
   if (student.jalur !== "A" || !student.schoolId) return [];
 
-  const activeYear = await prisma.academicYear.findFirst({ where: { isActive: true } });
-  if (!activeYear) return [];
-
-  const enrollment = await prisma.studentEnrollment.findUnique({
-    where: { studentId_academicYearId: { studentId: student.id, academicYearId: activeYear.id } },
-  });
-
   const now = new Date();
-  const classFilter = enrollment
-    ? [{ classId: enrollment.classId }, { classId: null }]
-    : [{ classId: null }];
-
   return prisma.assignment.findMany({
     where: {
       schoolId: student.schoolId,
       isActive: true,
       mulai: { lte: now },
       selesai: { gte: now },
-      OR: classFilter,
     },
     orderBy: { selesai: "asc" },
     include: {

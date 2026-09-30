@@ -11,21 +11,19 @@ export const studentCreateSchema = z.object({
   nama: z.string().trim().min(2, "Nama minimal 2 karakter"),
   nisn: nisnSchema,
   tanggalLahir: z.coerce.date().optional(),
-  classId: z.string().uuid(),
+  /** Cuma dipakai admin_pusat (lintas sekolah) - admin_sekolah selalu diresolve dari SchoolUser, lihat resolveSchoolId. */
+  schoolId: z.string().uuid().optional().or(z.literal("")),
 });
 
 export const studentUpdateSchema = z.object({
   nama: z.string().trim().min(2, "Nama minimal 2 karakter").optional(),
   nisn: nisnSchema,
   tanggalLahir: z.coerce.date().optional(),
-  classId: z.string().uuid().optional(),
 });
 
 export const studentImportRowSchema = z.object({
   nama: z.string().trim().min(2, "Nama wajib diisi"),
   nisn: nisnSchema,
-  tingkat: z.coerce.number().int().min(1).max(12),
-  rombel: z.string().trim().min(1, "Rombel wajib diisi"),
   tanggalLahir: z.coerce.date().optional(),
 });
 

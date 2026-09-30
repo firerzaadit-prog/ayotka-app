@@ -1,0 +1,69 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+const { packageModel, assignment } = vi.hoisted(() => ({
+  packageModel: { findMany: vi.fn() },
+  assignment: { findMany: vi.fn() },
+}));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { package: packageModel, assignment } }));
+
+import { getSelfSelectPackagesFor, getActiveAssignmentsFor } from "@/lib/exam/visibility";
+import type { Student } from "@prisma/client";
+
+const STUDENT_B = {
+  id: "siswa-1",
+  jenjang: "SMP",
+  jalur: "B",
+  schoolId: null,
+} as unknown as Student;
+
+const STUDENT_A = {
+  id: "siswa-2",
+  jenjang: "SD",
+  jalur: "A",
+  schoolId: "sekolah-1",
+} as unknown as Student;
+
+describe("getSelfSelectPackagesFor - tingkat dihapus, cuma jenjang (1 Okt 2026)", () => {
+  beforeEach(() => {
+    packageModel.findMany.mockReset();
+    packageModel.findMany.mockResolvedValue([]);
+  });
+
+  it("Jalur B: where-clause tidak lagi berisi tingkatList sama sekali", async () => {
+    await getSelfSelectPackagesFor(STUDENT_B);
+    const where = packageModel.findMany.mock.calls[0]![0].where;
+    expect(where).not.toHaveProperty("tingkatList");
+    expect(where.jenjang).toBe("SMP");
+  });
+
+  it("Jalur A: where-clause juga cuma difilter jenjang, tanpa tingkatList", async () => {
+    await getSelfSelectPackagesFor(STUDENT_A);
+    const where = packageModel.findMany.mock.calls[0]![0].where;
+    expect(where).not.toHaveProperty("tingkatList");
+    expect(where.jenjang).toBe("SD");
+  });
+});
+
+describe("getActiveAssignmentsFor - target sekolah penuh, tanpa Kelas/AcademicYear (1 Okt 2026)", () => {
+  beforeEach(() => {
+    assignment.findMany.mockReset();
+    assignment.findMany.mockResolvedValue([]);
+  });
+
+  it("siswa Jalur B tidak pernah query assignment", async () => {
+    await getActiveAssignmentsFor(STUDENT_B);
+    expect(assignment.findMany).not.toHaveBeenCalled();
+  });
+
+  it("siswa Jalur A: query langsung by schoolId, tanpa classId/academicYear/enrollment apa pun", async () => {
+    await getActiveAssignmentsFor(STUDENT_A);
+    expect(assignment.findMany).toHaveBeenCalledTimes(1);
+    const where = assignment.findMany.mock.calls[0]![0].where;
+    expect(where.schoolId).toBe("sekolah-1");
+    expect(where.isActive).toBe(true);
+    expect(where).not.toHaveProperty("classId");
+    expect(where).not.toHaveProperty("OR");
+  });
+});

@@ -9,7 +9,6 @@ type RouteParams = { params: Promise<{ id: string }> };
 
 const bodySchema = z.object({
   subjectId: z.string().uuid(),
-  tingkatList: z.array(z.coerce.number().int().min(1).max(12)).min(1, "Pilih minimal satu tingkat kelas"),
   durasiMenit: z.coerce.number().int().min(1, "Durasi wajib diisi"),
   kategori: z.enum(["mandiri", "nasional"]),
   levelBloomOverrides: z.record(z.string(), z.enum(["L1", "L2", "L3"])).default({}),
@@ -39,7 +38,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     const result = await executeImport({
       sourcePaketId: id,
       subjectId: parsed.data.subjectId,
-      tingkatList: [...new Set(parsed.data.tingkatList)].sort((a, b) => a - b),
       durasiMenit: parsed.data.durasiMenit,
       kategori: parsed.data.kategori,
       levelBloomOverrides: parsed.data.levelBloomOverrides,

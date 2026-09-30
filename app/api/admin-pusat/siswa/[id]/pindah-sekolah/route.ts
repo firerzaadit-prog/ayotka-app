@@ -6,14 +6,11 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertKuotaTersedia, KuotaPenuhError } from "@/lib/students/create";
 
 type RouteParams = { params: Promise<{ id: string }> };
-const pindahSchema = z.object({ classId: z.string().uuid() });
+const pindahSchema = z.object({ schoolId: z.string().uuid() });
 
 /**
- * Tiket 3.7 (Bagian 7.2 brief): pindah sekolah - enrollment tahun berjalan
- * di sekolah lama diganti (bukan dihapus permanen dari riwayat: hanya
- * enrollment tahun AKTIF yang dipindah, tahun-tahun sebelumnya tetap
- * melekat ke sekolah lama karena beda academic_year_id). Lintas sekolah,
- * jadi khusus admin pusat - bukan wewenang admin sekolah asal/tujuan sepihak.
+ * Tiket 3.7 (Bagian 7.2 brief): pindah sekolah - lintas sekolah, jadi khusus
+ * admin pusat, bukan wewenang admin sekolah asal/tujuan sepihak.
  */
 export async function POST(request: Request, { params }: RouteParams) {
   let user;
@@ -27,7 +24,7 @@ export async function POST(request: Request, { params }: RouteParams) {
   const body = await request.json().catch(() => null);
   const parsed = pindahSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Kelas tujuan wajib diisi." }, { status: 400 });
+    return NextResponse.json({ error: "Sekolah tujuan wajib diisi." }, { status: 400 });
   }
 
   const student = await prisma.student.findUnique({ where: { id } });
@@ -35,19 +32,16 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
   }
 
-  const destinationClass = await prisma.class.findUnique({
-    where: { id: parsed.data.classId },
-    include: { school: true },
-  });
-  if (!destinationClass) {
-    return NextResponse.json({ error: "Kelas tujuan tidak ditemukan." }, { status: 404 });
+  const destinationSchool = await prisma.school.findUnique({ where: { id: parsed.data.schoolId } });
+  if (!destinationSchool) {
+    return NextResponse.json({ error: "Sekolah tujuan tidak ditemukan." }, { status: 404 });
   }
-  if (destinationClass.schoolId === student.schoolId) {
+  if (destinationSchool.id === student.schoolId) {
     return NextResponse.json({ error: "Siswa sudah ada di sekolah ini." }, { status: 400 });
   }
 
   try {
-    await assertKuotaTersedia(destinationClass.schoolId, 1);
+    await assertKuotaTersedia(destinationSchool.id, 1);
   } catch (error) {
     if (error instanceof KuotaPenuhError) {
       return NextResponse.json({ error: error.message }, { status: 409 });
@@ -56,25 +50,9 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const before = student;
-  const updated = await prisma.$transaction(async (tx) => {
-    await tx.studentEnrollment.deleteMany({
-      where: { studentId: id, academicYearId: destinationClass.academicYearId },
-    });
-    await tx.studentEnrollment.create({
-      data: {
-        studentId: id,
-        classId: destinationClass.id,
-        academicYearId: destinationClass.academicYearId,
-      },
-    });
-    return tx.student.update({
-      where: { id },
-      data: {
-        schoolId: destinationClass.schoolId,
-        jenjang: destinationClass.school.jenjang,
-        tingkat: destinationClass.tingkat,
-      },
-    });
+  const updated = await prisma.student.update({
+    where: { id },
+    data: { schoolId: destinationSchool.id, jenjang: destinationSchool.jenjang },
   });
 
   await logAudit({
@@ -83,7 +61,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     entitas: "students",
     entitasId: id,
     before,
-    after: { aksi: "pindah_sekolah", schoolIdBaru: destinationClass.schoolId },
+    after: { aksi: "pindah_sekolah", schoolIdBaru: destinationSchool.id },
     ip: getClientIp(request),
   });
 

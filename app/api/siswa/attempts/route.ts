@@ -79,7 +79,6 @@ export async function GET() {
     orderBy: { mulaiAt: "desc" },
     include: {
       package: { select: { nama: true } },
-      assignment: { select: { class: { select: { tingkat: true, namaRombel: true } } } },
     },
   });
 
@@ -87,7 +86,7 @@ export async function GET() {
     attempts: attempts.map((a) => ({
       id: a.id,
       paketNama: a.package.nama,
-      kelas: a.assignment?.class ? `${a.assignment.class.tingkat}${a.assignment.class.namaRombel}` : null,
+      terjadwal: a.assignmentId != null,
       status: a.status,
       skorAkhir: a.skorAkhir,
       mulaiAt: a.mulaiAt,

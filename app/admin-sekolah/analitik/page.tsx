@@ -13,13 +13,9 @@ import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
 import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
 import type { KesiapanRingkasan } from "@/lib/analytics/kesiapan";
 
-type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type Kompetensi = { kode: string; deskripsi: string; materi: string; jmlBenar: number; jmlSoal: number; persentase: number };
 type RankingRow = { studentId: string; nama: string; rataRata: number; jumlahAttempt: number };
 type PerMapelAnalitik = { subjectId: string; subjectNama: string; kompetensi: Kompetensi[]; ranking: RankingRow[] };
-
-const selectClassName =
-  "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 function KompetensiTable({ kompetensi }: { kompetensi: Kompetensi[] }) {
   const [page, setPage] = useState(1);
@@ -126,8 +122,6 @@ function RankingTable({ ranking }: { ranking: RankingRow[] }) {
  * filter mapel manual satu-per-satu.
  */
 export default function AnalitikPage() {
-  const [classes, setClasses] = useState<ClassOption[]>([]);
-  const [classId, setClassId] = useState("");
   const [kompetensi, setKompetensi] = useState<Kompetensi[] | null>(null);
   const [ranking, setRanking] = useState<RankingRow[] | null>(null);
   const [perMapel, setPerMapel] = useState<PerMapelAnalitik[]>([]);
@@ -135,21 +129,8 @@ export default function AnalitikPage() {
   const [error, setError] = useState<string | null>(null);
   const [kesiapan, setKesiapan] = useState<KesiapanRingkasan | null>(null);
 
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      const res = await fetch("/api/admin-sekolah/kelas");
-      const data = await res.json().catch(() => null);
-      if (!ignore) setClasses(data?.classes ?? []);
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  // Kesiapan TKA tidak dipengaruhi filter kelas di atas (selalu gabungan
-  // semua mapel KESIAPAN_SUBJECTS untuk seluruh sekolah) - diambil sekali
-  // saat halaman dibuka, bukan di dalam effect filter di bawah.
+  // Kesiapan TKA selalu gabungan semua mapel KESIAPAN_SUBJECTS untuk seluruh
+  // sekolah - diambil sekali saat halaman dibuka, bukan di dalam effect di bawah.
   useEffect(() => {
     let ignore = false;
     (async () => {
@@ -165,9 +146,7 @@ export default function AnalitikPage() {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const qs = new URLSearchParams();
-      if (classId) qs.set("classId", classId);
-      const res = await fetch(`/api/admin-sekolah/analitik?${qs.toString()}`);
+      const res = await fetch("/api/admin-sekolah/analitik");
       const data = await res.json().catch(() => null);
       if (!ignore) {
         if (res.ok) {
@@ -184,7 +163,7 @@ export default function AnalitikPage() {
     return () => {
       ignore = true;
     };
-  }, [classId]);
+  }, []);
 
   return (
     <div className="flex flex-col gap-6">
@@ -193,12 +172,7 @@ export default function AnalitikPage() {
         description="Kompetensi terlemah & ranking siswa berdasarkan hasil ujian yang sudah selesai."
         action={
           jumlahAttempt > 0 && (
-            <a
-              href={`/api/admin-sekolah/analitik/export?${new URLSearchParams({
-                ...(classId ? { classId } : {}),
-              }).toString()}`}
-              className={buttonClassName("secondary")}
-            >
+            <a href="/api/admin-sekolah/analitik/export" className={buttonClassName("secondary")}>
               Unduh Rekap (Excel)
             </a>
           )
@@ -233,32 +207,13 @@ export default function AnalitikPage() {
         </div>
       )}
 
-      <div className="flex flex-wrap gap-4">
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-500">Kelas</label>
-          <select
-            className={selectClassName}
-            value={classId}
-            onChange={(e) => setClassId(e.target.value)}
-          >
-            <option value="">Semua kelas</option>
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.tingkat}
-                {c.namaRombel}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
       {error && <Alert variant="danger">{error}</Alert>}
 
       {!error && kompetensi !== null && ranking !== null && jumlahAttempt === 0 && (
         <EmptyState
           icon={<IconChart />}
           title="Belum ada data"
-          description="Belum ada ujian yang selesai dikerjakan untuk kelas yang dipilih."
+          description="Belum ada ujian yang selesai dikerjakan di sekolah ini."
         />
       )}
 

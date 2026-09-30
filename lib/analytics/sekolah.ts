@@ -66,20 +66,12 @@ function toRankingList(map: Map<string, StudentAgg>) {
 
 export async function buildAnalitikSekolah(
   schoolId: string,
-  filter: { classId?: string | null; subjectId?: string | null },
+  filter: { subjectId?: string | null },
 ) {
-  const activeYear = await prisma.academicYear.findFirst({ where: { isActive: true } });
-
   const attempts = await prisma.attempt.findMany({
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
-      student: {
-        schoolId,
-        deletedAt: null,
-        ...(filter.classId && activeYear
-          ? { enrollments: { some: { classId: filter.classId, academicYearId: activeYear.id } } }
-          : {}),
-      },
+      student: { schoolId, deletedAt: null },
       ...(filter.subjectId ? { package: { subjectId: filter.subjectId } } : {}),
     },
     select: {

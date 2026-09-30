@@ -24,7 +24,6 @@ export async function GET(_request: Request, { params }: RouteParams) {
     where: { id },
     include: {
       package: { select: { nama: true } },
-      class: { select: { tingkat: true, namaRombel: true } },
       school: { select: { nama: true } },
     },
   });

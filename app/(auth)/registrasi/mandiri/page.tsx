@@ -16,7 +16,6 @@ function RegistrasiMandiriForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [jenjang, setJenjang] = useState<"SD" | "SMP">("SD");
-  const [tingkat, setTingkat] = useState("");
   const [kodeReferral, setKodeReferral] = useState(searchParams.get("ref") ?? "");
   // Hasil cek kode disimpan bersama kode yang dicek; ditampilkan hanya kalau masih sama dengan isian saat ini
   // (jadi tidak perlu di-reset saat isian berubah, dan hasil lama tidak pernah menempel di kode baru).
@@ -36,12 +35,9 @@ function RegistrasiMandiriForm() {
   const [asalSekolahManual, setAsalSekolahManual] = useState("");
   const [sudahMencari, setSudahMencari] = useState(false);
 
-  const daftarKelas = jenjang === "SD" ? [4, 5, 6] : [7, 8, 9];
-
   function handleGantiJenjang(nilai: "SD" | "SMP") {
     setJenjang(nilai);
-    // Kelas & sekolah terpilih milik jenjang sebelumnya tidak berlaku lagi.
-    setTingkat("");
+    // Sekolah terpilih milik jenjang sebelumnya tidak berlaku lagi.
     setSelectedSekolah(null);
     setSekolahQuery("");
     setSekolahHasil([]);
@@ -111,7 +107,6 @@ function RegistrasiMandiriForm() {
         email,
         password,
         jenjang,
-        tingkat,
         asalSekolahId: !tidakAdaDiDaftar ? selectedSekolah?.id : "",
         asalSekolahManual: tidakAdaDiDaftar ? asalSekolahManual : "",
         kodeReferral,
@@ -177,38 +172,19 @@ function RegistrasiMandiriForm() {
           onChange={(e) => setPassword(e.target.value)}
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label htmlFor="jenjang">Tingkat sekolah</Label>
-          <select
-            id="jenjang"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={jenjang}
-            onChange={(e) => handleGantiJenjang(e.target.value as "SD" | "SMP")}
-          >
-            <option value="SD">SD</option>
-            <option value="SMP">SMP</option>
-          </select>
-        </div>
-        <div>
-          <Label htmlFor="tingkat">Kelas</Label>
-          <select
-            id="tingkat"
-            required
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
-            value={tingkat}
-            onChange={(e) => setTingkat(e.target.value)}
-          >
-            <option value="">Pilih kelas</option>
-            {daftarKelas.map((k) => (
-              <option key={k} value={k}>
-                Kelas {k}
-              </option>
-            ))}
-          </select>
-        </div>
-        <p className="col-span-2 -mt-1 text-xs text-slate-500">
-          Tingkat &amp; kelas menentukan try out dan mata pelajaran yang tampil setelah kamu masuk.
+      <div>
+        <Label htmlFor="jenjang">Jenjang sekolah</Label>
+        <select
+          id="jenjang"
+          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          value={jenjang}
+          onChange={(e) => handleGantiJenjang(e.target.value as "SD" | "SMP")}
+        >
+          <option value="SD">SD</option>
+          <option value="SMP">SMP</option>
+        </select>
+        <p className="mt-1 text-xs text-slate-500">
+          Jenjang menentukan try out dan mata pelajaran yang tampil setelah kamu masuk.
         </p>
       </div>
 

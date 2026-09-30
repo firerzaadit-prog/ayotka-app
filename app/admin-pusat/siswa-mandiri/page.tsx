@@ -15,7 +15,6 @@ type PendingStudent = {
   id: string;
   nama: string;
   jenjang: "SD" | "SMP";
-  tingkat: number;
   school: { nama: string; status: string } | null;
   user: { email: string } | null;
 };
@@ -85,9 +84,7 @@ export default function SiswaMandiriPage() {
                     <Tr key={s.id}>
                       <Td className="font-medium text-slate-900">{s.nama}</Td>
                       <Td>{s.user?.email ?? "-"}</Td>
-                      <Td>
-                        {s.jenjang} {s.tingkat}
-                      </Td>
+                      <Td>{s.jenjang}</Td>
                       <Td>
                         {s.school?.nama ?? "-"}
                         {s.school?.status === "pending_verifikasi" && (

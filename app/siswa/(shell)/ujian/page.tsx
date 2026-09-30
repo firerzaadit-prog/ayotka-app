@@ -455,7 +455,7 @@ function UjianContent() {
                   ? "Jadwal Try Out Nasional berikutnya akan diumumkan oleh AyoTKA. Pantau halaman ini untuk melihat jadwal rilis terbaru."
                   : `Belum ada jadwal Try Out Nasional untuk mapel ${selectedSubject}. Coba pilih "Semua Mapel".`
                 : selectedSubject === "semua"
-                ? "Belum ada paket try out yang tersedia untuk tingkat kelasmu saat ini."
+                ? "Belum ada paket try out yang tersedia saat ini."
                 : `Belum ada paket untuk mapel ${selectedSubject}. Coba pilih "Semua Mapel".`
             }
           />

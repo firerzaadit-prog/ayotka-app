@@ -24,7 +24,7 @@ export async function GET() {
     include: {
       students: {
         where: { deletedAt: null },
-        select: { id: true, nama: true, jenjang: true, tingkat: true },
+        select: { id: true, nama: true, jenjang: true },
       },
     },
   });

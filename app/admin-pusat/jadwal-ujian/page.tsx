@@ -16,7 +16,6 @@ type AssignmentRow = {
   id: string;
   sekolahNama: string;
   paketNama: string;
-  kelas: string;
   mulai: string;
   selesai: string;
   isActive: boolean;
@@ -72,7 +71,6 @@ export default function JadwalUjianPage() {
                   <Tr>
                     <Th>Sekolah</Th>
                     <Th>Paket</Th>
-                    <Th>Rombel</Th>
                     <Th>Jendela waktu</Th>
                     <Th>Attempt</Th>
                     <Th>Status</Th>
@@ -87,7 +85,6 @@ export default function JadwalUjianPage() {
                           {a.paketNama}
                         </Link>
                       </Td>
-                      <Td>{a.kelas}</Td>
                       <Td className="text-xs">
                         {formatWIB(a.mulai)} — {formatWIB(a.selesai)}
                       </Td>

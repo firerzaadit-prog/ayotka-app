@@ -43,7 +43,6 @@ export default async function AdminSekolahLayout({
       nav={
         <SidebarSection>
           <SidebarLink href="/admin-sekolah/dashboard">Dashboard</SidebarLink>
-          <SidebarLink href="/admin-sekolah/kelas">Kelas</SidebarLink>
           <SidebarLink href="/admin-sekolah/siswa">Siswa</SidebarLink>
           <SidebarLink href="/admin-sekolah/ujian">Ujian</SidebarLink>
           <SidebarLink href="/admin-sekolah/analitik">Analitik</SidebarLink>

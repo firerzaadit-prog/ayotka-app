@@ -29,7 +29,6 @@ export default async function AdminPusatLayout({
 
           <SidebarSection label="Sekolah & Siswa">
             <SidebarLink href="/admin-pusat/sekolah">Sekolah</SidebarLink>
-            <SidebarLink href="/admin-pusat/tahun-ajaran">Tahun Ajaran</SidebarLink>
             <SidebarLink href="/admin-pusat/siswa">Semua Siswa</SidebarLink>
             <SidebarLink href="/admin-pusat/siswa-mandiri">Siswa Mandiri</SidebarLink>
             <SidebarLink href="/admin-pusat/siswa/pindah">Pindah Sekolah</SidebarLink>

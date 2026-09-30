@@ -3,7 +3,6 @@ import { z } from "zod";
 export const assignmentCreateSchema = z
   .object({
     packageId: z.string().uuid(),
-    classId: z.string().uuid(),
     mulai: z.coerce.date(),
     selesai: z.coerce.date(),
   })

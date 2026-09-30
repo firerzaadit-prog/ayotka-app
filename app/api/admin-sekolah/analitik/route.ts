@@ -24,7 +24,6 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const { jumlahAttempt, kompetensi, ranking, perMapel } = await buildAnalitikSekolah(schoolId, {
-    classId: url.searchParams.get("classId"),
     subjectId: url.searchParams.get("subjectId"),
   });
 

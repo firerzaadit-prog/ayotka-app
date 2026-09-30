@@ -31,19 +31,13 @@ export default async function AdminSekolahDashboardPage() {
     );
   }
 
-  const [school, activeYear] = await Promise.all([
-    prisma.school.findUnique({ where: { id: schoolId } }),
-    prisma.academicYear.findFirst({ where: { isActive: true } }),
-  ]);
+  const school = await prisma.school.findUnique({ where: { id: schoolId } });
 
-  const [siswaAktif, belumKlaim, rombel, paketSoal, kesiapan] = await Promise.all([
+  const [siswaAktif, belumKlaim, paketSoal, kesiapan] = await Promise.all([
     prisma.student.count({ where: { schoolId, jalur: "A", deletedAt: null } }),
     prisma.student.count({
       where: { schoolId, jalur: "A", deletedAt: null, claimStatus: "belum_klaim" },
     }),
-    activeYear
-      ? prisma.class.count({ where: { schoolId, academicYearId: activeYear.id } })
-      : Promise.resolve(0),
     prisma.package.count({
       where: { ownerType: "sekolah", ownerId: schoolId, status: { not: "archived" } },
     }),
@@ -54,9 +48,8 @@ export default async function AdminSekolahDashboardPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title="Dashboard Admin Sekolah" description={school?.nama} />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         <StatCard label="Siswa aktif" value={siswaAktif} />
-        <StatCard label="Rombel (tahun ajaran aktif)" value={rombel} />
         <StatCard label="Siswa belum klaim akun" value={belumKlaim} />
         <StatCard label="Paket soal" value={paketSoal} />
       </div>
@@ -73,25 +66,15 @@ export default async function AdminSekolahDashboardPage() {
         <KesiapanCard title="Kesiapan sekolah (gabungan)" breakdown={kesiapan.gabungan} />
       </div>
 
-      {!activeYear && (
-        <Alert variant="warning">
-          Belum ada tahun ajaran aktif — hubungi Admin Pusat untuk mengaktifkan salah satu tahun
-          ajaran sebelum mengelola rombel.
-        </Alert>
-      )}
-
       {belumKlaim > 0 && (
         <Alert variant="info">
           Ada {belumKlaim} siswa yang belum mengklaim akunnya — cetak kartu kode klaim dari
-          halaman Kelas untuk dibagikan.
+          halaman Siswa untuk dibagikan.
         </Alert>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Link href="/admin-sekolah/kelas" className={buttonClassName("primary")}>
-          Kelola Kelas
-        </Link>
-        <Link href="/admin-sekolah/siswa" className={buttonClassName("secondary")}>
+        <Link href="/admin-sekolah/siswa" className={buttonClassName("primary")}>
           Kelola Siswa
         </Link>
         <Link href="/admin-sekolah/bank-soal" className={buttonClassName("secondary")}>

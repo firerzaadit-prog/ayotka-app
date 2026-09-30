@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { IconCheckCircle } from "@/components/ui/empty-state-icons";
 
-type PendingStudent = { id: string; nama: string; jenjang: "SD" | "SMP"; tingkat: number };
+type PendingStudent = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type PendingSchool = {
   id: string;
   nama: string;

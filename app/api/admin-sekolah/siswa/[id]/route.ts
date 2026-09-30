@@ -39,26 +39,12 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     );
   }
 
-  const { classId, nisn, ...rest } = parsed.data;
+  const { nisn, ...rest } = parsed.data;
 
   try {
-    const student = await prisma.$transaction(async (tx) => {
-      if (classId) {
-        const kelas = await tx.class.findUnique({ where: { id: classId } });
-        if (!kelas || kelas.schoolId !== before.schoolId) {
-          throw new Error("KELAS_TIDAK_VALID");
-        }
-        await tx.studentEnrollment.upsert({
-          where: { studentId_academicYearId: { studentId: id, academicYearId: kelas.academicYearId } },
-          create: { studentId: id, classId, academicYearId: kelas.academicYearId },
-          update: { classId },
-        });
-      }
-
-      return tx.student.update({
-        where: { id },
-        data: { ...rest, ...(nisn !== undefined ? { nisn: nisn.length > 0 ? nisn : null } : {}) },
-      });
+    const student = await prisma.student.update({
+      where: { id },
+      data: { ...rest, ...(nisn !== undefined ? { nisn: nisn.length > 0 ? nisn : null } : {}) },
     });
 
     await logAudit({
@@ -73,9 +59,6 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
     return NextResponse.json({ student });
   } catch (error) {
-    if (error instanceof Error && error.message === "KELAS_TIDAK_VALID") {
-      return NextResponse.json({ error: "Kelas tidak ditemukan." }, { status: 404 });
-    }
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return NextResponse.json({ error: "NISN sudah dipakai siswa lain." }, { status: 409 });
     }

@@ -13,7 +13,6 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconCalendar } from "@/components/ui/empty-state-icons";
 import { formatWIB } from "@/lib/utils/datetime";
 
-type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type PackageOption = { id: string; nama: string; jumlahSoal: number; durasiMenit: number };
 type AssignmentRow = {
   id: string;
@@ -21,7 +20,6 @@ type AssignmentRow = {
   selesai: string;
   isActive: boolean;
   package: { nama: string; jumlahSoal: number; durasiMenit: number };
-  class: { tingkat: number; namaRombel: string } | null;
   _count: { attempts: number };
 };
 
@@ -29,11 +27,9 @@ const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 export default function UjianPage() {
-  const [classes, setClasses] = useState<ClassOption[]>([]);
   const [packages, setPackages] = useState<PackageOption[]>([]);
   const [assignments, setAssignments] = useState<AssignmentRow[] | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [classId, setClassId] = useState("");
   const [packageId, setPackageId] = useState("");
   const [mulai, setMulai] = useState("");
   const [selesai, setSelesai] = useState("");
@@ -44,16 +40,9 @@ export default function UjianPage() {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const [classRes, pkgRes] = await Promise.all([
-        fetch("/api/admin-sekolah/kelas"),
-        fetch("/api/admin-sekolah/paket-tersedia"),
-      ]);
-      const classData = await classRes.json();
+      const pkgRes = await fetch("/api/admin-sekolah/paket-tersedia");
       const pkgData = await pkgRes.json();
-      if (!ignore) {
-        setClasses(classData.classes ?? []);
-        setPackages(pkgData.packages ?? []);
-      }
+      if (!ignore) setPackages(pkgData.packages ?? []);
     })();
     return () => {
       ignore = true;
@@ -80,7 +69,7 @@ export default function UjianPage() {
     const res = await fetch("/api/admin-sekolah/assignments", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ classId, packageId, mulai, selesai }),
+      body: JSON.stringify({ packageId, mulai, selesai }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -90,7 +79,6 @@ export default function UjianPage() {
       return;
     }
 
-    setClassId("");
     setPackageId("");
     setMulai("");
     setSelesai("");
@@ -111,7 +99,7 @@ export default function UjianPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Penugasan Ujian"
-        description="Tugaskan paket soal ke satu rombel dalam jendela waktu tertentu."
+        description="Tugaskan paket soal ke seluruh siswa sekolah dalam jendela waktu tertentu."
         action={
           <Button onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Batal" : "Buat penugasan"}
@@ -125,42 +113,22 @@ export default function UjianPage() {
           className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6"
         >
           {error && <Alert variant="danger">{error}</Alert>}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="packageId">Paket soal</Label>
-              <select
-                id="packageId"
-                required
-                className={selectClassName}
-                value={packageId}
-                onChange={(e) => setPackageId(e.target.value)}
-              >
-                <option value="">Pilih paket</option>
-                {packages.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nama} ({p.jumlahSoal} soal, {p.durasiMenit} menit)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <Label htmlFor="classId">Rombel</Label>
-              <select
-                id="classId"
-                required
-                className={selectClassName}
-                value={classId}
-                onChange={(e) => setClassId(e.target.value)}
-              >
-                <option value="">Pilih rombel</option>
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.tingkat}
-                    {c.namaRombel}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <Label htmlFor="packageId">Paket soal</Label>
+            <select
+              id="packageId"
+              required
+              className={selectClassName}
+              value={packageId}
+              onChange={(e) => setPackageId(e.target.value)}
+            >
+              <option value="">Pilih paket</option>
+              {packages.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nama} ({p.jumlahSoal} soal, {p.durasiMenit} menit)
+                </option>
+              ))}
+            </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -195,7 +163,7 @@ export default function UjianPage() {
         <EmptyState
           icon={<IconCalendar />}
           title="Belum ada penugasan ujian"
-          description="Buat penugasan pertama untuk mulai memberi ujian ke satu rombel."
+          description="Buat penugasan pertama untuk mulai memberi ujian ke seluruh siswa sekolah."
           action={<Button onClick={() => setShowForm(true)}>Buat penugasan</Button>}
         />
       )}
@@ -206,7 +174,6 @@ export default function UjianPage() {
             <Thead>
               <Tr>
                 <Th>Paket</Th>
-                <Th>Rombel</Th>
                 <Th>Jendela waktu</Th>
                 <Th>Attempt</Th>
                 <Th>Status</Th>
@@ -220,9 +187,6 @@ export default function UjianPage() {
                     <Link href={`/admin-sekolah/ujian/${a.id}`} className="hover:underline">
                       {a.package.nama}
                     </Link>
-                  </Td>
-                  <Td>
-                    {a.class ? `${a.class.tingkat}${a.class.namaRombel}` : "-"}
                   </Td>
                   <Td className="text-xs">
                     {formatWIB(a.mulai)} — {formatWIB(a.selesai)}

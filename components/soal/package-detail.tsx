@@ -44,7 +44,6 @@ type PackageDetail = {
   nama: string;
   status: string;
   jenjang: "SD" | "SMP";
-  tingkatList: number[];
   durasiMenit: number;
   jumlahSoal: number;
   subjectId: string;
@@ -63,7 +62,6 @@ type EditForm = {
   nama: string;
   subjectId: string;
   jenjang: "SD" | "SMP";
-  tingkatList: number[];
   durasiMenit: string;
   jumlahSoal: string;
   bolehDipilihSiswa: boolean;
@@ -110,8 +108,6 @@ function toDatetimeLocalValue(iso: string | null): string {
 const selectClassName =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
-const TINGKAT_OPTIONS = [4, 5, 6, 7, 8, 9];
-
 function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): EditForm {
   const rows: VisibilityRow[] = pkg.visibility ?? [];
   const hasSekolah = rows.some((r) => r.targetType === "sekolah" || r.targetType === "semua");
@@ -121,7 +117,6 @@ function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): Edit
     nama: pkg.nama,
     subjectId: pkg.subjectId,
     jenjang: pkg.jenjang,
-    tingkatList: pkg.tingkatList,
     durasiMenit: String(pkg.durasiMenit),
     jumlahSoal: String(pkg.jumlahSoal),
     bolehDipilihSiswa: pkg.bolehDipilihSiswa,
@@ -250,7 +245,6 @@ export function PackageDetail({
       nama: editForm.nama,
       subjectId: editForm.subjectId,
       jenjang: editForm.jenjang,
-      tingkatList: editForm.tingkatList,
       durasiMenit: editForm.durasiMenit,
       jumlahSoal: editForm.jumlahSoal,
       bolehDipilihSiswa: editForm.bolehDipilihSiswa,
@@ -351,7 +345,6 @@ export function PackageDetail({
         </div>
         <p className="text-sm text-slate-500">
           {pkg.questions.length}/{pkg.jumlahSoal} soal
-          {" · Tingkat: "}{pkg.tingkatList.join(", ")}
           {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
           {` · Pembahasan: ${pkg.questions.filter((q) => (q.pembahasan ?? "").trim().length > 0).length}/${pkg.questions.length} soal terisi (tampil langsung setelah siswa submit)`}
           {" · Target: "}{describeVisibility(pkg.visibility ?? [])}
@@ -402,50 +395,25 @@ export function PackageDetail({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="editPkgSubject">Mata pelajaran</Label>
-                  <select
-                    id="editPkgSubject"
-                    className={selectClassName}
-                    value={editForm.subjectId}
-                    onChange={(e) => {
-                      const subj = subjects.find((s) => s.id === e.target.value);
-                      if (subj) {
-                        setEditForm({ ...editForm, subjectId: subj.id, jenjang: subj.jenjang });
-                      }
-                    }}
-                  >
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.nama} ({s.jenjang})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <Label>Kelas</Label>
-                  <div className="flex flex-wrap gap-3 pt-1">
-                    {TINGKAT_OPTIONS.map((t) => (
-                      <label key={t} className="flex items-center gap-1.5 text-sm text-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={editForm.tingkatList.includes(t)}
-                          onChange={(e) =>
-                            setEditForm({
-                              ...editForm,
-                              tingkatList: e.target.checked
-                                ? [...editForm.tingkatList, t]
-                                : editForm.tingkatList.filter((v) => v !== t),
-                            })
-                          }
-                          className="accent-indigo-600"
-                        />
-                        {t}
-                      </label>
-                    ))}
-                  </div>
-                </div>
+              <div>
+                <Label htmlFor="editPkgSubject">Mata pelajaran</Label>
+                <select
+                  id="editPkgSubject"
+                  className={selectClassName}
+                  value={editForm.subjectId}
+                  onChange={(e) => {
+                    const subj = subjects.find((s) => s.id === e.target.value);
+                    if (subj) {
+                      setEditForm({ ...editForm, subjectId: subj.id, jenjang: subj.jenjang });
+                    }
+                  }}
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nama} ({s.jenjang})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -635,7 +603,6 @@ export function PackageDetail({
                   type="submit"
                   disabled={
                     editSubmitting ||
-                    editForm.tingkatList.length === 0 ||
                     (editForm.forSekolah && editForm.sekolahMode === "terpilih" && editForm.visibilitySchoolIds.length === 0)
                   }
                 >

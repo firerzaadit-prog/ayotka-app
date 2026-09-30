@@ -67,7 +67,6 @@ export async function GET() {
   return NextResponse.json({
     jalur: student.jalur,
     jenjang: student.jenjang,
-    tingkat: student.tingkat,
     activePlan,
     assignments,
     // Sertakan field "kategori" di packages supaya UI bisa memisahkan menu

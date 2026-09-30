@@ -168,7 +168,6 @@ export async function POST(request: Request) {
           userId: authUser.id,
           schoolId,
           jenjang: data.jenjang,
-          tingkat: data.tingkat,
           nama: data.nama,
           jalur: "B",
           claimStatus: "sudah_klaim",

@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { studentCreateSchema } from "@/lib/validations/student";
-import { assertKuotaTersedia, createStudentWithEnrollment, KuotaPenuhError } from "@/lib/students/create";
+import { assertKuotaTersedia, createStudent, KuotaPenuhError } from "@/lib/students/create";
 
 export async function GET(request: Request) {
   let user;
@@ -21,25 +21,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 400 });
   }
 
-  const classId = url.searchParams.get("classId");
-
   const students = await prisma.student.findMany({
-    where: {
-      schoolId,
-      jalur: "A",
-      deletedAt: null,
-      ...(classId
-        ? { enrollments: { some: { classId } } }
-        : {}),
-    },
-    orderBy: [{ tingkat: "asc" }, { nama: "asc" }],
-    include: {
-      enrollments: {
-        orderBy: { academicYear: { mulai: "desc" } },
-        take: 1,
-        include: { class: true },
-      },
-    },
+    where: { schoolId, jalur: "A", deletedAt: null },
+    orderBy: { nama: "asc" },
   });
 
   return NextResponse.json({ students });
@@ -62,18 +46,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const kelas = await prisma.class.findUnique({ where: { id: parsed.data.classId } });
-  if (!kelas) {
-    return NextResponse.json({ error: "Kelas tidak ditemukan." }, { status: 404 });
+  const schoolId = await resolveSchoolId(user, parsed.data.schoolId || null);
+  if (!schoolId) {
+    return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 400 });
   }
 
-  // Admin sekolah hanya boleh menambah siswa ke kelas sekolahnya sendiri.
-  const allowedSchoolId = await resolveSchoolId(user, kelas.schoolId);
-  if (allowedSchoolId !== kelas.schoolId) {
-    return NextResponse.json({ error: "Kelas tidak ditemukan." }, { status: 404 });
-  }
-
-  const school = await prisma.school.findUnique({ where: { id: kelas.schoolId } });
+  const school = await prisma.school.findUnique({ where: { id: schoolId } });
   if (!school) {
     return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 404 });
   }
@@ -81,15 +59,12 @@ export async function POST(request: Request) {
   try {
     await assertKuotaTersedia(school.id, 1);
 
-    const student = await createStudentWithEnrollment({
+    const student = await createStudent({
       schoolId: school.id,
       jenjang: school.jenjang,
       nama: parsed.data.nama,
       nisn: parsed.data.nisn,
       tanggalLahir: parsed.data.tanggalLahir,
-      classId: kelas.id,
-      tingkat: kelas.tingkat,
-      academicYearId: kelas.academicYearId,
     });
 
     await logAudit({

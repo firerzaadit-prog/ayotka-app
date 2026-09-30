@@ -58,9 +58,7 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
         if (!ignore) {
           if (res.ok) {
             const a = data.assignment;
-            setAssignmentNama(
-              a ? `${a.package.nama}${a.class ? ` — ${a.class.tingkat}${a.class.namaRombel}` : ""}` : "",
-            );
+            setAssignmentNama(a ? a.package.nama : "");
             setAttempts(data.attempts ?? []);
           } else {
             setError(data.error ?? "Gagal memuat data.");

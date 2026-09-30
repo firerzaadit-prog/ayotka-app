@@ -16,7 +16,6 @@ import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
 import { KuotaSummary } from "@/components/sekolah/kuota-summary";
 
-type ClassOption = { id: string; tingkat: number; namaRombel: string };
 type StudentRow = {
   id: string;
   nama: string;
@@ -24,7 +23,6 @@ type StudentRow = {
   claimToken: string | null;
   claimStatus: "belum_klaim" | "sudah_klaim";
   status: string;
-  enrollments: { class: { tingkat: number; namaRombel: string } }[];
 };
 
 const CLAIM_LABEL: Record<string, string> = { belum_klaim: "Belum klaim", sudah_klaim: "Sudah klaim" };
@@ -33,14 +31,9 @@ const CLAIM_VARIANT: Record<string, "warning" | "success"> = {
   sudah_klaim: "success",
 };
 
-const selectClassName =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
-
 export default function KelolaSiswaPage() {
   const toast = useToast();
   const { confirm, alertDialog } = useDialog();
-  const [classes, setClasses] = useState<ClassOption[]>([]);
-  const [selectedClassId, setSelectedClassId] = useState("");
   const [students, setStudents] = useState<StudentRow[] | null>(null);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -58,23 +51,7 @@ export default function KelolaSiswaPage() {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch("/api/admin-sekolah/kelas");
-      const data = await res.json();
-      if (!ignore) {
-        setClasses(data.classes ?? []);
-        setSelectedClassId((current) => current || (data.classes?.[0]?.id ?? ""));
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      const qs = selectedClassId ? `?classId=${selectedClassId}` : "";
-      const res = await fetch(`/api/admin-sekolah/siswa${qs}`);
+      const res = await fetch("/api/admin-sekolah/siswa");
       const data = await res.json();
       if (!ignore) {
         setStudents(data.students ?? []);
@@ -84,21 +61,17 @@ export default function KelolaSiswaPage() {
     return () => {
       ignore = true;
     };
-  }, [selectedClassId, refreshKey]);
+  }, [refreshKey]);
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
-    if (!selectedClassId) {
-      setError("Pilih rombel dulu.");
-      return;
-    }
     setError(null);
     setSubmitting(true);
 
     const res = await fetch("/api/admin-sekolah/siswa", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nama, nisn, tanggalLahir, classId: selectedClassId }),
+      body: JSON.stringify({ nama, nisn, tanggalLahir }),
     });
     const data = await res.json();
     setSubmitting(false);
@@ -215,14 +188,9 @@ export default function KelolaSiswaPage() {
                 onChange={handleImport}
               />
             </label>
-            {selectedClassId && (
-              <a
-                href={`/api/admin-sekolah/kelas/${selectedClassId}/kartu-klaim`}
-                className={buttonClassName("secondary")}
-              >
-                Cetak kartu klaim
-              </a>
-            )}
+            <Link href="/api/admin-sekolah/siswa/kartu-klaim" className={buttonClassName("secondary")}>
+              Cetak kartu klaim
+            </Link>
             <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Tambah siswa"}</Button>
           </>
         }
@@ -233,23 +201,6 @@ export default function KelolaSiswaPage() {
       <KuotaSummary />
 
       <div className="flex flex-wrap gap-3">
-        <div className="w-56">
-          <Label htmlFor="classFilter">Rombel</Label>
-          <select
-            id="classFilter"
-            className={selectClassName}
-            value={selectedClassId}
-            onChange={(e) => setSelectedClassId(e.target.value)}
-          >
-            {classes.length === 0 && <option value="">Belum ada rombel</option>}
-            {classes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.tingkat}
-                {c.namaRombel}
-              </option>
-            ))}
-          </select>
-        </div>
         <div className="w-56">
           <Label htmlFor="searchSiswa">Cari nama/NISN</Label>
           <Input

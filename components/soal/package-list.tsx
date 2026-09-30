@@ -14,12 +14,11 @@ import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
-type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; tingkatList: number[] };
+type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; subjectId: string };
 type PackageListItem = {
   id: string;
   nama: string;
   jenjang: "SD" | "SMP";
-  tingkatList: number[];
   status: string;
   jumlahSoal: number;
   kategori: "mandiri" | "nasional";
@@ -36,13 +35,10 @@ const KATEGORI_LABEL: Record<"mandiri" | "nasional", string> = {
   nasional: "Try Out Nasional",
 };
 
-const TINGKAT_OPTIONS = [4, 5, 6, 7, 8, 9];
-
 const emptyForm = {
   subjectId: "",
   nama: "",
   jenjang: "SD" as "SD" | "SMP",
-  tingkatList: [] as number[],
   durasiMenit: "",
   jumlahSoal: "",
   blueprintId: "",
@@ -163,58 +159,30 @@ export function PackageList({ basePath }: { basePath: string }) {
                 onChange={(e) => setForm({ ...form, nama: e.target.value })}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="subjectId">Mapel</Label>
-                <select
-                  id="subjectId"
-                  required
-                  className={selectClassName}
-                  value={form.subjectId}
-                  onChange={(e) => {
-                    const subject = subjects.find((s) => s.id === e.target.value);
-                    setForm({
-                      ...form,
-                      subjectId: e.target.value,
-                      jenjang: subject?.jenjang ?? form.jenjang,
-                      blueprintId: "",
-                    });
-                  }}
-                >
-                  <option value="">Pilih mapel</option>
-                  {subjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.nama} ({s.jenjang})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <Label>Tingkat kelas</Label>
-                <div className="flex flex-wrap gap-3 pt-1">
-                  {TINGKAT_OPTIONS.map((t) => (
-                    <label key={t} className="flex items-center gap-1.5 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={form.tingkatList.includes(t)}
-                        onChange={(e) =>
-                          setForm({
-                            ...form,
-                            tingkatList: e.target.checked
-                              ? [...form.tingkatList, t]
-                              : form.tingkatList.filter((v) => v !== t),
-                          })
-                        }
-                        className="accent-indigo-600"
-                      />
-                      {t}
-                    </label>
-                  ))}
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  Bisa pilih lebih dari satu kalau paket ini dipakai lintas tingkat.
-                </p>
-              </div>
+            <div>
+              <Label htmlFor="subjectId">Mapel</Label>
+              <select
+                id="subjectId"
+                required
+                className={selectClassName}
+                value={form.subjectId}
+                onChange={(e) => {
+                  const subject = subjects.find((s) => s.id === e.target.value);
+                  setForm({
+                    ...form,
+                    subjectId: e.target.value,
+                    jenjang: subject?.jenjang ?? form.jenjang,
+                    blueprintId: "",
+                  });
+                }}
+              >
+                <option value="">Pilih mapel</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.nama} ({s.jenjang})
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -250,7 +218,7 @@ export function PackageList({ basePath }: { basePath: string }) {
               >
                 <option value="">Tanpa kisi-kisi</option>
                 {blueprints
-                  .filter((b) => b.jenjang === form.jenjang && b.tingkatList.some((t) => form.tingkatList.includes(t)))
+                  .filter((b) => b.subjectId === form.subjectId)
                   .map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.nama}
@@ -345,7 +313,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                 </p>
               </div>
             )}
-            <Button type="submit" disabled={submitting || form.tingkatList.length === 0} className="w-fit">
+            <Button type="submit" disabled={submitting} className="w-fit">
               {submitting ? "Menyimpan..." : "Simpan paket"}
             </Button>
           </form>
@@ -375,7 +343,6 @@ export function PackageList({ basePath }: { basePath: string }) {
                     <Th>Nama</Th>
                     <Th>Mapel</Th>
                     <Th>Kategori</Th>
-                    <Th>Tingkat</Th>
                     <Th>Status</Th>
                     <Th>Soal</Th>
                     <Th></Th>
@@ -395,7 +362,6 @@ export function PackageList({ basePath }: { basePath: string }) {
                           {KATEGORI_LABEL[pkg.kategori]}
                         </Badge>
                       </Td>
-                      <Td>{pkg.tingkatList.join(", ")}</Td>
                       <Td>
                         <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
                       </Td>

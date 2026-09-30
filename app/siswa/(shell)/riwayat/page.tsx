@@ -16,7 +16,7 @@ import { formatWIB } from "@/lib/utils/datetime";
 type RiwayatItem = {
   id: string;
   paketNama: string;
-  kelas: string | null;
+  terjadwal: boolean;
   status: "berjalan" | "paused" | "selesai" | "kedaluwarsa";
   skorAkhir: number | null;
   mulaiAt: string;
@@ -97,7 +97,7 @@ export default function RiwayatPage() {
                 <Thead>
                   <Tr>
                     <Th>Paket</Th>
-                    <Th>Kelas</Th>
+                    <Th>Jenis</Th>
                     <Th>Mulai</Th>
                     <Th>Status</Th>
                     <Th>Nilai</Th>
@@ -108,7 +108,7 @@ export default function RiwayatPage() {
                   {pageRows.map((a) => (
                     <Tr key={a.id}>
                       <Td className="font-medium text-slate-900">{a.paketNama}</Td>
-                      <Td>{a.kelas ?? "Mandiri"}</Td>
+                      <Td>{a.terjadwal ? "Terjadwal" : "Mandiri"}</Td>
                       <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
                       <Td>
                         <Badge variant={STATUS_VARIANT[a.status]}>{STATUS_LABEL[a.status]}</Badge>

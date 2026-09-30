@@ -5,7 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { assignmentCreateSchema } from "@/lib/validations/assignment";
 
-/** Tiket 4.2: penugasan ujian oleh admin sekolah - pilih paket, kelas, jendela waktu. */
+/** Tiket 4.2: penugasan ujian oleh admin sekolah - pilih paket, jendela waktu, target seluruh sekolah. */
 export async function GET() {
     let user;
     try {
@@ -24,7 +24,6 @@ export async function GET() {
         orderBy: { mulai: "desc" },
         include: {
             package: { select: { nama: true, jumlahSoal: true, durasiMenit: true, kategori: true } },
-            class: { select: { tingkat: true, namaRombel: true } },
             _count: { select: { attempts: true } },
         },
     });
@@ -54,11 +53,6 @@ export async function POST(request: Request) {
         );
     }
 
-    const kelas = await prisma.class.findUnique({ where: { id: parsed.data.classId } });
-    if (!kelas || kelas.schoolId !== schoolId) {
-        return NextResponse.json({ error: "Rombel tidak ditemukan." }, { status: 404 });
-    }
-
     const pkg = await prisma.package.findUnique({ where: { id: parsed.data.packageId } });
     // ownerType "pusat" eksplisit di cabang visibility - lihat komentar serupa
     // di app/api/admin-sekolah/paket-tersedia/route.ts.
@@ -81,7 +75,6 @@ export async function POST(request: Request) {
     const assignment = await prisma.assignment.create({
         data: {
             packageId: pkg.id,
-            classId: kelas.id,
             schoolId,
             mulai: parsed.data.mulai,
             selesai: parsed.data.selesai,

@@ -51,7 +51,6 @@ model User {
   schoolUsers          SchoolUser[]
   studentProfile       Student?
   partnerProfile       Partner?
-  waliKelasOf          Class[]           @relation("ClassWaliKelas")
   createdQuestions     Question[]        @relation("QuestionCreatedBy")
   vouchersGenerated    Voucher[]         @relation("VoucherGeneratedBy")
   schoolSeatsActivated School[]          @relation("SchoolSeatActivatedBy")
@@ -91,15 +90,14 @@ model School {
   /// wilayah akun dinas pendidikan, menggantikan pencarian substring alamat.
   kabupatenKota       String?      @map("kabupaten_kota")
 
-  schoolUsers           SchoolUser[]
-  classes               Class[]
-  students              Student[]
-  packageVisibility     PackageVisibility[]
-  assignments           Assignment[]
-  seatActivatedBy       User?                   @relation("SchoolSeatActivatedBy", fields: [seatActivatedById], references: [id], onDelete: SetNull)
-  referredByPartner     Partner?                @relation(fields: [referredByPartnerId], references: [id], onDelete: SetNull)
-  entitlements          Entitlement[]
-  partnerCommissions    PartnerCommission[]
+  schoolUsers        SchoolUser[]
+  students           Student[]
+  packageVisibility  PackageVisibility[]
+  assignments        Assignment[]
+  seatActivatedBy    User?               @relation("SchoolSeatActivatedBy", fields: [seatActivatedById], references: [id], onDelete: SetNull)
+  referredByPartner  Partner?            @relation(fields: [referredByPartnerId], references: [id], onDelete: SetNull)
+  entitlements       Entitlement[]
+  partnerCommissions PartnerCommission[]
 
   @@map("schools")
 }
@@ -135,40 +133,6 @@ model SchoolUser {
 
   @@id([userId, schoolId])
   @@map("school_users")
-}
-
-model AcademicYear {
-  id       String   @id @default(uuid()) @db.Uuid
-  nama     String
-  mulai    DateTime
-  selesai  DateTime
-  isActive Boolean  @default(false) @map("is_active")
-
-  classes            Class[]
-  studentEnrollments StudentEnrollment[]
-
-  @@map("academic_years")
-}
-
-model Class {
-  id             String  @id @default(uuid()) @db.Uuid
-  schoolId       String  @map("school_id") @db.Uuid
-  academicYearId String  @map("academic_year_id") @db.Uuid
-  tingkat        Int
-  namaRombel     String  @map("nama_rombel")
-  waliKelasId    String? @map("wali_kelas_id") @db.Uuid
-
-  school             School              @relation(fields: [schoolId], references: [id], onDelete: Restrict)
-  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-  waliKelas          User?               @relation("ClassWaliKelas", fields: [waliKelasId], references: [id], onDelete: SetNull)
-  assignments        Assignment[]
-  studentEnrollments StudentEnrollment[]
-
-  /// Tiket 3.6: cegah rombel duplikat (nama sama, tingkat sama) dalam satu
-  /// sekolah pada tahun ajaran yang sama - juga dipakai sebagai target
-  /// upsert saat Naik Kelas massal membuat/menemukan kelas tujuan.
-  @@unique([schoolId, academicYearId, tingkat, namaRombel])
-  @@map("classes")
 }
 
 // ---------------------------------------------------------------------------
@@ -250,7 +214,6 @@ model Student {
   nisn                String?       @unique
   nama                String
   jenjang             Jenjang
-  tingkat             Int
   jalur               Jalur
   claimToken          String?       @unique @map("claim_token")
   claimStatus         ClaimStatus   @default(belum_klaim) @map("claim_status")
@@ -272,12 +235,11 @@ model Student {
   /// Bagian 7.2: soal & siswa tidak boleh dihapus permanen, hanya soft delete.
   deletedAt           DateTime?     @map("deleted_at")
 
-  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  school            School?             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
-  referredBy        Student?            @relation("StudentReferral", fields: [referredByStudentId], references: [id], onDelete: SetNull)
-  referrals         Student[]           @relation("StudentReferral")
-  referredByPartner Partner?            @relation("StudentPartnerReferral", fields: [referredByPartnerId], references: [id], onDelete: SetNull)
-  enrollments       StudentEnrollment[]
+  user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  school            School?            @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  referredBy        Student?           @relation("StudentReferral", fields: [referredByStudentId], references: [id], onDelete: SetNull)
+  referrals         Student[]          @relation("StudentReferral")
+  referredByPartner Partner?           @relation("StudentPartnerReferral", fields: [referredByPartnerId], references: [id], onDelete: SetNull)
   attempts          Attempt[]
   invoices          Invoice[]
   entitlements      Entitlement[]
@@ -288,38 +250,17 @@ model Student {
   @@map("students")
 }
 
-/// Dipakai untuk kenaikan kelas: setiap tahun ajaran baru = 1 enrollment baru,
-/// riwayat enrollment tahun sebelumnya tetap tersimpan (Bagian 4 brief, tombol
-/// "Naik Kelas").
-model StudentEnrollment {
-  studentId      String @map("student_id") @db.Uuid
-  classId        String @map("class_id") @db.Uuid
-  academicYearId String @map("academic_year_id") @db.Uuid
-
-  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class        Class        @relation(fields: [classId], references: [id], onDelete: Restrict)
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Restrict)
-
-  @@id([studentId, classId, academicYearId])
-  @@unique([studentId, academicYearId])
-  @@map("student_enrollments")
-}
-
 // ---------------------------------------------------------------------------
 // Grup 9-14: blueprints, blueprint_items, packages, package_visibility,
 // questions, question_options/categories/statements
 // ---------------------------------------------------------------------------
 
 model Blueprint {
-  id          String  @id @default(uuid()) @db.Uuid
-  subjectId   String  @map("subject_id") @db.Uuid
-  jenjang     Jenjang
-  /// Bisa lebih dari satu tingkat (mis. kisi-kisi yang sama dipakai kelas 7 & 8
-  /// sekaligus) - sama pola dengan Package.tingkatList. Dulu kolom "tingkat"
-  /// Int tunggal.
-  tingkatList Int[]   @map("tingkat_list")
-  nama        String
-  totalSoal   Int     @map("total_soal")
+  id        String  @id @default(uuid()) @db.Uuid
+  subjectId String  @map("subject_id") @db.Uuid
+  jenjang   Jenjang
+  nama      String
+  totalSoal Int     @map("total_soal")
 
   subject  Subject         @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   items    BlueprintItem[]
@@ -402,11 +343,6 @@ model Package {
   ownerId           String         @map("owner_id") @db.Uuid
   subjectId         String         @map("subject_id") @db.Uuid
   jenjang           Jenjang
-  /// Bisa lebih dari satu tingkat (mis. paket yang sama dipakai kelas 7 & 8
-  /// sekaligus) - dulu kolom "tingkat" Int tunggal, diganti array supaya satu
-  /// paket bisa menjangkau beberapa tingkat tanpa harus diduplikasi jadi
-  /// beberapa paket identik. Selalu non-kosong (divalidasi di packageCreateSchema).
-  tingkatList       Int[]          @map("tingkat_list")
   nama              String
   durasiMenit       Int            @map("durasi_menit")
   jumlahSoal        Int            @map("jumlah_soal")
@@ -560,14 +496,12 @@ model QuestionStatement {
 model Assignment {
   id        String   @id @default(uuid()) @db.Uuid
   packageId String   @map("package_id") @db.Uuid
-  classId   String?  @map("class_id") @db.Uuid
   schoolId  String?  @map("school_id") @db.Uuid
   mulai     DateTime
   selesai   DateTime
   isActive  Boolean  @default(true) @map("is_active")
 
   package  Package   @relation(fields: [packageId], references: [id], onDelete: Restrict)
-  class    Class?    @relation(fields: [classId], references: [id], onDelete: Restrict)
   school   School?   @relation(fields: [schoolId], references: [id], onDelete: Restrict)
   attempts Attempt[]
 

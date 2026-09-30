@@ -34,7 +34,6 @@ export const daftarMandiriSchema = z
     email: z.string().trim().toLowerCase().email("Email tidak valid"),
     password: z.string().min(8, "Password minimal 8 karakter"),
     jenjang: z.enum(["SD", "SMP"]),
-    tingkat: z.coerce.number().int().min(1).max(12),
     asalSekolahId: z.string().uuid().optional().or(z.literal("")),
     asalSekolahManual: z
       .string()
@@ -48,13 +47,7 @@ export const daftarMandiriSchema = z
   .refine(
     (data) => (data.asalSekolahId && data.asalSekolahId.length > 0) || (data.asalSekolahManual && data.asalSekolahManual.length > 0),
     { message: "Pilih asal sekolah dari daftar atau ketik manual.", path: ["asalSekolahManual"] },
-  )
-  // Tingkat menentukan try out yang tampil setelah siswa login (paket difilter
-  // per jenjang + tingkat), jadi kombinasinya harus masuk akal: SD kelas 4-6, SMP kelas 7-9.
-  .refine((data) => (data.jenjang === "SD" ? data.tingkat >= 4 && data.tingkat <= 6 : data.tingkat >= 7 && data.tingkat <= 9), {
-    message: "Kelas tidak sesuai dengan tingkat sekolah (SD: kelas 4-6, SMP: kelas 7-9).",
-    path: ["tingkat"],
-  });
+  );
 
 /** Bagian A (permintaan user): mitra daftar sendiri, langsung aktif tanpa perlu admin approve. */
 export const daftarMitraSchema = z.object({

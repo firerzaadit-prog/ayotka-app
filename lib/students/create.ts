@@ -79,15 +79,12 @@ export async function assertKuotaTersedia(schoolId: string, tambahan: number): P
   }
 }
 
-export async function createStudentWithEnrollment(params: {
+export async function createStudent(params: {
   schoolId: string;
   jenjang: Jenjang;
   nama: string;
   nisn?: string;
   tanggalLahir?: Date;
-  classId: string;
-  tingkat: number;
-  academicYearId: string;
 }) {
   const [claimToken, referralCode] = await Promise.all([
     generateUniqueClaimToken(),
@@ -97,7 +94,6 @@ export async function createStudentWithEnrollment(params: {
     data: {
       schoolId: params.schoolId,
       jenjang: params.jenjang,
-      tingkat: params.tingkat,
       nama: params.nama,
       nisn: params.nisn && params.nisn.length > 0 ? params.nisn : null,
       tanggalLahir: params.tanggalLahir ?? null,
@@ -106,9 +102,6 @@ export async function createStudentWithEnrollment(params: {
       referralCode,
       claimStatus: "belum_klaim",
       status: "pending",
-      enrollments: {
-        create: { classId: params.classId, academicYearId: params.academicYearId },
-      },
     },
   });
 }

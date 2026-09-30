@@ -6,13 +6,11 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { studentImportRowSchema } from "@/lib/validations/student";
-import { assertKuotaTersedia, createStudentWithEnrollment, KuotaPenuhError } from "@/lib/students/create";
+import { assertKuotaTersedia, createStudent, KuotaPenuhError } from "@/lib/students/create";
 
 const HEADER_ALIASES: Record<string, string[]> = {
   nama: ["nama"],
   nisn: ["nisn"],
-  tingkat: ["tingkat kelas", "tingkat"],
-  rombel: ["rombel"],
   tanggalLahir: ["tanggal lahir"],
 };
 
@@ -53,9 +51,8 @@ async function loadWorksheet(file: File): Promise<ExcelJS.Worksheet> {
 
 /**
  * Tiket 3.5: import massal siswa dari Excel/CSV. Kolom: Nama, NISN
- * (opsional), Tingkat Kelas, Rombel, Tanggal Lahir. Rombel yang belum ada
- * dibuat otomatis di tahun ajaran aktif. Kuota dicek di muka supaya tidak
- * ada import separuh jalan yang menembus batas.
+ * (opsional), Tanggal Lahir. Kuota dicek di muka supaya tidak ada import
+ * separuh jalan yang menembus batas.
  */
 export async function POST(request: Request) {
   let user;
@@ -80,15 +77,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 400 });
   }
 
-  const [school, academicYear] = await Promise.all([
-    prisma.school.findUnique({ where: { id: schoolId } }),
-    prisma.academicYear.findFirst({ where: { isActive: true } }),
-  ]);
+  const school = await prisma.school.findUnique({ where: { id: schoolId } });
   if (!school) {
     return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 404 });
-  }
-  if (!academicYear) {
-    return NextResponse.json({ error: "Belum ada tahun ajaran aktif." }, { status: 400 });
   }
 
   let worksheet: ExcelJS.Worksheet;
@@ -110,9 +101,9 @@ export async function POST(request: Request) {
     }
   });
 
-  if (!columnIndex.nama || !columnIndex.tingkat || !columnIndex.rombel) {
+  if (!columnIndex.nama) {
     return NextResponse.json(
-      { error: "Kolom wajib tidak lengkap. Pastikan ada kolom Nama, Tingkat Kelas, dan Rombel." },
+      { error: "Kolom wajib tidak lengkap. Pastikan ada kolom Nama." },
       { status: 400 },
     );
   }
@@ -129,8 +120,6 @@ export async function POST(request: Request) {
     const raw = {
       nama,
       nisn: columnIndex.nisn ? cellToString(row.getCell(columnIndex.nisn).value) : "",
-      tingkat: cellToString(row.getCell(columnIndex.tingkat!).value),
-      rombel: cellToString(row.getCell(columnIndex.rombel!).value),
       tanggalLahir: columnIndex.tanggalLahir
         ? cellToDate(row.getCell(columnIndex.tanggalLahir).value)
         : undefined,
@@ -157,40 +146,17 @@ export async function POST(request: Request) {
     throw error;
   }
 
-  const classCache = new Map<string, string>();
   let created = 0;
   const createdIds: string[] = [];
 
   for (const { rowNumber, data } of pending) {
-    const cacheKey = `${data.tingkat}::${data.rombel}`;
-    let classId = classCache.get(cacheKey);
-    if (!classId) {
-      const kelas = await prisma.class.upsert({
-        where: {
-          schoolId_academicYearId_tingkat_namaRombel: {
-            schoolId,
-            academicYearId: academicYear.id,
-            tingkat: data.tingkat,
-            namaRombel: data.rombel,
-          },
-        },
-        create: { schoolId, academicYearId: academicYear.id, tingkat: data.tingkat, namaRombel: data.rombel },
-        update: {},
-      });
-      classId = kelas.id;
-      classCache.set(cacheKey, classId);
-    }
-
     try {
-      const student = await createStudentWithEnrollment({
+      const student = await createStudent({
         schoolId,
         jenjang: school.jenjang,
         nama: data.nama,
         nisn: data.nisn,
         tanggalLahir: data.tanggalLahir,
-        classId,
-        tingkat: data.tingkat,
-        academicYearId: academicYear.id,
       });
       created += 1;
       createdIds.push(student.id);

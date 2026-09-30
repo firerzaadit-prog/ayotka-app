@@ -11,7 +11,6 @@ import { importImagePath, publicImageUrl, uploadImportImages } from "@/lib/supab
 export interface ExecuteImportParams {
   sourcePaketId: string;
   subjectId: string;
-  tingkatList: number[];
   durasiMenit: number;
   kategori: "mandiri" | "nasional";
   /** Override manual untuk soal yang level_kognitif sumbernya tidak bisa diterjemahkan otomatis. */
@@ -185,7 +184,6 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
         ownerId: params.importedBy,
         subjectId: params.subjectId,
         jenjang,
-        tingkatList: params.tingkatList,
         nama: `${preview.sourcePaket.nama} (${preview.sourcePaket.code})`,
         durasiMenit: params.durasiMenit,
         jumlahSoal: preview.questions.length,
