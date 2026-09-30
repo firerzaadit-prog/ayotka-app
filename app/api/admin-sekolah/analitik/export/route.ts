@@ -45,18 +45,16 @@ export async function GET(request: Request) {
 
   const kompetensiSheet = workbook.addWorksheet("Kompetensi");
   kompetensiSheet.columns = [
-    { header: "Kode", key: "kode", width: 12 },
     { header: "Kompetensi", key: "deskripsi", width: 40 },
-    { header: "Materi", key: "materi", width: 24 },
+    { header: "Elemen", key: "elemen", width: 24 },
     { header: "Benar", key: "jmlBenar", width: 10 },
     { header: "Total Soal", key: "jmlSoal", width: 12 },
     { header: "Persentase", key: "persentase", width: 12 },
   ];
   kompetensi.forEach((k) => {
     kompetensiSheet.addRow({
-      kode: k.kode,
       deskripsi: k.deskripsi,
-      materi: k.materi,
+      elemen: k.elemen,
       jmlBenar: k.jmlBenar,
       jmlSoal: k.jmlSoal,
       persentase: Number(k.persentase.toFixed(1)),

@@ -9,9 +9,9 @@ import type { Attempt } from "@prisma/client";
 const TIDAK_DIJAWAB = "(tidak dijawab)";
 
 type KompetensiWithMateri = {
-  kode: string;
   deskripsi: string;
-  subMateri: { nama: string; materi: { nama: string } };
+  subElemen: string;
+  elemen: { nama: string };
 };
 
 type AnswerQuestion = {
@@ -90,9 +90,9 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
       include: {
         kompetensi: {
           select: {
-            kode: true,
             deskripsi: true,
-            subMateri: { select: { nama: true, materi: { select: { nama: true } } } },
+            subElemen: true,
+            elemen: { select: { nama: true } },
           },
         },
       },
@@ -111,9 +111,9 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
             pembahasan: true,
             kompetensi: {
               select: {
-                kode: true,
                 deskripsi: true,
-                subMateri: { select: { nama: true, materi: { select: { nama: true } } } },
+                subElemen: true,
+                elemen: { select: { nama: true } },
               },
             },
             options: { select: { id: true, teks: true, isCorrect: true } },
@@ -149,10 +149,9 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
     skorAkhir: attempt.skorAkhir ?? 0,
     kerangkaAsesmen,
     kompetensi: competencyScores.map((c) => ({
-      kode: c.kompetensi.kode,
       deskripsi: c.kompetensi.deskripsi,
-      materiNama: c.kompetensi.subMateri.materi.nama,
-      subMateriNama: c.kompetensi.subMateri.nama,
+      elemenNama: c.kompetensi.elemen.nama,
+      subElemen: c.kompetensi.subElemen,
       jmlBenar: c.jmlBenar,
       jmlSoal: c.jmlSoal,
       persentase: c.persentase,
@@ -168,9 +167,8 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
       nomor: i + 1,
       benar: (a.skor ?? 0) >= a.skorMaks,
       teksSoal: a.question.teks,
-      kompetensi: a.question.kompetensi.kode,
-      materiNama: a.question.kompetensi.subMateri.materi.nama,
-      subMateriNama: a.question.kompetensi.subMateri.nama,
+      elemenNama: a.question.kompetensi.elemen.nama,
+      subElemen: a.question.kompetensi.subElemen,
       levelBloom: a.question.levelBloom,
       jawabanSiswa: jawabanKeTeks(a.question, a.jawabanJson),
       kunciJawaban: kunciKeTeks(a.question),

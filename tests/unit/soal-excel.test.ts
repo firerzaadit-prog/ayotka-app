@@ -4,6 +4,7 @@ import ExcelJS from "exceljs";
 vi.mock("server-only", () => ({}));
 
 import {
+  kompetensiKey,
   questionsToRows,
   resolveHeaders,
   rowsToQuestions,
@@ -13,13 +14,16 @@ import {
 } from "@/lib/soal/excel-format";
 import { buildSoalWorkbook, readSoalSheet } from "@/lib/soal/excel-io";
 
+const ELEMEN = "Bilangan";
+const SUB_ELEMEN = "Bilangan Real";
+const KOMPETENSI_TEKS = "Menghitung operasi bilangan real";
+
 const KOMP = new Map<string, KompetensiRef>([
   [
-    "mtk.bil.real.l1",
+    kompetensiKey(ELEMEN, SUB_ELEMEN, KOMPETENSI_TEKS),
     {
       id: "11111111-1111-4111-8111-111111111111",
-      materiId: "22222222-2222-4222-8222-222222222222",
-      subMateriId: "33333333-3333-4333-8333-333333333333",
+      elemenId: "22222222-2222-4222-8222-222222222222",
     },
   ],
 ]);
@@ -27,7 +31,9 @@ const KOMP = new Map<string, KompetensiRef>([
 const pgRow: ExcelRow = {
   format: "pg",
   teks: "Nilai $x$ jika $2x = 8$ adalah ...",
-  kompetensi: "MTK.BIL.REAL.L1",
+  elemen: ELEMEN,
+  subElemen: SUB_ELEMEN,
+  kompetensi: KOMPETENSI_TEKS,
   kesulitan: "Mudah",
   level: "L1",
   bobot: "2",
@@ -40,7 +46,7 @@ const pgRow: ExcelRow = {
 const wrap = (cells: ExcelRow, row = 2) => [{ row, cells }];
 
 describe("rowsToQuestions - baris valid", () => {
-  it("pg: kunci menjadi isCorrect, kode kompetensi tidak peka huruf besar/kecil, ID materi diturunkan", () => {
+  it("pg: kunci menjadi isCorrect, kombinasi elemen/sub elemen/kompetensi tidak peka huruf besar/kecil, ID elemen diturunkan", () => {
     const { questions, errors } = rowsToQuestions(wrap(pgRow), KOMP);
     expect(errors).toEqual([]);
     const q = questions[0]!.data;
@@ -52,7 +58,7 @@ describe("rowsToQuestions - baris valid", () => {
     ]);
     expect(q.tingkatKesulitan).toBe("mudah");
     expect(q.bobot).toBe(2);
-    expect(q.materiId).toBe("22222222-2222-4222-8222-222222222222");
+    expect(q.elemenId).toBe("22222222-2222-4222-8222-222222222222");
   });
 
   it("pg_kompleks: beberapa kunci dipisah koma/titik koma/spasi", () => {
@@ -70,7 +76,9 @@ describe("rowsToQuestions - baris valid", () => {
       wrap({
         format: "pg_kategori",
         teks: "Tentukan",
-        kompetensi: "MTK.BIL.REAL.L1",
+        elemen: ELEMEN,
+        subElemen: SUB_ELEMEN,
+        kompetensi: KOMPETENSI_TEKS,
         kesulitan: "sedang",
         level: "2",
         pernyataan_1: "P1",
@@ -94,10 +102,10 @@ describe("rowsToQuestions - baris valid", () => {
 describe("rowsToQuestions - kesalahan dilaporkan lengkap dengan baris & kolom", () => {
   const pesan = (cells: ExcelRow) => rowsToQuestions(wrap(cells, 7), KOMP).errors;
 
-  it("kode kompetensi tidak dikenal", () => {
-    const e = pesan({ ...pgRow, kompetensi: "TIDAK-ADA" });
+  it("kombinasi elemen/sub elemen/kompetensi tidak dikenal", () => {
+    const e = pesan({ ...pgRow, kompetensi: "TIDAK ADA" });
     expect(e).toHaveLength(1);
-    expect(e[0]).toMatchObject({ row: 7, kolom: "Kode Kompetensi" });
+    expect(e[0]).toMatchObject({ row: 7, kolom: "Kompetensi (Kisi-kisi)" });
   });
 
   it("opsi bercelah (B kosong, C terisi)", () => {
@@ -127,7 +135,9 @@ describe("rowsToQuestions - kesalahan dilaporkan lengkap dengan baris & kolom", 
     const base: ExcelRow = {
       format: "pg_kategori",
       teks: "T",
-      kompetensi: "MTK.BIL.REAL.L1",
+      elemen: ELEMEN,
+      subElemen: SUB_ELEMEN,
+      kompetensi: KOMPETENSI_TEKS,
       kesulitan: "mudah",
       level: "L1",
     };
@@ -150,12 +160,27 @@ describe("rowsToQuestions - kesalahan dilaporkan lengkap dengan baris & kolom", 
   });
 });
 
+describe("kompetensiKey - kunci gabungan elemen/sub elemen/kompetensi", () => {
+  it("tidak peka huruf besar/kecil dan spasi di ujung", () => {
+    expect(kompetensiKey("Bilangan", "Bilangan Real", "Teks")).toBe(
+      kompetensiKey(" bilangan ", " BILANGAN REAL ", " teks "),
+    );
+  });
+
+  it("tidak bentrok antara batas kolom berbeda meski gabungan teksnya sama", () => {
+    // "A|B" + "C" harus beda dari "A" + "B|C" walau kalau digabung jadi satu string biasa akan sama.
+    const k1 = kompetensiKey("A|B", "C", "D");
+    const k2 = kompetensiKey("A", "B|C", "D");
+    expect(k1).not.toBe(k2);
+  });
+});
+
 describe("resolveHeaders", () => {
   it("mengenali judul tanpa peduli huruf/spasi/sinonim, dan melaporkan kolom wajib yang hilang", () => {
-    const r = resolveHeaders(["NO", "jenis soal", "SOAL", "Kompetensi", "kesulitan", "Level", "Kolom Aneh"]);
+    const r = resolveHeaders(["NO", "jenis soal", "SOAL", "Elemen", "Sub Elemen", "Kompetensi (Kisi-kisi)", "kesulitan", "Level", "Kolom Aneh"]);
     expect(r.missing).toEqual([]);
     expect(r.unknown).toEqual(["Kolom Aneh"]);
-    expect(resolveHeaders(["No", "Teks Soal"]).missing).toContain("Kode Kompetensi");
+    expect(resolveHeaders(["No", "Teks Soal"]).missing).toContain("Elemen");
   });
 });
 
@@ -168,7 +193,9 @@ const exported: ExportQuestion[] = [
     tingkatKesulitan: "sulit",
     levelBloom: "L3",
     pembahasan: "Karena $a=b$.",
-    kompetensiKode: "MTK.BIL.REAL.L1",
+    elemenNama: ELEMEN,
+    subElemen: SUB_ELEMEN,
+    kompetensiDeskripsi: KOMPETENSI_TEKS,
     options: [
       { teks: "$1$", media: null, isCorrect: false, urutan: 0 },
       { teks: "$2$", media: null, isCorrect: true, urutan: 1 },
@@ -185,7 +212,9 @@ const exported: ExportQuestion[] = [
     tingkatKesulitan: "sedang",
     levelBloom: "L2",
     pembahasan: null,
-    kompetensiKode: "MTK.BIL.REAL.L1",
+    elemenNama: ELEMEN,
+    subElemen: SUB_ELEMEN,
+    kompetensiDeskripsi: KOMPETENSI_TEKS,
     options: [
       { teks: "a", media: null, isCorrect: true, urutan: 0 },
       { teks: "b", media: null, isCorrect: false, urutan: 1 },
@@ -201,7 +230,9 @@ const exported: ExportQuestion[] = [
     tingkatKesulitan: "mudah",
     levelBloom: "L1",
     pembahasan: null,
-    kompetensiKode: "MTK.BIL.REAL.L1",
+    elemenNama: ELEMEN,
+    subElemen: SUB_ELEMEN,
+    kompetensiDeskripsi: KOMPETENSI_TEKS,
     options: [],
     statements: [
       { teks: "S1", media: null, urutan: 0, correctLabel: "Benar" },
@@ -237,7 +268,7 @@ describe("file .xlsx sungguhan", () => {
       questions: exported,
       template: false,
       kompetensi: [
-        { kode: "MTK.BIL.REAL.L1", deskripsi: "d", levelKognitif: "L1", materi: "Bilangan", subMateri: "Real", tingkat: 9 },
+        { elemen: ELEMEN, subElemen: SUB_ELEMEN, deskripsi: KOMPETENSI_TEKS, levelKognitif: "L1" },
       ],
     });
 
@@ -246,6 +277,7 @@ describe("file .xlsx sungguhan", () => {
     await wb.xlsx.load(buffer as any);
     expect(wb.worksheets.map((w) => w.name)).toEqual(["Soal", "Petunjuk", "Referensi Kompetensi"]);
     expect(wb.getWorksheet("Soal")!.getCell("B2").dataValidation.type).toBe("list");
+    // Kolom D = Elemen (dropdown ke daftar elemen di sheet Referensi Kompetensi).
     expect(wb.getWorksheet("Soal")!.getCell("D2").dataValidation.formulae![0]).toContain("Referensi Kompetensi");
 
     const sheet = await readSoalSheet(buffer);
@@ -267,12 +299,12 @@ describe("file .xlsx sungguhan", () => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Soal");
     ws.addRow([
-      "No", "Format", "Teks Soal", "Kode Kompetensi", "Tingkat Kesulitan", "Level Kognitif", "Bobot",
+      "No", "Format", "Teks Soal", "Elemen", "Sub Elemen", "Kompetensi (Kisi-kisi)", "Tingkat Kesulitan", "Level Kognitif", "Bobot",
       "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Kunci Jawaban",
     ]);
     ws.addRow([
       1, "pg", { richText: [{ text: "Teks " }, { text: "kaya", font: { bold: true } }] },
-      "MTK.BIL.REAL.L1", "mudah", "L1", 2, 5, "6", { formula: "3+4", result: 7 }, 8, "B",
+      ELEMEN, SUB_ELEMEN, KOMPETENSI_TEKS, "mudah", "L1", 2, 5, "6", { formula: "3+4", result: 7 }, 8, "B",
     ]);
     ws.addRow([2]);
     const buffer = Buffer.from((await wb.xlsx.writeBuffer()) as ArrayBuffer);

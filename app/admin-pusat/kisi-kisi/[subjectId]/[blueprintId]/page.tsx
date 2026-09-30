@@ -11,16 +11,15 @@ import { IconDocument } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
 
-type Materi = { id: string; nama: string; tingkat: number };
-type SubMateri = { id: string; nama: string };
-type Kompetensi = { id: string; kode: string; deskripsi: string };
+type Elemen = { id: string; nama: string };
+type Kompetensi = { id: string; subElemen: string; deskripsi: string };
 
 type BlueprintItem = {
   id: string;
   tingkatKesulitan: string;
   formatSoal: string;
   jumlahSoal: number;
-  kompetensi: { id: string; kode: string; deskripsi: string };
+  kompetensi: { id: string; subElemen: string; deskripsi: string };
 };
 
 type BlueprintDetail = {
@@ -125,8 +124,8 @@ export default function BlueprintDetailPage({
               {blueprint.items.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100 last:border-0">
                   <td className="px-4 py-2">
-                    <span className="mr-2 rounded bg-slate-200 px-1.5 py-0.5 font-mono text-xs">
-                      {item.kompetensi.kode}
+                    <span className="mr-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs">
+                      {item.kompetensi.subElemen}
                     </span>
                     {item.kompetensi.deskripsi}
                   </td>
@@ -136,7 +135,7 @@ export default function BlueprintDetailPage({
                   <td className="px-4 py-2 text-right">
                     <button
                       onClick={() =>
-                        handleDeleteItem(item.id, `${item.kompetensi.kode} · ${item.tingkatKesulitan}`)
+                        handleDeleteItem(item.id, `${item.kompetensi.subElemen} · ${item.tingkatKesulitan}`)
                       }
                       className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                     >
@@ -165,11 +164,9 @@ function AddItemForm({
   onError: (msg: string | null) => void;
 }) {
   const [showForm, setShowForm] = useState(false);
-  const [materiList, setMateriList] = useState<Materi[]>([]);
-  const [subMateriList, setSubMateriList] = useState<SubMateri[]>([]);
+  const [elemenList, setElemenList] = useState<Elemen[]>([]);
   const [kompetensiList, setKompetensiList] = useState<Kompetensi[]>([]);
-  const [materiId, setMateriId] = useState("");
-  const [subMateriId, setSubMateriId] = useState("");
+  const [elemenId, setElemenId] = useState("");
   const [kompetensiId, setKompetensiId] = useState("");
   const [tingkatKesulitan, setTingkatKesulitan] =
     useState<(typeof LEVEL_OPTIONS)[number]>("mudah");
@@ -181,9 +178,9 @@ function AddItemForm({
     if (!showForm) return;
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/admin-pusat/materi?subjectId=${subjectId}`);
+      const res = await fetch(`/api/admin-pusat/elemen?subjectId=${subjectId}`);
       const data = await res.json();
-      if (!ignore) setMateriList(data.materi ?? []);
+      if (!ignore) setElemenList(data.elemen ?? []);
     })();
     return () => {
       ignore = true;
@@ -193,40 +190,21 @@ function AddItemForm({
   useEffect(() => {
     let ignore = false;
     (async () => {
-      if (!materiId) {
-        if (!ignore) {
-          setSubMateriList([]);
-          setSubMateriId("");
-        }
-        return;
-      }
-      const res = await fetch(`/api/admin-pusat/sub-materi?materiId=${materiId}`);
-      const data = await res.json();
-      if (!ignore) setSubMateriList(data.subMateri ?? []);
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [materiId]);
-
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      if (!subMateriId) {
+      if (!elemenId) {
         if (!ignore) {
           setKompetensiList([]);
           setKompetensiId("");
         }
         return;
       }
-      const res = await fetch(`/api/admin-pusat/kompetensi?subMateriId=${subMateriId}`);
+      const res = await fetch(`/api/admin-pusat/kompetensi?elemenId=${elemenId}`);
       const data = await res.json();
       if (!ignore) setKompetensiList(data.kompetensi ?? []);
     })();
     return () => {
       ignore = true;
     };
-  }, [subMateriId]);
+  }, [elemenId]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -266,34 +244,17 @@ function AddItemForm({
       {showForm && (
         <form onSubmit={handleSubmit} className="mt-3 flex flex-wrap items-end gap-3">
           <div className="w-48">
-            <label className="mb-1 block text-xs font-medium text-slate-700">Materi</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Elemen</label>
             <select
               required
               className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm"
-              value={materiId}
-              onChange={(e) => setMateriId(e.target.value)}
+              value={elemenId}
+              onChange={(e) => setElemenId(e.target.value)}
             >
-              <option value="">Pilih materi</option>
-              {materiList.map((m) => (
-                <option key={m.id} value={m.id}>
-                  Tingkat {m.tingkat} · {m.nama}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="w-48">
-            <label className="mb-1 block text-xs font-medium text-slate-700">Sub materi</label>
-            <select
-              required
-              disabled={!materiId}
-              className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm disabled:bg-slate-100"
-              value={subMateriId}
-              onChange={(e) => setSubMateriId(e.target.value)}
-            >
-              <option value="">Pilih sub materi</option>
-              {subMateriList.map((sm) => (
-                <option key={sm.id} value={sm.id}>
-                  {sm.nama}
+              <option value="">Pilih elemen</option>
+              {elemenList.map((el) => (
+                <option key={el.id} value={el.id}>
+                  {el.nama}
                 </option>
               ))}
             </select>
@@ -302,7 +263,7 @@ function AddItemForm({
             <label className="mb-1 block text-xs font-medium text-slate-700">Kompetensi</label>
             <select
               required
-              disabled={!subMateriId}
+              disabled={!elemenId}
               className="w-full rounded-md border border-slate-300 px-2 py-2 text-sm disabled:bg-slate-100"
               value={kompetensiId}
               onChange={(e) => setKompetensiId(e.target.value)}
@@ -310,7 +271,7 @@ function AddItemForm({
               <option value="">Pilih kompetensi</option>
               {kompetensiList.map((k) => (
                 <option key={k.id} value={k.id}>
-                  {k.kode} · {k.deskripsi}
+                  {k.subElemen} · {k.deskripsi}
                 </option>
               ))}
             </select>

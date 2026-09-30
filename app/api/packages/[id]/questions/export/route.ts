@@ -45,7 +45,7 @@ export async function GET(request: Request, { params }: RouteParams) {
           where: { packageId, deletedAt: null },
           orderBy: { createdAt: "asc" },
           include: {
-            kompetensi: { select: { kode: true } },
+            kompetensi: { select: { subElemen: true, deskripsi: true, elemen: { select: { nama: true } } } },
             options: { orderBy: { urutan: "asc" } },
             statements: { orderBy: { urutan: "asc" }, include: { correctCategory: { select: { label: true } } } },
           },
@@ -60,7 +60,9 @@ export async function GET(request: Request, { params }: RouteParams) {
     tingkatKesulitan: q.tingkatKesulitan,
     levelBloom: q.levelBloom,
     pembahasan: q.pembahasan,
-    kompetensiKode: q.kompetensi.kode,
+    elemenNama: q.kompetensi.elemen.nama,
+    subElemen: q.kompetensi.subElemen,
+    kompetensiDeskripsi: q.kompetensi.deskripsi,
     options: q.options.map((o) => ({ teks: o.teks, media: o.media, isCorrect: o.isCorrect, urutan: o.urutan })),
     statements: q.statements.map((s) => ({
       teks: s.teks,

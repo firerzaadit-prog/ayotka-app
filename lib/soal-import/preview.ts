@@ -45,6 +45,7 @@ export interface PreviewQuestion {
   kompetensi: string | null;
   taxonomyMapped: boolean;
   taxonomyKompetensiId: string | null;
+  taxonomyElemenId: string | null;
   taxonomyKompetensiLabel: string | null;
   levelKognitifSumber: string | null;
   levelBloom: LevelKognitif | null;
@@ -148,10 +149,13 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
     resolvedKompetensiIds.length > 0
       ? await prisma.kompetensi.findMany({
           where: { id: { in: resolvedKompetensiIds } },
-          select: { id: true, kode: true, deskripsi: true },
+          select: { id: true, subElemen: true, deskripsi: true, elemenId: true, elemen: { select: { nama: true } } },
         })
       : [];
-  const kompetensiLabelById = new Map(kompetensiRows.map((k) => [k.id, `${k.kode} · ${k.deskripsi}`]));
+  const kompetensiElemenById = new Map(kompetensiRows.map((k) => [k.id, k.elemenId]));
+  const kompetensiLabelById = new Map(
+    kompetensiRows.map((k) => [k.id, `${k.elemen.nama} · ${k.subElemen} · ${k.deskripsi}`]),
+  );
 
   const questions: PreviewQuestion[] = sourceQuestions.map((q, i) => {
     const blockedReasons: string[] = [];
@@ -203,6 +207,7 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
       kompetensi: q.kompetensi,
       taxonomyMapped: taxonomy !== null,
       taxonomyKompetensiId: taxonomy?.kompetensiId ?? null,
+      taxonomyElemenId: taxonomy ? (kompetensiElemenById.get(taxonomy.kompetensiId) ?? null) : null,
       taxonomyKompetensiLabel: taxonomy ? (kompetensiLabelById.get(taxonomy.kompetensiId) ?? null) : null,
       levelKognitifSumber: q.levelKognitif,
       levelBloom,

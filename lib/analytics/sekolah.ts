@@ -9,19 +9,18 @@ import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
  * diunduh selalu konsisten dengan yang tampil di layar (satu sumber
  * hitungan, bukan dihitung ulang terpisah untuk tiap format output).
  */
-type KompetensiAgg = { kode: string; deskripsi: string; materi: string; jmlBenar: number; jmlSoal: number };
+type KompetensiAgg = { deskripsi: string; elemen: string; jmlBenar: number; jmlSoal: number };
 type StudentAgg = { nama: string; nisn: string | null; totalSkor: number; jumlahAttempt: number };
 
 function addKompetensi(
   map: Map<string, KompetensiAgg>,
-  k: { id: string; kode: string; deskripsi: string; subMateri: { materi: { nama: string } } },
+  k: { id: string; deskripsi: string; elemen: { nama: string } },
   jmlBenar: number,
   jmlSoal: number,
 ) {
   const existing = map.get(k.id) ?? {
-    kode: k.kode,
     deskripsi: k.deskripsi,
-    materi: k.subMateri.materi.nama,
+    elemen: k.elemen.nama,
     jmlBenar: 0,
     jmlSoal: 0,
   };
@@ -86,9 +85,8 @@ export async function buildAnalitikSekolah(
           kompetensi: {
             select: {
               id: true,
-              kode: true,
               deskripsi: true,
-              subMateri: { select: { materi: { select: { nama: true } } } },
+              elemen: { select: { nama: true } },
             },
           },
         },

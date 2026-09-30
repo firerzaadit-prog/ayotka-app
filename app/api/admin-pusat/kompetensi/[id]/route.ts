@@ -4,12 +4,12 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { z } from "zod";
-import { kodeKompetensiSudahDipakai } from "@/lib/soal/kompetensi-ref";
+import { kompetensiSudahDipakai } from "@/lib/soal/kompetensi-ref";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 const updateSchema = z.object({
-  kode: z.string().trim().min(1).optional(),
+  subElemen: z.string().trim().min(2).optional(),
   deskripsi: z.string().trim().min(3).optional(),
   levelKognitif: z.enum(["L1", "L2", "L3"]).optional(),
 });
@@ -34,9 +34,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Kompetensi tidak ditemukan." }, { status: 404 });
   }
 
-  if (parsed.data.kode && (await kodeKompetensiSudahDipakai(parsed.data.kode, before.subMateriId, id))) {
+  const effectiveSubElemen = parsed.data.subElemen ?? before.subElemen;
+  const effectiveDeskripsi = parsed.data.deskripsi ?? before.deskripsi;
+  if (
+    (parsed.data.subElemen || parsed.data.deskripsi) &&
+    (await kompetensiSudahDipakai(before.elemenId, effectiveSubElemen, effectiveDeskripsi, id))
+  ) {
     return NextResponse.json(
-      { error: `Kode "${parsed.data.kode}" sudah dipakai kompetensi lain di mata pelajaran ini.` },
+      { error: "Kombinasi Sub Elemen + Kompetensi ini sudah ada di elemen yang sama." },
       { status: 409 },
     );
   }

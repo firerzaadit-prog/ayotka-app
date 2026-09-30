@@ -51,11 +51,11 @@ async function generateSamplePdf() {
       canShowPembahasan: true,
       isFreeTrial: false,
       ranking: { peringkatSaya: 3, totalPeserta: 45, papan: [] },
-      materiScores: [
-        { materiNama: "Bilangan", jmlBenar: 5, jmlSoal: 6, persentase: 83 },
-        { materiNama: "Aljabar", jmlBenar: 6, jmlSoal: 8, persentase: 75 },
-        { materiNama: "Geometri dan Pengukuran", jmlBenar: 7, jmlSoal: 8, persentase: 88 },
-        { materiNama: "Data dan Peluang", jmlBenar: 6, jmlSoal: 8, persentase: 75 },
+      elemenScores: [
+        { elemenNama: "Bilangan", jmlBenar: 5, jmlSoal: 6, persentase: 83 },
+        { elemenNama: "Aljabar", jmlBenar: 6, jmlSoal: 8, persentase: 75 },
+        { elemenNama: "Geometri dan Pengukuran", jmlBenar: 7, jmlSoal: 8, persentase: 88 },
+        { elemenNama: "Data dan Peluang", jmlBenar: 6, jmlSoal: 8, persentase: 75 },
       ],
       perSoal: [
         {

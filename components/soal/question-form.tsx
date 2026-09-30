@@ -73,9 +73,8 @@ function FormatToolbar({ inputId, value, setter }: { inputId: string; value: str
 type Format = "pg" | "pg_kompleks" | "pg_kategori";
 type Option = { label: string; teks: string; media: string | null; isCorrect: boolean; urutan: number };
 type Statement = { teks: string; media: string | null; correctCategory: "Benar" | "Salah"; urutan: number };
-type Materi = { id: string; nama: string };
-type SubMateri = { id: string; nama: string };
-type Kompetensi = { id: string; kode: string; deskripsi: string };
+type Elemen = { id: string; nama: string };
+type Kompetensi = { id: string; subElemen: string; deskripsi: string };
 
 const LEVEL_OPTIONS = [
   { value: "L1", label: "Level 1 – Pengetahuan & Pemahaman" },
@@ -105,8 +104,7 @@ export type QuestionFormInitial = {
   media: string | null;
   bobot: number;
   tingkatKesulitan: (typeof KESULITAN_OPTIONS)[number];
-  materiId: string | null;
-  subMateriId: string | null;
+  elemenId: string | null;
   kompetensiId: string;
   levelBloom: string;
   pembahasan: string | null;
@@ -141,11 +139,9 @@ export function QuestionForm({
   const [levelBloom, setLevelBloom] = useState(initial?.levelBloom ?? "L1");
   const [pembahasan, setPembahasan] = useState(initial?.pembahasan ?? "");
 
-  const [materiId, setMateriId] = useState(initial?.materiId ?? "");
-  const [subMateriId, setSubMateriId] = useState(initial?.subMateriId ?? "");
+  const [elemenId, setElemenId] = useState(initial?.elemenId ?? "");
   const [kompetensiId, setKompetensiId] = useState(initial?.kompetensiId ?? "");
-  const [materiList, setMateriList] = useState<Materi[]>([]);
-  const [subMateriList, setSubMateriList] = useState<SubMateri[]>([]);
+  const [elemenList, setElemenList] = useState<Elemen[]>([]);
   const [kompetensiList, setKompetensiList] = useState<Kompetensi[]>([]);
 
   const [options, setOptions] = useState<Option[]>(
@@ -161,9 +157,9 @@ export function QuestionForm({
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/admin-pusat/materi?subjectId=${subjectId}`);
+      const res = await fetch(`/api/admin-pusat/elemen?subjectId=${subjectId}`);
       const data = await res.json();
-      if (!ignore) setMateriList(data.materi ?? []);
+      if (!ignore) setElemenList(data.elemen ?? []);
     })();
     return () => {
       ignore = true;
@@ -173,34 +169,18 @@ export function QuestionForm({
   useEffect(() => {
     let ignore = false;
     (async () => {
-      if (!materiId) {
-        if (!ignore) setSubMateriList([]);
-        return;
-      }
-      const res = await fetch(`/api/admin-pusat/sub-materi?materiId=${materiId}`);
-      const data = await res.json();
-      if (!ignore) setSubMateriList(data.subMateri ?? []);
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [materiId]);
-
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      if (!subMateriId) {
+      if (!elemenId) {
         if (!ignore) setKompetensiList([]);
         return;
       }
-      const res = await fetch(`/api/admin-pusat/kompetensi?subMateriId=${subMateriId}`);
+      const res = await fetch(`/api/admin-pusat/kompetensi?elemenId=${elemenId}`);
       const data = await res.json();
       if (!ignore) setKompetensiList(data.kompetensi ?? []);
     })();
     return () => {
       ignore = true;
     };
-  }, [subMateriId]);
+  }, [elemenId]);
 
   function updateOption(index: number, patch: Partial<Option>) {
     setOptions((prev) => prev.map((o, i) => (i === index ? { ...o, ...patch } : o)));
@@ -264,8 +244,7 @@ export function QuestionForm({
       media,
       bobot,
       tingkatKesulitan,
-      materiId,
-      subMateriId,
+      elemenId,
       kompetensiId,
       levelBloom,
       pembahasan,
@@ -407,45 +386,23 @@ export function QuestionForm({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="materiId">Materi</Label>
+            <Label htmlFor="elemenId">Elemen</Label>
             <select
-              id="materiId"
+              id="elemenId"
               required
               className={selectClassName}
-              value={materiId}
+              value={elemenId}
               onChange={(e) => {
-                setMateriId(e.target.value);
-                setSubMateriId("");
+                setElemenId(e.target.value);
                 setKompetensiId("");
               }}
             >
-              <option value="">Pilih materi</option>
-              {materiList.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nama}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <Label htmlFor="subMateriId">Sub materi</Label>
-            <select
-              id="subMateriId"
-              required
-              disabled={!materiId}
-              className={selectClassName}
-              value={subMateriId}
-              onChange={(e) => {
-                setSubMateriId(e.target.value);
-                setKompetensiId("");
-              }}
-            >
-              <option value="">Pilih sub materi</option>
-              {subMateriList.map((sm) => (
-                <option key={sm.id} value={sm.id}>
-                  {sm.nama}
+              <option value="">Pilih elemen</option>
+              {elemenList.map((el) => (
+                <option key={el.id} value={el.id}>
+                  {el.nama}
                 </option>
               ))}
             </select>
@@ -455,7 +412,7 @@ export function QuestionForm({
             <select
               id="kompetensiId"
               required
-              disabled={!subMateriId}
+              disabled={!elemenId}
               className={selectClassName}
               value={kompetensiId}
               onChange={(e) => setKompetensiId(e.target.value)}
@@ -463,7 +420,7 @@ export function QuestionForm({
               <option value="">Pilih kompetensi</option>
               {kompetensiList.map((k) => (
                 <option key={k.id} value={k.id}>
-                  {k.kode} - {k.deskripsi}
+                  {k.subElemen} - {k.deskripsi}
                 </option>
               ))}
             </select>

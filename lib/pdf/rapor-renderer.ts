@@ -207,14 +207,14 @@ function drawBadge(
   return width;
 }
 
-type MateriScoreRow = { materiNama: string; jmlBenar: number; jmlSoal: number; persentase: number };
+type ElemenScoreRow = { elemenNama: string; jmlBenar: number; jmlSoal: number; persentase: number };
 
 function competencyChartHeight(count: number): number {
   return count * 24 + 18;
 }
 
 /**
- * Grafik batang horizontal 3 warna per Materi (gridline + sumbu 0-100%) -
+ * Grafik batang horizontal 3 warna per Elemen (gridline + sumbu 0-100%) -
  * Bagian 8.7 brief. Ambang warna SAMA persis dengan versi web (lihat
  * lib/exam/competency-color.ts) supaya siswa tidak melihat warna berbeda
  * untuk persentase yang sama di dua tempat. Digambar sebagai satu blok atom
@@ -227,7 +227,7 @@ function competencyChartHeight(count: number): number {
  */
 function drawCompetencyChart(
   doc: PDFKit.PDFDocument,
-  scores: MateriScoreRow[],
+  scores: ElemenScoreRow[],
   x: number,
   y: number,
   width: number,
@@ -253,7 +253,7 @@ function drawCompetencyChart(
     // Font Unicode lebih lebar dari Helvetica - batas karakter label dikurangi
     // supaya label panjang tidak menabrak batang di sebelahnya.
     const maxLabel = fonts.unicode ? 27 : 32;
-    const label = s.materiNama.length > maxLabel ? `${s.materiNama.slice(0, maxLabel - 1)}…` : s.materiNama;
+    const label = s.elemenNama.length > maxLabel ? `${s.elemenNama.slice(0, maxLabel - 1)}…` : s.elemenNama;
 
     doc.fontSize(fonts.sz(8.5)).font(fonts.bold).fillColor(COLOR.ink)
       .text(label, x, rowY + 3, { width: labelW, lineBreak: false });
@@ -419,8 +419,8 @@ export async function renderRaporPdf(
   doc.moveDown(0.8);
 
   // --- PETA KOMPETENSI ---
-  if (hasil.materiScores.length > 0) {
-    const chartH = competencyChartHeight(hasil.materiScores.length);
+  if (hasil.elemenScores.length > 0) {
+    const chartH = competencyChartHeight(hasil.elemenScores.length);
     // Chart digambar sebagai satu blok - kalau tidak cukup muat di sisa
     // halaman ini, pindah halaman DULU (bukan di tengah-tengah menggambar).
     if (doc.y + 44 + chartH > doc.page.height - 48) doc.addPage();
@@ -429,7 +429,7 @@ export async function renderRaporPdf(
     doc.font(fonts.regular);
     doc.moveDown(0.8);
 
-    doc.y = drawCompetencyChart(doc, hasil.materiScores, 48, doc.y, contentWidth, fonts);
+    doc.y = drawCompetencyChart(doc, hasil.elemenScores, 48, doc.y, contentWidth, fonts);
 
     // Legenda: "●" dan "≥" tidak ada di font default (WinAnsi) - dulu tampil
     // sebagai "%Ï Baik ("e70%)". Di mode cadangan diganti padanan ASCII.

@@ -27,7 +27,7 @@ type Hasil = {
   bisaUnduhRapor: boolean;
   ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
-  materiScores: { materiNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
+  elemenScores: { elemenNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
 };
 
 /**
@@ -123,10 +123,10 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
 
       {hasil.ranking && <RankingBoardCard ranking={hasil.ranking} />}
 
-      {hasil.materiScores.length > 0 && (
+      {hasil.elemenScores.length > 0 && (
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-slate-900">Peta Kompetensi</h2>
-          <PetaKompetensiChart scores={hasil.materiScores} />
+          <PetaKompetensiChart scores={hasil.elemenScores} />
         </Card>
       )}
 

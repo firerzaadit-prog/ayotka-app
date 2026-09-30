@@ -139,9 +139,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         tingkatKesulitan: input.tingkatKesulitan,
         kompetensiId: input.kompetensiId,
         levelBloom: input.levelBloom,
-        materiId: input.materiId && input.materiId.length > 0 ? input.materiId : null,
-        subMateriId:
-          input.subMateriId && input.subMateriId.length > 0 ? input.subMateriId : null,
+        elemenId: input.elemenId && input.elemenId.length > 0 ? input.elemenId : null,
         pembahasan: input.pembahasan && input.pembahasan.length > 0 ? input.pembahasan : null,
         media: input.media ?? null,
       },

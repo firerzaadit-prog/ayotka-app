@@ -12,9 +12,8 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
-type Materi = { id: string; nama: string; tingkat: number };
-type SubMateri = { id: string; nama: string };
-type Kompetensi = { id: string; kode: string; deskripsi: string };
+type Elemen = { id: string; nama: string };
+type Kompetensi = { id: string; subElemen: string; deskripsi: string };
 
 type PreviewQuestion = {
   sourceId: string;
@@ -351,21 +350,26 @@ function TaxonomyMappingRow({
   onMapped: () => void;
 }) {
   const toast = useToast();
-  const [materiList, setMateriList] = useState<Materi[]>([]);
-  const [subMateriList, setSubMateriList] = useState<SubMateri[]>([]);
+  const [elemenList, setElemenList] = useState<Elemen[]>([]);
   const [kompetensiList, setKompetensiList] = useState<Kompetensi[]>([]);
-  const [materiId, setMateriId] = useState("");
-  const [subMateriId, setSubMateriId] = useState("");
+  const [elemenId, setElemenId] = useState("");
+  // "" = pilih dari daftar (elemenId), "__new__" = buat elemen baru dari namaElemenBaru.
+  const [elemenMode, setElemenMode] = useState<"pilih" | "baru">("pilih");
+  const [namaElemenBaru, setNamaElemenBaru] = useState(label.elemen);
   const [kompetensiId, setKompetensiId] = useState("");
+  const [kompetensiMode, setKompetensiMode] = useState<"pilih" | "baru">("baru");
+  const [subElemenBaru, setSubElemenBaru] = useState(label.subElemen ?? "");
+  const [deskripsiBaru, setDeskripsiBaru] = useState(label.kompetensi ?? "");
+  const [levelBaru, setLevelBaru] = useState<(typeof LEVEL_OPTIONS)[number]>("L1");
   const [submitting, setSubmitting] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/admin-pusat/materi?subjectId=${subjectId}`);
+      const res = await fetch(`/api/admin-pusat/elemen?subjectId=${subjectId}`);
       const data = await res.json();
-      if (!ignore) setMateriList(data.materi ?? []);
+      if (!ignore) setElemenList(data.elemen ?? []);
     })();
     return () => {
       ignore = true;
@@ -375,61 +379,85 @@ function TaxonomyMappingRow({
   useEffect(() => {
     let ignore = false;
     (async () => {
-      if (!materiId) {
-        if (!ignore) {
-          setSubMateriList([]);
-          setSubMateriId("");
-        }
+      if (!elemenId || elemenMode !== "pilih") {
+        if (!ignore) setKompetensiList([]);
         return;
       }
-      const res = await fetch(`/api/admin-pusat/sub-materi?materiId=${materiId}`);
-      const data = await res.json();
-      if (!ignore) setSubMateriList(data.subMateri ?? []);
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [materiId]);
-
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      if (!subMateriId) {
-        if (!ignore) {
-          setKompetensiList([]);
-          setKompetensiId("");
-        }
-        return;
-      }
-      const res = await fetch(`/api/admin-pusat/kompetensi?subMateriId=${subMateriId}`);
+      const res = await fetch(`/api/admin-pusat/kompetensi?elemenId=${elemenId}`);
       const data = await res.json();
       if (!ignore) setKompetensiList(data.kompetensi ?? []);
     })();
     return () => {
       ignore = true;
     };
-  }, [subMateriId]);
+  }, [elemenId, elemenMode]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!kompetensiId) {
-      toast.error("Pilih kompetensi dulu.");
-      return;
-    }
     setSubmitting(true);
-    const res = await fetch("/api/admin-pusat/soal-import/taxonomy-mapping", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...label, kompetensiId }),
-    });
-    const data = await res.json().catch(() => null);
-    setSubmitting(false);
-    if (!res.ok) {
-      toast.error(data?.error ?? "Gagal menyimpan pemetaan.");
-      return;
+    try {
+      let resolvedKompetensiId = kompetensiId;
+
+      let resolvedElemenId = elemenId;
+      if (elemenMode === "baru") {
+        if (!namaElemenBaru.trim()) {
+          toast.error("Isi nama elemen dulu.");
+          return;
+        }
+        const res = await fetch("/api/admin-pusat/elemen", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subjectId, nama: namaElemenBaru }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          toast.error(data?.error ?? "Gagal membuat elemen baru.");
+          return;
+        }
+        resolvedElemenId = data.elemen.id;
+      }
+
+      if (kompetensiMode === "baru") {
+        if (!subElemenBaru.trim() || !deskripsiBaru.trim()) {
+          toast.error("Isi Sub Elemen dan Kompetensi (Kisi-kisi) dulu.");
+          return;
+        }
+        const res = await fetch("/api/admin-pusat/kompetensi", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            elemenId: resolvedElemenId,
+            subElemen: subElemenBaru,
+            deskripsi: deskripsiBaru,
+            levelKognitif: levelBaru,
+          }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          toast.error(data?.error ?? "Gagal membuat kompetensi baru.");
+          return;
+        }
+        resolvedKompetensiId = data.kompetensi.id;
+      } else if (!resolvedKompetensiId) {
+        toast.error("Pilih kompetensi dulu.");
+        return;
+      }
+
+      const res = await fetch("/api/admin-pusat/soal-import/taxonomy-mapping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...label, kompetensiId: resolvedKompetensiId }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        toast.error(data?.error ?? "Gagal menyimpan pemetaan.");
+        return;
+      }
+      setSaved(true);
+      onMapped();
+    } finally {
+      setSubmitting(false);
     }
-    setSaved(true);
-    onMapped();
   }
 
   const displayLabel = mapel === "Bahasa Indonesia" ? label.kompetensi : label.elemen;
@@ -443,58 +471,99 @@ function TaxonomyMappingRow({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3">
-      <div className="mr-2 min-w-[10rem] text-sm font-medium text-slate-800">&ldquo;{displayLabel}&rdquo;</div>
-      <div className="w-40">
-        <select
-          required
-          className={selectClassName}
-          value={materiId}
-          onChange={(e) => setMateriId(e.target.value)}
-        >
-          <option value="">Materi</option>
-          {materiList.map((m) => (
-            <option key={m.id} value={m.id}>
-              Tingkat {m.tingkat} · {m.nama}
-            </option>
-          ))}
-        </select>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-2 rounded-lg border border-slate-200 p-3">
+      <div className="text-sm font-medium text-slate-800">&ldquo;{displayLabel}&rdquo;</div>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="w-48">
+          <select
+            className={selectClassName}
+            value={elemenMode === "baru" ? "__new__" : elemenId}
+            onChange={(e) => {
+              if (e.target.value === "__new__") {
+                setElemenMode("baru");
+                setElemenId("");
+              } else {
+                setElemenMode("pilih");
+                setElemenId(e.target.value);
+                setKompetensiId("");
+              }
+            }}
+          >
+            <option value="">Pilih elemen</option>
+            {elemenList.map((el) => (
+              <option key={el.id} value={el.id}>
+                {el.nama}
+              </option>
+            ))}
+            <option value="__new__">+ Buat elemen baru</option>
+          </select>
+          {elemenMode === "baru" && (
+            <Input
+              className="mt-1"
+              placeholder="Nama elemen baru"
+              value={namaElemenBaru}
+              onChange={(e) => setNamaElemenBaru(e.target.value)}
+            />
+          )}
+        </div>
+
+        {elemenMode === "pilih" && elemenId && (
+          <div className="w-56">
+            <select
+              className={selectClassName}
+              value={kompetensiMode === "baru" ? "__new__" : kompetensiId}
+              onChange={(e) => {
+                if (e.target.value === "__new__") {
+                  setKompetensiMode("baru");
+                  setKompetensiId("");
+                } else {
+                  setKompetensiMode("pilih");
+                  setKompetensiId(e.target.value);
+                }
+              }}
+            >
+              <option value="">Pilih kompetensi</option>
+              {kompetensiList.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.subElemen} · {k.deskripsi}
+                </option>
+              ))}
+              <option value="__new__">+ Buat kompetensi baru</option>
+            </select>
+          </div>
+        )}
+
+        <Button type="submit" variant="secondary" disabled={submitting}>
+          {submitting ? "Menyimpan..." : "Simpan"}
+        </Button>
       </div>
-      <div className="w-40">
-        <select
-          required
-          disabled={!materiId}
-          className={`${selectClassName} disabled:bg-slate-100`}
-          value={subMateriId}
-          onChange={(e) => setSubMateriId(e.target.value)}
-        >
-          <option value="">Sub materi</option>
-          {subMateriList.map((sm) => (
-            <option key={sm.id} value={sm.id}>
-              {sm.nama}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="w-56">
-        <select
-          required
-          disabled={!subMateriId}
-          className={`${selectClassName} disabled:bg-slate-100`}
-          value={kompetensiId}
-          onChange={(e) => setKompetensiId(e.target.value)}
-        >
-          <option value="">Kompetensi</option>
-          {kompetensiList.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.kode} · {k.deskripsi}
-            </option>
-          ))}
-        </select>
-      </div>
-      <Button type="submit" variant="secondary" disabled={submitting}>
-        {submitting ? "Menyimpan..." : "Simpan"}
-      </Button>
+
+      {(kompetensiMode === "baru" || elemenMode === "baru") && (
+        <div className="flex flex-wrap items-end gap-2 rounded-md bg-slate-50 p-2">
+          <div className="w-40">
+            <label className="mb-1 block text-xs font-medium text-slate-700">Sub Elemen</label>
+            <Input value={subElemenBaru} onChange={(e) => setSubElemenBaru(e.target.value)} />
+          </div>
+          <div className="w-24">
+            <label className="mb-1 block text-xs font-medium text-slate-700">Level</label>
+            <select
+              className={selectClassName}
+              value={levelBaru}
+              onChange={(e) => setLevelBaru(e.target.value as (typeof LEVEL_OPTIONS)[number])}
+            >
+              {LEVEL_OPTIONS.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-slate-700">Kompetensi (Kisi-kisi)</label>
+            <Input value={deskripsiBaru} onChange={(e) => setDeskripsiBaru(e.target.value)} />
+          </div>
+        </div>
+      )}
     </form>
   );
 }

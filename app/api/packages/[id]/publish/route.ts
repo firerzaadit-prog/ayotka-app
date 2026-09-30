@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const result = validateBlueprintCompliance(
       pkg.blueprint.items.map((item) => ({
         kompetensiId: item.kompetensiId,
-        kompetensiKode: item.kompetensi.kode,
+        kompetensiKode: item.kompetensi.deskripsi,
         tingkatKesulitan: item.tingkatKesulitan,
         formatSoal: item.formatSoal,
         jumlahSoal: item.jumlahSoal,

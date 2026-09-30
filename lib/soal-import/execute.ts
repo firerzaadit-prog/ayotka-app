@@ -147,6 +147,7 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
       bobot: 1,
       tingkatKesulitan: q.tingkatKesulitan!,
       kompetensiId: q.taxonomyKompetensiId!,
+      elemenId: q.taxonomyElemenId,
       levelBloom: effectiveLevelBloom.get(q.sourceId)!,
       pembahasan: q.pembahasan,
       stimulusId: q.stimulusId ? (stimulusIdMap.get(q.stimulusId) ?? null) : null,

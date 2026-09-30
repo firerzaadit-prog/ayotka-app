@@ -19,17 +19,15 @@ export const PENANDA_CONTOH = "contoh";
 export const MAKS_BARIS_IMPOR = 300;
 
 export type KompetensiReferensi = {
-  kode: string;
+  elemen: string;
+  subElemen: string;
   deskripsi: string;
   levelKognitif: string;
-  materi: string;
-  subMateri: string;
-  tingkat: number;
 };
 
 const HEADER_FILL: ExcelJS.Fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE0E7FF" } };
 const TEXT_KEYS = new Set<ColKey>([
-  "teks", "pembahasan", "media", "kunci", "kompetensi",
+  "teks", "pembahasan", "media", "kunci", "elemen", "subElemen", "kompetensi",
   "opsi_a", "opsi_b", "opsi_c", "opsi_d", "opsi_e", "opsi_f", "opsi_g", "opsi_h",
   "pernyataan_1", "pernyataan_2", "pernyataan_3",
 ]);
@@ -38,14 +36,15 @@ const BARIS_TERFORMAT = 500;
 const PETUNJUK: string[] = [
   "PETUNJUK PENGISIAN - satu baris = satu soal. Isi di sheet \"Soal\", mulai dari baris 2.",
   "",
-  "Kolom wajib: Format, Teks Soal, Kode Kompetensi, Tingkat Kesulitan, Level Kognitif.",
+  "Kolom wajib: Format, Teks Soal, Elemen, Sub Elemen, Kompetensi (Kisi-kisi), Tingkat Kesulitan, Level Kognitif.",
   "",
   "FORMAT (pilih dari dropdown):",
   "  pg          = pilihan ganda, 4-5 opsi, TEPAT 1 jawaban benar. Kunci Jawaban: satu huruf, mis. B",
   "  pg_kompleks = pilihan ganda kompleks, 2-8 opsi, boleh lebih dari 1 benar. Kunci Jawaban: huruf dipisah koma, mis. A,C",
   "  pg_kategori = pernyataan Benar/Salah, 1-3 pernyataan. Isi Pernyataan 1-3 dan Jawaban 1-3 (Benar atau Salah). Kolom Opsi & Kunci dikosongkan.",
   "",
-  "Kode Kompetensi: pilih dari dropdown atau lihat sheet \"Referensi Kompetensi\" (harus persis sama).",
+  "Elemen: pilih dari dropdown. Sub Elemen & Kompetensi (Kisi-kisi): ketik persis sama dengan sheet \"Referensi Kompetensi\"" +
+    " - kombinasi ketiganya harus sudah ada di sana (buat dulu di halaman Taxonomy admin pusat kalau belum ada).",
   "Tingkat Kesulitan: mudah / sedang / sulit.   Level Kognitif: L1 / L2 / L3.   Bobot: bilangan bulat >= 1 (kosong = 1).",
   "Media Soal (opsional): URL gambar diawali https://.  Gambar di dalam teks/opsi ditulis dengan sintaks ![](https://alamat-gambar).",
   "Rumus matematika ditulis dengan LaTeX di antara tanda dolar, mis. $x^2 + 3x = 10$. Baris baru di dalam sel boleh (Alt+Enter).",
@@ -93,20 +92,23 @@ export async function buildSoalWorkbook(params: {
 
   let rows: ExcelRow[] = params.template ? [] : questionsToRows(params.questions);
   if (params.template) {
-    const kode = params.kompetensi[0]?.kode ?? "KODE-KOMPETENSI";
+    const contoh = params.kompetensi[0];
+    const elemen = contoh?.elemen ?? "ELEMEN";
+    const subElemen = contoh?.subElemen ?? "SUB ELEMEN";
+    const kompetensi = contoh?.deskripsi ?? "KOMPETENSI (KISI-KISI)";
     rows = [
       {
-        no: "CONTOH", format: "pg", teks: "Hasil dari $2x + 3$ untuk $x = 4$ adalah ...", kompetensi: kode,
+        no: "CONTOH", format: "pg", teks: "Hasil dari $2x + 3$ untuk $x = 4$ adalah ...", elemen, subElemen, kompetensi,
         kesulitan: "mudah", level: "L1", bobot: "1", pembahasan: "Substitusi x = 4: 2(4) + 3 = 11.",
         opsi_a: "9", opsi_b: "10", opsi_c: "11", opsi_d: "12", kunci: "C",
       },
       {
-        no: "CONTOH", format: "pg_kompleks", teks: "Pilih SEMUA bilangan prima berikut.", kompetensi: kode,
+        no: "CONTOH", format: "pg_kompleks", teks: "Pilih SEMUA bilangan prima berikut.", elemen, subElemen, kompetensi,
         kesulitan: "sedang", level: "L2", bobot: "2",
         opsi_a: "2", opsi_b: "4", opsi_c: "7", opsi_d: "9", kunci: "A,C",
       },
       {
-        no: "CONTOH", format: "pg_kategori", teks: "Tentukan Benar atau Salah untuk tiap pernyataan.", kompetensi: kode,
+        no: "CONTOH", format: "pg_kategori", teks: "Tentukan Benar atau Salah untuk tiap pernyataan.", elemen, subElemen, kompetensi,
         kesulitan: "sedang", level: "L2", bobot: "3",
         pernyataan_1: "$3 \\times 4 = 12$", jawaban_1: "Benar",
         pernyataan_2: "$15 : 3 = 4$", jawaban_2: "Salah",
@@ -146,8 +148,14 @@ export async function buildSoalWorkbook(params: {
   dropdown("jawaban_1", '"Benar,Salah"');
   dropdown("jawaban_2", '"Benar,Salah"');
   dropdown("jawaban_3", '"Benar,Salah"');
-  if (params.kompetensi.length > 0) {
-    dropdown("kompetensi", `'${SHEET_REFERENSI}'!$A$2:$A$${params.kompetensi.length + 1}`);
+  // Elemen tetap dropdown (daftar masih terkurasi/terbatas). Sub Elemen &
+  // Kompetensi (Kisi-kisi) sengaja jadi teks bebas (bukan dropdown berjenjang)
+  // - kombinasi ExcelJS INDIRECT/named-range bertingkat jauh lebih rumit
+  // daripada manfaatnya, dan divalidasi ulang saat impor terhadap sheet
+  // Referensi Kompetensi (lihat lib/soal/kompetensi-ref.ts).
+  const distinctElemen = [...new Set(params.kompetensi.map((k) => k.elemen))];
+  if (distinctElemen.length > 0) {
+    dropdown("elemen", `'${SHEET_REFERENSI}'!$F$2:$F$${distinctElemen.length + 1}`);
   }
 
   // --- Sheet Petunjuk ---
@@ -164,17 +172,20 @@ export async function buildSoalWorkbook(params: {
   // --- Sheet Referensi Kompetensi ---
   const wr = wb.addWorksheet(SHEET_REFERENSI, { views: [{ state: "frozen", ySplit: 1 }] });
   wr.columns = [
-    { header: "Kode Kompetensi", key: "kode", width: 24 },
-    { header: "Deskripsi", key: "deskripsi", width: 60 },
+    { header: "Elemen", key: "elemen", width: 24 },
+    { header: "Sub Elemen", key: "subElemen", width: 24 },
+    { header: "Kompetensi (Kisi-kisi)", key: "deskripsi", width: 60 },
     { header: "Level Kognitif", key: "level", width: 14 },
-    { header: "Tingkat", key: "tingkat", width: 9 },
-    { header: "Materi", key: "materi", width: 26 },
-    { header: "Sub Materi", key: "subMateri", width: 30 },
+    { header: "", key: "spacer", width: 4 },
+    { header: "Daftar Elemen", key: "daftarElemen", width: 24 },
   ];
   styleHeader(wr.getRow(1));
   for (const k of params.kompetensi) {
-    wr.addRow({ kode: k.kode, deskripsi: k.deskripsi, level: k.levelKognitif, tingkat: k.tingkat, materi: k.materi, subMateri: k.subMateri });
+    wr.addRow({ elemen: k.elemen, subElemen: k.subElemen, deskripsi: k.deskripsi, level: k.levelKognitif });
   }
+  distinctElemen.forEach((nama, idx) => {
+    wr.getCell(idx + 2, 6).value = nama;
+  });
 
   const out = await wb.xlsx.writeBuffer();
   return Buffer.from(out as ArrayBuffer);

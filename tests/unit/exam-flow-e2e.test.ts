@@ -11,7 +11,7 @@ import {
   computeSkorAkhir,
   aggregateCompetency,
 } from "@/lib/exam/scoring";
-import { aggregateMateriScores } from "@/lib/exam/materi-scores";
+import { aggregateElemenScores } from "@/lib/exam/elemen-scores";
 import { buildAnalisisPrompt } from "@/lib/ai/prompt";
 import { analisisSchema } from "@/lib/ai/schema";
 
@@ -100,22 +100,22 @@ describe("Alur Pengerjaan, Skoring, Peta Kompetensi, dan Analisis AI Ujian Siswa
       });
     });
 
-    it("mengagregasi skor kompetensi menjadi Peta Kompetensi per Materi untuk grafik UI", () => {
-      const materiInputs = [
-        { materiId: "m-1", materiNama: "Aljabar", materiUrutan: 1, jmlBenar: 2, jmlSoal: 3 },
-        { materiId: "m-1", materiNama: "Aljabar", materiUrutan: 1, jmlBenar: 1, jmlSoal: 1 },
-        { materiId: "m-2", materiNama: "Geometri", materiUrutan: 2, jmlBenar: 0, jmlSoal: 2 },
+    it("mengagregasi skor kompetensi menjadi Peta Kompetensi per Elemen untuk grafik UI", () => {
+      const elemenInputs = [
+        { elemenId: "e-1", elemenNama: "Aljabar", elemenUrutan: 1, jmlBenar: 2, jmlSoal: 3 },
+        { elemenId: "e-1", elemenNama: "Aljabar", elemenUrutan: 1, jmlBenar: 1, jmlSoal: 1 },
+        { elemenId: "e-2", elemenNama: "Geometri", elemenUrutan: 2, jmlBenar: 0, jmlSoal: 2 },
       ];
-      const materiScores = aggregateMateriScores(materiInputs);
-      expect(materiScores).toEqual([
+      const elemenScores = aggregateElemenScores(elemenInputs);
+      expect(elemenScores).toEqual([
         {
-          materiNama: "Aljabar",
+          elemenNama: "Aljabar",
           jmlBenar: 3,
           jmlSoal: 4,
           persentase: 75,
         },
         {
-          materiNama: "Geometri",
+          elemenNama: "Geometri",
           jmlBenar: 0,
           jmlSoal: 2,
           persentase: 0,
@@ -133,10 +133,9 @@ describe("Alur Pengerjaan, Skoring, Peta Kompetensi, dan Analisis AI Ujian Siswa
         kerangkaAsesmen: null,
         kompetensi: [
           {
-            kode: "MAT.01",
             deskripsi: "Operasi Pecahan",
-            materiNama: "Bilangan",
-            subMateriNama: "Pecahan",
+            elemenNama: "Bilangan",
+            subElemen: "Pecahan",
             jmlBenar: 3,
             jmlSoal: 4,
             persentase: 75,
@@ -149,9 +148,8 @@ describe("Alur Pengerjaan, Skoring, Peta Kompetensi, dan Analisis AI Ujian Siswa
             nomor: 1,
             benar: false,
             teksSoal: "Berapakah 1/2 + 1/4?",
-            kompetensi: "MAT.01",
-            materiNama: "Bilangan",
-            subMateriNama: "Pecahan",
+            elemenNama: "Bilangan",
+            subElemen: "Pecahan",
             levelBloom: "L2",
             jawabanSiswa: "2/6",
             kunciJawaban: "3/4",

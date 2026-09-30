@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { subMateriCreateSchema } from "@/lib/validations/taxonomy";
+import { elemenCreateSchema } from "@/lib/validations/taxonomy";
 
 export async function GET(request: Request) {
   try {
@@ -11,18 +11,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  const materiId = new URL(request.url).searchParams.get("materiId");
-  if (!materiId) {
-    return NextResponse.json({ error: "materiId wajib diisi." }, { status: 400 });
+  const subjectId = new URL(request.url).searchParams.get("subjectId");
+  if (!subjectId) {
+    return NextResponse.json({ error: "subjectId wajib diisi." }, { status: 400 });
   }
 
-  const subMateri = await prisma.subMateri.findMany({
-    where: { materiId },
+  const elemen = await prisma.elemen.findMany({
+    where: { subjectId },
     orderBy: { urutan: "asc" },
     include: { _count: { select: { kompetensi: true } } },
   });
 
-  return NextResponse.json({ subMateri });
+  return NextResponse.json({ elemen });
 }
 
 export async function POST(request: Request) {
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = subMateriCreateSchema.safeParse(body);
+  const parsed = elemenCreateSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Data tidak valid." },
@@ -42,21 +42,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const materi = await prisma.materi.findUnique({ where: { id: parsed.data.materiId } });
-  if (!materi) {
-    return NextResponse.json({ error: "Materi tidak ditemukan." }, { status: 404 });
+  const subject = await prisma.subject.findUnique({ where: { id: parsed.data.subjectId } });
+  if (!subject) {
+    return NextResponse.json({ error: "Mapel tidak ditemukan." }, { status: 404 });
   }
 
-  const subMateri = await prisma.subMateri.create({ data: parsed.data });
+  const elemen = await prisma.elemen.create({ data: parsed.data });
 
   await logAudit({
     userId: user.id,
     aksi: "create",
-    entitas: "sub_materi",
-    entitasId: subMateri.id,
-    after: subMateri,
+    entitas: "elemen",
+    entitasId: elemen.id,
+    after: elemen,
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ subMateri }, { status: 201 });
+  return NextResponse.json({ elemen }, { status: 201 });
 }

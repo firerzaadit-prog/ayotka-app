@@ -22,24 +22,24 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Data tidak valid." }, { status: 400 });
   }
 
-  const before = await prisma.subMateri.findUnique({ where: { id } });
+  const before = await prisma.elemen.findUnique({ where: { id } });
   if (!before) {
-    return NextResponse.json({ error: "Sub materi tidak ditemukan." }, { status: 404 });
+    return NextResponse.json({ error: "Elemen tidak ditemukan." }, { status: 404 });
   }
 
-  const subMateri = await prisma.subMateri.update({ where: { id }, data: parsed.data });
+  const elemen = await prisma.elemen.update({ where: { id }, data: parsed.data });
 
   await logAudit({
     userId: user.id,
     aksi: "update",
-    entitas: "sub_materi",
+    entitas: "elemen",
     entitasId: id,
     before,
-    after: subMateri,
+    after: elemen,
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ subMateri });
+  return NextResponse.json({ elemen });
 }
 
 export async function DELETE(request: Request, { params }: RouteParams) {
@@ -51,20 +51,20 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const before = await prisma.subMateri.findUnique({ where: { id } });
+  const before = await prisma.elemen.findUnique({ where: { id } });
   if (!before) {
-    return NextResponse.json({ error: "Sub materi tidak ditemukan." }, { status: 404 });
+    return NextResponse.json({ error: "Elemen tidak ditemukan." }, { status: 404 });
   }
 
   try {
-    await prisma.subMateri.delete({ where: { id } });
+    await prisma.elemen.delete({ where: { id } });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2003"
     ) {
       return NextResponse.json(
-        { error: "Sub materi ini sudah punya kompetensi, tidak bisa dihapus." },
+        { error: "Elemen ini sudah punya kompetensi, tidak bisa dihapus." },
         { status: 409 },
       );
     }
@@ -74,7 +74,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   await logAudit({
     userId: user.id,
     aksi: "delete",
-    entitas: "sub_materi",
+    entitas: "elemen",
     entitasId: id,
     before,
     ip: getClientIp(request),

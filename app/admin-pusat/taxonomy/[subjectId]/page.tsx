@@ -4,21 +4,21 @@ import { use, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton, ListSkeleton } from "@/components/ui/skeleton";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
 
-type Materi = {
+type Elemen = {
   id: string;
   nama: string;
   urutan: number;
-  tingkat: number;
-  _count: { subMateri: number };
+  resmi: boolean;
+  _count: { kompetensi: number };
 };
-type SubMateri = { id: string; nama: string; urutan: number; _count: { kompetensi: number } };
-type Kompetensi = { id: string; kode: string; deskripsi: string; levelKognitif: string };
+type Kompetensi = { id: string; subElemen: string; deskripsi: string; levelKognitif: string };
 
 const LEVEL_OPTIONS = [
   { value: "L1", label: "Level 1 – Pengetahuan & Pemahaman" },
@@ -34,52 +34,50 @@ export default function TaxonomySubjectPage({
   const { subjectId } = use(params);
   const toast = useToast();
   const { confirm } = useDialog();
-  const [materi, setMateri] = useState<Materi[] | null>(null);
-  const [tingkat, setTingkat] = useState("");
-  const [namaMateri, setNamaMateri] = useState("");
+  const [elemen, setElemen] = useState<Elemen[] | null>(null);
+  const [namaElemen, setNamaElemen] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/admin-pusat/materi?subjectId=${subjectId}`);
+      const res = await fetch(`/api/admin-pusat/elemen?subjectId=${subjectId}`);
       const data = await res.json();
-      if (!ignore) setMateri(data.materi ?? []);
+      if (!ignore) setElemen(data.elemen ?? []);
     })();
     return () => {
       ignore = true;
     };
   }, [subjectId, refreshKey]);
 
-  async function handleAddMateri(e: FormEvent) {
+  async function handleAddElemen(e: FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/admin-pusat/materi", {
+    const res = await fetch("/api/admin-pusat/elemen", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subjectId, tingkat, nama: namaMateri, urutan: (materi?.length ?? 0) }),
+      body: JSON.stringify({ subjectId, nama: namaElemen, urutan: (elemen?.length ?? 0) }),
     });
     if (res.ok) {
-      setNamaMateri("");
-      setTingkat("");
+      setNamaElemen("");
       setShowForm(false);
       setRefreshKey((k) => k + 1);
     }
   }
 
-  async function handleDeleteMateri(id: string, nama: string) {
+  async function handleDeleteElemen(id: string, nama: string) {
     const ok = await confirm({
-      title: `Hapus materi "${nama}"?`,
+      title: `Hapus elemen "${nama}"?`,
       description: "Tindakan ini tidak bisa dibatalkan.",
       danger: true,
     });
     if (!ok) return;
-    const res = await fetch(`/api/admin-pusat/materi/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin-pusat/elemen/${id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
       setRefreshKey((k) => k + 1);
     } else {
-      toast.error(data?.error ?? "Gagal menghapus materi.");
+      toast.error(data?.error ?? "Gagal menghapus elemen.");
     }
   }
 
@@ -90,178 +88,53 @@ export default function TaxonomySubjectPage({
           &larr; Kembali ke daftar mapel
         </Link>
         <div className="mt-1 flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-slate-900">Materi</h1>
-          <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Tambah materi"}</Button>
+          <h1 className="text-xl font-semibold text-slate-900">Elemen</h1>
+          <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Tambah elemen"}</Button>
         </div>
+        <p className="mt-1 text-xs text-slate-500">
+          Elemen bertanda <Badge variant="success">Resmi</Badge> sudah dicocokkan dengan daftar resmi
+          soal.ayotka.id. Elemen tanpa badge itu isian bebas admin - boleh dipakai, tapi belum
+          diverifikasi terhadap referensi resmi.
+        </p>
       </div>
 
       {showForm && (
         <form
-          onSubmit={handleAddMateri}
+          onSubmit={handleAddElemen}
           className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 bg-white p-4"
         >
-          <div className="w-24">
-            <label className="mb-1 block text-sm font-medium text-slate-700">Tingkat</label>
-            <Input
-              type="number"
-              min={1}
-              max={12}
-              required
-              value={tingkat}
-              onChange={(e) => setTingkat(e.target.value)}
-            />
-          </div>
           <div className="flex-1">
-            <label className="mb-1 block text-sm font-medium text-slate-700">Nama materi</label>
-            <Input required value={namaMateri} onChange={(e) => setNamaMateri(e.target.value)} />
+            <label className="mb-1 block text-sm font-medium text-slate-700">Nama elemen</label>
+            <Input required value={namaElemen} onChange={(e) => setNamaElemen(e.target.value)} />
           </div>
           <Button type="submit">Simpan</Button>
         </form>
       )}
 
-      {materi === null && <ListSkeleton items={3} />}
+      {elemen === null && <ListSkeleton items={3} />}
 
-      {materi?.length === 0 && (
+      {elemen?.length === 0 && (
         <EmptyState
           icon={<IconDocument />}
-          title="Belum ada materi"
-          description="Tambah materi pertama untuk mulai menyusun sub materi dan kompetensi."
+          title="Belum ada elemen"
+          description="Tambah elemen pertama untuk mulai menyusun kompetensi."
         />
       )}
 
       <div className="flex flex-col gap-3">
-        {materi?.map((m) => (
-          <MateriItem key={m.id} materi={m} onDelete={handleDeleteMateri} />
+        {elemen?.map((el) => (
+          <ElemenItem key={el.id} elemen={el} onDelete={handleDeleteElemen} />
         ))}
       </div>
     </div>
   );
 }
 
-function MateriItem({
-  materi,
+function ElemenItem({
+  elemen,
   onDelete,
 }: {
-  materi: Materi;
-  onDelete: (id: string, nama: string) => void;
-}) {
-  const toast = useToast();
-  const { confirm } = useDialog();
-  const [open, setOpen] = useState(false);
-  const [subMateri, setSubMateri] = useState<SubMateri[] | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [nama, setNama] = useState("");
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  useEffect(() => {
-    if (!open) return;
-    let ignore = false;
-    (async () => {
-      const res = await fetch(`/api/admin-pusat/sub-materi?materiId=${materi.id}`);
-      const data = await res.json();
-      if (!ignore) setSubMateri(data.subMateri ?? []);
-    })();
-    return () => {
-      ignore = true;
-    };
-  }, [open, materi.id, refreshKey]);
-
-  async function handleAdd(e: FormEvent) {
-    e.preventDefault();
-    const res = await fetch("/api/admin-pusat/sub-materi", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ materiId: materi.id, nama, urutan: subMateri?.length ?? 0 }),
-    });
-    if (res.ok) {
-      setNama("");
-      setShowForm(false);
-      setRefreshKey((k) => k + 1);
-    }
-  }
-
-  async function handleDeleteSubMateri(id: string, namaSubMateri: string) {
-    const ok = await confirm({
-      title: `Hapus sub materi "${namaSubMateri}"?`,
-      description: "Tindakan ini tidak bisa dibatalkan.",
-      danger: true,
-    });
-    if (!ok) return;
-    const res = await fetch(`/api/admin-pusat/sub-materi/${id}`, { method: "DELETE" });
-    const data = await res.json().catch(() => null);
-    if (res.ok) {
-      setRefreshKey((k) => k + 1);
-    } else {
-      toast.error(data?.error ?? "Gagal menghapus sub materi.");
-    }
-  }
-
-  return (
-    <div className="rounded-lg border border-slate-200 bg-white">
-      <div className="flex w-full items-center justify-between px-4 py-3">
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="flex flex-1 items-center justify-between text-left"
-        >
-          <span className="text-sm font-medium text-slate-900">
-            Tingkat {materi.tingkat ?? "-"} · {materi.nama}
-          </span>
-          <span className="mr-3 text-xs text-slate-400">
-            {open ? "▲" : "▼"} {subMateri?.length ?? materi._count.subMateri} sub materi
-          </span>
-        </button>
-        <button
-          onClick={() => onDelete(materi.id, materi.nama)}
-          className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
-        >
-          Hapus
-        </button>
-      </div>
-
-      {open && (
-        <div className="border-t border-slate-100 p-4">
-          <div className="mb-3 flex justify-end">
-            <Button variant="secondary" onClick={() => setShowForm((v) => !v)}>
-              {showForm ? "Batal" : "Tambah sub materi"}
-            </Button>
-          </div>
-
-          {showForm && (
-            <form onSubmit={handleAdd} className="mb-3 flex items-end gap-3">
-              <div className="flex-1">
-                <label className="mb-1 block text-sm font-medium text-slate-700">Nama sub materi</label>
-                <Input required value={nama} onChange={(e) => setNama(e.target.value)} />
-              </div>
-              <Button type="submit">Simpan</Button>
-            </form>
-          )}
-
-          {subMateri === null && (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-8" />
-              <Skeleton className="h-8" />
-            </div>
-          )}
-          {subMateri?.length === 0 && (
-            <p className="text-sm text-slate-500">Belum ada sub materi.</p>
-          )}
-
-          <div className="flex flex-col gap-2">
-            {subMateri?.map((sm) => (
-              <SubMateriItem key={sm.id} subMateri={sm} onDelete={handleDeleteSubMateri} />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SubMateriItem({
-  subMateri,
-  onDelete,
-}: {
-  subMateri: SubMateri;
+  elemen: Elemen;
   onDelete: (id: string, nama: string) => void;
 }) {
   const toast = useToast();
@@ -269,7 +142,7 @@ function SubMateriItem({
   const [open, setOpen] = useState(false);
   const [kompetensi, setKompetensi] = useState<Kompetensi[] | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [kode, setKode] = useState("");
+  const [subElemen, setSubElemen] = useState("");
   const [deskripsi, setDeskripsi] = useState("");
   const [level, setLevel] = useState("L1");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -278,33 +151,33 @@ function SubMateriItem({
     if (!open) return;
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/admin-pusat/kompetensi?subMateriId=${subMateri.id}`);
+      const res = await fetch(`/api/admin-pusat/kompetensi?elemenId=${elemen.id}`);
       const data = await res.json();
       if (!ignore) setKompetensi(data.kompetensi ?? []);
     })();
     return () => {
       ignore = true;
     };
-  }, [open, subMateri.id, refreshKey]);
+  }, [open, elemen.id, refreshKey]);
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
     const res = await fetch("/api/admin-pusat/kompetensi", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subMateriId: subMateri.id, kode, deskripsi, levelKognitif: level }),
+      body: JSON.stringify({ elemenId: elemen.id, subElemen, deskripsi, levelKognitif: level }),
     });
     if (res.ok) {
-      setKode("");
+      setSubElemen("");
       setDeskripsi("");
       setShowForm(false);
       setRefreshKey((k) => k + 1);
     }
   }
 
-  async function handleDeleteKompetensi(id: string, kodeKompetensi: string) {
+  async function handleDeleteKompetensi(id: string, label: string) {
     const ok = await confirm({
-      title: `Hapus kompetensi "${kodeKompetensi}"?`,
+      title: `Hapus kompetensi "${label}"?`,
       description: "Tindakan ini tidak bisa dibatalkan.",
       danger: true,
     });
@@ -319,19 +192,26 @@ function SubMateriItem({
   }
 
   return (
-    <div className="rounded-md border border-slate-100 bg-slate-50">
-      <div className="flex w-full items-center justify-between px-3 py-2">
+    <div className="rounded-lg border border-slate-200 bg-white">
+      <div className="flex w-full items-center justify-between px-4 py-3">
         <button
           onClick={() => setOpen((v) => !v)}
           className="flex flex-1 items-center justify-between text-left"
         >
-          <span className="text-sm text-slate-800">{subMateri.nama}</span>
+          <span className="flex items-center gap-2 text-sm font-medium text-slate-900">
+            {elemen.nama}
+            {elemen.resmi ? (
+              <Badge variant="success">Resmi</Badge>
+            ) : (
+              <Badge variant="neutral">Belum diverifikasi</Badge>
+            )}
+          </span>
           <span className="mr-3 text-xs text-slate-400">
-            {open ? "▲" : "▼"} {kompetensi?.length ?? subMateri._count.kompetensi} kompetensi
+            {open ? "▲" : "▼"} {kompetensi?.length ?? elemen._count.kompetensi} kompetensi
           </span>
         </button>
         <button
-          onClick={() => onDelete(subMateri.id, subMateri.nama)}
+          onClick={() => onDelete(elemen.id, elemen.nama)}
           className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
         >
           Hapus
@@ -339,8 +219,8 @@ function SubMateriItem({
       </div>
 
       {open && (
-        <div className="border-t border-slate-200 p-3">
-          <div className="mb-2 flex justify-end">
+        <div className="border-t border-slate-100 p-4">
+          <div className="mb-3 flex justify-end">
             <Button variant="secondary" onClick={() => setShowForm((v) => !v)}>
               {showForm ? "Batal" : "Tambah kompetensi"}
             </Button>
@@ -348,9 +228,9 @@ function SubMateriItem({
 
           {showForm && (
             <form onSubmit={handleAdd} className="mb-3 flex flex-wrap items-end gap-2">
-              <div className="w-28">
-                <label className="mb-1 block text-xs font-medium text-slate-700">Kode</label>
-                <Input required value={kode} onChange={(e) => setKode(e.target.value)} />
+              <div className="w-48">
+                <label className="mb-1 block text-xs font-medium text-slate-700">Sub Elemen</label>
+                <Input required value={subElemen} onChange={(e) => setSubElemen(e.target.value)} />
               </div>
               <div className="w-24">
                 <label className="mb-1 block text-xs font-medium text-slate-700">Level</label>
@@ -367,7 +247,7 @@ function SubMateriItem({
                 </select>
               </div>
               <div className="flex-1">
-                <label className="mb-1 block text-xs font-medium text-slate-700">Deskripsi</label>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Kompetensi (Kisi-kisi)</label>
                 <Input required value={deskripsi} onChange={(e) => setDeskripsi(e.target.value)} />
               </div>
               <Button type="submit">Simpan</Button>
@@ -385,13 +265,13 @@ function SubMateriItem({
           <ul className="flex flex-col gap-1">
             {kompetensi?.map((k) => (
               <li key={k.id} className="flex items-center gap-2 text-sm text-slate-700">
-                <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-xs">{k.kode}</span>
+                <span className="rounded bg-slate-200 px-1.5 py-0.5 text-xs">{k.subElemen}</span>
                 <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700">
                   {k.levelKognitif}
                 </span>
                 <span className="flex-1">{k.deskripsi}</span>
                 <button
-                  onClick={() => handleDeleteKompetensi(k.id, k.kode)}
+                  onClick={() => handleDeleteKompetensi(k.id, `${k.subElemen} - ${k.deskripsi}`)}
                   className="rounded-lg px-2 py-0.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
                 >
                   Hapus

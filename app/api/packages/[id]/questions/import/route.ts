@@ -90,10 +90,10 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const pkg = await prisma.package.findUniqueOrThrow({ where: { id: packageId }, select: { subjectId: true } });
-  const { byKode } = await loadKompetensiForSubject(pkg.subjectId);
+  const { byKey } = await loadKompetensiForSubject(pkg.subjectId);
 
   const gambar = await resolveGambar(sheet.rows);
-  const { questions, errors: errSoal } = rowsToQuestions(gambar.rows, byKode);
+  const { questions, errors: errSoal } = rowsToQuestions(gambar.rows, byKey);
   const errors = [...sheet.gambarBermasalah, ...gambar.errors, ...errSoal].sort((a, b) => a.row - b.row);
 
   if (errors.length > 0) {
@@ -159,8 +159,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       bobot: data.bobot,
       tingkatKesulitan: data.tingkatKesulitan,
       kompetensiId: data.kompetensiId,
-      materiId: data.materiId,
-      subMateriId: data.subMateriId,
+      elemenId: data.elemenId,
       levelBloom: data.levelBloom,
       pembahasan: data.pembahasan,
       createdAt: new Date(base + i),

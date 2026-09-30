@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import type { Attempt } from "@prisma/client";
 import { shuffleWithSeed } from "@/lib/exam/shuffle";
 import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
-import { aggregateMateriScores } from "@/lib/exam/materi-scores";
+import { aggregateElemenScores } from "@/lib/exam/elemen-scores";
 import { buildRanking } from "@/lib/exam/ranking";
 import { firstFinishedAttempt } from "@/lib/exam/seri-mandiri";
 
@@ -41,9 +41,8 @@ export async function buildHasil(attempt: Attempt) {
       include: {
         kompetensi: {
           select: {
-            kode: true,
             deskripsi: true,
-            subMateri: { select: { materi: { select: { id: true, nama: true, urutan: true } } } },
+            elemen: { select: { id: true, nama: true, urutan: true } },
           },
         },
       },
@@ -142,19 +141,18 @@ export async function buildHasil(attempt: Attempt) {
     ranking,
     perSoal,
     competencyScores: competencyScores.map((c) => ({
-      kode: c.kompetensi.kode,
       deskripsi: c.kompetensi.deskripsi,
       jmlBenar: c.jmlBenar,
       jmlSoal: c.jmlSoal,
       persentase: c.persentase,
     })),
-    // Bagian 8.7 brief: Peta Kompetensi ditampilkan per Materi (bukan per
-    // Kompetensi butir halus) di web & PDF - lihat lib/exam/materi-scores.ts.
-    materiScores: aggregateMateriScores(
+    // Bagian 8.7 brief: Peta Kompetensi ditampilkan per Elemen (bukan per
+    // Kompetensi butir halus) di web & PDF - lihat lib/exam/elemen-scores.ts.
+    elemenScores: aggregateElemenScores(
       competencyScores.map((c) => ({
-        materiId: c.kompetensi.subMateri.materi.id,
-        materiNama: c.kompetensi.subMateri.materi.nama,
-        materiUrutan: c.kompetensi.subMateri.materi.urutan,
+        elemenId: c.kompetensi.elemen.id,
+        elemenNama: c.kompetensi.elemen.nama,
+        elemenUrutan: c.kompetensi.elemen.urutan,
         jmlBenar: c.jmlBenar,
         jmlSoal: c.jmlSoal,
       })),

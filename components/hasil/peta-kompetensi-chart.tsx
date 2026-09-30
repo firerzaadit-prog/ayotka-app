@@ -1,21 +1,21 @@
 import { competencyTier, COMPETENCY_TIER_CLASS } from "@/lib/exam/competency-color";
 
-type MateriScore = { materiNama: string; jmlBenar: number; jmlSoal: number; persentase: number };
+type ElemenScore = { elemenNama: string; jmlBenar: number; jmlSoal: number; persentase: number };
 
 /**
- * Grafik batang horizontal 3 warna per Materi (Bagian 8.7 brief) - ambang
+ * Grafik batang horizontal 3 warna per Elemen (Bagian 8.7 brief) - ambang
  * warna sama persis dengan versi PDF, lihat lib/exam/competency-color.ts.
  */
-export function PetaKompetensiChart({ scores }: { scores: MateriScore[] }) {
+export function PetaKompetensiChart({ scores }: { scores: ElemenScore[] }) {
   return (
     <div className="flex flex-col gap-3">
       {scores.map((s) => {
         const tier = competencyTier(s.persentase);
         const cls = COMPETENCY_TIER_CLASS[tier];
         return (
-          <div key={s.materiNama}>
+          <div key={s.elemenNama}>
             <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
-              <span className="font-medium text-slate-900">{s.materiNama}</span>
+              <span className="font-medium text-slate-900">{s.elemenNama}</span>
               <span className={`font-mono text-xs font-semibold ${cls.text}`}>
                 {s.persentase.toFixed(0)}% ({s.jmlBenar}/{s.jmlSoal})
               </span>

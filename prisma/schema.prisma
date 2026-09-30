@@ -113,7 +113,7 @@ model Subject {
   nama    String
   jenjang Jenjang
 
-  materi     Materi[]
+  elemen     Elemen[]
   blueprints Blueprint[]
   packages   Package[]
   plans      Plan[]
@@ -139,30 +139,25 @@ model SchoolUser {
 // Grup 5-7: materi -> sub_materi -> kompetensi
 // ---------------------------------------------------------------------------
 
-model Materi {
+/// Menggantikan Materi (dulu Materi->SubMateri->Kompetensi, 3 level dengan
+/// tingkat) - disamakan dengan struktur soal.ayotka.id (permintaan user, 1
+/// Okt 2026): Elemen->Kompetensi (2 level, tanpa tingkat; sub-elemen jadi
+/// field bebas di Kompetensi, bukan tabel tersendiri - lihat komentar di
+/// Kompetensi.subElemen). jenjang cukup lewat subjectId->Subject.jenjang.
+model Elemen {
   id        String  @id @default(uuid()) @db.Uuid
   subjectId String  @map("subject_id") @db.Uuid
-  jenjang   Jenjang
-  tingkat   Int
   nama      String
   urutan    Int
+  /// true hanya utk Elemen yang cocok persis dengan daftar resmi
+  /// soal.ayotka.id (soal.fixed_taxonomies) - sisanya isi-bebas (keputusan
+  /// user 1 Okt 2026), badge "belum diverifikasi" di halaman Taxonomy admin.
+  resmi     Boolean @default(false)
 
-  subject   Subject     @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  subMateri SubMateri[]
-
-  @@map("materi")
-}
-
-model SubMateri {
-  id       String @id @default(uuid()) @db.Uuid
-  materiId String @map("materi_id") @db.Uuid
-  nama     String
-  urutan   Int
-
-  materi     Materi       @relation(fields: [materiId], references: [id], onDelete: Restrict)
+  subject    Subject      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   kompetensi Kompetensi[]
 
-  @@map("sub_materi")
+  @@map("elemen")
 }
 
 enum LevelKognitif {
@@ -173,12 +168,16 @@ enum LevelKognitif {
 
 model Kompetensi {
   id            String        @id @default(uuid()) @db.Uuid
-  subMateriId   String        @map("sub_materi_id") @db.Uuid
-  kode          String
+  elemenId      String        @map("elemen_id") @db.Uuid
+  /// Dulu level SubMateri tersendiri - diratakan jadi field bebas di sini
+  /// karena soal.ayotka.id sendiri tidak punya tabel referensi utk sub_elemen
+  /// (cuma string bebas per soal), jadi memaksa ayotka.id punya tabel
+  /// terpisah untuk itu adalah over-engineering (1 Okt 2026).
+  subElemen     String        @map("sub_elemen")
   deskripsi     String
   levelKognitif LevelKognitif @map("level_kognitif")
 
-  subMateri        SubMateri         @relation(fields: [subMateriId], references: [id], onDelete: Restrict)
+  elemen           Elemen            @relation(fields: [elemenId], references: [id], onDelete: Restrict)
   blueprintItems   BlueprintItem[]
   questions        Question[]
   competencyScores CompetencyScore[]
@@ -415,8 +414,7 @@ model Question {
   media            String?
   bobot            Int              @default(1)
   tingkatKesulitan TingkatKesulitan @map("tingkat_kesulitan")
-  materiId         String?          @map("materi_id") @db.Uuid
-  subMateriId      String?          @map("sub_materi_id") @db.Uuid
+  elemenId         String?          @map("elemen_id") @db.Uuid
   kompetensiId     String           @map("kompetensi_id") @db.Uuid
   levelBloom       LevelKognitif    @map("level_bloom")
   pembahasan       String?

@@ -12,6 +12,8 @@ export type ColKey =
   | "no"
   | "format"
   | "teks"
+  | "elemen"
+  | "subElemen"
   | "kompetensi"
   | "kesulitan"
   | "level"
@@ -30,7 +32,9 @@ export const KOLOM_SOAL: Kolom[] = [
   { key: "no", header: "No", width: 6 },
   { key: "format", header: "Format", width: 14 },
   { key: "teks", header: "Teks Soal", width: 60 },
-  { key: "kompetensi", header: "Kode Kompetensi", width: 20 },
+  { key: "elemen", header: "Elemen", width: 24 },
+  { key: "subElemen", header: "Sub Elemen", width: 24 },
+  { key: "kompetensi", header: "Kompetensi (Kisi-kisi)", width: 40 },
   { key: "kesulitan", header: "Tingkat Kesulitan", width: 16 },
   { key: "level", header: "Level Kognitif", width: 14 },
   { key: "bobot", header: "Bobot", width: 8 },
@@ -48,7 +52,7 @@ export const KOLOM_SOAL: Kolom[] = [
 
 export type ExcelRow = Partial<Record<ColKey, string>>;
 
-export const REQUIRED_KEYS: ColKey[] = ["format", "teks", "kompetensi", "kesulitan", "level"];
+export const REQUIRED_KEYS: ColKey[] = ["format", "teks", "elemen", "subElemen", "kompetensi", "kesulitan", "level"];
 
 const normalizeHeader = (h: string) => h.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -62,7 +66,6 @@ const HEADER_ALIASES: Record<string, ColKey> = (() => {
     formatsoal: "format",
     soal: "teks",
     pertanyaan: "teks",
-    kompetensi: "kompetensi",
     kesulitan: "kesulitan",
     level: "level",
     levelbloom: "level",
@@ -72,6 +75,15 @@ const HEADER_ALIASES: Record<string, ColKey> = (() => {
   });
   return map;
 })();
+
+/** Kunci gabungan (elemen, sub elemen, kompetensi) dinormalisasi - trim+lowercase tiap bagian,
+ * join dgn pemisah yang aman (tidak mungkin muncul di teks bebas admin) supaya "A|B" & "C"
+ * tidak pernah bentrok dgn "A" & "B|C". Dipakai sebagai kunci Map lookup Excel maupun cek
+ * duplikat saat admin bikin Kompetensi baru (lib/soal/kompetensi-ref.ts). */
+export function kompetensiKey(elemen: string, subElemen: string, kompetensi: string): string {
+  const norm = (s: string) => s.trim().toLowerCase();
+  return `${norm(elemen)}\u0000${norm(subElemen)}\u0000${norm(kompetensi)}`;
+}
 
 /** Petakan baris judul sheet ke key kolom; kolom yang tidak dikenali diabaikan (dilaporkan sebagai unknown). */
 export function resolveHeaders(headerCells: string[]): {
@@ -97,15 +109,14 @@ export type ParsedQuestion = {
   bobot: number;
   tingkatKesulitan: "mudah" | "sedang" | "sulit";
   kompetensiId: string;
-  materiId: string;
-  subMateriId: string;
+  elemenId: string;
   levelBloom: "L1" | "L2" | "L3";
   pembahasan: string | null;
   options: { label: string; teks: string; media: null; isCorrect: boolean; urutan: number }[];
   statements: { teks: string; media: null; correctCategory: "Benar" | "Salah"; urutan: number }[];
 };
 
-export type KompetensiRef = { id: string; materiId: string; subMateriId: string };
+export type KompetensiRef = { id: string; elemenId: string };
 
 /** Untuk mendeteksi soal yang sama saat impor ulang - spasi/huruf besar-kecil diabaikan. */
 export function normalizeTeks(t: string): string {
@@ -154,10 +165,22 @@ export function rowsToQuestions(
     const teks = val(cells, "teks");
     if (!teks) err("teks", "Teks soal wajib diisi.");
 
-    const kode = val(cells, "kompetensi");
-    const kompetensi = kode ? kompetensiByKode.get(kode.toLowerCase()) : undefined;
-    if (!kode) err("kompetensi", "Kode kompetensi wajib diisi.");
-    else if (!kompetensi) err("kompetensi", `Kode kompetensi "${kode}" tidak ada untuk mata pelajaran paket ini. Lihat sheet "Referensi Kompetensi".`);
+    const elemenTeks = val(cells, "elemen");
+    const subElemenTeks = val(cells, "subElemen");
+    const kompetensiTeks = val(cells, "kompetensi");
+    if (!elemenTeks) err("elemen", "Elemen wajib diisi.");
+    if (!subElemenTeks) err("subElemen", "Sub Elemen wajib diisi.");
+    if (!kompetensiTeks) err("kompetensi", "Kompetensi (Kisi-kisi) wajib diisi.");
+    const kompetensi =
+      elemenTeks && subElemenTeks && kompetensiTeks
+        ? kompetensiByKode.get(kompetensiKey(elemenTeks, subElemenTeks, kompetensiTeks))
+        : undefined;
+    if (elemenTeks && subElemenTeks && kompetensiTeks && !kompetensi) {
+      err(
+        "kompetensi",
+        `Kombinasi Elemen/Sub Elemen/Kompetensi ini belum ada untuk mata pelajaran paket ini. Lihat sheet "Referensi Kompetensi", atau buat dulu di halaman Taxonomy.`,
+      );
+    }
 
     const kesulitan = val(cells, "kesulitan").toLowerCase();
     if (!["mudah", "sedang", "sulit"].includes(kesulitan)) {
@@ -257,8 +280,7 @@ export function rowsToQuestions(
       bobot,
       tingkatKesulitan: kesulitan as ParsedQuestion["tingkatKesulitan"],
       kompetensiId: kompetensi.id,
-      materiId: kompetensi.materiId,
-      subMateriId: kompetensi.subMateriId,
+      elemenId: kompetensi.elemenId,
       levelBloom: levelRaw as ParsedQuestion["levelBloom"],
       pembahasan: val(cells, "pembahasan") || null,
       options,
@@ -292,7 +314,9 @@ export type ExportQuestion = {
   tingkatKesulitan: string;
   levelBloom: string;
   pembahasan: string | null;
-  kompetensiKode: string;
+  elemenNama: string;
+  subElemen: string;
+  kompetensiDeskripsi: string;
   options: { teks: string; media: string | null; isCorrect: boolean; urutan: number }[];
   statements: { teks: string; media: string | null; urutan: number; correctLabel: string }[];
 };
@@ -306,7 +330,9 @@ export function questionsToRows(questions: ExportQuestion[]): ExcelRow[] {
       no: String(i + 1),
       format: q.format,
       teks: q.teks,
-      kompetensi: q.kompetensiKode,
+      elemen: q.elemenNama,
+      subElemen: q.subElemen,
+      kompetensi: q.kompetensiDeskripsi,
       kesulitan: q.tingkatKesulitan,
       level: q.levelBloom,
       bobot: String(q.bobot),

@@ -79,9 +79,8 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
           kompetensi: {
             select: {
               id: true,
-              kode: true,
               deskripsi: true,
-              subMateri: { select: { materi: { select: { nama: true } } } },
+              elemen: { select: { nama: true } },
             },
           },
         },
@@ -101,7 +100,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
   >();
   const kompetensiMap = new Map<
     string,
-    { kode: string; deskripsi: string; materi: string; jmlBenar: number; jmlSoal: number }
+    { deskripsi: string; elemen: string; jmlBenar: number; jmlSoal: number }
   >();
   const trenMap = new Map<string, { jumlahAttempt: number; totalSkor: number }>();
 
@@ -135,9 +134,8 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
       if (filter.kompetensiId && cs.kompetensi.id !== filter.kompetensiId) continue;
       const k = cs.kompetensi;
       const existing = kompetensiMap.get(k.id) ?? {
-        kode: k.kode,
         deskripsi: k.deskripsi,
-        materi: k.subMateri.materi.nama,
+        elemen: k.elemen.nama,
         jmlBenar: 0,
         jmlSoal: 0,
       };

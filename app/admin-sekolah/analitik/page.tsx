@@ -13,7 +13,7 @@ import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
 import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
 import type { KesiapanRingkasan } from "@/lib/analytics/kesiapan";
 
-type Kompetensi = { kode: string; deskripsi: string; materi: string; jmlBenar: number; jmlSoal: number; persentase: number };
+type Kompetensi = { deskripsi: string; elemen: string; jmlBenar: number; jmlSoal: number; persentase: number };
 type RankingRow = { studentId: string; nama: string; rataRata: number; jumlahAttempt: number };
 type PerMapelAnalitik = { subjectId: string; subjectNama: string; kompetensi: Kompetensi[]; ranking: RankingRow[] };
 
@@ -37,11 +37,9 @@ function KompetensiTable({ kompetensi }: { kompetensi: Kompetensi[] }) {
           </Thead>
           <tbody>
             {pageRows.map((k) => (
-              <Tr key={k.kode}>
-                <Td>
-                  <span className="font-mono text-xs">{k.kode}</span> {k.deskripsi}
-                </Td>
-                <Td className="text-slate-500">{k.materi}</Td>
+              <Tr key={`${k.elemen}-${k.deskripsi}`}>
+                <Td>{k.deskripsi}</Td>
+                <Td className="text-slate-500">{k.elemen}</Td>
                 <Td>
                   {k.jmlBenar}/{k.jmlSoal}
                 </Td>

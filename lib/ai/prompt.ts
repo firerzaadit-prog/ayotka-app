@@ -5,10 +5,9 @@ export type PromptInput = {
   /** Bagian 8.2 brief: ringkasan kerangka asesmen resmi (kalau tersedia untuk mapel ini) - lihat lib/content/kerangka-asesmen.ts. */
   kerangkaAsesmen?: string | null;
   kompetensi: {
-    kode: string;
     deskripsi: string;
-    materiNama: string;
-    subMateriNama: string;
+    elemenNama: string;
+    subElemen: string;
     jmlBenar: number;
     jmlSoal: number;
     persentase: number;
@@ -19,9 +18,8 @@ export type PromptInput = {
     nomor: number;
     benar: boolean;
     teksSoal: string;
-    kompetensi: string;
-    materiNama: string;
-    subMateriNama: string;
+    elemenNama: string;
+    subElemen: string;
     levelBloom: string;
     jawabanSiswa: string;
     kunciJawaban: string;
@@ -39,7 +37,7 @@ export function buildAnalisisPrompt(input: PromptInput): string {
   const kompetensiLines = input.kompetensi
     .map(
       (k) =>
-        `- ${k.kode} (${k.deskripsi}) [Materi: ${k.materiNama} > ${k.subMateriNama}]: ${k.jmlBenar}/${k.jmlSoal} benar (${k.persentase.toFixed(0)}%)`,
+        `- ${k.deskripsi} [Materi: ${k.elemenNama} > ${k.subElemen}]: ${k.jmlBenar}/${k.jmlSoal} benar (${k.persentase.toFixed(0)}%)`,
     )
     .join("\n");
   const levelLines = input.levelKognitif
@@ -91,7 +89,7 @@ ${
     .map((s) => {
       const status = s.benar ? "BENAR" : "SALAH";
       const lines = [
-        `${s.nomor}. [${status}] [${s.kompetensi} - ${s.levelBloom}] [${s.materiNama} > ${s.subMateriNama}] ${s.teksSoal.replace(/\s+/g, " ")}`,
+        `${s.nomor}. [${status}] [${s.levelBloom}] [${s.elemenNama} > ${s.subElemen}] ${s.teksSoal.replace(/\s+/g, " ")}`,
         `   Jawaban siswa: ${s.jawabanSiswa}`,
       ];
       if (!s.benar) {

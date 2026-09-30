@@ -9,7 +9,7 @@ const LANGKAH = [
   },
   {
     judul: "Pakai dropdown untuk kolom yang sudah disediakan",
-    detail: "Klik sel pada kolom Format, Kode Kompetensi, Tingkat Kesulitan, Level Kognitif, atau Jawaban 1-3, lalu klik panah kecil di sisi kanan sel untuk memilih dari daftar — tidak perlu mengetik manual.",
+    detail: "Klik sel pada kolom Format, Elemen, Tingkat Kesulitan, Level Kognitif, atau Jawaban 1-3, lalu klik panah kecil di sisi kanan sel untuk memilih dari daftar — tidak perlu mengetik manual. Sub Elemen dan Kompetensi (Kisi-kisi) diketik bebas, tapi harus persis sama dengan sheet \"Referensi Kompetensi\".",
   },
   {
     judul: "Sisipkan gambar kalau perlu (opsional)",
@@ -108,12 +108,14 @@ export function ExcelTutorial() {
           </summary>
           <div className="mt-2 ml-4 flex flex-col gap-1.5 text-xs text-slate-600">
             <p>
-              <span className="font-medium text-slate-800">Kolom wajib:</span> Format, Teks Soal, Kode Kompetensi,
-              Tingkat Kesulitan (mudah/sedang/sulit), Level Kognitif (L1/L2/L3).
+              <span className="font-medium text-slate-800">Kolom wajib:</span> Format, Teks Soal, Elemen, Sub Elemen,
+              Kompetensi (Kisi-kisi), Tingkat Kesulitan (mudah/sedang/sulit), Level Kognitif (L1/L2/L3).
             </p>
             <p>
-              <span className="font-medium text-slate-800">Kode Kompetensi:</span> pilih dari dropdown atau lihat
-              sheet &quot;Referensi Kompetensi&quot; di template (kode harus persis sama).
+              <span className="font-medium text-slate-800">Elemen, Sub Elemen, Kompetensi (Kisi-kisi):</span> Elemen
+              pilih dari dropdown; Sub Elemen dan Kompetensi (Kisi-kisi) diketik manual, tapi harus persis sama
+              dengan salah satu baris di sheet &quot;Referensi Kompetensi&quot; (kombinasi ketiganya belum ada,
+              buat dulu kompetensinya di halaman Taxonomy admin pusat).
             </p>
             <p>
               <span className="font-medium text-slate-800">Bobot:</span> bilangan bulat minimal 1, boleh dikosongkan

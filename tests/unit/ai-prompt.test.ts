@@ -9,10 +9,9 @@ describe("buildAnalisisPrompt", () => {
     skorAkhir: 85,
     kompetensi: [
       {
-        kode: "K1",
         deskripsi: "Operasi bilangan bulat",
-        materiNama: "Bilangan",
-        subMateriNama: "Bilangan Bulat",
+        elemenNama: "Bilangan",
+        subElemen: "Bilangan Bulat",
         jmlBenar: 4,
         jmlSoal: 5,
         persentase: 80,
@@ -25,9 +24,8 @@ describe("buildAnalisisPrompt", () => {
         nomor: 1,
         benar: false,
         teksSoal: "Soal cerita panjang tentang bilangan bulat",
-        kompetensi: "K1",
-        materiNama: "Bilangan",
-        subMateriNama: "Bilangan Bulat",
+        elemenNama: "Bilangan",
+        subElemen: "Bilangan Bulat",
         levelBloom: "L3",
         jawabanSiswa: "12 (hasil penjumlahan tanpa memperhatikan tanda negatif)",
         kunciJawaban: "-4",
@@ -37,9 +35,8 @@ describe("buildAnalisisPrompt", () => {
         nomor: 2,
         benar: true,
         teksSoal: "5 + 3 = ?",
-        kompetensi: "K1",
-        materiNama: "Bilangan",
-        subMateriNama: "Bilangan Bulat",
+        elemenNama: "Bilangan",
+        subElemen: "Bilangan Bulat",
         levelBloom: "L1",
         jawabanSiswa: "8",
         kunciJawaban: "8",
@@ -52,13 +49,13 @@ describe("buildAnalisisPrompt", () => {
     const prompt = buildAnalisisPrompt(input);
     expect(prompt).toContain("Budi Santoso");
     expect(prompt).toContain("Nilai akhir: 85");
-    expect(prompt).toContain("K1 (Operasi bilangan bulat) [Materi: Bilangan > Bilangan Bulat]: 4/5 benar (80%)");
+    expect(prompt).toContain("Operasi bilangan bulat [Materi: Bilangan > Bilangan Bulat]: 4/5 benar (80%)");
     expect(prompt).toContain("L1: 3/3 benar");
   });
 
-  it("menyertakan nama materi & sub materi di rincian tiap soal, bukan cuma kode kompetensi", () => {
+  it("menyertakan nama materi & sub materi di rincian tiap soal", () => {
     const prompt = buildAnalisisPrompt(input);
-    expect(prompt).toContain("[K1 - L3] [Bilangan > Bilangan Bulat]");
+    expect(prompt).toContain("[L3] [Bilangan > Bilangan Bulat]");
   });
 
   it("menyertakan jawaban siswa untuk SEMUA soal, dan kunci/pembahasan untuk soal yang salah", () => {
