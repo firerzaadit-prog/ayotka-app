@@ -66,9 +66,9 @@ export function SoalPgKategori({
       <div className="flex flex-col gap-3 sm:hidden">
         {statements.map((s) => (
           <div key={s.id} className="rounded-md border border-slate-200 p-3">
-            <p className="text-sm">
+            <div className="text-sm">
               <RichText text={s.teks} />
-            </p>
+            </div>
             {s.media && <img src={s.media} alt="" className="mt-2 max-w-full rounded-md border" />}
             <div className="mt-3 flex gap-2">
               {categories.map((c) => (

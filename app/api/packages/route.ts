@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { getOwnerScope } from "@/lib/packages/scope";
-import { packageCreateSchema, toNullableDate } from "@/lib/validations/question";
+import { packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
+import { urutanSeriBentrok } from "@/lib/exam/seri-mandiri";
 
 export async function GET() {
   let user;
@@ -53,12 +54,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const { blueprintId, visibilityMode, visibilitySchoolIds, bukaMulai, bukaSelesai, ...rest } = parsed.data;
+  const { blueprintId, visibilityMode, visibilitySchoolIds, bukaMulai, bukaSelesai, urutanSeri, ...rest } =
+    parsed.data;
 
   const bukaMulaiDate = toNullableDate(bukaMulai);
   const bukaSelesaiDate = toNullableDate(bukaSelesai);
   if (bukaMulaiDate && bukaSelesaiDate && bukaSelesaiDate <= bukaMulaiDate) {
     return NextResponse.json({ error: "Waktu selesai harus setelah waktu mulai." }, { status: 400 });
+  }
+
+  // Urutan seri cuma berlaku untuk kategori "mandiri" (permintaan user, 30
+  // Sep 2026) - diabaikan diam-diam untuk "nasional" (lihat lib/exam/seri-mandiri.ts).
+  const urutanSeriValue = (rest.kategori ?? "mandiri") === "nasional" ? null : (toNullableInt(urutanSeri) ?? null);
+  if (urutanSeriValue != null && (await urutanSeriBentrok(rest.subjectId, urutanSeriValue))) {
+    return NextResponse.json(
+      { error: `Urutan ${urutanSeriValue} sudah dipakai paket lain di mata pelajaran ini. Pakai angka lain.` },
+      { status: 409 },
+    );
   }
 
   // Distribusi lintas sekolah (visibility) cuma konsep milik paket pusat
@@ -82,6 +94,7 @@ export async function POST(request: Request) {
       blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
       bukaMulai: bukaMulaiDate ?? null,
       bukaSelesai: bukaSelesaiDate ?? null,
+      urutanSeri: urutanSeriValue,
       ...(visibilityCreate ? { visibility: visibilityCreate } : {}),
     },
   });

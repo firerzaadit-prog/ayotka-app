@@ -429,6 +429,15 @@ model Package {
   targetSiswa       TargetSiswa    @default(semua) @map("target_siswa")
   status            PackageStatus  @default(draft)
   publishedAt       DateTime?      @map("published_at")
+  /// Urutan paket dalam satu seri Try Out Mandiri berjalan harian (permintaan
+  /// user, 30 Sep 2026) - lingkup seri = (subjectId, kategori="mandiri").
+  /// Paket urutan ke-N baru terbuka setelah paket ke-(N-1) diselesaikan siswa
+  /// (1x attempt selesai/kedaluwarsa) DAN sudah lewat jam 06:00 WIB keesokan
+  /// harinya - lihat lib/exam/seri-mandiri.ts. Null (default) = paket berdiri
+  /// sendiri, tidak ikut aturan berantai ini sama sekali (bisa dikerjakan
+  /// kapan saja seperti sebelum fitur ini ada). Tidak berlaku untuk kategori
+  /// "nasional" (diabaikan di kode meski terisi).
+  urutanSeri        Int?           @map("urutan_seri")
 
   subject       Subject             @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   blueprint     Blueprint?          @relation(fields: [blueprintId], references: [id], onDelete: SetNull)

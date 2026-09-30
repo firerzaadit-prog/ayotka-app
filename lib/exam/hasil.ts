@@ -5,6 +5,7 @@ import { shuffleWithSeed } from "@/lib/exam/shuffle";
 import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
 import { aggregateMateriScores } from "@/lib/exam/materi-scores";
 import { buildRanking } from "@/lib/exam/ranking";
+import { firstFinishedAttempt } from "@/lib/exam/seri-mandiri";
 
 /**
  * Tiket 5.9: ID separuh disamarkan untuk watermark - cukup untuk dilacak
@@ -112,6 +113,18 @@ export async function buildHasil(attempt: Attempt) {
       ? await buildRanking(attempt.packageId, attempt.studentId)
       : null;
 
+  // Permintaan user (30 Sep 2026): Try Out Mandiri boleh diulang berkali-kali,
+  // tapi rapor PDF cuma untuk percobaan PERTAMA pada paket itu - percobaan
+  // berikutnya tetap tersimpan & tampil di riwayat/halaman ini (nilai, rincian
+  // jawaban, dst), cuma tombol unduh rapornya yang disembunyikan/ditolak.
+  // Ujian Terjadwal (assignmentId terisi) dan Try Out Nasional tidak kena
+  // aturan ini - lihat lib/exam/seri-mandiri.ts.
+  let bisaUnduhRapor = true;
+  if (attempt.assignmentId === null && pkg.kategori === "mandiri") {
+    const pertama = await firstFinishedAttempt(attempt.studentId, attempt.packageId);
+    bisaUnduhRapor = pertama == null || pertama.id === attempt.id;
+  }
+
   return {
     attempt: {
       id: attempt.id,
@@ -125,6 +138,7 @@ export async function buildHasil(attempt: Attempt) {
     siswa: { nama: student.nama, idSamar: maskIdentifier(student.nisn, attempt.id) },
     canShowPembahasan,
     isFreeTrial,
+    bisaUnduhRapor,
     ranking,
     perSoal,
     competencyScores: competencyScores.map((c) => ({

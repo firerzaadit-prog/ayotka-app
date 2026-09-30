@@ -59,3 +59,15 @@ export function tanggalWIB(date: Date = new Date()): string {
 export function startOfDayWIB(dateStr: string): Date {
   return fromZonedTime(`${dateStr}T00:00:00`, WIB_TIMEZONE);
 }
+
+/**
+ * Tanggal kalender WIB dari `date`, ditambah satu hari, jam 06:00 WIB -
+ * dipakai jeda "satu paket per hari" pada seri Try Out Mandiri berurutan
+ * (lib/exam/seri-mandiri.ts). WIB tidak kenal DST (lihat startOfDayWIB),
+ * jadi aman dihitung sebagai offset jam tetap (24 jam ke hari berikutnya +
+ * 6 jam) dari awal hari kalender `date`.
+ */
+export function besokJam6WIB(date: Date): Date {
+  const awalHariIni = startOfDayWIB(tanggalWIB(date));
+  return new Date(awalHariIni.getTime() + 30 * 60 * 60 * 1000);
+}

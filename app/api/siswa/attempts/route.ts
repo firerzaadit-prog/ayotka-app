@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
+import { statusSeriMandiri } from "@/lib/exam/seri-mandiri";
+import { formatWIB } from "@/lib/utils/datetime";
 import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
@@ -124,7 +126,7 @@ export async function POST(request: Request) {
   }
 
   let assignment = null as Awaited<ReturnType<typeof getActiveAssignmentsFor>>[number] | null;
-  let chosenPackage: { id: string; subjectId: string } | null = null;
+  let chosenPackage = null as Awaited<ReturnType<typeof getSelfSelectPackagesFor>>[number] | null;
 
   if (parsed.data.assignmentId) {
     const active = await getActiveAssignmentsFor(student);
@@ -161,6 +163,27 @@ export async function POST(request: Request) {
       return accessDeniedResponse(
         access,
         "Kamu belum memiliki akses try out untuk mata pelajaran ini. Beli paket untuk membuka akses.",
+      );
+    }
+
+    // Urutan seri Try Out Mandiri berjalan harian (permintaan user, 30 Sep
+    // 2026) - lihat lib/exam/seri-mandiri.ts. Paket dengan urutanSeri kosong
+    // tidak kena gerbang ini (statusSeriMandiri langsung {terkunci:false}).
+    const statusSeri = await statusSeriMandiri(
+      student.id,
+      chosenPackage,
+      options.filter((p) => p.subjectId === chosenPackage!.subjectId && p.kategori === "mandiri"),
+    );
+    if (statusSeri.terkunci) {
+      return NextResponse.json(
+        {
+          error:
+            statusSeri.alasan === "belum_giliran"
+              ? `Selesaikan dulu "${statusSeri.namaPaketSebelumnya}" sebelum mengerjakan paket ini.`
+              : `Paket ini baru bisa dikerjakan mulai ${formatWIB(statusSeri.bukaPada)}.`,
+          code: "PAKET_TERKUNCI",
+        },
+        { status: 409 },
       );
     }
   }

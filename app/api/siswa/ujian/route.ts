@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
+import { annotateSeriMandiri } from "@/lib/exam/seri-mandiri";
 import { getActiveEntitlement } from "@/lib/billing/entitlements";
 import { parsePlanFitur } from "@/lib/billing/plan-fitur";
 
@@ -41,6 +42,11 @@ export async function GET() {
     getActiveEntitlement(student.id),
   ]);
 
+  // Anotasi status kunci seri Try Out Mandiri (permintaan user, 30 Sep 2026) -
+  // lihat lib/exam/seri-mandiri.ts. Paket tanpa urutanSeri (mayoritas, & semua
+  // Nasional) langsung {terkunci:false} tanpa query tambahan.
+  const packagesBerseri = await annotateSeriMandiri(student.id, packages);
+
   let activePlan: { kode: string; nama: string; aiKuotaPerMapel: number; tryOutNasionalKuotaPerMapel: number } | null = null;
   if (activeEntitlement) {
     const plan = await prisma.plan.findUnique({ where: { id: activeEntitlement.entitlement.planId } });
@@ -66,7 +72,7 @@ export async function GET() {
     assignments,
     // Sertakan field "kategori" di packages supaya UI bisa memisahkan menu
     // "Try Out Nasional" dan "Try Out Mandiri" tanpa re-fetch tambahan.
-    packages: packages.map((p) => ({
+    packages: packagesBerseri.map((p) => ({
       id: p.id,
       nama: p.nama,
       jumlahSoal: p.jumlahSoal,
@@ -75,6 +81,7 @@ export async function GET() {
       bukaSelesai: p.bukaSelesai,
       bukaMulai: p.bukaMulai,
       subject: p.subject,
+      statusSeri: p.statusSeri,
     })),
     attempts: attempts.map((a) => ({
       id: a.id,

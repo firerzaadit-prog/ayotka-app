@@ -453,9 +453,9 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
           </label>
         </div>
 
-        <p className="mb-4 text-base">
+        <div className="mb-4 text-base">
           <RichText text={question.teks} />
-        </p>
+        </div>
         {question.media && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={question.media} alt="" className="mb-4 max-w-full rounded-lg border border-slate-200" />

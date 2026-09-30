@@ -52,6 +52,7 @@ type PackageDetail = {
   bolehDipilihSiswa: boolean;
   targetSiswa: "sekolah" | "mandiri" | "semua";
   kategori: "mandiri" | "nasional";
+  urutanSeri: number | null;
   bukaMulai: string | null;
   bukaSelesai: string | null;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
@@ -67,6 +68,7 @@ type EditForm = {
   jumlahSoal: string;
   bolehDipilihSiswa: boolean;
   kategori: "mandiri" | "nasional";
+  urutanSeri: string;
   bukaMulai: string;
   bukaSelesai: string;
   // Distribusi: dua target independen yang bisa aktif bersamaan
@@ -124,6 +126,7 @@ function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): Edit
     jumlahSoal: String(pkg.jumlahSoal),
     bolehDipilihSiswa: pkg.bolehDipilihSiswa,
     kategori: pkg.kategori,
+    urutanSeri: pkg.urutanSeri != null ? String(pkg.urutanSeri) : "",
     bukaMulai: toDatetimeLocalValue(pkg.bukaMulai),
     bukaSelesai: toDatetimeLocalValue(pkg.bukaSelesai),
     forSekolah: hasSekolah,
@@ -252,6 +255,7 @@ export function PackageDetail({
       jumlahSoal: editForm.jumlahSoal,
       bolehDipilihSiswa: editForm.bolehDipilihSiswa,
       kategori: editForm.kategori,
+      urutanSeri: editForm.urutanSeri,
       bukaMulai: editForm.bukaMulai,
       bukaSelesai: editForm.bukaSelesai,
       ...(visibilityEntries
@@ -341,6 +345,9 @@ export function PackageDetail({
           <h1 className="text-xl font-semibold text-slate-900">{pkg.nama}</h1>
           <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
           <Badge variant={KATEGORI_BADGE_VARIANT[pkg.kategori]}>{KATEGORI_LABEL[pkg.kategori]}</Badge>
+          {pkg.urutanSeri != null && (
+            <Badge variant="neutral">Urutan seri #{pkg.urutanSeri}</Badge>
+          )}
         </div>
         <p className="text-sm text-slate-500">
           {pkg.questions.length}/{pkg.jumlahSoal} soal
@@ -485,7 +492,7 @@ export function PackageDetail({
                   }}
                 >
                   <option value="mandiri">Try Out Mandiri (kapan saja, sepuasnya)</option>
-                  <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis AI otomatis)</option>
+                  <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis Learning Analytics otomatis)</option>
                 </select>
               </div>
 
@@ -511,6 +518,26 @@ export function PackageDetail({
                   </div>
                   <p className="col-span-2 text-xs text-slate-500">
                     Kosongkan berdua kalau paket ini selalu terbuka untuk siswa yang berhak melihatnya.
+                  </p>
+                </div>
+              )}
+
+              {editForm.bolehDipilihSiswa && editForm.kategori === "mandiri" && (
+                <div>
+                  <Label htmlFor="editPkgUrutanSeri">Urutan dalam seri (opsional)</Label>
+                  <Input
+                    id="editPkgUrutanSeri"
+                    type="number"
+                    min="1"
+                    placeholder="Kosongkan kalau paket ini berdiri sendiri"
+                    value={editForm.urutanSeri}
+                    onChange={(e) => setEditForm({ ...editForm, urutanSeri: e.target.value })}
+                    className="max-w-40"
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Isi untuk membuat rangkaian paket berurutan per mata pelajaran (Paket 1, 2, 3, ...) - siswa
+                    wajib menyelesaikan urutan sebelumnya dulu, dan paket berikutnya baru terbuka jam 06:00 WIB
+                    keesokan harinya. Kosongkan supaya paket ini bebas dikerjakan kapan saja seperti biasa.
                   </p>
                 </div>
               )}

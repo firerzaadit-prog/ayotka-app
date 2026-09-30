@@ -28,7 +28,6 @@ vi.mock("@google/genai", () => {
 
 const validPayload = {
   ringkasan: "Ringkasan.",
-  petaKompetensi: [{ kode: "K1", narasi: "narasi" }],
   levelKognitif: "narasi level",
   polaKesalahan: "narasi pola",
   rekomendasi: ["belajar lagi"],

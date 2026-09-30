@@ -67,9 +67,9 @@ export function RincianJawaban({
                 {(s.skor ?? 0) >= s.skorMaks ? "Benar" : "Salah"}
               </Badge>
             </div>
-            <p className="mb-2 text-sm">
+            <div className="mb-2 text-sm">
               <RichText text={s.teks} />
-            </p>
+            </div>
             {canShowPembahasan && s.options && s.options.length > 0 && (() => {
               const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
               const selectedId = jawaban?.option_id;
@@ -126,10 +126,10 @@ export function RincianJawaban({
               );
             })()}
             {canShowPembahasan && s.pembahasan && (
-              <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+              <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
                 <span className="font-medium">Pembahasan: </span>
                 <RichText text={s.pembahasan} />
-              </p>
+              </div>
             )}
           </Card>
         ))}

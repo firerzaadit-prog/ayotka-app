@@ -50,6 +50,7 @@ const emptyForm = {
   bolehDipilihSiswa: false,
   bukaMulai: "",
   bukaSelesai: "",
+  urutanSeri: "",
 };
 
 const STATUS_BADGE_VARIANT: Record<string, "neutral" | "success" | "warning"> = {
@@ -276,10 +277,10 @@ export function PackageList({ basePath }: { basePath: string }) {
                 }}
               >
                 <option value="mandiri">Try Out Mandiri (kapan saja, sepuasnya)</option>
-                <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis AI otomatis)</option>
+                <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis Learning Analytics otomatis)</option>
               </select>
               <p className="mt-1 text-xs text-slate-500">
-                Try Out Nasional otomatis menyertakan Analisis AI dan dihitung ke jatah Try Out
+                Try Out Nasional otomatis menyertakan Analisis Learning Analytics dan dihitung ke jatah Try Out
                 Nasional langganan siswa - pastikan isi jendela &quot;Buka mulai/selesai&quot; di bawah.
               </p>
             </div>
@@ -322,6 +323,25 @@ export function PackageList({ basePath }: { basePath: string }) {
                   Kosongkan berdua kalau paket ini selalu terbuka. Isi berdua untuk membatasi jendela
                   pengerjaan (mis. Try Out gelombang Januari dibuka 1 hari untuk serentak, atau
                   seminggu untuk siswa bebas memilih waktunya sendiri).
+                </p>
+              </div>
+            )}
+            {form.bolehDipilihSiswa && form.kategori === "mandiri" && (
+              <div>
+                <Label htmlFor="urutanSeri">Urutan dalam seri (opsional)</Label>
+                <Input
+                  id="urutanSeri"
+                  type="number"
+                  min="1"
+                  placeholder="Kosongkan kalau paket ini berdiri sendiri"
+                  value={form.urutanSeri}
+                  onChange={(e) => setForm({ ...form, urutanSeri: e.target.value })}
+                  className="max-w-40"
+                />
+                <p className="mt-1 text-xs text-slate-500">
+                  Isi untuk membuat rangkaian paket berurutan per mata pelajaran (Paket 1, 2, 3, ...) - siswa
+                  wajib menyelesaikan urutan sebelumnya dulu, dan paket berikutnya baru terbuka jam 06:00 WIB
+                  keesokan harinya. Kosongkan supaya paket ini bebas dikerjakan kapan saja seperti biasa.
                 </p>
               </div>
             )}

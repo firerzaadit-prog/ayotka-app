@@ -155,7 +155,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
       status: "error",
       error:
         user.role === "siswa"
-          ? "Analisis AI belum berhasil diproses. Silakan hubungi admin pusat untuk memprosesnya kembali."
+          ? "Analisis Learning Analytics belum berhasil diproses. Silakan hubungi admin pusat untuk memprosesnya kembali."
           : attempt.aiAnalysisLastError,
     });
   }

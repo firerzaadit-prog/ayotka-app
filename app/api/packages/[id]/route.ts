@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
-import { packageCreateSchema, toNullableDate } from "@/lib/validations/question";
+import { packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
+import { urutanSeriBentrok } from "@/lib/exam/seri-mandiri";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -58,8 +59,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const before = await prisma.package.findUnique({ where: { id } });
-  const { blueprintId, visibilityMode, visibilitySchoolIds, visibilityEntries, bukaMulai, bukaSelesai, ...rest } =
-    parsed.data;
+  const {
+    blueprintId,
+    visibilityMode,
+    visibilitySchoolIds,
+    visibilityEntries,
+    bukaMulai,
+    bukaSelesai,
+    urutanSeri,
+    ...rest
+  } = parsed.data;
 
   const bukaMulaiDate = toNullableDate(bukaMulai);
   const bukaSelesaiDate = toNullableDate(bukaSelesai);
@@ -70,6 +79,22 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   const effectiveBukaSelesai = bukaSelesaiDate !== undefined ? bukaSelesaiDate : (before?.bukaSelesai ?? null);
   if (effectiveBukaMulai && effectiveBukaSelesai && effectiveBukaSelesai <= effectiveBukaMulai) {
     return NextResponse.json({ error: "Waktu selesai harus setelah waktu mulai." }, { status: 400 });
+  }
+
+  // Urutan seri cuma berlaku untuk kategori "mandiri" (permintaan user, 30 Sep
+  // 2026) - kalau kategori (baru atau lama) "nasional", selalu dikosongkan
+  // meski tidak diminta, supaya tidak ada sisa urutan yang lupa dibersihkan
+  // saat kategori paket diganti. Lihat lib/exam/seri-mandiri.ts.
+  const effectiveKategori = rest.kategori !== undefined ? rest.kategori : before?.kategori;
+  const urutanSeriValue = effectiveKategori === "nasional" ? null : toNullableInt(urutanSeri);
+  if (urutanSeriValue != null) {
+    const effectiveSubjectId = rest.subjectId !== undefined ? rest.subjectId : before?.subjectId;
+    if (effectiveSubjectId && (await urutanSeriBentrok(effectiveSubjectId, urutanSeriValue, id))) {
+      return NextResponse.json(
+        { error: `Urutan ${urutanSeriValue} sudah dipakai paket lain di mata pelajaran ini. Pakai angka lain.` },
+        { status: 409 },
+      );
+    }
   }
 
   // Distribusi lintas sekolah (visibility) cuma konsep milik paket pusat
@@ -112,6 +137,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
         : {}),
       ...(bukaMulaiDate !== undefined ? { bukaMulai: bukaMulaiDate } : {}),
       ...(bukaSelesaiDate !== undefined ? { bukaSelesai: bukaSelesaiDate } : {}),
+      ...(urutanSeriValue !== undefined ? { urutanSeri: urutanSeriValue } : {}),
       ...(visibilityUpdate ? { visibility: visibilityUpdate } : {}),
     },
   });

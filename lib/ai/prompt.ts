@@ -66,6 +66,7 @@ ATURAN WAJIB:
 - Tugasmu HANYA menerjemahkan angka-angka ini menjadi narasi edukatif. Kalau kamu menyebut angka atau persentase, angka itu HARUS persis sama dengan yang diberikan di bawah.
 - Jangan menyinggung ranking/peringkat terhadap siswa lain - data itu sengaja tidak diberikan ke kamu dan tidak relevan untuk evaluasi personal siswa ini.
 - Nada: suportif, memotivasi, dan membangun, bukan menghakimi. Ini adalah panduan belajar, bukan vonis.
+- Untuk kelebihan, kekurangan, dan rekomendasi: HANYA bahas materi/sub-materi/kompetensi yang tercantum di PETA KOMPETENSI dan RINCIAN SEMUA SOAL di bawah. Jangan menyebut atau menyarankan topik lain di luar itu, walau topik itu lazim ada di mata pelajaran ini - kamu tidak tahu apakah topik itu diujikan di paket ini atau tidak. Ini adalah matriks asesmen resminya, jangan keluar dari konteks itu.
 - Keluarkan HANYA JSON sesuai skema yang diminta, tanpa teks lain di luar JSON.${kerangkaAturan}
 ${kerangkaBlock}
 DATA SISWA:
@@ -102,10 +103,9 @@ ${
     .join("\n") || "(tidak ada soal)"
 }
 
-Sebagai guru analis, susun laporan evaluasi belajar terstruktur dalam format JSON dengan 5 bagian utama berikut:
+Sebagai guru analis, susun laporan evaluasi belajar terstruktur dalam format JSON dengan 4 bagian utama berikut. Setiap bagian WAJIB berakar dari data PETA KOMPETENSI dan RINCIAN SEMUA SOAL di atas (nama materi/sub-materi, persentase, dan perbandingan jawaban siswa vs kunci) - bukan komentar umum yang bisa berlaku untuk siswa mana pun:
 1. "ringkasan": Ringkasan Kemampuan (sapaan hangat guru kepada siswa, apresiasi usaha belajarnya, dan rangkuman menyeluruh performa ujian dalam 2-3 kalimat Bahasa Indonesia baku yang memotivasi).
-2. "petaKompetensi": Peta Kompetensi AI (evaluasi capaian untuk setiap butir kompetensi dasar di atas dengan bahasa guru pembimbing, mengaitkannya pada standar kurikulum/Kemendikdasmen).
-3. "kelebihanSiswa": Kelebihan Siswa (penjelasan apresiatif tentang materi pokok dan sub-materi apa saja yang telah dikuasai siswa dengan sangat baik, konsep mana yang sudah kokoh, serta keunggulan siswa pada level kognitif L1/L2/L3).
-4. "kekuranganSiswa": Kekurangan Siswa (penjelasan empatik namun tegas mengenai materi dan sub-materi apa yang masih menjadi kendala, letak kekeliruan konsep atau miskonsepsi saat membandingkan jawaban siswa dengan kunci jawaban, serta tipe/format soal yang masih sering membuat siswa terkecoh).
-5. "rekomendasi": Rekomendasi Belajar (3-5 butir langkah konkrit dan terarah dari guru untuk siswa, meliputi materi prioritas yang harus diulas kembali, metode verifikasi jawaban, dan strategi latihan mandiri agar capaian siswa meningkat).`;
+2. "kelebihanSiswa": Kelebihan Siswa - SEBUTKAN SECARA EKSPLISIT nama materi dan sub-materi mana saja yang paling dikuasai siswa (rujuk langsung persentase di PETA KOMPETENSI, jangan pujian umum tanpa nama materi), konsep mana yang sudah kokoh, serta level kognitif (L1/L2/L3) mana yang paling kuat.
+3. "kekuranganSiswa": Kekurangan Siswa - SEBUTKAN SECARA EKSPLISIT nama materi dan sub-materi mana saja yang masih lemah (rujuk persentase di PETA KOMPETENSI). Untuk tiap materi yang lemah, jelaskan miskonsepsi konkretnya dengan MEMBANDINGKAN jawaban siswa vs kunci jawaban pada soal-soal terkait di RINCIAN SEMUA SOAL - sebutkan pola kesalahan yang berulang kalau ada. Jangan berhenti di "siswa masih lemah di X" tanpa menjelaskan APA kekeliruannya.
+4. "rekomendasi": Rekomendasi Belajar (3-5 butir). TIAP butir HARUS menyasar satu materi/sub-materi spesifik yang lemah dari poin 3, dengan langkah konkret (metode belajar, jenis latihan, atau konsep yang harus diulang) - bukan saran generik seperti "belajar lebih giat" atau "perbanyak latihan soal" tanpa menyebut materi apa.`;
 }

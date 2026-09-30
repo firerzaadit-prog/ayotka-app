@@ -30,6 +30,11 @@ export const packageCreateSchema = z.object({
   // (bukan lewat menu Grup Try Out terpisah yang sudah dihapus) - cukup
   // pilih kategori "nasional" & atur jendela bukaMulai/bukaSelesai di atas.
   kategori: z.enum(["mandiri", "nasional"]).optional(),
+  // Permintaan user (30 Sep 2026): urutan paket dalam seri Try Out Mandiri
+  // berjalan harian (lihat lib/exam/seri-mandiri.ts) - "" berarti paket ini
+  // dikeluarkan dari seri (berdiri sendiri, bebas kapan saja). Hanya berlaku
+  // kalau kategori "mandiri"; diabaikan di rute API kalau kategori "nasional".
+  urutanSeri: z.union([z.coerce.number().int().positive(), z.literal("")]).optional(),
 });
 export type PackageCreateInput = z.infer<typeof packageCreateSchema>;
 
@@ -38,6 +43,13 @@ export function toNullableDate(value: string | undefined): Date | null | undefin
   if (value === undefined) return undefined;
   if (value === "") return null;
   return new Date(value);
+}
+
+/** "" -> null (keluar dari seri), undefined -> undefined (field tidak dikirim, jangan diubah), angka -> angka. */
+export function toNullableInt(value: number | "" | undefined): number | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === "") return null;
+  return value;
 }
 
 const optionSchema = z.object({

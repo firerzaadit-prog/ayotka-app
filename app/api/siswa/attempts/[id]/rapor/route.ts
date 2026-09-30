@@ -44,6 +44,20 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const hasil = await buildHasil(attempt);
 
+  // Permintaan user (30 Sep 2026): rapor PDF Try Out Mandiri cuma untuk
+  // percobaan pertama pada paket itu - lihat lib/exam/hasil.ts (bisaUnduhRapor).
+  // Berlaku untuk siapa pun yang membuka route ini (siswa sendiri, admin
+  // sekolah, admin pusat), bukan gerbang per-role.
+  if (!hasil.bisaUnduhRapor) {
+    return NextResponse.json(
+      {
+        error:
+          "Rapor PDF hanya tersedia untuk percobaan pertama pada paket Try Out Mandiri ini. Nilai percobaan ini tetap tersimpan dan bisa dilihat di riwayat.",
+      },
+      { status: 409 },
+    );
+  }
+
   // Bagian 8/10: sinkron dengan halaman hasil web (app/siswa/(shell)/hasil/[id]/page.tsx)
   // yang menyembunyikan Analisis AI di balik teaser untuk free trial - PDF ini
   // dulu mengambil aiAnalysis TANPA gerbang ini, jadi siswa free trial yang

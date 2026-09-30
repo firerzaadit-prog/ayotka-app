@@ -72,7 +72,7 @@ export function Analitik() {
             </div>
 
             <div className="px-6 py-5">
-              <h3 className="mb-3 text-base font-semibold text-slate-900">Analisis AI</h3>
+              <h3 className="mb-3 text-base font-semibold text-slate-900">Analisis Learning Analytics</h3>
               <div className="flex flex-col gap-3 text-sm">
                 <div>
                   <p className="mb-1 text-xs font-medium text-slate-500">Ringkasan Kemampuan</p>

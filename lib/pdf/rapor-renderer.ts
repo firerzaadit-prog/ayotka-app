@@ -8,6 +8,7 @@ import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color
 type Hasil = Awaited<ReturnType<typeof buildHasil>>;
 type AiAnalysisDetail = {
   ringkasan?: string;
+  /** Field lama (sebelum 2026-09-v7), tidak lagi ditampilkan - lihat lib/ai/version.ts. */
   petaKompetensi?: { kode: string; narasi: string }[];
   kelebihanSiswa?: string;
   kekuranganSiswa?: string;
@@ -442,12 +443,12 @@ export async function renderRaporPdf(
     doc.moveDown(0.6);
   }
 
-  // --- ANALISIS AI ---
+  // --- ANALISIS LEARNING ANALYTICS ---
   const analysis = aiAnalysis?.detailJson ?? null;
   if (analysis) {
     if (doc.y > doc.page.height - 220) doc.addPage();
 
-    doc.fontSize(fonts.sz(14)).font(fonts.bold).fillColor(COLOR.ink).text("Analisis AI", 48, doc.y);
+    doc.fontSize(fonts.sz(14)).font(fonts.bold).fillColor(COLOR.ink).text("Analisis Learning Analytics", 48, doc.y);
     doc.font(fonts.regular);
     doc.moveDown(0.4);
 
@@ -461,18 +462,6 @@ export async function renderRaporPdf(
       align: "justify",
     });
     doc.moveDown(0.7);
-
-    if (analysis.petaKompetensi && analysis.petaKompetensi.length > 0) {
-      doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Peta Kompetensi AI");
-      doc.font(fonts.regular);
-      doc.moveDown(0.2);
-      for (const k of analysis.petaKompetensi) {
-        doc.fontSize(fonts.sz(9.5)).fillColor(COLOR.ink).font(fonts.bold)
-          .text(`${k.kode}  `, { continued: true, width: contentWidth });
-        doc.font(fonts.regular).fillColor(COLOR.body).text(k.narasi, { width: contentWidth });
-      }
-      doc.moveDown(0.7);
-    }
 
     const kelebihan = analysis.kelebihanSiswa || analysis.levelKognitif;
     if (kelebihan) {

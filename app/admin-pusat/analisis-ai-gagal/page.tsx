@@ -124,7 +124,7 @@ export default function AnalisisAiGagalPage() {
       toast.success(
         data.mode === "antrean"
           ? "Mode antrean diaktifkan - pastikan cron per menit & CRON_SECRET sudah aktif."
-          : "Mode langsung diaktifkan - Analisis AI diproses begitu ujian selesai.",
+          : "Mode langsung diaktifkan - Analisis Learning Analytics diproses begitu ujian selesai.",
       );
     } else {
       toast.error(data?.error ?? "Gagal mengubah mode.");
@@ -147,14 +147,14 @@ export default function AnalisisAiGagalPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Daftar Analisis AI Gagal"
-        description="Attempt yang analisis AI-nya gagal diproses, lintas semua sekolah. Klik Analisis ulang untuk memproses ulang - tombol ini tidak dibatasi jatah."
+        title="Daftar Analisis Learning Analytics Gagal"
+        description="Attempt yang Analisis Learning Analytics-nya gagal diproses, lintas semua sekolah. Klik Analisis ulang untuk memproses ulang - tombol ini tidak dibatasi jatah."
       />
 
       {mode && (
         <Card className="flex flex-col gap-3">
           <div>
-            <p className="text-sm font-semibold text-slate-900">Cara Memproses Analisis AI Otomatis</p>
+            <p className="text-sm font-semibold text-slate-900">Cara Memproses Analisis Learning Analytics Otomatis</p>
             <p className="mt-0.5 max-w-2xl text-sm text-slate-500">
               Menentukan kapan Gemini dipanggil setelah siswa selesai ujian.
             </p>
@@ -215,7 +215,7 @@ export default function AnalisisAiGagalPage() {
 
       <Card className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-slate-900">Jatah Analisis AI Otomatis</p>
+          <p className="text-sm font-semibold text-slate-900">Jatah Analisis Learning Analytics Otomatis</p>
           <p className="mt-0.5 max-w-xl text-sm text-slate-500">
             Maksimal berapa kali analisis AI OTOMATIS boleh berjalan untuk satu siswa per mata
             pelajaran (berapa pun attempt yang dikerjakan), supaya biaya AI terkendali. Satu angka

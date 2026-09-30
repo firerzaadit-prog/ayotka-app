@@ -11,7 +11,7 @@ const QUICK_LINKS = [
     href: "/siswa/ujian?kategori=nasional",
     id: "link-tryout-nasional",
     title: "Try Out Nasional",
-    description: "Try Out resmi terjadwal bersama siswa se-Indonesia. Analisis AI Learning Analytics otomatis termasuk.",
+    description: "Try Out resmi terjadwal bersama siswa se-Indonesia. Analisis Learning Analytics otomatis termasuk.",
     badge: "Terjadwal",
     badgeColor: "bg-violet-100 text-violet-700",
     iconColor: "bg-violet-50 text-violet-600",

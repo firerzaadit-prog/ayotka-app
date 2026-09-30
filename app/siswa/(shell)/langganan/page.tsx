@@ -223,7 +223,7 @@ export default function LanggananSiswaPage() {
                           </li>
                           <li className="flex items-start gap-2">
                             <span className="text-indigo-600 font-bold">✦</span>
-                            <span>Plus 1x Analisis AI per mapel untuk TO Mandiri</span>
+                            <span>Plus 1x Analisis Learning Analytics per mapel untuk TO Mandiri</span>
                           </li>
                         </>
                       ) : (

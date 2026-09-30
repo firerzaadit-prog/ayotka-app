@@ -245,7 +245,7 @@ export function Harga() {
                   </li>
                   <li className="flex items-start gap-2 font-medium text-slate-900">
                     <Check className="h-4 w-4 shrink-0 text-emerald-600 font-bold" />
-                    <span><strong>3x Try Out Nasional</strong> per mapel + Analisis AI</span>
+                    <span><strong>3x Try Out Nasional</strong> per mapel + Analisis Learning Analytics</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="h-4 w-4 shrink-0 text-emerald-600 font-bold" />
@@ -343,7 +343,7 @@ export function Harga() {
                     <td className="px-6 py-3.5 font-medium text-slate-900">
                       <span className="flex items-center gap-1.5">
                         <Bot className="h-4 w-4 text-indigo-600" />
-                        <strong>Analisis AI di Try Out Nasional</strong>
+                        <strong>Analisis Learning Analytics di Try Out Nasional</strong>
                       </span>
                     </td>
                     <td className="px-6 py-3.5 text-center text-slate-400 font-normal">—</td>

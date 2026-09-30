@@ -133,10 +133,13 @@ export function RiwayatSiswaView({
                         )}
                       </div>
                     </div>
-                    {a.status === "selesai" && (
+                    {a.status === "selesai" && hasilByAttempt.get(a.id)?.bisaUnduhRapor !== false && (
                       <a href={`/api/siswa/attempts/${a.id}/rapor`} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
                         Unduh Rapor (PDF) →
                       </a>
+                    )}
+                    {a.status === "selesai" && hasilByAttempt.get(a.id)?.bisaUnduhRapor === false && (
+                      <span className="text-xs text-slate-400">Rapor PDF hanya untuk percobaan pertama paket ini</span>
                     )}
                   </div>
 

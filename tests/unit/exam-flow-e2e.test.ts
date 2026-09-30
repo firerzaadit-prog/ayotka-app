@@ -168,12 +168,9 @@ describe("Alur Pengerjaan, Skoring, Peta Kompetensi, dan Analisis AI Ujian Siswa
       expect(prompt).toContain("Samakan penyebut menjadi 4");
     });
 
-    it("memvalidasi schema output AI (ringkasan, petaKompetensi, kelebihanSiswa, kekuranganSiswa, rekomendasi)", () => {
+    it("memvalidasi schema output AI (ringkasan, kelebihanSiswa, kekuranganSiswa, rekomendasi)", () => {
       const sampleAiResponse = {
         ringkasan: "Siswa telah memahami konsep dasar operasi pecahan namun perlu cermat dalam menyamakan penyebut.",
-        petaKompetensi: [
-          { kode: "MAT.01", narasi: "Penguasaan pecahan sudah mencapai 75%." },
-        ],
         kelebihanSiswa: "Level penerapan (L2) cukup baik dengan ketepatan 75%, pemahaman rumus sangat kokoh.",
         kekuranganSiswa: "Siswa cenderung terburu-buru saat menyamakan penyebut pada pecahan berbeda.",
         rekomendasi: [
@@ -186,8 +183,6 @@ describe("Alur Pengerjaan, Skoring, Peta Kompetensi, dan Analisis AI Ujian Siswa
       expect(parsed.success).toBe(true);
       if (parsed.success) {
         expect(parsed.data.ringkasan).toBeDefined();
-        expect(parsed.data.petaKompetensi).toHaveLength(1);
-        expect(parsed.data.petaKompetensi[0]!.kode).toBe("MAT.01");
         expect(parsed.data.kelebihanSiswa).toContain("Level penerapan");
         expect(parsed.data.kekuranganSiswa).toContain("terburu-buru");
         expect(parsed.data.rekomendasi).toHaveLength(2);

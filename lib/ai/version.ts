@@ -16,5 +16,12 @@
  * Peta Kompetensi AI, Kelebihan Siswa, Kekurangan Siswa, Rekomendasi Belajar.
  * 2026-09-v6: persona guru analis pendidikan dengan Bahasa Indonesia baku santun
  * yang berbicara langsung kepada siswa.
+ * 2026-09-v7 (permintaan user): field output "petaKompetensi" (Peta Kompetensi AI,
+ * narasi per kode kompetensi) dihapus - dianggap redundan dengan Peta Kompetensi
+ * (bar chart per materi) yang sudah dihitung program, bukan AI. Struktur output
+ * sekarang 4 bagian: Ringkasan, Kelebihan Siswa, Kekurangan Siswa, Rekomendasi -
+ * ketiga bagian terakhir WAJIB menyebut nama materi/sub-materi spesifik (bukan
+ * generik) dan dibatasi ketat ke materi yang benar-benar ada di matriks asesmen
+ * paket ini (tidak boleh menyinggung topik di luar itu).
  */
-export const PROMPT_VERSION = "2026-09-v6";
+export const PROMPT_VERSION = "2026-09-v7";

@@ -13,9 +13,6 @@ import { z } from "zod";
 export const analisisSchema = z
   .object({
     ringkasan: z.string().min(1),
-    petaKompetensi: z
-      .array(z.object({ kode: z.string().min(1), narasi: z.string().min(1) }))
-      .min(1),
     kelebihanSiswa: z.string().min(1).optional(),
     kekuranganSiswa: z.string().min(1).optional(),
     levelKognitif: z.string().min(1).optional(),
@@ -39,30 +36,22 @@ export const geminiResponseSchema: Schema = {
   type: Type.OBJECT,
   properties: {
     ringkasan: { type: Type.STRING, description: "Ringkasan performa dan kemampuan siswa secara umum (2-3 kalimat)" },
-    petaKompetensi: {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          kode: { type: Type.STRING },
-          narasi: { type: Type.STRING, description: "Narasi singkat capaian untuk kompetensi ini, jangan mengarang angka baru" },
-        },
-        required: ["kode", "narasi"],
-      },
-    },
     kelebihanSiswa: {
       type: Type.STRING,
-      description: "Penjelasan kelebihan, kekuatan konsep, serta materi dan level kognitif yang paling dikuasai siswa dengan baik",
+      description:
+        "Kelebihan siswa, WAJIB menyebut nama materi/sub-materi spesifik yang paling dikuasai (bukan pujian umum), serta level kognitif yang paling kuat. Hanya materi yang ada di data yang diberikan.",
     },
     kekuranganSiswa: {
       type: Type.STRING,
-      description: "Penjelasan kekurangan, materi yang belum dikuasai, konsep/tipe soal yang masih keliru, serta pola miskonsepsi siswa",
+      description:
+        "Kekurangan siswa, WAJIB menyebut nama materi/sub-materi spesifik yang masih lemah beserta miskonsepsi konkretnya (bandingkan jawaban siswa vs kunci pada soal terkait). Hanya materi yang ada di data yang diberikan.",
     },
     rekomendasi: {
       type: Type.ARRAY,
       items: { type: Type.STRING },
-      description: "3-5 rekomendasi belajar terarah dan sub materi prioritas untuk dipelajari ulang, disertai alasan singkat",
+      description:
+        "3-5 rekomendasi belajar, TIAP butir menyasar satu materi/sub-materi lemah yang spesifik (bukan saran generik), dengan langkah konkret",
     },
   },
-  required: ["ringkasan", "petaKompetensi", "kelebihanSiswa", "kekuranganSiswa", "rekomendasi"],
+  required: ["ringkasan", "kelebihanSiswa", "kekuranganSiswa", "rekomendasi"],
 };

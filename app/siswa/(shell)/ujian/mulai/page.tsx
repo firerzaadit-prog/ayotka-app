@@ -185,7 +185,7 @@ function InstruksiContent() {
               AI
             </span>
             <div className="flex flex-col text-xs">
-              <span className="font-bold text-violet-950">Analisis AI Learning Analytics Termasuk</span>
+              <span className="font-bold text-violet-950">Analisis Learning Analytics Termasuk</span>
               <span className="text-slate-600 mt-0.5">
                 Try Out Nasional otomatis mencakup analisis mendalam capaian kompetensi, rekomendasi materi, dan perankingan serentak nasional.
               </span>
@@ -197,7 +197,7 @@ function InstruksiContent() {
       ) : entitled === false ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
           <div className="flex flex-col text-xs">
-            <span className="font-bold text-slate-900">Analisis AI (Learning Analytics) belum tersedia</span>
+            <span className="font-bold text-slate-900">Analisis Learning Analytics belum tersedia</span>
             <span className="text-slate-600 mt-1 leading-relaxed">
               Kamu masih pakai jatah try out gratis, jadi sesi ini cuma dapat skor dan peta kompetensi dasar.
               Berlangganan paket dulu untuk membuka laporan mendalam capaian kompetensi per subtopik &amp;
@@ -219,7 +219,7 @@ function InstruksiContent() {
             />
             <div className="flex flex-col text-xs">
               <span className="font-bold text-slate-900">
-                Gunakan Analisis AI (Learning Analytics) untuk sesi ini
+                Gunakan Analisis Learning Analytics untuk sesi ini
               </span>
               <span className="text-slate-600 mt-1 leading-relaxed">
                 Mendapatkan laporan mendalam capaian kompetensi per subtopik &amp; rekomendasi AI.

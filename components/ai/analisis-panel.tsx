@@ -7,7 +7,9 @@ import { Alert } from "@/components/ui/alert";
 
 type AnalisisAi = {
   ringkasan: string;
-  petaKompetensi: { kode: string; narasi: string }[];
+  /** Field lama (sebelum 2026-09-v7) - dibiarkan opsional supaya hasil analisis
+   * lama yang tersimpan masih valid dibaca, tapi tidak lagi ditampilkan. */
+  petaKompetensi?: { kode: string; narasi: string }[];
   kelebihanSiswa?: string;
   kekuranganSiswa?: string;
   levelKognitif?: string;
@@ -146,10 +148,10 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
   return (
     <Card>
       <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">Analisis AI</h3>
+        <h3 className="text-sm font-semibold text-slate-900">Analisis Learning Analytics</h3>
         {canTrigger && (data.status === "none" || data.status === "error") && (
           <Button onClick={handleTrigger} className="px-3 py-1.5 text-xs">
-            Mulai Analisis AI
+            Mulai Analisis
           </Button>
         )}
         {canTrigger && data.status === "ready" && (
@@ -166,7 +168,7 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
         <p className="text-sm text-slate-500">
           {canTrigger
             ? "Belum dianalisis - klik tombol untuk mulai."
-            : "Analisis AI belum dilakukan oleh admin pusat."}
+            : "Analisis Learning Analytics belum dilakukan oleh admin pusat."}
         </p>
       )}
       {data.status === "queued" && (
@@ -203,7 +205,7 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
         <Alert variant="danger">
           {canTrigger
             ? data.error
-            : "Analisis AI belum berhasil diproses. Silakan hubungi admin pusat untuk memprosesnya kembali."}
+            : "Analisis Learning Analytics belum berhasil diproses. Silakan hubungi admin pusat untuk memprosesnya kembali."}
         </Alert>
       )}
       {data.status === "ready" && (
@@ -222,17 +224,6 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
           <div>
             <p className="mb-1 text-xs font-medium text-slate-500">Ringkasan Kemampuan</p>
             <p className="text-slate-700">{data.analysis.ringkasan}</p>
-          </div>
-
-          <div>
-            <p className="mb-1 text-xs font-medium text-slate-500">Peta Kompetensi AI</p>
-            <ul className="flex flex-col gap-1">
-              {data.analysis.petaKompetensi.map((k) => (
-                <li key={k.kode} className="text-slate-600">
-                  <span className="font-mono text-xs">{k.kode}</span> — {k.narasi}
-                </li>
-              ))}
-            </ul>
           </div>
 
           {(data.analysis.kelebihanSiswa || data.analysis.levelKognitif) && (
@@ -259,7 +250,7 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
           </div>
 
           <p className="text-xs italic text-slate-400">
-            Analisis ini dibuat otomatis oleh AI sebagai alat bantu belajar, bukan penilaian final.
+            Analisis Learning Analytics ini dibuat otomatis oleh AI sebagai alat bantu belajar, bukan penilaian final.
           </p>
         </div>
       )}

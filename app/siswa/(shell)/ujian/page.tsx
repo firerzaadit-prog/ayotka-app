@@ -16,6 +16,11 @@ type KategoriTO = "nasional" | "mandiri";
 
 type SubjectInfo = { id: string; nama: string; jenjang?: string };
 
+type StatusSeri =
+  | { terkunci: false }
+  | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string }
+  | { terkunci: true; alasan: "menunggu_besok"; bukaPada: string };
+
 type PackageItem = {
   id: string;
   nama: string;
@@ -25,6 +30,7 @@ type PackageItem = {
   bukaMulai: string | null;
   bukaSelesai: string | null;
   subject: SubjectInfo;
+  statusSeri: StatusSeri;
 };
 
 type AssignmentItem = {
@@ -207,7 +213,7 @@ function UjianContent() {
         title={isNasional ? "Try Out Nasional" : "Try Out Mandiri"}
         description={
           isNasional
-            ? "Try Out terjadwal resmi berskala nasional dengan sistem penilaian terstandar dan Analisis AI Learning Analytics."
+            ? "Try Out terjadwal resmi berskala nasional dengan sistem penilaian terstandar dan Analisis Learning Analytics."
             : "Latihan try out fleksibel kapan saja untuk mengasah pemahaman materi dan kesiapan ujianmu."
         }
       />
@@ -299,7 +305,7 @@ function UjianContent() {
               </span>
             </div>
             <p className="mt-0.5 text-xs text-slate-500">
-              Serentak terjadwal se-Indonesia · Analisis AI otomatis
+              Serentak terjadwal se-Indonesia · Analisis Learning Analytics otomatis
             </p>
           </div>
         </button>
@@ -363,7 +369,7 @@ function UjianContent() {
                 <h3 className="text-sm font-bold text-violet-950">Jadwal &amp; Ketentuan Try Out Nasional</h3>
                 <p className="mt-0.5 text-xs text-slate-600">
                   Try Out Nasional diselenggarakan resmi oleh AyoTKA. Soal diacak secara otomatis dari paket bank soal
-                  resmi dan langsung mendapatkan <span className="font-semibold text-violet-800">Analisis AI Learning Analytics</span> mendalam.
+                  resmi dan langsung mendapatkan <span className="font-semibold text-violet-800">Analisis Learning Analytics</span> mendalam.
                 </p>
               </div>
             </div>
@@ -470,9 +476,15 @@ function UjianContent() {
           <div className="flex flex-col gap-2.5">
             {filteredPackages.map((p) => {
               const attempt = attemptFor(null, p.id);
+              const sedangBerjalan = attempt?.status === "berjalan" || attempt?.status === "paused";
+              const sudahSelesai = attempt?.status === "selesai" || attempt?.status === "kedaluwarsa";
               const jadwal = getJadwalStatus(p.bukaMulai, p.bukaSelesai);
               const label = actionLabel(attempt);
-              const disabled = !attempt && !jadwal.canStart;
+              // Kalau sudah pernah ada attempt (berjalan atau selesai), paket ini
+              // sudah pasti pernah/sedang terbuka - statusSeri.terkunci tidak
+              // pernah balik jadi true lagi setelah pernah terbuka sekali, tapi
+              // dicek eksplisit di sini supaya tidak tergantung asumsi itu.
+              const disabled = !sedangBerjalan && !sudahSelesai && (!jadwal.canStart || p.statusSeri.terkunci);
 
               return (
                 <Card
@@ -509,17 +521,37 @@ function UjianContent() {
                           </span>
                         </div>
                       )}
+
+                      {/* Seri Try Out Mandiri berjalan harian: kunci selama belum giliran */}
+                      {p.statusSeri.terkunci && (
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                          <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            {p.statusSeri.alasan === "belum_giliran"
+                              ? `Selesaikan dulu "${p.statusSeri.namaPaketSebelumnya}"`
+                              : `Terbuka ${formatWIB(p.statusSeri.bukaPada)}`}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 sm:self-center">
+                  <div className="flex flex-col items-end gap-1.5 sm:flex-row sm:items-center sm:gap-3 sm:self-center">
+                    {p.kategori === "mandiri" && sudahSelesai && (
+                      <Link
+                        href={`/siswa/ujian/mulai?packageId=${p.id}`}
+                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+                      >
+                        Kerjakan lagi
+                      </Link>
+                    )}
                     {disabled ? (
                       <button
                         type="button"
                         disabled
                         className="w-full rounded-xl bg-slate-100 px-4 py-2 text-center text-sm font-semibold text-slate-400 sm:w-auto"
                       >
-                        Belum Dibuka
+                        {p.statusSeri.terkunci ? "Terkunci" : "Belum Dibuka"}
                       </button>
                     ) : (
                       <Link

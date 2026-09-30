@@ -140,7 +140,7 @@ export default function JadwalUjianDetailPage({ params }: { params: Promise<{ id
                             onClick={() => setExpandedId(expandedId === a.id ? null : a.id)}
                             className="text-sm font-medium text-slate-600 hover:underline"
                           >
-                            Analisis AI
+                            Analisis Learning Analytics
                           </button>
                         </span>
                       )}

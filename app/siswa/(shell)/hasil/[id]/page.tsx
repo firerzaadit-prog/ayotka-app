@@ -24,6 +24,7 @@ type Hasil = {
   siswa: { nama: string; idSamar: string };
   canShowPembahasan: boolean;
   isFreeTrial: boolean;
+  bisaUnduhRapor: boolean;
   ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
   materiScores: { materiNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
@@ -98,11 +99,20 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         title={hasil.package.nama}
         description={hasil.attempt.status === "kedaluwarsa" ? "Waktu habis — disubmit otomatis." : "Selesai."}
         action={
-          <a href={`/api/siswa/attempts/${id}/rapor`} className={buttonClassName("secondary")}>
-            Unduh Rapor (PDF)
-          </a>
+          hasil.bisaUnduhRapor ? (
+            <a href={`/api/siswa/attempts/${id}/rapor`} className={buttonClassName("secondary")}>
+              Unduh Rapor (PDF)
+            </a>
+          ) : undefined
         }
       />
+
+      {!hasil.bisaUnduhRapor && (
+        <p className="-mt-4 text-xs text-slate-500">
+          Rapor PDF hanya tersedia untuk percobaan pertama pada paket ini. Nilai percobaan ini tetap tersimpan di
+          riwayat.
+        </p>
+      )}
 
       <Card className="text-center">
         <p className="text-sm text-slate-500">Nilai</p>

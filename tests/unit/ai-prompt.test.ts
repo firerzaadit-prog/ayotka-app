@@ -79,6 +79,18 @@ describe("buildAnalisisPrompt", () => {
     expect(prompt.toLowerCase()).toContain("ranking");
   });
 
+  it("tidak lagi meminta field petaKompetensi (dihapus 2026-09-v7)", () => {
+    const prompt = buildAnalisisPrompt(input);
+    expect(prompt).not.toContain("petaKompetensi");
+    expect(prompt).not.toContain("Peta Kompetensi AI");
+  });
+
+  it("mewajibkan kelebihan/kekurangan/rekomendasi menyebut materi spesifik & dibatasi ke matriks asesmen", () => {
+    const prompt = buildAnalisisPrompt(input);
+    expect(prompt).toContain("SEBUTKAN SECARA EKSPLISIT nama materi");
+    expect(prompt.toLowerCase()).toContain("jangan menyebut atau menyarankan topik lain di luar itu");
+  });
+
   it("tetap menghasilkan prompt valid walau tidak ada data kompetensi", () => {
     const prompt = buildAnalisisPrompt({ ...input, kompetensi: [], levelKognitif: [], format: [] });
     expect(prompt).toContain("(tidak ada data)");
@@ -99,13 +111,12 @@ describe("buildAnalisisPrompt", () => {
 describe("analisisSchema", () => {
   const valid = {
     ringkasan: "Kamu sudah cukup baik di sebagian besar kompetensi.",
-    petaKompetensi: [{ kode: "K1", narasi: "Sudah kuat di operasi bilangan bulat." }],
     levelKognitif: "Kuat di L1-L2, masih perlu latihan di L3.",
     polaKesalahan: "Beberapa kesalahan pada soal cerita panjang.",
     rekomendasi: ["Latihan soal cerita bilangan bulat"],
   };
 
-  it("menerima struktur yang lengkap dan sesuai", () => {
+  it("menerima struktur yang lengkap dan sesuai (tanpa petaKompetensi)", () => {
     expect(analisisSchema.safeParse(valid).success).toBe(true);
   });
 
@@ -113,9 +124,8 @@ describe("analisisSchema", () => {
     expect(analisisSchema.safeParse({}).success).toBe(false);
   });
 
-  it("menolak kalau petaKompetensi bukan array atau kosong", () => {
-    expect(analisisSchema.safeParse({ ...valid, petaKompetensi: [] }).success).toBe(false);
-    expect(analisisSchema.safeParse({ ...valid, petaKompetensi: "bukan array" }).success).toBe(false);
+  it("mengabaikan petaKompetensi kalau tetap dikirim (field lama, tidak lagi divalidasi)", () => {
+    expect(analisisSchema.safeParse({ ...valid, petaKompetensi: [] }).success).toBe(true);
   });
 
   it("menolak rekomendasi lebih dari 5 atau kosong", () => {
