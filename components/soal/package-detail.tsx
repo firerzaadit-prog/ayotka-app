@@ -54,6 +54,8 @@ type PackageDetail = {
   urutanSeri: number | null;
   bukaMulai: string | null;
   bukaSelesai: string | null;
+  publishedAt?: string | null;
+  createdAt?: string;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -343,12 +345,30 @@ export function PackageDetail({
           {pkg.urutanSeri != null && (
             <Badge variant="neutral">Urutan seri #{pkg.urutanSeri}</Badge>
           )}
+          {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1 && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              <span>🔒</span> Terkunci untuk Siswa (Seri #{pkg.urutanSeri})
+            </span>
+          )}
+          {pkg.status === "published" && pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date() && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800">
+              <span>🔒</span> Terjadwal (Buka {formatWIB(pkg.bukaMulai)})
+            </span>
+          )}
         </div>
         <p className="text-sm text-slate-500">
           {pkg.questions.length}/{pkg.jumlahSoal} soal
           {pkg.blueprint && ` · Kisi-kisi: ${pkg.blueprint.nama}`}
           {` · Pembahasan: ${pkg.questions.filter((q) => (q.pembahasan ?? "").trim().length > 0).length}/${pkg.questions.length} soal terisi (tampil langsung setelah siswa submit)`}
           {" · Target: "}{describeVisibility(pkg.visibility ?? [])}
+          {" · Tanggal Terbit: "}
+          <span className="font-medium text-slate-700">
+            {pkg.publishedAt
+              ? formatWIB(pkg.publishedAt)
+              : pkg.status === "published" && pkg.createdAt
+              ? formatWIB(pkg.createdAt)
+              : "Belum terbit (Draft)"}
+          </span>
           {(pkg.bukaMulai || pkg.bukaSelesai) && (
             <>
               {" · Jendela: "}
@@ -358,6 +378,17 @@ export function PackageDetail({
             </>
           )}
         </p>
+
+        {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1 && (
+          <Alert variant="warning" className="mt-2.5">
+            <p className="font-semibold text-xs text-amber-900">
+              🔒 Status Akses Siswa (Seri #{pkg.urutanSeri}):
+            </p>
+            <p className="text-xs text-amber-800 mt-0.5">
+              Paket ini berstatus <strong>Published</strong>, namun saat ini <strong>Terkunci</strong> di tampilan siswa. Siswa baru dapat mengakses tombol pengerjaan mulai pukul <strong>06:00 WIB</strong> keesokan harinya setelah menyelesaikan paket <strong>Seri #{pkg.urutanSeri - 1}</strong>.
+            </p>
+          </Alert>
+        )}
 
         <div className="mt-2 flex flex-wrap gap-2">
           <Button variant="secondary" onClick={handleOpenEdit}>

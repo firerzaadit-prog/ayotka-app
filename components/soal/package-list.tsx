@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
+import { formatWIB } from "@/lib/utils/datetime";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; subjectId: string };
@@ -22,6 +23,11 @@ type PackageListItem = {
   status: string;
   jumlahSoal: number;
   kategori: "mandiri" | "nasional";
+  urutanSeri?: number | null;
+  bukaMulai?: string | null;
+  bukaSelesai?: string | null;
+  publishedAt?: string | null;
+  createdAt?: string;
   subject: Subject;
   _count: { questions: number };
 };
@@ -343,41 +349,106 @@ export function PackageList({ basePath }: { basePath: string }) {
                     <Th>Nama</Th>
                     <Th>Mapel</Th>
                     <Th>Kategori</Th>
-                    <Th>Status</Th>
+                    <Th>Status &amp; Akses Siswa</Th>
+                    <Th>Tanggal Terbit</Th>
                     <Th>Soal</Th>
                     <Th></Th>
                   </tr>
                 </Thead>
                 <tbody>
-                  {pageRows.map((pkg) => (
-                    <Tr key={pkg.id}>
-                      <Td>
-                        <Link href={`${basePath}/${pkg.id}`} className="font-medium text-slate-900 hover:underline">
-                          {pkg.nama}
-                        </Link>
-                      </Td>
-                      <Td>{pkg.subject.nama}</Td>
-                      <Td>
-                        <Badge variant={KATEGORI_BADGE_VARIANT[pkg.kategori]}>
-                          {KATEGORI_LABEL[pkg.kategori]}
-                        </Badge>
-                      </Td>
-                      <Td>
-                        <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
-                      </Td>
-                      <Td>
-                        {pkg._count.questions}/{pkg.jumlahSoal}
-                      </Td>
-                      <Td className="text-right">
-                        <button
-                          onClick={() => handleDelete(pkg.id, pkg.nama)}
-                          className="text-sm font-medium text-rose-600 hover:underline"
-                        >
-                          Hapus
-                        </button>
-                      </Td>
-                    </Tr>
-                  ))}
+                  {pageRows.map((pkg) => {
+                    const isPublished = pkg.status === "published";
+                    const isLockedSeries = isPublished && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1;
+                    const isFirstSeries = isPublished && pkg.kategori === "mandiri" && pkg.urutanSeri === 1;
+                    const isScheduledFuture = isPublished && Boolean(pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date());
+
+                    return (
+                      <Tr key={pkg.id}>
+                        <Td>
+                          <Link href={`${basePath}/${pkg.id}`} className="font-medium text-slate-900 hover:underline">
+                            {pkg.nama}
+                          </Link>
+                          {pkg.jenjang && (
+                            <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                              {pkg.jenjang}
+                            </span>
+                          )}
+                        </Td>
+                        <Td>{pkg.subject.nama}</Td>
+                        <Td>
+                          <Badge variant={KATEGORI_BADGE_VARIANT[pkg.kategori]}>
+                            {KATEGORI_LABEL[pkg.kategori]}
+                          </Badge>
+                        </Td>
+                        <Td>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1.5">
+                              <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
+                            </div>
+
+                            {/* Indikator Penguncian / Akses untuk Siswa */}
+                            {isLockedSeries && (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                                  <span>🔒</span> Terkunci (Seri #{pkg.urutanSeri})
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  Buka 06:00 WIB setelah Seri #{pkg.urutanSeri! - 1} selesai
+                                </span>
+                              </div>
+                            )}
+
+                            {isFirstSeries && (
+                              <span className="inline-flex w-fit items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                <span>✨</span> Seri #1 (Paket Pembuka)
+                              </span>
+                            )}
+
+                            {isScheduledFuture && (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
+                                  <span>🔒</span> Terjadwal
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  Buka mulai {formatWIB(pkg.bukaMulai!)}
+                                </span>
+                              </div>
+                            )}
+
+                            {isPublished && !pkg.urutanSeri && !isScheduledFuture && (
+                              <span className="inline-flex w-fit items-center rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                                Akses Bebas
+                              </span>
+                            )}
+                          </div>
+                        </Td>
+                        <Td className="whitespace-nowrap text-xs text-slate-600">
+                          {pkg.publishedAt ? (
+                            <span className="font-medium text-slate-800">
+                              {formatWIB(pkg.publishedAt)}
+                            </span>
+                          ) : isPublished && pkg.createdAt ? (
+                            <span className="font-medium text-slate-800">
+                              {formatWIB(pkg.createdAt)}
+                            </span>
+                          ) : (
+                            <span className="italic text-slate-400">Belum terbit</span>
+                          )}
+                        </Td>
+                        <Td>
+                          {pkg._count.questions}/{pkg.jumlahSoal}
+                        </Td>
+                        <Td className="text-right">
+                          <button
+                            onClick={() => handleDelete(pkg.id, pkg.nama)}
+                            className="text-sm font-medium text-rose-600 hover:underline"
+                          >
+                            Hapus
+                          </button>
+                        </Td>
+                      </Tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </TableContainer>
