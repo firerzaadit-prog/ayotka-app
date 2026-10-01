@@ -204,8 +204,16 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
         durasiMenit: params.durasiMenit,
         jumlahSoal: preview.questions.length,
         kategori: params.kategori,
+        bolehDipilihSiswa: true,
+        targetSiswa: "semua",
         status: "draft",
       },
+    }),
+    prisma.packageVisibility.createMany({
+      data: [
+        { packageId, targetType: "semua" },
+        { packageId, targetType: "publik" },
+      ],
     }),
     ...(stimulusCreates.length > 0 ? [prisma.stimulus.createMany({ data: stimulusCreates })] : []),
     prisma.question.createMany({ data: questionRows }),

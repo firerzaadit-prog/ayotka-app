@@ -113,13 +113,14 @@ function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): Edit
   const hasSekolah = rows.some((r) => r.targetType === "sekolah" || r.targetType === "semua");
   const hasPubik  = rows.some((r) => r.targetType === "publik");
   const isSemua   = rows.some((r) => r.targetType === "semua");
+  const isMandiriOrNasional = pkg.kategori === "mandiri" || pkg.kategori === "nasional";
   return {
     nama: pkg.nama,
     subjectId: pkg.subjectId,
     jenjang: pkg.jenjang,
     durasiMenit: String(pkg.durasiMenit),
     jumlahSoal: String(pkg.jumlahSoal),
-    bolehDipilihSiswa: pkg.bolehDipilihSiswa,
+    bolehDipilihSiswa: pkg.bolehDipilihSiswa || isMandiriOrNasional,
     kategori: pkg.kategori,
     urutanSeri: pkg.urutanSeri != null ? String(pkg.urutanSeri) : "",
     bukaMulai: toDatetimeLocalValue(pkg.bukaMulai),
@@ -127,7 +128,7 @@ function toEditForm(pkg: PackageDetail & { visibility?: VisibilityRow[] }): Edit
     forSekolah: hasSekolah,
     sekolahMode: isSemua ? "semua" : "terpilih",
     visibilitySchoolIds: rows.filter((v) => v.schoolId).map((v) => v.schoolId as string),
-    forMandiri: hasPubik,
+    forMandiri: hasPubik || isMandiriOrNasional,
   };
 }
 
@@ -462,6 +463,19 @@ export function PackageDetail({
                   <option value="mandiri">Try Out Mandiri (kapan saja, sepuasnya)</option>
                   <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis Learning Analytics otomatis)</option>
                 </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="editPkgBolehDipilih"
+                  checked={editForm.bolehDipilihSiswa}
+                  onChange={(e) => setEditForm({ ...editForm, bolehDipilihSiswa: e.target.checked })}
+                  className="accent-indigo-600 h-4 w-4"
+                />
+                <Label htmlFor="editPkgBolehDipilih" className="cursor-pointer">
+                  Boleh dipilih bebas siswa (Try Out Mandiri / Nasional)
+                </Label>
               </div>
 
               {editForm.bolehDipilihSiswa && (

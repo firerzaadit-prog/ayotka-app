@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
-import type { Student } from "@prisma/client";
+import type { Prisma, Student, TryOutKategori } from "@prisma/client";
 
 /**
  * Jendela buka/tutup paket & grup self-select. Kalau includeUpcoming (default
@@ -10,8 +10,8 @@ import type { Student } from "@prisma/client";
  * dikunci di UI ("Belum Dibuka"), dan saat submit mulai attempt
  * (POST /api/siswa/attempts), server memastikan waktu bukaMulai sudah tiba.
  */
-function windowFilter(now: Date, includeUpcoming: boolean) {
-  const open = {
+function windowFilter(now: Date, includeUpcoming: boolean): Prisma.PackageWhereInput[] {
+  const open: Prisma.PackageWhereInput = {
     AND: [
       { OR: [{ bukaMulai: null }, { bukaMulai: { lte: now } }] },
       { OR: [{ bukaSelesai: null }, { bukaSelesai: { gte: now } }] },
@@ -35,15 +35,23 @@ export async function getSelfSelectPackagesFor(
 ) {
   const now = new Date();
   const includeUpcoming = opts.includeUpcoming ?? opts.includeUpcomingNasional ?? false;
+  const mandiriNasional: TryOutKategori[] = ["mandiri", "nasional"];
   // bukaMulai/bukaSelesai null = selalu terbuka (perilaku lama, dipakai
   // default untuk paket Latihan tanpa jadwal). Ditulis sebagai AND terpisah
   // (bukan digabung ke OR) supaya tidak bentrok dengan key "OR" yang sudah
   // dipakai cabang Jalur A di bawah untuk logika visibility-nya sendiri.
-  const baseWhere = {
-    status: "published" as const,
-    bolehDipilihSiswa: true,
+  const baseWhere: Prisma.PackageWhereInput = {
+    status: "published",
     jenjang: student.jenjang,
-    AND: windowFilter(now, includeUpcoming),
+    AND: [
+      ...windowFilter(now, includeUpcoming),
+      {
+        OR: [
+          { bolehDipilihSiswa: true },
+          { kategori: { in: mandiriNasional } },
+        ],
+      },
+    ],
   };
 
   const orderBy = [
