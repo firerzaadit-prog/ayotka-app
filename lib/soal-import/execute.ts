@@ -8,6 +8,7 @@ import { getQuestionsForPackage } from "./source-db";
 import { resolveSourceImage } from "./media";
 import { importImagePath, publicImageUrl, uploadImportImages } from "@/lib/supabase/storage";
 import { autoResolveOrCreateTaxonomy } from "./taxonomy-resolver";
+import { kompetensiKey } from "@/lib/soal/excel-format";
 
 export interface ExecuteImportParams {
   sourcePaketId: string;
@@ -74,19 +75,6 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
     );
   }
 
-  // AUTO-RESOLVE taksonomi: buat Elemen/Kompetensi dari label sumber otomatis
-  const taxonomyBySourceId = new Map<string, { kompetensiId: string; elemenId: string }>();
-  for (const q of preview.questions) {
-    const level = effectiveLevelBloom.get(q.sourceId) ?? "L1";
-    const resolved = await autoResolveOrCreateTaxonomy(prisma, {
-      subjectId: params.subjectId,
-      source: { elemen: q.elemen, subElemen: q.subElemen, kompetensi: q.kompetensi },
-      levelKognitif: level,
-      createdBy: params.importedBy,
-    });
-    taxonomyBySourceId.set(q.sourceId, resolved);
-  }
-
   // Fase 4: gambar diunduh/di-encode di sini (bukan saat preview)
   const sourceQuestions = await getQuestionsForPackage(preview.sourcePaket.id);
   const gambarBySourceId = new Map(sourceQuestions.map((q) => [q.id, q.payload.gambar ?? null]));
@@ -134,6 +122,28 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
     if (gagalUnggah) {
       throw new Error(`Gagal menyimpan gambar ke penyimpanan (${gagalUnggah.error}). Tidak ada yang diimpor - coba lagi.`);
     }
+  }
+
+  // AUTO-RESOLVE taksonomi: buat Elemen/Kompetensi dari label sumber otomatis.
+  // Sengaja dijalankan SETELAH semua pemeriksaan & unggah gambar lolos (bukan
+  // di awal) supaya impor yang gagal/diblokir tidak meninggalkan Elemen atau
+  // Kompetensi yatim. Soal dengan label sumber yang sama berbagi satu hasil -
+  // 1 paket bisa 100+ soal tapi cuma segelintir kombinasi label.
+  const taxonomyBySourceId = new Map<string, { kompetensiId: string; elemenId: string }>();
+  const taxonomyByLabel = new Map<string, { kompetensiId: string; elemenId: string }>();
+  for (const q of preview.questions) {
+    const labelKey = kompetensiKey(q.elemen, q.subElemen ?? "", q.kompetensi ?? "");
+    let resolved = taxonomyByLabel.get(labelKey);
+    if (!resolved) {
+      resolved = await autoResolveOrCreateTaxonomy(prisma, {
+        subjectId: params.subjectId,
+        source: { elemen: q.elemen, subElemen: q.subElemen, kompetensi: q.kompetensi },
+        levelKognitif: effectiveLevelBloom.get(q.sourceId)!,
+        createdBy: params.importedBy,
+      });
+      taxonomyByLabel.set(labelKey, resolved);
+    }
+    taxonomyBySourceId.set(q.sourceId, resolved);
   }
 
   const stimulusIdMap = new Map<string, string>();

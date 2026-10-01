@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
-import type { Prisma, Student, TryOutKategori } from "@prisma/client";
+import type { Prisma, Student } from "@prisma/client";
 
 /**
  * Jendela buka/tutup paket & grup self-select. Kalau includeUpcoming (default
@@ -35,7 +35,6 @@ export async function getSelfSelectPackagesFor(
 ) {
   const now = new Date();
   const includeUpcoming = opts.includeUpcoming ?? opts.includeUpcomingNasional ?? false;
-  const mandiriNasional: TryOutKategori[] = ["mandiri", "nasional"];
   // bukaMulai/bukaSelesai null = selalu terbuka (perilaku lama, dipakai
   // default untuk paket Latihan tanpa jadwal). Ditulis sebagai AND terpisah
   // (bukan digabung ke OR) supaya tidak bentrok dengan key "OR" yang sudah
@@ -46,10 +45,14 @@ export async function getSelfSelectPackagesFor(
     AND: [
       ...windowFilter(now, includeUpcoming),
       {
-        OR: [
-          { bolehDipilihSiswa: true },
-          { kategori: { in: mandiriNasional } },
-        ],
+        // Paket admin pusat = Try Out Mandiri/Nasional, selalu boleh dipilih
+        // (visibilitasnya diatur targetSiswa + visibility di bawah). Paket
+        // milik SEKOLAH tetap wajib bolehDipilihSiswa - kalau tidak, paket
+        // yang sengaja hanya untuk Ujian Terjadwal (penugasan) ikut muncul di
+        // daftar Try Out dan bisa dimulai kapan saja, melewati jendela jadwalnya.
+        // (Dulu di sini ada `kategori in [mandiri, nasional]`, yang SELALU benar
+        // karena enum cuma punya dua nilai itu - jadi flag ini tidak pernah berlaku.)
+        OR: [{ bolehDipilihSiswa: true }, { ownerType: "pusat" }],
       },
     ],
   };

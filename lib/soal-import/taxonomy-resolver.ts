@@ -5,6 +5,9 @@ type PrismaLike = PrismaClient | Prisma.TransactionClient;
 
 export const SUMBER_SOAL_AYOTKA_ID = "soal-ayotka-id";
 
+/** Nilai pengganti kalau soal sumber tidak punya sub elemen. */
+export const SUB_ELEMEN_DEFAULT = "Umum";
+
 export interface TaxonomySourceLabel {
   elemen: string;
   subElemen: string | null;
@@ -84,53 +87,44 @@ export async function autoResolveOrCreateTaxonomy(
 ): Promise<{ kompetensiId: string; elemenId: string }> {
   const { subjectId, source, levelKognitif, createdBy } = params;
 
+  // Nilai dipangkas dulu: spasi nyasar di label sumber tidak boleh melahirkan
+  // Elemen/Kompetensi "kembar" yang beda cuma spasi.
+  const elemenNama = source.elemen.trim();
+  // Sub elemen kosong di sumber -> "Umum" (kolom subElemen wajib terisi supaya
+  // kunci Excel & cek duplikat tidak ambigu antara null dan string kosong).
+  const subElemen = source.subElemen?.trim() || SUB_ELEMEN_DEFAULT;
+  const deskripsi = source.kompetensi?.trim() || elemenNama; // fallback: pakai elemen sebagai deskripsi
+
   // 1. Find or create Elemen
-  let elemen = await (prisma as PrismaLike & { elemen: PrismaClient["elemen"] }).elemen.findFirst({
-    where: {
-      subjectId,
-      nama: { equals: source.elemen, mode: "insensitive" as const },
-    },
+  let elemen = await prisma.elemen.findFirst({
+    where: { subjectId, nama: { equals: elemenNama, mode: "insensitive" } },
   });
   if (!elemen) {
-    // Hitung urutan terakhir
-    const lastElemen = await (prisma as PrismaLike & { elemen: PrismaClient["elemen"] }).elemen.findFirst({
+    const lastElemen = await prisma.elemen.findFirst({
       where: { subjectId },
       orderBy: { urutan: "desc" },
       select: { urutan: true },
     });
-    elemen = await (prisma as PrismaLike & { elemen: PrismaClient["elemen"] }).elemen.create({
-      data: {
-        subjectId,
-        nama: source.elemen,
-        urutan: (lastElemen?.urutan ?? -1) + 1,
-        resmi: false,
-      },
+    elemen = await prisma.elemen.create({
+      data: { subjectId, nama: elemenNama, urutan: (lastElemen?.urutan ?? -1) + 1, resmi: false },
     });
   }
 
   // 2. Find or create Kompetensi
-  const subElemen = source.subElemen ?? "";
-  const deskripsi = source.kompetensi ?? source.elemen; // fallback: pakai elemen sebagai deskripsi
-  let kompetensi = await (prisma as PrismaLike & { kompetensi: PrismaClient["kompetensi"] }).kompetensi.findFirst({
+  let kompetensi = await prisma.kompetensi.findFirst({
     where: {
       elemenId: elemen.id,
-      subElemen: { equals: subElemen, mode: "insensitive" as const },
-      deskripsi: { equals: deskripsi, mode: "insensitive" as const },
+      subElemen: { equals: subElemen, mode: "insensitive" },
+      deskripsi: { equals: deskripsi, mode: "insensitive" },
     },
   });
   if (!kompetensi) {
-    kompetensi = await (prisma as PrismaLike & { kompetensi: PrismaClient["kompetensi"] }).kompetensi.create({
-      data: {
-        elemenId: elemen.id,
-        subElemen,
-        deskripsi,
-        levelKognitif,
-      },
+    kompetensi = await prisma.kompetensi.create({
+      data: { elemenId: elemen.id, subElemen, deskripsi, levelKognitif },
     });
   }
 
   // 3. Simpan TaxonomyMapping supaya next time langsung cache-hit
-  const key = getTaxonomyMatchKey("", source); // always use elemen key for auto-resolve
   const existingMapping = await prisma.taxonomyMapping.findFirst({
     where: {
       sumber: SUMBER_SOAL_AYOTKA_ID,

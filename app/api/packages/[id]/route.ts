@@ -43,7 +43,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
         subjectId: pkg.subjectId,
         kategori: "mandiri",
         urutanSeri: { lt: pkg.urutanSeri },
-        status: { not: "archived" },
+        // Hanya published: siswa tidak melihat draft, jadi draft bukan paket prasyarat.
+        status: "published",
       },
       orderBy: { urutanSeri: "desc" },
       select: {

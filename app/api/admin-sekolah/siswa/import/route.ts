@@ -270,9 +270,12 @@ export async function POST(request: Request) {
           message: `Gagal disimpan: NISN "${data.nisn}" sudah terdaftar di sistem.`,
         });
       } else {
+        // Pesan Prisma/DB mentah berisi detail internal (nama tabel, query) -
+        // jangan diteruskan ke browser; cukup dicatat di log server.
+        console.error(`[import-siswa] baris ${rowNumber} gagal disimpan`, err);
         errors.push({
           row: rowNumber,
-          message: err instanceof Error ? err.message : "Gagal menyimpan data siswa.",
+          message: err instanceof KuotaPenuhError ? err.message : "Gagal menyimpan data siswa. Coba lagi.",
         });
       }
     }

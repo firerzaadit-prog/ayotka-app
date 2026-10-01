@@ -55,6 +55,21 @@ describe("getSelfSelectPackagesFor - tingkat dihapus, cuma jenjang (1 Okt 2026)"
     expect(orBranch).not.toHaveProperty("kategori"); // Tidak lagi dibatasi kategori nasional
   });
 
+  it("paket milik sekolah wajib bolehDipilihSiswa; hanya paket pusat yang selalu lolos", async () => {
+    // Regresi: dulu syaratnya `kategori in [mandiri, nasional]` yang SELALU benar
+    // (enum cuma punya dua nilai itu), jadi paket sekolah yang khusus untuk Ujian
+    // Terjadwal ikut muncul di daftar Try Out dan bisa dimulai kapan saja.
+    for (const student of [STUDENT_A, STUDENT_B]) {
+      packageModel.findMany.mockClear();
+      await getSelfSelectPackagesFor(student);
+      const and = packageModel.findMany.mock.calls[0]![0].where.AND;
+      const aksesFilter = and.find(
+        (f: { OR?: Array<Record<string, unknown>> }) => f.OR?.some((c) => "bolehDipilihSiswa" in c),
+      );
+      expect(aksesFilter.OR).toEqual([{ bolehDipilihSiswa: true }, { ownerType: "pusat" }]);
+    }
+  });
+
   it("orderBy mengurutkan berdasarkan urutanSeri (nulls last) lalu nama", async () => {
     await getSelfSelectPackagesFor(STUDENT_B);
     const call = packageModel.findMany.mock.calls[0]![0];
