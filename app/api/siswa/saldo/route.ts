@@ -5,6 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { createSnapTransaction } from "@/lib/billing/midtrans";
 import { getSaldo, getHargaLearningAnalytics } from "@/lib/billing/saldo";
 import { saldoTopupSchema, SALDO_TOPUP_DENOMINASI } from "@/lib/validations/saldo";
+import { AFFILIATE_LINK_TOPUP, buildKonfirmasiTopupWa, getPaymentMode } from "@/lib/billing/pembayaran-affiliate";
 
 /**
  * Bagian D/G (permintaan user): wallet/saldo siswa untuk beli Learning
@@ -36,10 +37,27 @@ export async function GET() {
     }),
   ]);
 
+  // Mode affiliate.id: hanya nominal yang punya produk di sana yang ditawarkan,
+  // masing-masing dengan tautan bayar + pesan konfirmasi WhatsApp siap kirim.
+  // Lihat lib/billing/pembayaran-affiliate.ts.
+  const paymentMode = getPaymentMode();
+  const affiliateTopup =
+    paymentMode === "affiliate"
+      ? Object.fromEntries(
+          SALDO_TOPUP_DENOMINASI.filter((n) => AFFILIATE_LINK_TOPUP[n]).map((n) => [
+            n,
+            { url: AFFILIATE_LINK_TOPUP[n]!, waUrl: buildKonfirmasiTopupWa({ nominal: n, email: user.email }) },
+          ]),
+        )
+      : null;
+
   return NextResponse.json({
     saldo,
     hargaLearningAnalytics,
-    denominasi: SALDO_TOPUP_DENOMINASI,
+    denominasi: affiliateTopup ? SALDO_TOPUP_DENOMINASI.filter((n) => affiliateTopup[n]) : SALDO_TOPUP_DENOMINASI,
+    paymentMode,
+    affiliateTopup,
+    waKonfirmasiUmum: paymentMode === "affiliate" ? buildKonfirmasiTopupWa({ nominal: null, email: user.email }) : null,
     riwayat,
   });
 }
@@ -55,6 +73,16 @@ export async function POST(request: Request) {
   const student = await prisma.student.findFirst({ where: { userId: user.id } });
   if (!student) {
     return NextResponse.json({ error: "Profil siswa tidak ditemukan." }, { status: 404 });
+  }
+
+  if (getPaymentMode() === "affiliate") {
+    return NextResponse.json(
+      {
+        error:
+          "Top-up saat ini dilakukan lewat tautan resmi AyoTKA di halaman Wallet, lalu dikonfirmasi ke admin via WhatsApp.",
+      },
+      { status: 409 },
+    );
   }
 
   const body = await request.json().catch(() => null);

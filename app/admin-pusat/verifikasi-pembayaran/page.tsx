@@ -12,6 +12,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconWallet } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { formatWIBDate } from "@/lib/utils/datetime";
+import { AktivasiManualPanel } from "@/components/billing/aktivasi-manual-panel";
 
 type InvoiceButuhVerifikasi = {
   id: string;
@@ -84,9 +85,12 @@ export default function VerifikasiPembayaranPage() {
       />
 
       <Alert variant="info">
-        Alur normal tetap otomatis tercatat lunas oleh sistem. Cuma pakai halaman ini kalau ada bukti nyata siswa
-        sudah bayar tapi sistem belum mencatatnya lunas.
+        Selama pembayaran lewat tautan affiliate.id, aktivasi dilakukan manual di kotak &quot;Aktivasi Manual&quot;
+        di bawah setelah bukti pembayaran siswa dicek. Daftar invoice di bagian bawah halaman ini hanya untuk
+        pembayaran online (Midtrans) yang belum tercatat lunas.
       </Alert>
+
+      <AktivasiManualPanel />
 
       {invoices === null && <TableSkeleton columns={5} />}
 

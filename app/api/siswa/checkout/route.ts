@@ -4,6 +4,11 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { createSnapTransaction } from "@/lib/billing/midtrans";
 import { getActiveEntitlement } from "@/lib/billing/entitlements";
+import {
+  AFFILIATE_LINK_PLAN,
+  buildKonfirmasiLanggananWa,
+  getPaymentMode,
+} from "@/lib/billing/pembayaran-affiliate";
 import { z } from "zod";
 
 const REFERRAL_DISCOUNT = 0.3;
@@ -43,9 +48,30 @@ export async function GET() {
     }),
   ]);
 
+  // Mode pembayaran sementara (affiliate.id, aktivasi manual admin) - lihat
+  // lib/billing/pembayaran-affiliate.ts. Di mode ini UI memakai tautan di
+  // bawah, bukan tombol checkout Midtrans.
+  const paymentMode = getPaymentMode();
+  const affiliatePlans =
+    paymentMode === "affiliate"
+      ? Object.fromEntries(
+          plans
+            .filter((p) => AFFILIATE_LINK_PLAN[p.kode])
+            .map((p) => [
+              p.id,
+              {
+                url: AFFILIATE_LINK_PLAN[p.kode]!,
+                waUrl: buildKonfirmasiLanggananWa({ namaPaket: p.nama, harga: p.harga, email: user.email }),
+              },
+            ]),
+        )
+      : null;
+
   return NextResponse.json({
     jalur: student.jalur,
     sekolah: student.school,
+    paymentMode,
+    affiliatePlans,
     referralCode: student.referralCode,
     entitlement: active
       ? {
@@ -73,6 +99,16 @@ export async function POST(request: Request) {
     user = await requireRole("siswa");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
+  }
+
+  if (getPaymentMode() === "affiliate") {
+    return NextResponse.json(
+      {
+        error:
+          "Pembayaran saat ini dilakukan lewat tautan resmi AyoTKA di halaman Langganan, lalu dikonfirmasi ke admin via WhatsApp.",
+      },
+      { status: 409 },
+    );
   }
 
   const body = await request.json().catch(() => null);

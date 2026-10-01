@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -22,13 +22,17 @@ type SaldoData = {
   saldo: number;
   hargaLearningAnalytics: number;
   denominasi: number[];
+  /** "affiliate" = top-up lewat tautan affiliate.id + konfirmasi admin via WhatsApp (sementara, lihat lib/billing/pembayaran-affiliate.ts). */
+  paymentMode: "affiliate" | "midtrans";
+  affiliateTopup: Record<string, { url: string; waUrl: string }> | null;
+  waKonfirmasiUmum: string | null;
   riwayat: Riwayat[];
 };
 
 const TIPE_LABEL: Record<Riwayat["tipe"], string> = {
   topup: "Top-up",
   debit_analisis: "Learning Analytics",
-  penyesuaian_admin: "Penyesuaian admin",
+  penyesuaian_admin: "Penyesuaian / pengembalian",
 };
 
 function formatRupiah(n: number): string {
@@ -81,7 +85,7 @@ export default function WalletPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Wallet"
-        description="Saldo untuk beli Learning Analytics (hasil analisis AI) tambahan begitu jatah gratis dari langganan kamu habis."
+        description="Saldo kredit untuk membeli Learning Analytics (hasil analisis AI) — untuk pengguna paket gratis, atau saat jatah dari langganan kamu habis."
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -96,18 +100,62 @@ export default function WalletPage() {
 
       <Card className="flex flex-col gap-3">
         <p className="text-sm font-medium text-slate-700">Top-up saldo</p>
+        {data.paymentMode === "affiliate" && (
+          <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-slate-600">
+            <li>Pilih nominal di bawah, lalu bayar lewat halaman affiliate.id yang terbuka di tab baru.</li>
+            <li>
+              Setelah membayar, kirim <b>bukti pembayaran</b> dan <b>email akunmu</b> ke admin lewat WhatsApp.
+            </li>
+            <li>Admin memeriksa pembayaranmu lalu menambahkan saldo. Setelah masuk, saldo di halaman ini bertambah.</li>
+          </ol>
+        )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {data.denominasi.map((nominal) => (
-            <Button
-              key={nominal}
-              variant="secondary"
-              onClick={() => handleTopup(nominal)}
-              disabled={submitting !== null}
-            >
-              {submitting === nominal ? "Memproses..." : formatRupiah(nominal)}
-            </Button>
-          ))}
+          {data.paymentMode === "affiliate"
+            ? data.denominasi.map((nominal) => {
+                const tautan = data.affiliateTopup?.[String(nominal)];
+                if (!tautan) return null;
+                return (
+                  <div key={nominal} className="flex flex-col gap-1.5">
+                    <a
+                      href={tautan.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${buttonClassName("secondary")} w-full text-center`}
+                    >
+                      {formatRupiah(nominal)}
+                    </a>
+                    <a
+                      href={tautan.waUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-center text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+                    >
+                      Sudah bayar? Konfirmasi WA
+                    </a>
+                  </div>
+                );
+              })
+            : data.denominasi.map((nominal) => (
+                <Button
+                  key={nominal}
+                  variant="secondary"
+                  onClick={() => handleTopup(nominal)}
+                  disabled={submitting !== null}
+                >
+                  {submitting === nominal ? "Memproses..." : formatRupiah(nominal)}
+                </Button>
+              ))}
         </div>
+        {data.paymentMode === "affiliate" && data.waKonfirmasiUmum && (
+          <a
+            href={data.waKonfirmasiUmum}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-fit text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+          >
+            Sudah membayar nominal lain? Hubungi admin via WhatsApp →
+          </a>
+        )}
       </Card>
 
       <div>

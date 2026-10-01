@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -21,6 +21,9 @@ type Entitlement = {
 type CheckoutData = {
   jalur: "A" | "B";
   sekolah: { nama: string } | null;
+  /** "affiliate" = bayar lewat tautan affiliate.id + aktivasi manual admin (sementara, lihat lib/billing/pembayaran-affiliate.ts). */
+  paymentMode: "affiliate" | "midtrans";
+  affiliatePlans: Record<string, { url: string; waUrl: string }> | null;
   referralCode: string;
   entitlement: Entitlement | null;
   plans: Plan[];
@@ -166,6 +169,23 @@ export default function LanggananSiswaPage() {
         </Alert>
       )}
 
+      {data.paymentMode === "affiliate" && (
+        <Card className="border-indigo-200 bg-indigo-50/50">
+          <p className="text-sm font-semibold text-indigo-950">Cara berlangganan</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-relaxed text-slate-700">
+            <li>Pilih paket di bawah, lalu bayar lewat halaman affiliate.id yang terbuka di tab baru.</li>
+            <li>
+              Setelah membayar, kirim <b>bukti pembayaran</b> dan <b>email akunmu</b> ke admin lewat WhatsApp
+              (tombol &quot;Konfirmasi via WhatsApp&quot; di bawah paket sudah menyiapkan pesannya).
+            </li>
+            <li>
+              Admin memeriksa pembayaranmu lalu mengaktifkan langganan. Begitu aktif, status akses di halaman ini
+              berubah menjadi <b>Aktif</b>.
+            </li>
+          </ol>
+        </Card>
+      )}
+
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold text-slate-900">Pilih Paket</h2>
         {data.plans.length === 0 ? (
@@ -249,13 +269,42 @@ export default function LanggananSiswaPage() {
                     </ul>
                   </div>
 
-                  <Button
-                    className={`mt-5 w-full ${isSemester ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
-                    disabled={submittingPlanId !== null || Boolean(data.pendingInvoiceId)}
-                    onClick={() => handleBeli(p.id)}
-                  >
-                    {submittingPlanId === p.id ? "Memproses..." : "Bayar Sekarang"}
-                  </Button>
+                  {data.paymentMode === "affiliate" ? (
+                    <div className="mt-5 flex flex-col gap-2">
+                      {data.affiliatePlans?.[p.id] ? (
+                        <>
+                          <a
+                            href={data.affiliatePlans[p.id]!.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`${buttonClassName("primary")} w-full text-center ${isSemester ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
+                          >
+                            Bayar Sekarang
+                          </a>
+                          <a
+                            href={data.affiliatePlans[p.id]!.waUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-center text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                          >
+                            Sudah membayar? Konfirmasi via WhatsApp →
+                          </a>
+                        </>
+                      ) : (
+                        <p className="text-center text-xs text-slate-500">
+                          Paket ini belum tersedia untuk dibayar online. Hubungi admin pusat.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <Button
+                      className={`mt-5 w-full ${isSemester ? "bg-indigo-600 hover:bg-indigo-700" : ""}`}
+                      disabled={submittingPlanId !== null || Boolean(data.pendingInvoiceId)}
+                      onClick={() => handleBeli(p.id)}
+                    >
+                      {submittingPlanId === p.id ? "Memproses..." : "Bayar Sekarang"}
+                    </Button>
+                  )}
                 </div>
               );
             })}
