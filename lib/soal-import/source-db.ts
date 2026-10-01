@@ -48,6 +48,8 @@ export interface SoalPayload {
     tipe: "svg" | "url" | "perlu_ilustrasi" | "ilustrasi_kontekstual";
     svg_content?: string;
     url?: string;
+    image_data?: string;
+    svg_fallback?: string;
     deskripsi_alt: string;
   } | null;
   opsi?: Array<{ label: string; text: string }>;

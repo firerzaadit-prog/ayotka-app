@@ -134,6 +134,49 @@ function encodeSvg(svgContent: string | undefined): ResolvedSourceImage {
   return { status: "ready", bytes: Buffer.from(content, "utf-8"), mime: "image/svg+xml", ext: "svg" };
 }
 
+/** Urai data URI (misal data:image/jpeg;base64,/9j/...) menjadi buffer bytes dan tipe mime. */
+function decodeDataUri(raw: string | undefined): { bytes: Buffer; mime: string } | null {
+  if (!raw) return null;
+  const s = raw.trim();
+  const commaIdx = s.indexOf(",");
+  if (commaIdx === -1) return null;
+  const header = s.slice(0, commaIdx);
+  const data = s.slice(commaIdx + 1);
+  if (!header.startsWith("data:") || !header.includes(";base64")) return null;
+  const mime = header.slice(5, header.indexOf(";")).trim().toLowerCase();
+  try {
+    const bytes = Buffer.from(data.replace(/\s+/g, ""), "base64");
+    if (bytes.length === 0) return null;
+    return { bytes, mime };
+  } catch {
+    return null;
+  }
+}
+
+/** ilustrasi_kontekstual dari Nano Banana Pro di soal.ayotka.id: membawa image_data (base64) dan opsional svg_fallback. */
+function encodeIlustrasiKontekstual(gambar: SourceGambar): ResolvedSourceImage {
+  if (gambar.image_data) {
+    const decoded = decodeDataUri(gambar.image_data);
+    if (decoded) {
+      if (decoded.bytes.length > MAKS_BYTE_GAMBAR_SUMBER) {
+        if (gambar.svg_fallback) return encodeSvg(gambar.svg_fallback);
+        return { status: "blocked", reason: "Ukuran gambar ilustrasi kontekstual melebihi 5 MB." };
+      }
+      const info = sniffGambar(decoded.bytes);
+      if (info) {
+        return { status: "ready", bytes: decoded.bytes, mime: info.mime, ext: info.ext };
+      }
+    }
+    // Jika image_data gagal di-decode/sniff tapi ada svg_fallback, gunakan fallback
+    if (gambar.svg_fallback) return encodeSvg(gambar.svg_fallback);
+    return { status: "blocked", reason: "Isi data gambar ilustrasi kontekstual bukan gambar PNG/JPEG/WEBP/GIF yang valid." };
+  }
+  if (gambar.svg_fallback) {
+    return encodeSvg(gambar.svg_fallback);
+  }
+  return { status: "blocked", reason: 'Gambar bertipe "ilustrasi_kontekstual" tetapi data gambar dan SVG fallback kosong di sumber.' };
+}
+
 /**
  * Ubah satu payload.gambar jadi bytes siap-unggah. HANYA dipanggil saat eksekusi
  * impor (bukan saat preview) - unduhan sungguhan ke soal.ayotka.id cukup sekali,
@@ -148,12 +191,7 @@ export async function resolveSourceImage(gambar: SourceGambar | null | undefined
         reason: "Gambar untuk soal ini belum dibuat ilustrator di soal.ayotka.id (status: perlu ilustrasi).",
       };
     case "ilustrasi_kontekstual":
-      // Ditemukan di data produksi (16 soal, tidak disebut di dokumen rencana) - tidak tahu
-      // pasti bentuk datanya seperti apa, jadi diblokir jelas daripada menebak & salah proses.
-      return {
-        status: "blocked",
-        reason: "Gambar bertipe \"ilustrasi_kontekstual\" belum didukung fitur impor - beri tahu tim AyoTKA untuk mendukungnya.",
-      };
+      return encodeIlustrasiKontekstual(gambar);
     case "svg":
       return encodeSvg(gambar.svg_content);
     case "url":
@@ -177,12 +215,45 @@ export function precheckSourceGambar(gambar: SourceGambar | null | undefined): s
     const hasil = encodeSvg(gambar.svg_content);
     return hasil.status === "blocked" ? hasil.reason : null;
   }
+  if (gambar.tipe === "ilustrasi_kontekstual") {
+    if (gambar.image_data) {
+      const decoded = decodeDataUri(gambar.image_data);
+      if (!decoded) {
+        if (gambar.svg_fallback) {
+          const fallbackCheck = encodeSvg(gambar.svg_fallback);
+          return fallbackCheck.status === "blocked" ? fallbackCheck.reason : null;
+        }
+        return "Format image_data pada gambar ilustrasi kontekstual tidak valid.";
+      }
+      if (decoded.bytes.length > MAKS_BYTE_GAMBAR_SUMBER) {
+        if (gambar.svg_fallback) {
+          const fallbackCheck = encodeSvg(gambar.svg_fallback);
+          return fallbackCheck.status === "blocked" ? fallbackCheck.reason : null;
+        }
+        return "Ukuran gambar ilustrasi kontekstual melebihi 5 MB.";
+      }
+      const info = sniffGambar(decoded.bytes);
+      if (!info) {
+        if (gambar.svg_fallback) {
+          const fallbackCheck = encodeSvg(gambar.svg_fallback);
+          return fallbackCheck.status === "blocked" ? fallbackCheck.reason : null;
+        }
+        return "Isi image_data pada gambar ilustrasi kontekstual bukan gambar PNG/JPEG/WEBP/GIF yang valid.";
+      }
+      return null;
+    }
+    if (gambar.svg_fallback) {
+      const fallbackCheck = encodeSvg(gambar.svg_fallback);
+      return fallbackCheck.status === "blocked" ? fallbackCheck.reason : null;
+    }
+    return 'Gambar bertipe "ilustrasi_kontekstual" tetapi data gambar kosong di sumber.';
+  }
   if (gambar.tipe === "url") {
     if (!gambar.url) return "Tipe gambar url tapi url kosong di sumber.";
     if (!safeExternalUrl(gambar.url)) return `URL gambar tidak valid atau tidak diizinkan: "${gambar.url}".`;
     return null;
   }
-  return null; // perlu_ilustrasi/ilustrasi_kontekstual: sudah punya pesan sendiri di preview.ts
+  return null; // perlu_ilustrasi: sudah punya pesan sendiri di preview.ts
 }
 
 /**
@@ -200,5 +271,13 @@ export function previewImageSrc(gambar: SourceGambar | null | undefined): string
     if (encodeSvg(gambar.svg_content).status === "blocked") return null;
     return `data:image/svg+xml;base64,${Buffer.from(gambar.svg_content, "utf-8").toString("base64")}`;
   }
+  if (gambar.tipe === "ilustrasi_kontekstual") {
+    if (gambar.image_data) return gambar.image_data;
+    if (gambar.svg_fallback) {
+      if (encodeSvg(gambar.svg_fallback).status === "blocked") return null;
+      return `data:image/svg+xml;base64,${Buffer.from(gambar.svg_fallback, "utf-8").toString("base64")}`;
+    }
+  }
   return null;
 }
+

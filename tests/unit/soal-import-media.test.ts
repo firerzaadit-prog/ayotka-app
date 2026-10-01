@@ -119,6 +119,34 @@ describe("resolveSourceImage", () => {
     expect(r).toMatchObject({ status: "ready", mime: "image/png" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  it("ilustrasi_kontekstual dengan image_data valid -> ready dengan mime dan ext sesuai magic bytes", async () => {
+    const jpegDataUri = `data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=`;
+    const r = await resolveSourceImage({
+      tipe: "ilustrasi_kontekstual",
+      image_data: jpegDataUri,
+      deskripsi_alt: "teralis",
+    });
+    expect(r).toMatchObject({ status: "ready", mime: "image/jpeg", ext: "jpg" });
+  });
+
+  it("ilustrasi_kontekstual dengan svg_fallback (tanpa image_data) -> ready memakai SVG", async () => {
+    const r = await resolveSourceImage({
+      tipe: "ilustrasi_kontekstual",
+      svg_fallback: SVG,
+      deskripsi_alt: "fallback svg",
+    });
+    expect(r).toMatchObject({ status: "ready", mime: "image/svg+xml", ext: "svg" });
+    expect((r as { bytes: Buffer }).bytes.toString("utf-8")).toBe(SVG);
+  });
+
+  it("ilustrasi_kontekstual tanpa image_data dan tanpa svg_fallback -> blocked", async () => {
+    const r = await resolveSourceImage({
+      tipe: "ilustrasi_kontekstual",
+      deskripsi_alt: "kosong",
+    });
+    expect(r).toMatchObject({ status: "blocked" });
+  });
 });
 
 describe("previewImageSrc", () => {
@@ -133,6 +161,18 @@ describe("previewImageSrc", () => {
     expect(src).toMatch(/^data:image\/svg\+xml;base64,/);
     const decoded = Buffer.from(src!.split(",")[1]!, "base64").toString("utf-8");
     expect(decoded).toBe(SVG);
+  });
+
+  it("tipe ilustrasi_kontekstual -> langsung kembalikan image_data", () => {
+    const jpegDataUri = "data:image/jpeg;base64,abc123";
+    expect(previewImageSrc({ tipe: "ilustrasi_kontekstual", image_data: jpegDataUri, deskripsi_alt: "" })).toBe(
+      jpegDataUri,
+    );
+  });
+
+  it("tipe ilustrasi_kontekstual tanpa image_data -> gunakan svg_fallback", () => {
+    const src = previewImageSrc({ tipe: "ilustrasi_kontekstual", svg_fallback: SVG, deskripsi_alt: "" });
+    expect(src).toMatch(/^data:image\/svg\+xml;base64,/);
   });
 
   it("perlu_ilustrasi atau kosong -> null (tidak ada yang bisa ditampilkan)", () => {

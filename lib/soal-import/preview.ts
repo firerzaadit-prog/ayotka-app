@@ -171,13 +171,11 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
       // lihat levelBloom di return di bawah - null berarti perlu override.
     }
 
-    // Fase 4: gambar tidak lagi memblokir impor (svg/url ditangani lib/soal-import/media.ts saat eksekusi).
+    // Fase 4: gambar tidak lagi memblokir impor (svg/url/ilustrasi_kontekstual ditangani lib/soal-import/media.ts).
     // "perlu_ilustrasi" berarti ilustratornya sendiri belum menggambar apa pun di sumbernya - itu tetap diblokir.
     const gambarTipe = q.payload.gambar?.tipe ?? null;
     if (gambarTipe === "perlu_ilustrasi") {
       blockedReasons.push("Gambar untuk soal ini belum dibuat ilustrator di soal.ayotka.id (status: perlu ilustrasi).");
-    } else if (gambarTipe === "ilustrasi_kontekstual") {
-      blockedReasons.push('Gambar bertipe "ilustrasi_kontekstual" belum didukung fitur impor.');
     } else {
       const masalahGambar = precheckSourceGambar(q.payload.gambar);
       if (masalahGambar) blockedReasons.push(masalahGambar);
