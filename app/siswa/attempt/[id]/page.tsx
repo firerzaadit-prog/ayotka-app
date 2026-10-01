@@ -80,6 +80,26 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
   useEffect(() => { answersRef.current = answers; }, [answers]);
   useEffect(() => { questionsRef.current = questions; }, [questions]);
 
+  // Terapkan jawaban dari server ke layar. Resync berkala (tiap 20 detik) bisa saja
+  // menyalip debounce auto-save yang masih berjalan (600ms) - kalau data server ini
+  // dipakai mentah-mentah, jawaban yang baru saja dipilih tapi belum sempat terkirim
+  // bisa "hilang" sesaat dari layar. Pertahankan nilai lokal untuk soal yang masih pending.
+  const terapkanJawabanServer = useCallback(
+    (rows: { questionId: string; jawabanJson: ExamJawaban | null; ragu: boolean }[]) => {
+      const map: Record<string, AnswerEntry> = {};
+      for (const a of rows) {
+        if (a.jawabanJson) map[a.questionId] = { jawabanJson: a.jawabanJson, ragu: a.ragu };
+      }
+      setAnswers((prev) => {
+        for (const qid of pendingSaves.current.keys()) {
+          if (prev[qid]) map[qid] = prev[qid];
+        }
+        return map;
+      });
+    },
+    [],
+  );
+
   const loadAttempt = useCallback(async () => {
     const res = await fetch(`/api/siswa/attempts/${id}?tabToken=${tabToken}`);
     if (!res.ok) {
@@ -99,23 +119,38 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
       setSubjectNama(data.package.subjectNama ?? "");
       setDurasiTotalDetik((data.package.durasiMenit ?? 0) * 60);
       setQuestions(data.questions);
-      const map: Record<string, AnswerEntry> = {};
-      for (const a of data.answers) {
-        if (a.jawabanJson) map[a.questionId] = { jawabanJson: a.jawabanJson, ragu: a.ragu };
-      }
-      // Resync berkala (tiap 20 detik) bisa saja menyalip debounce auto-save yang
-      // masih berjalan (600ms) - kalau data server ini dipakai mentah-mentah,
-      // jawaban yang baru saja dipilih tapi belum sempat terkirim bisa "hilang"
-      // sesaat dari layar. Pertahankan nilai lokal untuk soal yang masih pending.
-      setAnswers((prev) => {
-        for (const qid of pendingSaves.current.keys()) {
-          if (prev[qid]) map[qid] = prev[qid];
-        }
-        return map;
-      });
+      terapkanJawabanServer(data.answers);
     }
     return data.attempt as AttemptState;
-  }, [id, tabToken]);
+  }, [id, tabToken, terapkanJawabanServer]);
+
+  /**
+   * Penyegaran berkala yang RINGAN (tiap 20 detik): status, sisa waktu, dan jawaban
+   * saja - soal tidak diunduh ulang (lihat app/api/siswa/attempts/[id]/sinkron).
+   * Gangguan sesaat (jaringan putus, 429/5xx) SENGAJA diabaikan diam-diam, tidak
+   * lagi memunculkan layar error yang menutup ujian: jawaban tetap aman di
+   * IndexedDB & antrean simpan, dan putaran berikutnya mencoba lagi. Hanya
+   * "sesi diambil alih" yang ditangani. Null = tidak ada data baru.
+   */
+  const syncAttempt = useCallback(async (): Promise<AttemptState | null> => {
+    let res: Response;
+    try {
+      res = await fetch(`/api/siswa/attempts/${id}/sinkron?tabToken=${tabToken}`, { cache: "no-store" });
+    } catch {
+      return null;
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      if (data?.error === "SESI_DIAMBIL_ALIH") setSessionTakenOver(true);
+      return null;
+    }
+    const data = await res.json().catch(() => null);
+    if (!data?.attempt) return null;
+    setAttempt(data.attempt);
+    setRemaining(data.attempt.sisaDetik);
+    if (data.attempt.status === "berjalan") terapkanJawabanServer(data.answers ?? []);
+    return data.attempt as AttemptState;
+  }, [id, tabToken, terapkanJawabanServer]);
 
   useEffect(() => {
     (async () => {
@@ -248,13 +283,15 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
       // data server yang sudah termasuk hasil flush ini, bukan data basi yang
       // bisa menimpa balik jawaban yang baru saja berhasil dikirim.
       await flushPendingSaves();
-      const a = await loadAttempt();
+      // Soal sudah ada di layar -> penyegaran ringan. Kalau belum (halaman dibuka saat
+      // sesi sedang dijeda, jadi soal belum pernah dimuat) -> muat penuh sekali.
+      const a = questionsRef.current.length === 0 ? await loadAttempt() : await syncAttempt();
       if (a && (a.status === "selesai" || a.status === "kedaluwarsa")) {
         if (!hasSubmitted.current) router.replace(`/siswa/hasil/${id}`);
       }
     }, RESYNC_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [attempt, id, loadAttempt, router, flushPendingSaves]);
+  }, [attempt, id, loadAttempt, syncAttempt, router, flushPendingSaves]);
 
   // Blok copy/paste & klik kanan
   useEffect(() => {

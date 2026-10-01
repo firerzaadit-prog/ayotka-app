@@ -246,6 +246,7 @@ model Student {
   saldoTransactions SaldoTransaction[]
 
   @@index([referredByPartnerId])
+  @@index([schoolId])
   @@map("students")
 }
 
@@ -382,6 +383,7 @@ model Package {
   attempts      Attempt[]
   soalImportLog SoalImportLog?
 
+  @@index([subjectId])
   @@map("packages")
 }
 
@@ -438,6 +440,9 @@ model Question {
   statements     QuestionStatement[]
   attemptAnswers AttemptAnswer[]
 
+  // Soal dimuat per paket tiap siswa membuka ujian.
+  @@index([packageId])
+  @@index([kompetensiId])
   @@map("questions")
 }
 
@@ -453,6 +458,7 @@ model QuestionOption {
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
+  @@index([questionId])
   @@map("question_options")
 }
 
@@ -467,6 +473,7 @@ model QuestionCategory {
   question   Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
   statements QuestionStatement[]
 
+  @@index([questionId])
   @@map("question_categories")
 }
 
@@ -483,6 +490,8 @@ model QuestionStatement {
   correctCategory QuestionCategory         @relation(fields: [correctCategoryId], references: [id], onDelete: Restrict)
   answers         AttemptAnswerStatement[]
 
+  @@index([questionId])
+  @@index([correctCategoryId])
   @@map("question_statements")
 }
 
@@ -503,6 +512,8 @@ model Assignment {
   school   School?   @relation(fields: [schoolId], references: [id], onDelete: Restrict)
   attempts Attempt[]
 
+  @@index([schoolId])
+  @@index([packageId])
   @@map("assignments")
 }
 
@@ -571,6 +582,10 @@ model Attempt {
   competencyScores CompetencyScore[]
   aiAnalysis       AiAnalysis?
 
+  // Indeks kunci asing yang dipakai jalur panas (daftar & mulai ujian, ranking, analitik).
+  @@index([studentId])
+  @@index([packageId])
+  @@index([assignmentId])
   @@map("attempts")
 }
 
@@ -589,6 +604,7 @@ model AttemptAnswer {
   statementAnswers AttemptAnswerStatement[]
 
   @@unique([attemptId, questionId])
+  @@index([questionId])
   @@map("attempt_answers")
 }
 
@@ -620,6 +636,7 @@ model CompetencyScore {
   kompetensi Kompetensi @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
 
   @@unique([attemptId, kompetensiId])
+  @@index([kompetensiId])
   @@map("competency_scores")
 }
 
@@ -798,6 +815,8 @@ model Invoice {
   subject      Subject?      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
   entitlements Entitlement[]
 
+  @@index([studentId])
+  @@index([planId])
   @@map("invoices")
 }
 
@@ -947,6 +966,8 @@ model SaldoTransaction {
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
+  // Saldo = SUM per siswa untuk baris berstatus "berhasil" (lib/billing/saldo.ts).
+  @@index([studentId, status])
   @@map("saldo_transactions")
 }
 
@@ -1012,6 +1033,7 @@ model LoginLog {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
   @@map("login_logs")
 }
 
@@ -1028,6 +1050,7 @@ model AuditLog {
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
   @@map("audit_logs")
 }
 
