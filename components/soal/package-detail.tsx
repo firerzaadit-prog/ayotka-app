@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
-import { formatWIB } from "@/lib/utils/datetime";
+import { formatWIBHariTanggalJam } from "@/lib/utils/datetime";
 import { ExcelSoalPanel } from "@/components/soal/excel-soal-panel";
 /** Bersihkan simbol LaTeX untuk preview singkat di tabel */
 function stripLatex(text: string): string {
@@ -55,7 +55,6 @@ type PackageDetail = {
   bukaMulai: string | null;
   bukaSelesai: string | null;
   publishedAt?: string | null;
-  createdAt?: string;
   prevPackage?: { id: string; nama: string; urutanSeri: number | null; _count?: { attempts: number } } | null;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
@@ -359,7 +358,7 @@ export function PackageDetail({
           )}
           {pkg.status === "published" && pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date() && (
             <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800">
-              <span>🔒</span> Terjadwal (Buka {formatWIB(pkg.bukaMulai)})
+              <span>🔒</span> Terjadwal (Buka {formatWIBHariTanggalJam(pkg.bukaMulai)})
             </span>
           )}
         </div>
@@ -370,18 +369,18 @@ export function PackageDetail({
           {" · Target: "}{describeVisibility(pkg.visibility ?? [])}
           {" · Tanggal Terbit: "}
           <span className="font-medium text-slate-700">
-            {pkg.publishedAt
-              ? formatWIB(pkg.publishedAt)
-              : pkg.status === "published" && pkg.createdAt
-              ? formatWIB(pkg.createdAt)
+            {pkg.status === "published" && pkg.publishedAt
+              ? formatWIBHariTanggalJam(pkg.publishedAt)
+              : pkg.status === "published"
+              ? "Terbit (tanggal tidak tercatat)"
               : "Belum terbit (Draft)"}
           </span>
           {(pkg.bukaMulai || pkg.bukaSelesai) && (
             <>
               {" · Jendela: "}
-              {pkg.bukaMulai ? formatWIB(pkg.bukaMulai) : "kapan saja"}
+              {pkg.bukaMulai ? formatWIBHariTanggalJam(pkg.bukaMulai) : "kapan saja"}
               {" - "}
-              {pkg.bukaSelesai ? formatWIB(pkg.bukaSelesai) : "tanpa batas"}
+              {pkg.bukaSelesai ? formatWIBHariTanggalJam(pkg.bukaSelesai) : "tanpa batas"}
             </>
           )}
         </p>

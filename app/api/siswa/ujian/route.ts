@@ -79,6 +79,7 @@ export async function GET() {
       kategori: p.kategori,
       bukaSelesai: p.bukaSelesai,
       bukaMulai: p.bukaMulai,
+      publishedAt: p.publishedAt,
       subject: p.subject,
       statusSeri: p.statusSeri,
     })),

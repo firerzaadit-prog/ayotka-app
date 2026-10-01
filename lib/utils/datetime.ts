@@ -19,6 +19,23 @@ export function formatWIBDate(date: Date | string): string {
   return formatWIB(date, "d MMMM yyyy");
 }
 
+/** Hari + tanggal lengkap WIB, mis. "Jumat, 25 September 2026" - untuk jadwal terbit/buka paket. */
+export function formatWIBHariTanggal(date: Date | string): string {
+  const value = typeof date === "string" ? new Date(date) : date;
+  return formatInTimeZone(value, WIB_TIMEZONE, "EEEE, d MMMM yyyy", { locale: localeId });
+}
+
+/** Jam WIB dengan titik, mis. "20.32 WIB" - pasangan formatWIBHariTanggal untuk baris kedua. */
+export function formatWIBJam(date: Date | string): string {
+  const value = typeof date === "string" ? new Date(date) : date;
+  return `${formatInTimeZone(value, WIB_TIMEZONE, "HH.mm", { locale: localeId })} WIB`;
+}
+
+/** Hari + tanggal + jam sebaris, mis. "Jumat, 25 September 2026 pukul 20.32 WIB". */
+export function formatWIBHariTanggalJam(date: Date | string): string {
+  return `${formatWIBHariTanggal(date)} pukul ${formatWIBJam(date)}`;
+}
+
 export function formatWIBTime(date: Date | string): string {
   return formatWIB(date, "HH:mm");
 }

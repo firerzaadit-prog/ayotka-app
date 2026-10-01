@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { buttonClassName } from "@/components/ui/button";
 import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 import { IconClipboardCheck, IconCalendar } from "@/components/ui/empty-state-icons";
-import { formatWIB } from "@/lib/utils/datetime";
+import { formatWIBHariTanggal, formatWIBHariTanggalJam } from "@/lib/utils/datetime";
 import { getMapelIcon } from "@/components/icons/mapel-icons";
 
 type KategoriTO = "nasional" | "mandiri";
@@ -29,6 +29,7 @@ type PackageItem = {
   kategori: KategoriTO;
   bukaMulai: string | null;
   bukaSelesai: string | null;
+  publishedAt: string | null;
   subject: SubjectInfo;
   statusSeri: StatusSeri;
 };
@@ -76,7 +77,7 @@ function getJadwalStatus(bukaMulai: string | null, bukaSelesai: string | null): 
   const now = new Date();
   if (bukaMulai && new Date(bukaMulai) > now) {
     return {
-      label: `Akan Dibuka ${formatWIB(bukaMulai)}`,
+      label: `Akan Dibuka ${formatWIBHariTanggalJam(bukaMulai)}`,
       colorClass: "bg-amber-50 text-amber-700 border-amber-200",
       canStart: false,
     };
@@ -90,7 +91,7 @@ function getJadwalStatus(bukaMulai: string | null, bukaSelesai: string | null): 
   }
   if (bukaMulai || bukaSelesai) {
     return {
-      label: bukaSelesai ? `Berlangsung s.d. ${formatWIB(bukaSelesai)}` : "Sedang Berlangsung",
+      label: bukaSelesai ? `Berlangsung s.d. ${formatWIBHariTanggalJam(bukaSelesai)}` : "Sedang Berlangsung",
       colorClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
       canStart: true,
     };
@@ -242,7 +243,7 @@ function UjianContent() {
                       <p className="font-semibold text-slate-900">{a.package.nama}</p>
                       <p className="text-xs text-slate-500">
                         {a.package.subject.nama} · {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit ·{" "}
-                        <span className="font-medium text-indigo-700">Buka s.d. {formatWIB(a.selesai)}</span>
+                        <span className="font-medium text-indigo-700">Buka s.d. {formatWIBHariTanggalJam(a.selesai)}</span>
                       </p>
                     </div>
                   </div>
@@ -512,6 +513,13 @@ function UjianContent() {
                         {p.durasiMenit} menit
                       </p>
 
+                      {p.publishedAt && (
+                        <p className="text-xs text-slate-500">
+                          Terbit{" "}
+                          <span className="font-medium text-slate-700">{formatWIBHariTanggal(p.publishedAt)}</span>
+                        </p>
+                      )}
+
                       {/* Info Jadwal Jika Ada */}
                       {(p.bukaMulai || p.bukaSelesai) && (
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
@@ -529,7 +537,7 @@ function UjianContent() {
                             <span className="h-1.5 w-1.5 rounded-full bg-current" />
                             {p.statusSeri.alasan === "belum_giliran"
                               ? `Selesaikan dulu "${p.statusSeri.namaPaketSebelumnya}"`
-                              : `Terbuka ${formatWIB(p.statusSeri.bukaPada)}`}
+                              : `Terbuka ${formatWIBHariTanggalJam(p.statusSeri.bukaPada)}`}
                           </span>
                         </div>
                       )}

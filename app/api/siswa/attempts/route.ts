@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
 import { statusSeriMandiri } from "@/lib/exam/seri-mandiri";
-import { formatWIB } from "@/lib/utils/datetime";
+import { formatWIBHariTanggalJam } from "@/lib/utils/datetime";
 import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
@@ -160,7 +160,7 @@ export async function POST(request: Request) {
     if (chosenPackage.bukaMulai && new Date(chosenPackage.bukaMulai) > new Date()) {
       return NextResponse.json(
         {
-          error: `Paket ini belum dibuka. Ujian baru bisa diakses mulai ${formatWIB(chosenPackage.bukaMulai)}.`,
+          error: `Paket ini belum dibuka. Ujian baru bisa diakses mulai ${formatWIBHariTanggalJam(chosenPackage.bukaMulai)}.`,
           code: "BELUM_DIBUKA",
         },
         { status: 403 },
@@ -199,7 +199,7 @@ export async function POST(request: Request) {
           error:
             statusSeri.alasan === "belum_giliran"
               ? `Selesaikan dulu "${statusSeri.namaPaketSebelumnya}" sebelum mengerjakan paket ini.`
-              : `Paket ini baru bisa dikerjakan mulai ${formatWIB(statusSeri.bukaPada)}.`,
+              : `Paket ini baru bisa dikerjakan mulai ${formatWIBHariTanggalJam(statusSeri.bukaPada)}.`,
           code: "PAKET_TERKUNCI",
         },
         { status: 409 },

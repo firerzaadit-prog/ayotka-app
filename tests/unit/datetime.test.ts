@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatWIB, formatWIBDate, startOfDayWIB } from "@/lib/utils/datetime";
+import {
+  formatWIB,
+  formatWIBDate,
+  formatWIBHariTanggal,
+  formatWIBHariTanggalJam,
+  formatWIBJam,
+  startOfDayWIB,
+} from "@/lib/utils/datetime";
 
 describe("formatWIB (Tiket 1.8: simpan UTC, tampilkan WIB)", () => {
   it("menggeser waktu UTC +7 jam untuk WIB", () => {
@@ -16,6 +23,26 @@ describe("formatWIB (Tiket 1.8: simpan UTC, tampilkan WIB)", () => {
 
   it("formatWIBDate hanya menampilkan tanggal", () => {
     expect(formatWIBDate("2026-03-17T10:00:00.000Z")).toBe("17 Maret 2026 WIB");
+  });
+});
+
+describe("formatWIBHariTanggal / formatWIBJam (hari + tanggal + bulan + tahun terbit paket)", () => {
+  it("menampilkan nama hari, tanggal, bulan, dan tahun dalam bahasa Indonesia", () => {
+    // 2026-10-01 adalah hari Kamis
+    expect(formatWIBHariTanggal("2026-10-01T03:00:00.000Z")).toBe("Kamis, 1 Oktober 2026");
+  });
+
+  it("hari mengikuti tanggal WIB, bukan UTC (lintas tengah malam)", () => {
+    // 2026-10-01T20:00Z = Jumat 2 Oktober 2026 03:00 WIB
+    expect(formatWIBHariTanggal("2026-10-01T20:00:00.000Z")).toBe("Jumat, 2 Oktober 2026");
+  });
+
+  it("formatWIBJam memakai titik dan akhiran WIB", () => {
+    expect(formatWIBJam("2026-10-01T23:00:00.000Z")).toBe("06.00 WIB");
+  });
+
+  it("formatWIBHariTanggalJam menggabungkan keduanya", () => {
+    expect(formatWIBHariTanggalJam("2026-10-01T23:00:00.000Z")).toBe("Jumat, 2 Oktober 2026 pukul 06.00 WIB");
   });
 });
 

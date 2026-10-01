@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
-import { formatWIB } from "@/lib/utils/datetime";
+import { formatWIBHariTanggal, formatWIBHariTanggalJam, formatWIBJam } from "@/lib/utils/datetime";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; subjectId: string };
@@ -27,7 +27,6 @@ type PackageListItem = {
   bukaMulai?: string | null;
   bukaSelesai?: string | null;
   publishedAt?: string | null;
-  createdAt?: string;
   subject: Subject;
   _count: { questions: number; attempts?: number };
 };
@@ -349,10 +348,12 @@ export function PackageList({ basePath }: { basePath: string }) {
           return a.nama.localeCompare(b.nama);
         });
 
-        // Petakan paket berseri per mapel untuk lookup nama & status pengerjaan paket sebelumnya
+        // Petakan paket berseri per mapel untuk lookup nama & status pengerjaan paket sebelumnya.
+        // Hanya paket published: siswa tidak pernah melihat draft, jadi draft tidak boleh
+        // dianggap sebagai "paket prasyarat" (sama seperti perhitungan keterkuncian di sisi siswa).
         const seriesBySubject = new Map<string, PackageListItem[]>();
         for (const p of sortedPackages) {
-          if (p.kategori === "mandiri" && p.urutanSeri != null) {
+          if (p.kategori === "mandiri" && p.urutanSeri != null && p.status === "published") {
             const list = seriesBySubject.get(p.subject.id) ?? [];
             list.push(p);
             seriesBySubject.set(p.subject.id, list);
@@ -466,7 +467,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                                   <span>🔒</span> Terjadwal
                                 </span>
                                 <span className="text-[10px] text-slate-500">
-                                  Buka mulai {formatWIB(pkg.bukaMulai!)}
+                                  Buka mulai {formatWIBHariTanggalJam(pkg.bukaMulai!)}
                                 </span>
                               </div>
                             )}
@@ -479,14 +480,15 @@ export function PackageList({ basePath }: { basePath: string }) {
                           </div>
                         </Td>
                         <Td className="whitespace-nowrap text-xs text-slate-600">
-                          {pkg.publishedAt ? (
-                            <span className="font-medium text-slate-800">
-                              {formatWIB(pkg.publishedAt)}
-                            </span>
-                          ) : isPublished && pkg.createdAt ? (
-                            <span className="font-medium text-slate-800">
-                              {formatWIB(pkg.createdAt)}
-                            </span>
+                          {isPublished && pkg.publishedAt ? (
+                            <div className="flex flex-col">
+                              <span className="font-medium text-slate-800">
+                                {formatWIBHariTanggal(pkg.publishedAt)}
+                              </span>
+                              <span className="text-[11px] text-slate-500">pukul {formatWIBJam(pkg.publishedAt)}</span>
+                            </div>
+                          ) : isPublished ? (
+                            <span className="italic text-slate-400">Terbit (tanggal tidak tercatat)</span>
                           ) : (
                             <span className="italic text-slate-400">Belum terbit</span>
                           )}
