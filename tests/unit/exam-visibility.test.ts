@@ -44,6 +44,25 @@ describe("getSelfSelectPackagesFor - tingkat dihapus, cuma jenjang (1 Okt 2026)"
     expect(where).not.toHaveProperty("tingkatList");
     expect(where.jenjang).toBe("SD");
   });
+
+  it("includeUpcoming: true menyertakan paket bukaMulai di masa depan tanpa membatasi ke nasional (Mandiri ikut muncul)", async () => {
+    await getSelfSelectPackagesFor(STUDENT_B, { includeUpcoming: true });
+    const call = packageModel.findMany.mock.calls[0]![0];
+    const andFilter = call.where.AND;
+    // Harusnya [{ OR: [open, { bukaMulai: { gt: now } }] }]
+    const orBranch = andFilter[0].OR[1];
+    expect(orBranch).toHaveProperty("bukaMulai");
+    expect(orBranch).not.toHaveProperty("kategori"); // Tidak lagi dibatasi kategori nasional
+  });
+
+  it("orderBy mengurutkan berdasarkan urutanSeri (nulls last) lalu nama", async () => {
+    await getSelfSelectPackagesFor(STUDENT_B);
+    const call = packageModel.findMany.mock.calls[0]![0];
+    expect(call.orderBy).toEqual([
+      { urutanSeri: { sort: "asc", nulls: "last" } },
+      { nama: "asc" },
+    ]);
+  });
 });
 
 describe("getActiveAssignmentsFor - target sekolah penuh, tanpa Kelas/AcademicYear (1 Okt 2026)", () => {

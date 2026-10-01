@@ -148,12 +148,32 @@ export async function POST(request: Request) {
       }
     }
   } else {
-    const options = await getSelfSelectPackagesFor(student);
+    const options = await getSelfSelectPackagesFor(student, { includeUpcoming: true });
     chosenPackage = options.find((p) => p.id === parsed.data.packageId) ?? null;
     if (!chosenPackage) {
       return NextResponse.json(
         { error: "Paket tidak ditemukan atau tidak tersedia untukmu." },
         { status: 404 },
+      );
+    }
+
+    if (chosenPackage.bukaMulai && new Date(chosenPackage.bukaMulai) > new Date()) {
+      return NextResponse.json(
+        {
+          error: `Paket ini belum dibuka. Ujian baru bisa diakses mulai ${formatWIB(chosenPackage.bukaMulai)}.`,
+          code: "BELUM_DIBUKA",
+        },
+        { status: 403 },
+      );
+    }
+
+    if (chosenPackage.bukaSelesai && new Date(chosenPackage.bukaSelesai) < new Date()) {
+      return NextResponse.json(
+        {
+          error: "Periode ujian untuk paket ini telah berakhir.",
+          code: "TELAH_BERAKHIR",
+        },
+        { status: 403 },
       );
     }
 

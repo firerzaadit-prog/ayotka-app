@@ -26,7 +26,7 @@ export async function GET() {
 
   const [assignments, packages, attempts, activeEntitlement] = await Promise.all([
     isJalurA ? getActiveAssignmentsFor(student) : Promise.resolve([]),
-    getSelfSelectPackagesFor(student, { includeUpcomingNasional: true }),
+    getSelfSelectPackagesFor(student, { includeUpcoming: true }),
     prisma.attempt.findMany({
       where: { studentId: student.id },
       select: {

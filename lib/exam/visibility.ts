@@ -3,21 +3,22 @@ import { prisma } from "@/lib/db/prisma";
 import type { Student } from "@prisma/client";
 
 /**
- * Jendela buka/tutup paket & grup self-select. Kalau includeUpcomingNasional,
- * event kategori "nasional" yang BELUM dibuka (bukaMulai di masa depan) ikut
- * dikembalikan supaya siswa bisa melihat jadwalnya - tombol Mulai tetap
- * dikunci di UI, dan POST /api/siswa/attempts memanggil fungsi ini TANPA
- * opsi itu sehingga server tidak pernah membiarkan event belum-buka dimulai.
+ * Jendela buka/tutup paket & grup self-select. Kalau includeUpcoming (default
+ * true di tampilan siswa /api/siswa/ujian), paket yang BELUM dibuka (bukaMulai
+ * di masa depan, baik Mandiri maupun Nasional) tetap ikut dikembalikan agar
+ * siswa bisa melihat seluruh daftar paket yang tersedia. Tombol "Mulai" tetap
+ * dikunci di UI ("Belum Dibuka"), dan saat submit mulai attempt
+ * (POST /api/siswa/attempts), server memastikan waktu bukaMulai sudah tiba.
  */
-function windowFilter(now: Date, includeUpcomingNasional: boolean) {
+function windowFilter(now: Date, includeUpcoming: boolean) {
   const open = {
     AND: [
       { OR: [{ bukaMulai: null }, { bukaMulai: { lte: now } }] },
       { OR: [{ bukaSelesai: null }, { bukaSelesai: { gte: now } }] },
     ],
   };
-  if (!includeUpcomingNasional) return [open];
-  return [{ OR: [open, { kategori: "nasional" as const, bukaMulai: { gt: now } }] }];
+  if (!includeUpcoming) return [open];
+  return [{ OR: [open, { bukaMulai: { gt: now } }] }];
 }
 
 /**
@@ -30,9 +31,10 @@ function windowFilter(now: Date, includeUpcomingNasional: boolean) {
  */
 export async function getSelfSelectPackagesFor(
   student: Student,
-  opts: { includeUpcomingNasional?: boolean } = {},
+  opts: { includeUpcoming?: boolean; includeUpcomingNasional?: boolean } = {},
 ) {
   const now = new Date();
+  const includeUpcoming = opts.includeUpcoming ?? opts.includeUpcomingNasional ?? false;
   // bukaMulai/bukaSelesai null = selalu terbuka (perilaku lama, dipakai
   // default untuk paket Latihan tanpa jadwal). Ditulis sebagai AND terpisah
   // (bukan digabung ke OR) supaya tidak bentrok dengan key "OR" yang sudah
@@ -41,8 +43,13 @@ export async function getSelfSelectPackagesFor(
     status: "published" as const,
     bolehDipilihSiswa: true,
     jenjang: student.jenjang,
-    AND: windowFilter(now, opts.includeUpcomingNasional ?? false),
+    AND: windowFilter(now, includeUpcoming),
   };
+
+  const orderBy = [
+    { urutanSeri: { sort: "asc" as const, nulls: "last" as const } },
+    { nama: "asc" as const },
+  ];
 
   if (student.jalur === "B") {
     return prisma.package.findMany({
@@ -51,7 +58,7 @@ export async function getSelfSelectPackagesFor(
         targetSiswa: { in: ["mandiri", "semua"] },
         visibility: { some: { targetType: "publik" as const } },
       },
-      orderBy: { nama: "asc" },
+      orderBy,
       include: { subject: true },
     });
   }
@@ -75,7 +82,7 @@ export async function getSelfSelectPackagesFor(
         },
       ],
     },
-    orderBy: { nama: "asc" },
+    orderBy,
     include: { subject: true },
   });
 }
