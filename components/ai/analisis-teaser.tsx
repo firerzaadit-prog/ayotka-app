@@ -3,10 +3,11 @@ import { Card } from "@/components/ui/card";
 import { buttonClassName } from "@/components/ui/button";
 
 /**
- * Rincian Biaya AyoTKA (keputusan produk): free trial tidak pernah memicu
- * panggilan Gemini sama sekali (lihat lib/ai/auto-trigger.ts) - blok ini
+ * Rincian Biaya AyoTKA (keputusan produk): percobaan gratis tidak memicu
+ * panggilan Gemini kecuali siswa sendiri menyalakan Learning Analytics
+ * (dibayar saldo, lihat lib/billing/learning-analytics.ts) - blok ini
  * teks statis placeholder yang diblur, BUKAN hasil AI sungguhan. Nol biaya
- * AI untuk siapa pun yang belum berlangganan, berapa pun jumlahnya.
+ * AI untuk siapa pun yang belum membayar.
  */
 export function AnalisisAiTeaser() {
   return (
@@ -25,12 +26,18 @@ export function AnalisisAiTeaser() {
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/70 p-4 text-center">
         <p className="max-w-xs text-sm font-medium text-slate-700">
-          Berlangganan untuk membuka analisis kelebihan, kekurangan, dan rekomendasi belajar dari AI
-          untuk hasil ini.
+          Learning Analytics tidak aktif untuk percobaan ini. Berlangganan, atau Top Up kredit lalu
+          aktifkan Learning Analytics di ujian berikutnya, untuk membuka analisis kelebihan,
+          kekurangan, dan rekomendasi belajar dari AI.
         </p>
-        <Link href="/siswa/langganan" className={buttonClassName("primary")}>
-          Berlangganan untuk lihat analisis lengkap
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Link href="/siswa/langganan" className={buttonClassName("primary")}>
+            Berlangganan
+          </Link>
+          <Link href="/siswa/wallet" className={buttonClassName("secondary")}>
+            Top Up kredit
+          </Link>
+        </div>
       </div>
     </Card>
   );

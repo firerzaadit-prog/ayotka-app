@@ -45,6 +45,31 @@ export async function debitSaldoUntukAnalisis(params: {
   });
 }
 
+/**
+ * Kembalikan saldo yang sudah didebit untuk satu Learning Analytics yang
+ * ternyata GAGAL diproses (mis. Gemini 503) - tanpa ini siswa kehilangan
+ * saldo tapi tidak mendapat analisisnya. Dicatat sebagai baris kredit
+ * tersendiri (bukan menghapus baris debit) supaya riwayat wallet tetap
+ * lengkap & terbaca: debit lalu pengembalian. Pakai tipe penyesuaian_admin
+ * yang sudah ada (tanpa migrasi enum); keterangannya yang menjelaskan.
+ */
+export async function kembalikanSaldoAnalisis(params: {
+  studentId: string;
+  attemptId: string;
+  subjectNama: string;
+  harga: number;
+}): Promise<void> {
+  await prisma.saldoTransaction.create({
+    data: {
+      studentId: params.studentId,
+      tipe: "penyesuaian_admin",
+      status: "berhasil",
+      jumlah: params.harga,
+      keterangan: `Pengembalian saldo - Learning Analytics ${params.subjectNama} gagal diproses (attempt ${params.attemptId})`,
+    },
+  });
+}
+
 /** Harga jual satu Learning Analytics tambahan (harga dasar + margin), diatur admin pusat. */
 export async function getHargaLearningAnalytics(): Promise<number> {
   const settings = await prisma.appSetting.upsert({

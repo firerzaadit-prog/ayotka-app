@@ -5,7 +5,6 @@ import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota, normalisasiModeAnalisis } from "@/lib/ai/auto-trigger-quota";
 import { tryStartProcessing, finishProcessing } from "@/lib/ai/analysis-guard";
 import { prosesSatuAnalisis } from "@/lib/ai/queue-worker";
-import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
 import type { Attempt } from "@prisma/client";
 
 /**
@@ -33,10 +32,11 @@ import type { Attempt } from "@prisma/client";
  * Semua pengecekan gerbang (jatah, free trial, dst.) sama di kedua mode.
  *
  * Rincian Biaya AyoTKA (keputusan produk): free trial TIDAK mendapat
- * Analisis AI sama sekali - hanya skor + peta kompetensi (lihat
+ * Analisis AI GRATIS - hanya skor + peta kompetensi (lihat
  * app/siswa/hasil/[id]/page.tsx untuk teaser blur yang ditampilkan
- * sebagai gantinya). Biaya Gemini jadi nol untuk siapa pun yang belum bayar,
- * berapa pun jumlahnya.
+ * sebagai gantinya). Sejak 30 Sep 2026 siswa gratis boleh MEMBELI satu
+ * Learning Analytics lewat saldo (toggle di halaman instruksi ujian); tanpa
+ * toggle itu, biaya Gemini untuk yang belum bayar tetap nol.
  *
  * Cuma berlaku untuk attempt yang selesai MULAI SEKARANG (keputusan user) -
  * tidak ada backfill attempt lama, karena fungsi ini cuma dipanggil dari
@@ -66,8 +66,14 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
     // untuk resolusi & validasi awalnya), attempt yang siswanya tidak
     // meminta LA (atau free trial - selalu false, aturan lama tetap
     // berlaku) tidak pernah dianalisis di sini sama sekali.
+    //
+    // Percobaan gratis (free trial) TIDAK lagi ditolak mentah-mentah di sini
+    // (permintaan user, 30 Sep 2026): analisisAiDiminta cuma bisa true untuk
+    // percobaan gratis kalau siswa menyalakan toggle Learning Analytics DAN
+    // saldonya cukup saat ujian dimulai (lihat app/api/siswa/attempts) -
+    // prosesSatuAnalisis lalu mendebit saldo. Tanpa toggle, tetap tidak ada
+    // panggilan Gemini sama sekali.
     if (!attempt.analisisAiDiminta) return;
-    if (await wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt)) return;
 
     const settings = await getAiAutoAnalysisSettings();
     const usedCount = await prisma.attempt.count({

@@ -5,7 +5,8 @@ import { tryStartProcessing, finishProcessing, setLastError, STALE_MS } from "@/
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota } from "@/lib/ai/auto-trigger-quota";
 import { getAiKuotaRemaining } from "@/lib/billing/plan-fitur";
-import { debitSaldoUntukAnalisis, getHargaLearningAnalytics } from "@/lib/billing/saldo";
+import { debitSaldoUntukAnalisis, getHargaLearningAnalytics, kembalikanSaldoAnalisis } from "@/lib/billing/saldo";
+import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
 import { runWithRateLimit } from "@/lib/utils/rate-limited-dispatch";
 import type { AnalisisSumber } from "@prisma/client";
 
@@ -64,8 +65,17 @@ export async function prosesSatuAnalisis(attemptId: string): Promise<HasilProses
     // Try Out Nasional selalu dibundel (sumber "kuota", tidak pernah didebit)
     // - lihat lib/billing/plan-fitur.ts.
     let sumber: AnalisisSumber = "kuota";
+    // Harga yang didebit di panggilan INI (null = tidak ada debit) - dipakai
+    // untuk mengembalikan saldo kalau analisisnya gagal di bawah.
+    let hargaDidebit: number | null = null;
     if (pkg.kategori !== "nasional") {
-      const kuota = await getAiKuotaRemaining(attempt.studentId, pkg.subjectId);
+      // Percobaan gratis (free trial) tidak punya jatah LA dari paket sama
+      // sekali - LA-nya selalu dibayar saldo (sudah dipastikan cukup saat
+      // ujian dimulai, lihat app/api/siswa/attempts). Dicek lewat
+      // wasAttemptFreeTrial (bukan entitlement SEKARANG) karena entitlement
+      // bisa saja sudah berakhir/berganti sejak attempt dimulai.
+      const freeTrial = await wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt);
+      const kuota = freeTrial ? null : await getAiKuotaRemaining(attempt.studentId, pkg.subjectId);
       if (kuota && kuota.sisa > 0) {
         sumber = "kuota";
       } else {
@@ -81,10 +91,33 @@ export async function prosesSatuAnalisis(attemptId: string): Promise<HasilProses
           return "dilewati";
         }
         sumber = "saldo";
+        hargaDidebit = harga;
       }
     }
 
-    await runAnalisisAi(attempt, sumber);
+    try {
+      await runAnalisisAi(attempt, sumber);
+    } catch (err) {
+      // Saldo sudah terpotong tapi analisis tidak jadi (mis. Gemini 503) -
+      // kembalikan, supaya siswa tidak rugi dan percobaan ulang (admin/antrean)
+      // tidak memotong untuk kedua kalinya.
+      if (hargaDidebit != null) {
+        try {
+          await kembalikanSaldoAnalisis({
+            studentId: attempt.studentId,
+            attemptId: attempt.id,
+            subjectNama: pkg.subject.nama,
+            harga: hargaDidebit,
+          });
+        } catch (refundErr) {
+          console.error(
+            `[queue-worker] GAGAL mengembalikan saldo Rp${hargaDidebit} untuk attempt ${attemptId} - perlu penyesuaian manual:`,
+            refundErr,
+          );
+        }
+      }
+      throw err;
+    }
     await prisma.attempt.update({
       where: { id: attempt.id },
       data: { aiAutoAnalysisAt: new Date() },

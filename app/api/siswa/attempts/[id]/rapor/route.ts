@@ -66,9 +66,13 @@ export async function GET(_request: Request, { params }: RouteParams) {
   // membaca full analisis lewat unduh PDF walau halaman web-nya menampilkan
   // blur "Berlangganan untuk lihat analisis lengkap". PDF wajib sama
   // ketatnya dengan web, bukan jalur pintas kedua.
-  const aiAnalysis = hasil.isFreeTrial
-    ? null
-    : await prisma.aiAnalysis.findUnique({ where: { attemptId: attempt.id } });
+  // Pengecualian (30 Sep 2026): siswa gratis yang menyalakan Learning Analytics
+  // (dibayar saldo, analisisAiDiminta = true) berhak atas analisisnya - sama
+  // seperti halaman web.
+  const aiAnalysis =
+    hasil.isFreeTrial && !hasil.analisisAiDiminta
+      ? null
+      : await prisma.aiAnalysis.findUnique({ where: { attemptId: attempt.id } });
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   const logoBuffer = appUrl ? await fetchImageBuffer(`${appUrl}/logo.png`) : null;

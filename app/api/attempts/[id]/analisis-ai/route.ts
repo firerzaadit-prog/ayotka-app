@@ -76,7 +76,10 @@ export async function POST(_request: Request, { params }: RouteParams) {
   // sekolah) yang canTrigger-nya diset per HALAMAN, bukan per attempt, jadi
   // tanpa gerbang server-side ini admin bisa tanpa sengaja memicu biaya
   // Gemini untuk percobaan gratis siswa hanya dengan mengklik tombolnya.
-  if (await wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt)) {
+  // Pengecualian (30 Sep 2026): percobaan gratis yang siswanya sendiri membeli
+  // Learning Analytics lewat saldo (analisisAiDiminta = true) boleh diproses
+  // ulang admin - mis. kalau Gemini sempat gagal dan saldonya sudah dikembalikan.
+  if (!attempt.analisisAiDiminta && (await wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt))) {
     return NextResponse.json(
       { error: "Percobaan gratis (free trial) tidak disertai analisis AI." },
       { status: 400 },

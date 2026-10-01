@@ -137,6 +137,9 @@ export async function buildHasil(attempt: Attempt) {
     siswa: { nama: student.nama, idSamar: maskIdentifier(student.nisn, attempt.id) },
     canShowPembahasan,
     isFreeTrial,
+    // Siswa gratis yang MENYALAKAN Learning Analytics (dibayar saldo) tetap berhak
+    // melihat hasil analisisnya - teaser blur hanya untuk yang tidak memintanya.
+    analisisAiDiminta: attempt.analisisAiDiminta,
     bisaUnduhRapor,
     ranking,
     perSoal,

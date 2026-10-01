@@ -11,6 +11,7 @@ import { finalizeAttempt } from "@/lib/exam/finalize";
 import { canStartAttempt, getActiveEntitlement, type AccessCheckResult } from "@/lib/billing/entitlements";
 import { getAiKuotaRemaining, getTryOutNasionalKuotaRemaining } from "@/lib/billing/plan-fitur";
 import { getSaldo, getHargaLearningAnalytics } from "@/lib/billing/saldo";
+import { putuskanLearningAnalytics, type TipeAkses } from "@/lib/billing/learning-analytics";
 import { z } from "zod";
 
 function formatRupiah(n: number): string {
@@ -198,7 +199,7 @@ export async function POST(request: Request) {
         {
           error:
             statusSeri.alasan === "belum_giliran"
-              ? `Selesaikan dulu "${statusSeri.namaPaketSebelumnya}" sebelum mengerjakan paket ini.`
+              ? `Selesaikan dulu "${statusSeri.namaPaketSebelumnya}" sebelum mengerjakan paket ini. Paket ini dibuka pukul 06.00 WIB, sehari setelah paket tersebut selesai.`
               : `Paket ini baru bisa dikerjakan mulai ${formatWIBHariTanggalJam(statusSeri.bukaPada)}.`,
           code: "PAKET_TERKUNCI",
         },
@@ -258,7 +259,11 @@ export async function POST(request: Request) {
   // school_seat (Jalur A) diperlakukan seperti perilaku lama - AI selalu
   // otomatis termasuk tanpa jatah per-mapel/saldo, karena sekolah sudah bayar
   // borongan di luar sistem ini.
-  const activeEntitlement = await getActiveEntitlement(student.id);
+  // Hanya entitlement yang MASIH berlaku sekarang yang dihitung (getActiveEntitlement
+  // juga mengembalikan yang sudah berakhir, untuk keperluan riwayat). Selaras dengan
+  // wasAttemptFreeTrial: langganan yang sudah habis = diperlakukan sebagai paket gratis.
+  const semuaEntitlement = await getActiveEntitlement(student.id);
+  const activeEntitlement = semuaEntitlement?.canStartNewAttempt ? semuaEntitlement : null;
   const isSchoolSeat = activeEntitlement?.entitlement.source === "school_seat";
   const hasIndividualEntitlement = activeEntitlement != null && !isSchoolSeat;
 
@@ -284,30 +289,29 @@ export async function POST(request: Request) {
       }
     }
   } else if (parsed.data.gunakanLearningAnalytics === true) {
-    if (!activeEntitlement) {
-      // Free trial: aturan lama tetap berlaku, tidak pernah ditawari Learning Analytics sama sekali.
-      analisisAiDiminta = false;
-    } else if (isSchoolSeat) {
-      analisisAiDiminta = true; // perilaku lama Jalur A: selalu ikut kalau diminta, tanpa jatah/saldo
-    } else {
-      const kuota = await getAiKuotaRemaining(student.id, fullPackage.subjectId);
-      if (kuota && kuota.sisa > 0) {
-        analisisAiDiminta = true;
-      } else {
-        const [saldo, harga] = await Promise.all([getSaldo(student.id), getHargaLearningAnalytics()]);
-        if (saldo >= harga) {
-          analisisAiDiminta = true;
-        } else {
-          return NextResponse.json(
-            {
-              error: `Jatah Learning Analytics gratis mata pelajaran ini sudah habis dan saldomu tidak cukup (butuh ${formatRupiah(harga)}, saldo kamu ${formatRupiah(saldo)}). Isi saldo dulu di halaman Wallet.`,
-              code: "SALDO_TIDAK_CUKUP",
-            },
-            { status: 402 },
-          );
-        }
-      }
+    // Paket gratis (tanpa langganan aktif) kini juga boleh beli LA lewat saldo -
+    // lihat lib/billing/learning-analytics.ts untuk aturan lengkapnya.
+    const tipe: TipeAkses = isSchoolSeat ? "sekolah" : hasIndividualEntitlement ? "langganan" : "gratis";
+    const kuota = tipe === "langganan" ? await getAiKuotaRemaining(student.id, fullPackage.subjectId) : null;
+    const butuhSaldo = tipe === "gratis" || (tipe === "langganan" && !(kuota && kuota.sisa > 0));
+    const [saldo, harga] = butuhSaldo
+      ? await Promise.all([getSaldo(student.id), getHargaLearningAnalytics()])
+      : [0, 0];
+
+    const putusan = putuskanLearningAnalytics({ tipe, kuotaSisa: kuota?.sisa ?? null, saldo, harga });
+    if (!putusan.diminta) {
+      return NextResponse.json(
+        {
+          error:
+            tipe === "gratis"
+              ? `Saldo kreditmu belum cukup untuk mengaktifkan Learning Analytics (butuh ${formatRupiah(putusan.harga)}, saldo kamu ${formatRupiah(putusan.saldo)}). Tambah / Top Up kredit dulu di halaman Wallet, atau matikan pilihan Learning Analytics untuk lanjut mengerjakan.`
+              : `Jatah Learning Analytics gratis mata pelajaran ini sudah habis dan saldomu tidak cukup (butuh ${formatRupiah(putusan.harga)}, saldo kamu ${formatRupiah(putusan.saldo)}). Isi saldo dulu di halaman Wallet.`,
+          code: "SALDO_TIDAK_CUKUP",
+        },
+        { status: 402 },
+      );
     }
+    analisisAiDiminta = true;
   }
 
   const ip = getClientIp(request);

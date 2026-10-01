@@ -24,6 +24,7 @@ type Hasil = {
   siswa: { nama: string; idSamar: string };
   canShowPembahasan: boolean;
   isFreeTrial: boolean;
+  analisisAiDiminta: boolean;
   bisaUnduhRapor: boolean;
   ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
@@ -130,7 +131,7 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         </Card>
       )}
 
-      {hasil.isFreeTrial ? (
+      {hasil.isFreeTrial && !hasil.analisisAiDiminta ? (
         <AnalisisAiTeaser />
       ) : (
         <AnalisisAiPanel attemptId={id} canTrigger={false} />
