@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClassName } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,6 +14,8 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconUsers, IconSearch } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
+import { ImportSiswaModal } from "@/components/sekolah/import-siswa-modal";
+import { Download, FileSpreadsheet } from "lucide-react";
 
 type SchoolOption = { id: string; nama: string };
 type StudentRow = {
@@ -53,6 +55,7 @@ export default function SemuaSiswaPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [showForm, setShowForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [formSchoolId, setFormSchoolId] = useState("");
   const [nama, setNama] = useState("");
   const [nisn, setNisn] = useState("");
@@ -148,10 +151,36 @@ export default function SemuaSiswaPage() {
         title="Semua Siswa"
         description="Gabungan siswa Jalur A (kerja sama sekolah) dan Jalur B (mandiri) di semua sekolah."
         action={
-          <Button onClick={() => setShowForm((v) => !v)}>
-            {showForm ? "Batal" : "Tambah siswa"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <a
+              href="/api/admin-sekolah/siswa/template"
+              download
+              className={buttonClassName("secondary")}
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              Unduh Template Excel
+            </a>
+            <Button
+              variant="secondary"
+              onClick={() => setShowImportModal(true)}
+            >
+              <FileSpreadsheet className="mr-1.5 h-4 w-4 text-indigo-600" />
+              Import Excel
+            </Button>
+            <Button onClick={() => setShowForm((v) => !v)}>
+              {showForm ? "Batal" : "Tambah siswa"}
+            </Button>
+          </div>
         }
+      />
+
+      <ImportSiswaModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => setRefreshKey((k) => k + 1)}
+        role="admin_pusat"
+        schools={schools}
+        defaultSchoolId={filterSchoolId}
       />
 
       <div className="flex flex-wrap gap-3">

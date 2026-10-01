@@ -15,6 +15,8 @@ import { IconUsers, IconSearch } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
 import { KuotaSummary } from "@/components/sekolah/kuota-summary";
+import { ImportSiswaModal } from "@/components/sekolah/import-siswa-modal";
+import { Download, FileSpreadsheet } from "lucide-react";
 
 type StudentRow = {
   id: string;
@@ -39,13 +41,12 @@ export default function KelolaSiswaPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [showForm, setShowForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [nama, setNama] = useState("");
   const [nisn, setNisn] = useState("");
   const [tanggalLahir, setTanggalLahir] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [importResult, setImportResult] = useState<string | null>(null);
-  const [importing, setImporting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -85,35 +86,6 @@ export default function KelolaSiswaPage() {
     setNisn("");
     setTanggalLahir("");
     setShowForm(false);
-    setRefreshKey((k) => k + 1);
-  }
-
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-
-    setImporting(true);
-    setImportResult(null);
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await fetch("/api/admin-sekolah/siswa/import", { method: "POST", body: formData });
-    const data = await res.json();
-    setImporting(false);
-
-    if (!res.ok && data.created === undefined) {
-      setImportResult(data.error ?? "Gagal mengimpor file.");
-      return;
-    }
-    const errorSummary =
-      data.errors?.length > 0
-        ? ` (${data.errors.length} baris gagal: ${data.errors
-            .slice(0, 3)
-            .map((er: { row: number; message: string }) => `baris ${er.row} - ${er.message}`)
-            .join("; ")}${data.errors.length > 3 ? ", ..." : ""})`
-        : "";
-    setImportResult(`${data.created} siswa berhasil diimpor.${errorSummary}`);
     setRefreshKey((k) => k + 1);
   }
 
@@ -178,16 +150,21 @@ export default function KelolaSiswaPage() {
         description="Input satuan, import Excel/CSV, atau cetak kartu kode klaim."
         action={
           <>
-            <label className={buttonClassName("secondary", "cursor-pointer")}>
-              {importing ? "Mengimpor..." : "Import Excel/CSV"}
-              <input
-                type="file"
-                accept=".xlsx,.csv"
-                className="hidden"
-                disabled={importing}
-                onChange={handleImport}
-              />
-            </label>
+            <a
+              href="/api/admin-sekolah/siswa/template"
+              download
+              className={buttonClassName("secondary")}
+            >
+              <Download className="mr-1.5 h-4 w-4" />
+              Unduh Template Excel
+            </a>
+            <Button
+              variant="secondary"
+              onClick={() => setShowImportModal(true)}
+            >
+              <FileSpreadsheet className="mr-1.5 h-4 w-4 text-indigo-600" />
+              Import Excel
+            </Button>
             <Link href="/api/admin-sekolah/siswa/kartu-klaim" className={buttonClassName("secondary")}>
               Cetak kartu klaim
             </Link>
@@ -196,7 +173,12 @@ export default function KelolaSiswaPage() {
         }
       />
 
-      {importResult && <Alert variant="info">{importResult}</Alert>}
+      <ImportSiswaModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={() => setRefreshKey((k) => k + 1)}
+        role="admin_sekolah"
+      />
 
       <KuotaSummary />
 
