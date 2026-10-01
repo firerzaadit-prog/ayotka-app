@@ -56,6 +56,7 @@ type PackageDetail = {
   bukaSelesai: string | null;
   publishedAt?: string | null;
   createdAt?: string;
+  prevPackage?: { id: string; nama: string; urutanSeri: number | null; _count?: { attempts: number } } | null;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -346,9 +347,15 @@ export function PackageDetail({
             <Badge variant="neutral">Urutan seri #{pkg.urutanSeri}</Badge>
           )}
           {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1 && (
-            <span className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
-              <span>🔒</span> Terkunci untuk Siswa (Seri #{pkg.urutanSeri})
-            </span>
+            pkg.prevPackage && (pkg.prevPackage._count?.attempts ?? 0) > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                <span>🟢</span> Seri #{pkg.urutanSeri} (Terbuka untuk Siswa)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                <span>🔒</span> Terkunci untuk Siswa (Seri #{pkg.urutanSeri})
+              </span>
+            )
           )}
           {pkg.status === "published" && pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date() && (
             <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800">
@@ -380,14 +387,25 @@ export function PackageDetail({
         </p>
 
         {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1 && (
-          <Alert variant="warning" className="mt-2.5">
-            <p className="font-semibold text-xs text-amber-900">
-              🔒 Status Akses Siswa (Seri #{pkg.urutanSeri}):
-            </p>
-            <p className="text-xs text-amber-800 mt-0.5">
-              Paket ini berstatus <strong>Published</strong>, namun saat ini <strong>Terkunci</strong> di tampilan siswa. Siswa baru dapat mengakses tombol pengerjaan mulai pukul <strong>06:00 WIB</strong> keesokan harinya setelah menyelesaikan paket <strong>Seri #{pkg.urutanSeri - 1}</strong>.
-            </p>
-          </Alert>
+          pkg.prevPackage && (pkg.prevPackage._count?.attempts ?? 0) > 0 ? (
+            <Alert variant="info" className="mt-2.5">
+              <p className="font-semibold text-xs text-sky-900">
+                🟢 Status Akses Siswa (Seri #{pkg.urutanSeri}):
+              </p>
+              <p className="text-xs text-sky-800 mt-0.5">
+                Paket ini berstatus <strong>Published</strong>. Siswa yang telah menyelesaikan paket prasyarat (<strong>&quot;{pkg.prevPackage.nama}&quot;</strong>) sudah dapat langsung mengakses paket ini (tombol <strong>Mulai</strong> aktif di akun siswa setiap pukul 06:00 WIB keesokan harinya).
+              </p>
+            </Alert>
+          ) : (
+            <Alert variant="warning" className="mt-2.5">
+              <p className="font-semibold text-xs text-amber-900">
+                🔒 Status Akses Siswa (Seri #{pkg.urutanSeri}):
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Paket ini berstatus <strong>Published</strong>, namun saat ini <strong>Terkunci</strong> di tampilan siswa. Siswa baru dapat mengakses tombol pengerjaan setelah menyelesaikan paket prasyarat: <strong>&quot;{pkg.prevPackage?.nama ?? `Seri #${pkg.urutanSeri - 1}`}&quot;</strong>.
+              </p>
+            </Alert>
+          )
         )}
 
         <div className="mt-2 flex flex-wrap gap-2">

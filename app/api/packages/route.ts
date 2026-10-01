@@ -22,10 +22,20 @@ export async function GET() {
 
   const packages = await prisma.package.findMany({
     where: { ownerType: scope.ownerType, ownerId: scope.ownerId, status: { not: "archived" } },
-    orderBy: { nama: "asc" },
+    orderBy: [
+      { jenjang: "asc" },
+      { subject: { nama: "asc" } },
+      { urutanSeri: { sort: "asc", nulls: "last" } },
+      { nama: "asc" },
+    ],
     include: {
       subject: true,
-      _count: { select: { questions: { where: { deletedAt: null } } } },
+      _count: {
+        select: {
+          questions: { where: { deletedAt: null } },
+          attempts: { where: { status: { in: ["selesai", "kedaluwarsa"] } } },
+        },
+      },
     },
   });
 

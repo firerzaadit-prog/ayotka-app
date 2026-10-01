@@ -36,7 +36,26 @@ export async function GET(_request: Request, { params }: RouteParams) {
     },
   });
 
-  return NextResponse.json({ package: pkg });
+  let prevPackage: { id: string; nama: string; urutanSeri: number | null; _count: { attempts: number } } | null = null;
+  if (pkg && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1) {
+    prevPackage = await prisma.package.findFirst({
+      where: {
+        subjectId: pkg.subjectId,
+        kategori: "mandiri",
+        urutanSeri: { lt: pkg.urutanSeri },
+        status: { not: "archived" },
+      },
+      orderBy: { urutanSeri: "desc" },
+      select: {
+        id: true,
+        nama: true,
+        urutanSeri: true,
+        _count: { select: { attempts: { where: { status: { in: ["selesai", "kedaluwarsa"] } } } } },
+      },
+    });
+  }
+
+  return NextResponse.json({ package: pkg ? { ...pkg, prevPackage } : null });
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {

@@ -29,7 +29,7 @@ type PackageListItem = {
   publishedAt?: string | null;
   createdAt?: string;
   subject: Subject;
-  _count: { questions: number };
+  _count: { questions: number; attempts?: number };
 };
 
 const KATEGORI_BADGE_VARIANT: Record<"mandiri" | "nasional", "neutral" | "success"> = {
@@ -338,8 +338,29 @@ export function PackageList({ basePath }: { basePath: string }) {
       )}
 
       {packages && packages.length > 0 && (() => {
-        const totalPages = Math.max(1, Math.ceil(packages.length / pageSize));
-        const pageRows = packages.slice((page - 1) * pageSize, page * pageSize);
+        // Urutkan paket agar sinkron dengan urutan tampilan siswa:
+        // jenjang -> mapel -> urutanSeri (1, 2, 3...) -> nama
+        const sortedPackages = [...packages].sort((a, b) => {
+          if (a.jenjang !== b.jenjang) return a.jenjang.localeCompare(b.jenjang);
+          if (a.subject.nama !== b.subject.nama) return a.subject.nama.localeCompare(b.subject.nama);
+          if (a.urutanSeri != null && b.urutanSeri != null) return a.urutanSeri - b.urutanSeri;
+          if (a.urutanSeri != null && b.urutanSeri == null) return -1;
+          if (a.urutanSeri == null && b.urutanSeri != null) return 1;
+          return a.nama.localeCompare(b.nama);
+        });
+
+        // Petakan paket berseri per mapel untuk lookup nama & status pengerjaan paket sebelumnya
+        const seriesBySubject = new Map<string, PackageListItem[]>();
+        for (const p of sortedPackages) {
+          if (p.kategori === "mandiri" && p.urutanSeri != null) {
+            const list = seriesBySubject.get(p.subject.id) ?? [];
+            list.push(p);
+            seriesBySubject.set(p.subject.id, list);
+          }
+        }
+
+        const totalPages = Math.max(1, Math.ceil(sortedPackages.length / pageSize));
+        const pageRows = sortedPackages.slice((page - 1) * pageSize, page * pageSize);
         return (
           <div className="flex flex-col gap-3">
             <TableContainer>
@@ -358,9 +379,25 @@ export function PackageList({ basePath }: { basePath: string }) {
                 <tbody>
                   {pageRows.map((pkg) => {
                     const isPublished = pkg.status === "published";
-                    const isLockedSeries = isPublished && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1;
-                    const isFirstSeries = isPublished && pkg.kategori === "mandiri" && pkg.urutanSeri === 1;
+                    const isSeries = isPublished && pkg.kategori === "mandiri" && pkg.urutanSeri != null;
+                    const isFirstSeries = isSeries && pkg.urutanSeri === 1;
                     const isScheduledFuture = isPublished && Boolean(pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date());
+
+                    // Cari paket sebelumnya di mapel yang sama
+                    let prevPackage: PackageListItem | undefined;
+                    let isUnlockedForFinishedStudents = false;
+                    if (isSeries && pkg.urutanSeri! > 1) {
+                      const subjectSeries = seriesBySubject.get(pkg.subject.id) ?? [];
+                      prevPackage = subjectSeries
+                        .filter((p) => p.urutanSeri != null && p.urutanSeri < pkg.urutanSeri!)
+                        .sort((a, b) => b.urutanSeri! - a.urutanSeri!)[0];
+
+                      // Bila paket sebelumnya sudah pernah diselesaikan siswa,
+                      // paket ini sudah aktif/terbuka bagi siswa tersebut (tombol Mulai aktif di siswa)
+                      if (prevPackage && (prevPackage._count.attempts ?? 0) > 0) {
+                        isUnlockedForFinishedStudents = true;
+                      }
+                    }
 
                     return (
                       <Tr key={pkg.id}>
@@ -386,24 +423,43 @@ export function PackageList({ basePath }: { basePath: string }) {
                               <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
                             </div>
 
-                            {/* Indikator Penguncian / Akses untuk Siswa */}
-                            {isLockedSeries && (
+                            {/* Seri #1: Paket Pembuka */}
+                            {isFirstSeries && (
                               <div className="flex flex-col gap-0.5">
-                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                                  <span>🔒</span> Terkunci (Seri #{pkg.urutanSeri})
+                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                  <span>✨</span> Seri #1 (Paket Pembuka)
                                 </span>
                                 <span className="text-[10px] text-slate-500">
-                                  Buka 06:00 WIB setelah Seri #{pkg.urutanSeri! - 1} selesai
+                                  Langsung terbuka untuk semua siswa
                                 </span>
                               </div>
                             )}
 
-                            {isFirstSeries && (
-                              <span className="inline-flex w-fit items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                                <span>✨</span> Seri #1 (Paket Pembuka)
-                              </span>
+                            {/* Seri > 1: Terbuka untuk siswa yang sudah menyelesaikan paket sebelumnya */}
+                            {isSeries && pkg.urutanSeri! > 1 && isUnlockedForFinishedStudents && (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                  <span>🟢</span> Seri #{pkg.urutanSeri} (Terbuka / Siap Dikerjakan)
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  Terbuka bagi siswa yang selesai &quot;{prevPackage?.nama}&quot;
+                                </span>
+                              </div>
                             )}
 
+                            {/* Seri > 1: Terkunci (belum ada siswa yang menyelesaikan paket sebelumnya) */}
+                            {isSeries && pkg.urutanSeri! > 1 && !isUnlockedForFinishedStudents && (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                                  <span>🔒</span> Terkunci (Seri #{pkg.urutanSeri})
+                                </span>
+                                <span className="text-[10px] font-medium text-amber-700">
+                                  • Selesaikan dulu &quot;{prevPackage?.nama ?? `Seri #${pkg.urutanSeri! - 1}`}&quot;
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Terjadwal di masa mendatang */}
                             {isScheduledFuture && (
                               <div className="flex flex-col gap-0.5">
                                 <span className="inline-flex w-fit items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
