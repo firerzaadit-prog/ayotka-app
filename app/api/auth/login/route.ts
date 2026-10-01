@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db/prisma";
 import { getClientIp } from "@/lib/audit/log";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, isRateLimited, recordRateLimitHit } from "@/lib/rate-limit";
+import { getLoginLimits } from "@/lib/auth/login-limit";
 import { loginSchema } from "@/lib/validations/auth";
 import { hasActiveSchoolAccess } from "@/lib/auth/session";
 
@@ -19,13 +20,27 @@ function resolveEmail(emailOrNisn: string): string {
   return /^\d{10}$/.test(emailOrNisn) ? `${emailOrNisn}@nisn.ayotka.id` : emailOrNisn;
 }
 
+const LOGIN_JENDELA_MS = 60_000;
+
+function terlaluBanyakPercobaan() {
+  return NextResponse.json(
+    { error: "Terlalu banyak percobaan masuk, coba lagi sebentar lagi." },
+    { status: 429, headers: { "Retry-After": "60" } },
+  );
+}
+
 export async function POST(request: Request) {
   const ip = getClientIp(request) ?? "unknown";
-  if (!checkRateLimit(`login:${ip}`, 15, 60_000)) {
-    return NextResponse.json(
-      { error: "Terlalu banyak percobaan masuk, coba lagi sebentar lagi." },
-      { status: 429 },
-    );
+  // Yang dibatasi KEGAGALAN (lihat lib/auth/login-limit.ts), bukan semua percobaan: satu kelas/lab
+  // sekolah yang keluar lewat satu IP publik bisa login serentak selama kata sandinya benar.
+  // Langit-langit semua percobaan per IP hanya menahan banjir permintaan.
+  const limits = getLoginLimits();
+  const kunciGagalIp = `login:gagal-ip:${ip}`;
+  if (
+    !checkRateLimit(`login:semua:${ip}`, limits.maksPerIp, LOGIN_JENDELA_MS) ||
+    isRateLimited(kunciGagalIp, limits.gagalPerIp)
+  ) {
+    return terlaluBanyakPercobaan();
   }
 
   const body = await request.json().catch(() => null);
@@ -38,11 +53,28 @@ export async function POST(request: Request) {
   }
 
   const email = resolveEmail(parsed.data.emailOrNisn);
+  // NISN & email untuk akun yang sama (dan beda huruf besar/kecil) harus dihitung sebagai satu akun.
+  const kunciGagalAkun = `login:gagal-akun:${ip}:${email.trim().toLowerCase()}`;
+  if (isRateLimited(kunciGagalAkun, limits.gagalPerAkun)) {
+    return terlaluBanyakPercobaan();
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password: parsed.data.password,
   });
+
+  // Supabase Auth punya batas lajunya sendiri (per IP server kita). Kalau terkena, itu BUKAN
+  // salah kata sandi - jangan dilaporkan sebagai "password salah" (siswa jadi mengetik ulang
+  // berkali-kali) dan jangan dihitung sebagai kegagalan login siswa.
+  if (error?.code === "over_request_rate_limit" || error?.status === 429) {
+    console.warn("[login] ditolak batas laju Supabase Auth:", error.code ?? error.status);
+    return NextResponse.json(
+      { error: "Sistem sedang ramai. Tunggu beberapa saat lalu coba masuk lagi." },
+      { status: 429, headers: { "Retry-After": "30" } },
+    );
+  }
 
   // Beda dari kredensial salah (Supabase kasih error.code terpisah, lihat
   // node_modules/@supabase/auth-js) - siswa mandiri (Tiket 3.3) dibuat
@@ -76,6 +108,11 @@ export async function POST(request: Request) {
   }
 
   if (error || !data.user) {
+    // Satu-satunya jalur yang dihitung sebagai kegagalan: kredensial salah / akun tidak dikenal.
+    // Kasus lain di atas & di bawah (belum konfirmasi, dibanned, salah portal, dst.) terjadi
+    // SETELAH kata sandi terbukti benar, jadi bukan penebakan dan tidak dihitung.
+    recordRateLimitHit(kunciGagalIp, LOGIN_JENDELA_MS);
+    recordRateLimitHit(kunciGagalAkun, LOGIN_JENDELA_MS);
     return NextResponse.json(
       { error: "Email/NISN atau password salah." },
       { status: 401 },
