@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, type ChangeEvent, type FormEvent, useEffect } from "react";
-import { Button, buttonClassName } from "@/components/ui/button";
+import { useState, useRef, type ChangeEvent, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import {
   FileSpreadsheet,
@@ -47,18 +47,17 @@ export function ImportSiswaModal({
   defaultSchoolId = "",
 }: ImportSiswaModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedSchoolId, setSelectedSchoolId] = useState(defaultSchoolId);
+  // Pilihan sekolah manual admin pusat. Dicatat bersama defaultSchoolId saat dipilih: begitu
+  // defaultSchoolId berubah (mis. filter di halaman induk diganti), pilihan lama gugur dan
+  // sekolah bawaan yang baru dipakai - tanpa effect, murni turunan.
+  const [pilihanSekolah, setPilihanSekolah] = useState<{ dari: string; id: string } | null>(null);
+  const selectedSchoolId =
+    pilihanSekolah && pilihanSekolah.dari === defaultSchoolId ? pilihanSekolah.id : defaultSchoolId;
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [showGuide, setShowGuide] = useState(false);
-
-  useEffect(() => {
-    if (defaultSchoolId) {
-      setSelectedSchoolId(defaultSchoolId);
-    }
-  }, [defaultSchoolId]);
 
   if (!isOpen) return null;
 
@@ -205,7 +204,7 @@ export function ImportSiswaModal({
               <select
                 id="importTargetSchool"
                 value={selectedSchoolId}
-                onChange={(e) => setSelectedSchoolId(e.target.value)}
+                onChange={(e) => setPilihanSekolah({ dari: defaultSchoolId, id: e.target.value })}
                 disabled={uploading}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
