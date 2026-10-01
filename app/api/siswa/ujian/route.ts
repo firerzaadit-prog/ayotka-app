@@ -42,9 +42,9 @@ export async function GET() {
     getActiveEntitlement(student.id),
   ]);
 
-  // Anotasi status kunci seri Try Out Mandiri (permintaan user, 30 Sep 2026) -
-  // lihat lib/exam/seri-mandiri.ts. Paket tanpa urutanSeri (mayoritas, & semua
-  // Nasional) langsung {terkunci:false} tanpa query tambahan.
+  // Anotasi status buka seri Try Out Mandiri (jadwal global 06.00 WIB + wajib
+  // selesaikan urutan sebelumnya) - lihat lib/exam/seri-mandiri.ts. Paket tanpa
+  // urutanSeri (mayoritas, & semua Nasional) langsung {terkunci:false}.
   const packagesBerseri = await annotateSeriMandiri(student.id, packages);
 
   let activePlan: { kode: string; nama: string; aiKuotaPerMapel: number; tryOutNasionalKuotaPerMapel: number } | null = null;

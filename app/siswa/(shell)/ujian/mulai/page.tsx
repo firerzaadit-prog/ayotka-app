@@ -18,6 +18,15 @@ type Info = {
   selesai?: string;
   bukaMulai?: string | null;
   subject?: { id: string; nama: string };
+  /**
+   * Status buka paket berseri (GET /api/siswa/ujian): "menunggu_jadwal" = belum waktunya
+   * (bukaPada, + prasyarat kalau urutan sebelumnya juga belum selesai); "belum_giliran" =
+   * sudah waktunya tapi urutan sebelumnya belum diselesaikan.
+   */
+  statusSeri?:
+    | { terkunci: false }
+    | { terkunci: true; alasan: "menunggu_jadwal"; bukaPada: string; prasyarat: string | null }
+    | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string };
 } | null;
 
 /** Cermin RingkasanAksesUjian di lib/billing/akses-ujian.ts (respons GET /api/siswa/ujian/akses). */
@@ -162,7 +171,12 @@ function InstruksiContent() {
   // Event nasional yang belum dibuka tampil di daftar supaya siswa tahu
   // jadwalnya, tapi tidak boleh dimulai (server juga menolak, lihat
   // includeUpcoming di lib/exam/visibility.ts).
-  const belumDibuka = Boolean(info.bukaMulai && new Date(info.bukaMulai) > new Date());
+  // Paket berseri yang belum waktunya memakai jadwal serinya (sudah memperhitungkan bukaMulai).
+  const seri = info.statusSeri?.terkunci ? info.statusSeri : null;
+  const bukaPada = seri?.alasan === "menunggu_jadwal" ? seri.bukaPada : info.bukaMulai;
+  const belumDibuka = Boolean(bukaPada && new Date(bukaPada) > new Date());
+  // Sudah waktunya, tapi siswa belum menyelesaikan paket urutan sebelumnya.
+  const belumGiliran = seri?.alasan === "belum_giliran" ? seri.namaPaketSebelumnya : null;
   const jatahGratisHabis = akses?.tipe === "gratis" && akses.jatahGratis?.terpakai === true;
   const mapel = akses?.mapel ?? info.subject?.nama ?? "ini";
 
@@ -356,15 +370,29 @@ function InstruksiContent() {
         </ul>
       </Alert>
 
-      {belumDibuka && info.bukaMulai && (
+      {belumDibuka && bukaPada && (
         <Alert variant="warning">
-          Try out ini baru dibuka pada {formatWIBHariTanggalJam(info.bukaMulai)}. Kamu bisa mulai mengerjakan begitu jadwalnya tiba.
+          Try out ini baru dibuka pada {formatWIBHariTanggalJam(bukaPada)}. Kamu bisa mulai mengerjakan begitu jadwalnya tiba
+          {seri?.alasan === "menunggu_jadwal" && seri.prasyarat ? (
+            <>
+              {" "}
+              — dan setelah menyelesaikan &quot;{seri.prasyarat}&quot;
+            </>
+          ) : null}
+          .
+        </Alert>
+      )}
+
+      {belumGiliran && (
+        <Alert variant="warning">
+          Selesaikan dulu &quot;{belumGiliran}&quot; sebelum mengerjakan paket ini. Paketnya sudah dibuka sesuai jadwal,
+          jadi begitu &quot;{belumGiliran}&quot; selesai, paket ini langsung bisa kamu kerjakan.
         </Alert>
       )}
 
       <Button
         onClick={handleMulai}
-        disabled={starting || belumDibuka || jatahGratisHabis}
+        disabled={starting || belumDibuka || belumGiliran != null || jatahGratisHabis}
         className="w-full py-2.5 font-semibold"
       >
         {starting ? "Memulai Ujian..." : "Mulai Ujian"}

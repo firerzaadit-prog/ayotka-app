@@ -16,10 +16,15 @@ type KategoriTO = "nasional" | "mandiri";
 
 type SubjectInfo = { id: string; nama: string; jenjang?: string };
 
+/**
+ * Status buka paket berseri (lib/exam/seri-jadwal.ts): "menunggu_jadwal" = belum waktunya
+ * (bukaPada, + prasyarat kalau urutan sebelumnya juga belum selesai); "belum_giliran" = sudah
+ * waktunya tapi urutan sebelumnya belum diselesaikan siswa ini.
+ */
 type StatusSeri =
   | { terkunci: false }
-  | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string }
-  | { terkunci: true; alasan: "menunggu_besok"; bukaPada: string };
+  | { terkunci: true; alasan: "menunggu_jadwal"; bukaPada: string; prasyarat: string | null }
+  | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string };
 
 type PackageItem = {
   id: string;
@@ -520,8 +525,9 @@ function UjianContent() {
                         </p>
                       )}
 
-                      {/* Info Jadwal Jika Ada */}
-                      {(p.bukaMulai || p.bukaSelesai) && (
+                      {/* Info Jadwal Jika Ada (paket berseri yang belum waktunya memakai chip jadwal seri di bawah) */}
+                      {(p.bukaMulai || p.bukaSelesai) &&
+                        !(p.statusSeri.terkunci && p.statusSeri.alasan === "menunggu_jadwal") && (
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${jadwal.colorClass}`}>
                             <span className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -530,19 +536,17 @@ function UjianContent() {
                         </div>
                       )}
 
-                      {/* Seri Try Out Mandiri berjalan harian: kunci selama belum giliran */}
+                      {/* Seri Try Out Mandiri: jadwal buka harian 06.00 WIB (sama untuk semua siswa) + wajib selesaikan urutan sebelumnya */}
                       {p.statusSeri.terkunci && (
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
                             <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                            {p.statusSeri.alasan === "belum_giliran"
-                              ? `Selesaikan dulu "${p.statusSeri.namaPaketSebelumnya}"`
-                              : `Terbuka ${formatWIBHariTanggalJam(p.statusSeri.bukaPada)}`}
+                            {p.statusSeri.alasan === "menunggu_jadwal"
+                              ? `Akan dibuka ${formatWIBHariTanggalJam(p.statusSeri.bukaPada)}`
+                              : `Selesaikan dulu "${p.statusSeri.namaPaketSebelumnya}"`}
                           </span>
-                          {p.statusSeri.alasan === "belum_giliran" && (
-                            <span className="text-slate-500">
-                              Dibuka pukul 06.00 WIB, sehari setelah kamu menyelesaikannya
-                            </span>
+                          {p.statusSeri.alasan === "menunggu_jadwal" && p.statusSeri.prasyarat && (
+                            <span className="text-slate-500">dan selesaikan dulu &quot;{p.statusSeri.prasyarat}&quot;</span>
                           )}
                         </div>
                       )}
@@ -564,7 +568,7 @@ function UjianContent() {
                         disabled
                         className="w-full rounded-xl bg-slate-100 px-4 py-2 text-center text-sm font-semibold text-slate-400 sm:w-auto"
                       >
-                        {p.statusSeri.terkunci ? "Terkunci" : "Belum Dibuka"}
+                        {p.statusSeri.terkunci && p.statusSeri.alasan === "belum_giliran" ? "Terkunci" : "Belum Dibuka"}
                       </button>
                     ) : (
                       <Link

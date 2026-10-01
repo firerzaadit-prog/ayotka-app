@@ -6,7 +6,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
 import { packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
 import { urutanSeriBentrok } from "@/lib/exam/seri-mandiri";
-import { hitungPalingCepatTerbuka } from "@/lib/exam/seri-jadwal";
+import { hitungJadwalBukaSeri } from "@/lib/exam/seri-jadwal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -37,30 +37,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
     },
   });
 
-  let prevPackage: { id: string; nama: string; urutanSeri: number | null; _count: { attempts: number } } | null = null;
-  if (pkg && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1) {
-    prevPackage = await prisma.package.findFirst({
-      where: {
-        subjectId: pkg.subjectId,
-        kategori: "mandiri",
-        urutanSeri: { lt: pkg.urutanSeri },
-        // Hanya published: siswa tidak melihat draft, jadi draft bukan paket prasyarat.
-        status: "published",
-      },
-      orderBy: { urutanSeri: "desc" },
-      select: {
-        id: true,
-        nama: true,
-        urutanSeri: true,
-        _count: { select: { attempts: { where: { status: { in: ["selesai", "kedaluwarsa"] } } } } },
-      },
-    });
-  }
-
-  // Perkiraan "paling cepat terbuka" untuk paket berseri (06.00 WIB sehari setelah
-  // paket sebelumnya) - rantainya dihitung dari semua paket published seri yang
-  // urutannya <= paket ini. Lihat lib/exam/seri-jadwal.ts.
-  let palingCepatTerbuka: Date | null = null;
+  // Jadwal buka paket berseri (urutan 1 saat dipublish, berikutnya 06.00 WIB sehari
+  // setelah paket sebelumnya) - rantainya dihitung dari semua paket published seri
+  // yang urutannya <= paket ini. Lihat lib/exam/seri-jadwal.ts.
+  let jadwalBukaSeri: Date | null = null;
   if (pkg && pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null) {
     const rantai = await prisma.package.findMany({
       where: {
@@ -71,10 +51,10 @@ export async function GET(_request: Request, { params }: RouteParams) {
       },
       select: { id: true, subjectId: true, urutanSeri: true, publishedAt: true, bukaMulai: true },
     });
-    palingCepatTerbuka = hitungPalingCepatTerbuka(rantai).get(pkg.id) ?? null;
+    jadwalBukaSeri = hitungJadwalBukaSeri(rantai).get(pkg.id) ?? null;
   }
 
-  return NextResponse.json({ package: pkg ? { ...pkg, prevPackage, palingCepatTerbuka } : null });
+  return NextResponse.json({ package: pkg ? { ...pkg, jadwalBukaSeri } : null });
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {

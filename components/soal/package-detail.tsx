@@ -55,9 +55,8 @@ type PackageDetail = {
   bukaMulai: string | null;
   bukaSelesai: string | null;
   publishedAt?: string | null;
-  prevPackage?: { id: string; nama: string; urutanSeri: number | null; _count?: { attempts: number } } | null;
-  /** Batas paling awal paket berseri terbuka (06.00 WIB sehari setelah paket sebelumnya); tanggal pastinya per siswa. */
-  palingCepatTerbuka?: string | null;
+  /** Jadwal buka paket berseri (urutan 1 saat dipublish, berikutnya 06.00 WIB sehari setelah urutan sebelumnya); null kalau bukan paket berseri. */
+  jadwalBukaSeri?: string | null;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -347,18 +346,18 @@ export function PackageDetail({
           {pkg.urutanSeri != null && (
             <Badge variant="neutral">Urutan seri #{pkg.urutanSeri}</Badge>
           )}
-          {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1 && (
-            pkg.prevPackage && (pkg.prevPackage._count?.attempts ?? 0) > 0 ? (
+          {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && (
+            pkg.jadwalBukaSeri && new Date(pkg.jadwalBukaSeri) > new Date() ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                <span>🔒</span> Terjadwal (Seri #{pkg.urutanSeri})
+              </span>
+            ) : (
               <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
                 <span>🟢</span> Seri #{pkg.urutanSeri} (Terbuka untuk Siswa)
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                <span>🔒</span> Terkunci untuk Siswa (Seri #{pkg.urutanSeri})
-              </span>
             )
           )}
-          {pkg.status === "published" && pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date() && (
+          {pkg.status === "published" && pkg.urutanSeri == null && pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date() && (
             <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800">
               <span>🔒</span> Terjadwal (Buka {formatWIBHariTanggalJam(pkg.bukaMulai)})
             </span>
@@ -387,29 +386,24 @@ export function PackageDetail({
           )}
         </p>
 
-        {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && pkg.urutanSeri > 1 && (
-          pkg.prevPackage && (pkg.prevPackage._count?.attempts ?? 0) > 0 ? (
+        {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && (
+          pkg.jadwalBukaSeri && new Date(pkg.jadwalBukaSeri) > new Date() ? (
+            <Alert variant="warning" className="mt-2.5">
+              <p className="font-semibold text-xs text-amber-900">
+                🔒 Jadwal Buka (Seri #{pkg.urutanSeri}):
+              </p>
+              <p className="text-xs text-amber-800 mt-0.5">
+                Paket ini berstatus <strong>Published</strong> dan dijadwalkan <strong>terbuka otomatis {formatWIBHariTanggalJam(pkg.jadwalBukaSeri)}</strong>. Sebelum waktu itu tombol <strong>Mulai</strong> di akun siswa belum aktif. Aturannya: urutan 1 terbuka begitu dipublish, urutan berikutnya pukul 06.00 WIB sehari setelah urutan sebelumnya. Selain jadwal, siswa wajib menyelesaikan paket urutan sebelumnya dulu.
+              </p>
+            </Alert>
+          ) : (
             <Alert variant="info" className="mt-2.5">
               <p className="font-semibold text-xs text-sky-900">
                 🟢 Status Akses Siswa (Seri #{pkg.urutanSeri}):
               </p>
               <p className="text-xs text-sky-800 mt-0.5">
-                Paket ini berstatus <strong>Published</strong>. Siswa yang telah menyelesaikan paket prasyarat (<strong>&quot;{pkg.prevPackage.nama}&quot;</strong>) sudah dapat langsung mengakses paket ini (tombol <strong>Mulai</strong> aktif di akun siswa pukul 06.00 WIB, sehari setelah mereka menyelesaikannya).
-                {pkg.palingCepatTerbuka && (
-                  <> Paling cepat terbuka: <strong>{formatWIBHariTanggalJam(pkg.palingCepatTerbuka)}</strong>.</>
-                )}
-              </p>
-            </Alert>
-          ) : (
-            <Alert variant="warning" className="mt-2.5">
-              <p className="font-semibold text-xs text-amber-900">
-                🔒 Status Akses Siswa (Seri #{pkg.urutanSeri}):
-              </p>
-              <p className="text-xs text-amber-800 mt-0.5">
-                Paket ini berstatus <strong>Published</strong>, namun saat ini <strong>Terkunci</strong> di tampilan siswa. Siswa baru dapat mengakses tombol pengerjaan setelah menyelesaikan paket prasyarat: <strong>&quot;{pkg.prevPackage?.nama ?? `Seri #${pkg.urutanSeri - 1}`}&quot;</strong>. Paket ini dibuka pukul <strong>06.00 WIB</strong>, sehari setelah siswa menyelesaikannya.
-                {pkg.palingCepatTerbuka && (
-                  <> Paling cepat terbuka: <strong>{formatWIBHariTanggalJam(pkg.palingCepatTerbuka)}</strong>.</>
-                )}
+                Paket ini berstatus <strong>Published</strong> dan sudah <strong>dibuka sesuai jadwal</strong>
+                {pkg.jadwalBukaSeri && <> sejak {formatWIBHariTanggalJam(pkg.jadwalBukaSeri)}</>}. Urutan seri mengatur jadwal buka otomatis (urutan 1 saat dipublish, urutan berikutnya pukul 06.00 WIB sehari setelah urutan sebelumnya), dan siswa wajib menyelesaikan paket urutan sebelumnya dulu - jadi paket ini baru bisa dikerjakan siswa yang sudah menyelesaikannya.
               </p>
             </Alert>
           )
@@ -573,9 +567,11 @@ export function PackageDetail({
                     className="max-w-40"
                   />
                   <p className="mt-1 text-xs text-slate-500">
-                    Isi untuk membuat rangkaian paket berurutan per mata pelajaran (Paket 1, 2, 3, ...) - siswa
-                    wajib menyelesaikan urutan sebelumnya dulu, dan paket berikutnya baru terbuka jam 06:00 WIB
-                    keesokan harinya. Kosongkan supaya paket ini bebas dikerjakan kapan saja seperti biasa.
+                    Isi untuk menjadwalkan rangkaian paket per mata pelajaran (Paket 1, 2, 3, ...): urutan 1 terbuka
+                    begitu dipublish, urutan 2 terbuka otomatis jam 06:00 WIB keesokan harinya, urutan 3 sehari
+                    setelahnya, dan seterusnya. Siswa tetap wajib menyelesaikan paket urutan sebelumnya dulu (siswa
+                    yang absen beberapa hari mengerjakan berurutan, tanpa menunggu besok lagi). Kosongkan supaya
+                    paket ini bebas dikerjakan kapan saja seperti biasa.
                   </p>
                 </div>
               )}

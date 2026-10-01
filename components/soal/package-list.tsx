@@ -13,19 +13,37 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 import { formatWIBHariTanggal, formatWIBHariTanggalJam, formatWIBJam } from "@/lib/utils/datetime";
-import { hitungPalingCepatTerbuka } from "@/lib/exam/seri-jadwal";
+import { hitungJadwalBukaSeri } from "@/lib/exam/seri-jadwal";
 
-/** Aturan buka paket berseri + perkiraan batas paling awal (tanggal pastinya berbeda per siswa). */
-function JadwalSeriInfo({ palingCepat }: { palingCepat: Date | undefined }) {
-  return (
-    <>
-      <span className="text-[10px] text-slate-500">Dibuka pukul 06.00 WIB, sehari setelah siswa selesai</span>
-      {palingCepat && (
-        <span className="text-[10px] text-slate-600">
-          Paling cepat: <b className="font-semibold">{formatWIBHariTanggalJam(palingCepat)}</b>
+/**
+ * Status jadwal buka paket berseri (sama untuk semua siswa): urutan 1 terbuka saat
+ * dipublish, berikutnya 06.00 WIB sehari setelah urutan sebelumnya - lihat lib/exam/seri-jadwal.ts.
+ */
+function JadwalSeriBadge({ urutan, buka }: { urutan: number; buka: Date | undefined }) {
+  const belumBuka = buka != null && buka > new Date();
+  if (belumBuka) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="inline-flex w-fit items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+          <span>🔒</span> Terjadwal (Seri #{urutan})
         </span>
+        <span className="text-[10px] text-amber-700">
+          Dibuka otomatis <b className="font-semibold">{formatWIBHariTanggalJam(buka)}</b>
+        </span>
+        {urutan > 1 && <span className="text-[10px] text-slate-500">Siswa juga wajib selesaikan urutan sebelumnya</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="inline-flex w-fit items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+        <span>{urutan === 1 ? "✨" : "🟢"}</span> Seri #{urutan} {urutan === 1 ? "(Paket Pembuka)" : "(Terbuka)"}
+      </span>
+      {buka && (
+        <span className="text-[10px] text-slate-500">Dibuka sejak {formatWIBHariTanggalJam(buka)}</span>
       )}
-    </>
+      {urutan > 1 && <span className="text-[10px] text-slate-500">Siswa wajib selesaikan urutan sebelumnya</span>}
+    </div>
   );
 }
 
@@ -327,9 +345,11 @@ export function PackageList({ basePath }: { basePath: string }) {
                   className="max-w-40"
                 />
                 <p className="mt-1 text-xs text-slate-500">
-                  Isi untuk membuat rangkaian paket berurutan per mata pelajaran (Paket 1, 2, 3, ...) - siswa
-                  wajib menyelesaikan urutan sebelumnya dulu, dan paket berikutnya baru terbuka jam 06:00 WIB
-                  keesokan harinya. Kosongkan supaya paket ini bebas dikerjakan kapan saja seperti biasa.
+                  Isi untuk menjadwalkan rangkaian paket per mata pelajaran (Paket 1, 2, 3, ...): urutan 1 terbuka
+                  begitu dipublish, urutan 2 terbuka otomatis jam 06:00 WIB keesokan harinya, urutan 3 sehari
+                  setelahnya, dan seterusnya. Siswa tetap wajib menyelesaikan paket urutan sebelumnya dulu (siswa yang
+                  absen beberapa hari mengerjakan berurutan, tanpa menunggu besok lagi). Kosongkan supaya paket ini
+                  bebas dikerjakan kapan saja seperti biasa.
                 </p>
               </div>
             )}
@@ -363,30 +383,18 @@ export function PackageList({ basePath }: { basePath: string }) {
           return a.nama.localeCompare(b.nama);
         });
 
-        // Petakan paket berseri per mapel untuk lookup nama & status pengerjaan paket sebelumnya.
-        // Hanya paket published: siswa tidak pernah melihat draft, jadi draft tidak boleh
-        // dianggap sebagai "paket prasyarat" (sama seperti perhitungan keterkuncian di sisi siswa).
-        const seriesBySubject = new Map<string, PackageListItem[]>();
-        for (const p of sortedPackages) {
-          if (p.kategori === "mandiri" && p.urutanSeri != null && p.status === "published") {
-            const list = seriesBySubject.get(p.subject.id) ?? [];
-            list.push(p);
-            seriesBySubject.set(p.subject.id, list);
-          }
-        }
-
-        // Perkiraan "paling cepat terbuka" tiap paket berseri (06.00 WIB sehari setelah
-        // paket sebelumnya) - tanggal pastinya per siswa, ini batas paling awalnya.
-        const palingCepatById = hitungPalingCepatTerbuka(
-          [...seriesBySubject.values()].flatMap((list) =>
-            list.map((p) => ({
+        // Jadwal buka tiap paket berseri. Hanya paket published yang dihitung: siswa tidak
+        // pernah melihat draft, jadi draft tidak ikut membentuk jadwal (sama seperti di sisi siswa).
+        const jadwalBukaById = hitungJadwalBukaSeri(
+          sortedPackages
+            .filter((p) => p.kategori === "mandiri" && p.urutanSeri != null && p.status === "published")
+            .map((p) => ({
               id: p.id,
               subjectId: p.subject.id,
               urutanSeri: p.urutanSeri ?? null,
               publishedAt: p.publishedAt,
               bukaMulai: p.bukaMulai,
             })),
-          ),
         );
 
         const totalPages = Math.max(1, Math.ceil(sortedPackages.length / pageSize));
@@ -410,24 +418,9 @@ export function PackageList({ basePath }: { basePath: string }) {
                   {pageRows.map((pkg) => {
                     const isPublished = pkg.status === "published";
                     const isSeries = isPublished && pkg.kategori === "mandiri" && pkg.urutanSeri != null;
-                    const isFirstSeries = isSeries && pkg.urutanSeri === 1;
-                    const isScheduledFuture = isPublished && Boolean(pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date());
-
-                    // Cari paket sebelumnya di mapel yang sama
-                    let prevPackage: PackageListItem | undefined;
-                    let isUnlockedForFinishedStudents = false;
-                    if (isSeries && pkg.urutanSeri! > 1) {
-                      const subjectSeries = seriesBySubject.get(pkg.subject.id) ?? [];
-                      prevPackage = subjectSeries
-                        .filter((p) => p.urutanSeri != null && p.urutanSeri < pkg.urutanSeri!)
-                        .sort((a, b) => b.urutanSeri! - a.urutanSeri!)[0];
-
-                      // Bila paket sebelumnya sudah pernah diselesaikan siswa,
-                      // paket ini sudah aktif/terbuka bagi siswa tersebut (tombol Mulai aktif di siswa)
-                      if (prevPackage && (prevPackage._count.attempts ?? 0) > 0) {
-                        isUnlockedForFinishedStudents = true;
-                      }
-                    }
+                    // Paket berseri memakai jadwal serinya (sudah memperhitungkan bukaMulai), bukan chip "Terjadwal".
+                    const isScheduledFuture =
+                      isPublished && !isSeries && Boolean(pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date());
 
                     return (
                       <Tr key={pkg.id}>
@@ -453,45 +446,12 @@ export function PackageList({ basePath }: { basePath: string }) {
                               <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
                             </div>
 
-                            {/* Seri #1: Paket Pembuka */}
-                            {isFirstSeries && (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                                  <span>✨</span> Seri #1 (Paket Pembuka)
-                                </span>
-                                <span className="text-[10px] text-slate-500">
-                                  Langsung terbuka untuk semua siswa
-                                </span>
-                              </div>
+                            {/* Paket berseri: jadwal buka otomatis (urutan 1 saat dipublish, berikutnya 06.00 WIB per hari) */}
+                            {isSeries && (
+                              <JadwalSeriBadge urutan={pkg.urutanSeri!} buka={jadwalBukaById.get(pkg.id)} />
                             )}
 
-                            {/* Seri > 1: Terbuka untuk siswa yang sudah menyelesaikan paket sebelumnya */}
-                            {isSeries && pkg.urutanSeri! > 1 && isUnlockedForFinishedStudents && (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-                                  <span>🟢</span> Seri #{pkg.urutanSeri} (Terbuka / Siap Dikerjakan)
-                                </span>
-                                <span className="text-[10px] text-slate-500">
-                                  Terbuka bagi siswa yang selesai &quot;{prevPackage?.nama}&quot;
-                                </span>
-                                <JadwalSeriInfo palingCepat={palingCepatById.get(pkg.id)} />
-                              </div>
-                            )}
-
-                            {/* Seri > 1: Terkunci (belum ada siswa yang menyelesaikan paket sebelumnya) */}
-                            {isSeries && pkg.urutanSeri! > 1 && !isUnlockedForFinishedStudents && (
-                              <div className="flex flex-col gap-0.5">
-                                <span className="inline-flex w-fit items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                                  <span>🔒</span> Terkunci (Seri #{pkg.urutanSeri})
-                                </span>
-                                <span className="text-[10px] font-medium text-amber-700">
-                                  • Selesaikan dulu &quot;{prevPackage?.nama ?? `Seri #${pkg.urutanSeri! - 1}`}&quot;
-                                </span>
-                                <JadwalSeriInfo palingCepat={palingCepatById.get(pkg.id)} />
-                              </div>
-                            )}
-
-                            {/* Terjadwal di masa mendatang */}
+                            {/* Terjadwal di masa mendatang (paket tunggal dengan bukaMulai manual) */}
                             {isScheduledFuture && (
                               <div className="flex flex-col gap-0.5">
                                 <span className="inline-flex w-fit items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">

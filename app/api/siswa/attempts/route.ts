@@ -186,12 +186,13 @@ export async function POST(request: Request) {
       );
     }
 
-    // Urutan seri Try Out Mandiri berjalan harian (permintaan user, 30 Sep
-    // 2026) - lihat lib/exam/seri-mandiri.ts. Paket dengan urutanSeri kosong
-    // tidak kena gerbang ini (statusSeriMandiri langsung {terkunci:false}).
+    // Seri Try Out Mandiri: paket terbuka sesuai jadwal global (06.00 WIB per urutan)
+    // DAN siswa harus sudah menyelesaikan urutan sebelumnya - lihat
+    // lib/exam/seri-mandiri.ts. Paket dengan urutanSeri kosong tidak kena gerbang
+    // ini (statusSeriMandiri langsung {terkunci:false}).
     const statusSeri = await statusSeriMandiri(
       student.id,
-      chosenPackage,
+      { id: chosenPackage.id, subjectId: chosenPackage.subjectId, urutanSeri: chosenPackage.urutanSeri },
       options.filter((p) => p.subjectId === chosenPackage!.subjectId && p.kategori === "mandiri"),
     );
     if (statusSeri.terkunci) {
@@ -199,8 +200,10 @@ export async function POST(request: Request) {
         {
           error:
             statusSeri.alasan === "belum_giliran"
-              ? `Selesaikan dulu "${statusSeri.namaPaketSebelumnya}" sebelum mengerjakan paket ini. Paket ini dibuka pukul 06.00 WIB, sehari setelah paket tersebut selesai.`
-              : `Paket ini baru bisa dikerjakan mulai ${formatWIBHariTanggalJam(statusSeri.bukaPada)}.`,
+              ? `Selesaikan dulu "${statusSeri.namaPaketSebelumnya}" sebelum mengerjakan paket ini.`
+              : `Paket ini dijadwalkan terbuka ${formatWIBHariTanggalJam(statusSeri.bukaPada)}.${
+                  statusSeri.prasyarat ? ` Selesaikan juga "${statusSeri.prasyarat}" terlebih dahulu.` : ""
+                }`,
           code: "PAKET_TERKUNCI",
         },
         { status: 409 },
