@@ -51,6 +51,7 @@ export function SoalPgKategori({
                 <td key={c.id} className="py-3 text-center">
                   <input
                     type="radio"
+                    className="h-4 w-4 accent-indigo-600"
                     name={`kategori-${s.id}`}
                     checked={answers[s.id] === c.id}
                     onChange={() => pick(s.id, c.id)}
@@ -78,7 +79,7 @@ export function SoalPgKategori({
                   onClick={() => pick(s.id, c.id)}
                   className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${
                     answers[s.id] === c.id
-                      ? "border-slate-900 bg-slate-900 text-white"
+                      ? "border-indigo-600 bg-indigo-600 text-white"
                       : "border-slate-300 bg-white text-slate-700"
                   }`}
                 >

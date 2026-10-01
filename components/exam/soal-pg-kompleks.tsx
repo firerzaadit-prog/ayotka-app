@@ -30,18 +30,20 @@ export function SoalPgKompleks({
       {options.map((opt) => (
         <label
           key={opt.id}
-          className={`flex cursor-pointer items-start gap-3 rounded-md border px-4 py-3 text-sm ${
-            selected.has(opt.id) ? "border-slate-900 bg-slate-50" : "border-slate-200 hover:bg-slate-50"
+          className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm transition-colors ${
+            selected.has(opt.id)
+              ? "border-indigo-500 bg-indigo-50/70 ring-1 ring-indigo-500/30"
+              : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
           }`}
         >
           <input
             type="checkbox"
-            className="mt-0.5"
+            className="mt-0.5 h-4 w-4 accent-indigo-600"
             checked={selected.has(opt.id)}
             onChange={() => toggle(opt.id)}
           />
           <span className="flex-1">
-            <span className="mr-1 font-medium">{opt.label}.</span>
+            <span className="mr-1 font-semibold text-slate-700">{opt.label}.</span>
             <RichText text={opt.teks} />
             {opt.media && (
               <img src={opt.media} alt="" className="mt-2 max-w-xs rounded-md border" />

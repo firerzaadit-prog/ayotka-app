@@ -55,7 +55,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 
   const [pkg, questions, answers] = await Promise.all([
-    prisma.package.findUniqueOrThrow({ where: { id: attempt.packageId } }),
+    prisma.package.findUniqueOrThrow({
+      where: { id: attempt.packageId },
+      include: { subject: { select: { nama: true } } },
+    }),
     prisma.question.findMany({
       where: { packageId: attempt.packageId, deletedAt: null },
       include: {
@@ -99,7 +102,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   return NextResponse.json({
     attempt: { ...sanitizeAttemptForClient(attempt), sisaDetik: getRemainingSeconds(attempt) },
-    package: { nama: pkg.nama, durasiMenit: pkg.durasiMenit },
+    package: { nama: pkg.nama, durasiMenit: pkg.durasiMenit, subjectNama: pkg.subject.nama },
     questions: sanitizedQuestions,
     answers: answers.map((a) => ({
       questionId: a.questionId,

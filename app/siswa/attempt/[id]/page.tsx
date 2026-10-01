@@ -10,7 +10,9 @@ import type { ExamJawaban, ExamQuestion } from "@/components/exam/types";
 import { getLocalAnswers, saveLocalAnswer } from "@/lib/exam/offline-store";
 import { isJawabanKosong } from "@/lib/exam/scoring";
 import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
+import { WaktuTersisaCard } from "@/components/exam/waktu-tersisa-card";
+import { NomorSoalCard } from "@/components/exam/nomor-soal-card";
+import { formatSisaWaktuRingkas, nadaWaktu } from "@/lib/exam/format-waktu";
 import { cn } from "@/lib/utils/cn";
 
 type AttemptState = {
@@ -24,18 +26,17 @@ type AnswerEntry = { jawabanJson: ExamJawaban; ragu: boolean };
 const RESYNC_INTERVAL_MS = 20_000;
 const SAVE_DEBOUNCE_MS = 600;
 
-function formatSisaWaktu(totalSeconds: number): string {
-  const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
 export default function AttemptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
 
   const [attempt, setAttempt] = useState<AttemptState | null>(null);
   const [packageNama, setPackageNama] = useState("");
+  const [subjectNama, setSubjectNama] = useState("");
+  // Total durasi paket (detik) - dasar bar sisa waktu di kartu "Waktu Tersisa".
+  const [durasiTotalDetik, setDurasiTotalDetik] = useState(0);
+  // Panel "Nomor Soal" di HP (di layar lebar selalu tampil di sisi kanan).
+  const [navOpen, setNavOpen] = useState(false);
   const [questions, setQuestions] = useState<ExamQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, AnswerEntry>>({});
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -95,6 +96,8 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
     setRemaining(data.attempt.sisaDetik);
     if (data.questions?.length > 0) {
       setPackageNama(data.package.nama);
+      setSubjectNama(data.package.subjectNama ?? "");
+      setDurasiTotalDetik((data.package.durasiMenit ?? 0) * 60);
       setQuestions(data.questions);
       const map: Record<string, AnswerEntry> = {};
       for (const a of data.answers) {
@@ -379,133 +382,233 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
       .filter(([, v]) => !isJawabanKosong(v.jawabanJson))
       .map(([k]) => k)
   );
+  const raguIds = new Set(
+    Object.entries(answers)
+      .filter(([, v]) => v.ragu)
+      .map(([k]) => k)
+  );
+  const questionIds = questions.map((q) => q.id);
+  const nada = nadaWaktu(remaining);
+  const isRagu = answers[question.id]?.ragu ?? false;
+  const isLast = currentIndex >= questions.length - 1;
 
+  const questionId = question.id;
+  function toggleRagu(next: boolean) {
+    const current = answers[questionId]?.jawabanJson;
+    if (current) persistAnswer(questionId, current, next);
+    else setAnswers((prev) => ({ ...prev, [questionId]: { jawabanJson: prev[questionId]?.jawabanJson ?? ({} as ExamJawaban), ragu: next } }));
+  }
+
+  function pilihNomor(index: number) {
+    setCurrentIndex(index);
+    setNavOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  const tombolSelesaikan = (
+    <button
+      type="button"
+      onClick={() => handleSubmit(false)}
+      disabled={submitting}
+      className="w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-orange-500/30 transition hover:from-amber-400 hover:to-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {submitting ? "Mengirim..." : "Selesaikan Ujian"}
+    </button>
+  );
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-4 p-4 pb-24">
-      <div className="sticky top-0 z-10 flex items-center justify-between rounded-lg border border-slate-200 bg-white/95 px-4 py-2 shadow-sm backdrop-blur-sm">
-        <span className="text-sm font-medium text-slate-900">{packageNama}</span>
-        <span
-          className={cn(
-            "rounded-lg px-3 py-1 font-mono text-sm font-semibold",
-            remaining <= 60
-              ? "bg-rose-100 text-rose-700"
-              : remaining <= 300
-                ? "bg-amber-100 text-amber-700"
-                : "bg-slate-100 text-slate-700",
-          )}
-        >
-          {formatSisaWaktu(remaining)}
-        </span>
-      </div>
-
-      {remaining <= 300 && remaining > 60 && (
-        <Alert variant="warning">Sisa waktu 5 menit lagi.</Alert>
-      )}
-      {remaining <= 60 && remaining > 0 && (
-        <Alert variant="danger">
-          Sisa waktu 1 menit lagi — jawaban akan otomatis disubmit saat waktu habis.
-        </Alert>
-      )}
-      {tabSwitchCount > 0 && (
-        <Alert variant="warning">
-          Terdeteksi {tabSwitchCount}x kamu meninggalkan tab ujian ini. Tetap di halaman ini
-          sampai selesai.
-        </Alert>
-      )}
-
-      <div className="flex flex-wrap gap-1.5">
-        {questions.map((q, i) => (
-          <button
-            key={q.id}
-            onClick={() => setCurrentIndex(i)}
+    <div className="mx-auto flex max-w-6xl flex-col gap-4 p-4 pb-10">
+      <header className="sticky top-0 z-20 -mx-4 border-b border-slate-200 bg-white/90 px-4 py-2.5 backdrop-blur-sm lg:static lg:mx-0 lg:rounded-2xl lg:border lg:px-5 lg:py-3 lg:shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-mark.png" alt="" className="h-9 w-9 shrink-0 rounded-lg" />
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Kerjakan Try Out</p>
+              <h1 className="truncate text-base font-bold text-slate-900 sm:text-lg">{packageNama}</h1>
+            </div>
+          </div>
+          {/* Timer ringkas di HP; di layar lebar timer ada di kartu sisi kanan. */}
+          <span
             className={cn(
-              "h-8 w-8 rounded-lg text-xs font-medium transition-colors",
-              i === currentIndex
-                ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white"
-                : answers[q.id]?.ragu
-                  ? "bg-amber-100 text-amber-800"
-                  : answeredIds.has(q.id)
-                    ? "bg-emerald-100 text-emerald-800"
-                    : "bg-slate-100 text-slate-500",
+              "shrink-0 rounded-lg px-3 py-1 font-mono text-sm font-bold tabular-nums lg:hidden",
+              nada === "kritis"
+                ? "bg-rose-100 text-rose-700"
+                : nada === "waspada"
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-indigo-50 text-indigo-700",
             )}
+            role="timer"
+            aria-label="Sisa waktu"
           >
-            {i + 1}
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 select-none">
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm font-medium text-slate-500">Soal {currentIndex + 1}</p>
-          <label className="flex items-center gap-2 text-xs text-slate-500">
-            <input
-              type="checkbox"
-              checked={answers[question.id]?.ragu ?? false}
-              onChange={(e) => {
-                const current = answers[question.id]?.jawabanJson;
-                if (current) persistAnswer(question.id, current, e.target.checked);
-                else setAnswers((prev) => ({ ...prev, [question.id]: { jawabanJson: prev[question.id]?.jawabanJson ?? ({} as ExamJawaban), ragu: e.target.checked } }));
-              }}
-              className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20"
-            />
-            Tandai ragu-ragu
-          </label>
+            {formatSisaWaktuRingkas(remaining)}
+          </span>
         </div>
+      </header>
 
-        <div className="mb-4 text-base">
-          <RichText text={question.teks} />
-        </div>
-        {question.media && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={question.media} alt="" className="mb-4 max-w-full rounded-lg border border-slate-200" />
-        )}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <section className="flex min-w-0 flex-col gap-4">
+          {remaining <= 300 && remaining > 60 && (
+            <Alert variant="warning">Sisa waktu 5 menit lagi.</Alert>
+          )}
+          {remaining <= 60 && remaining > 0 && (
+            <Alert variant="danger">
+              Sisa waktu 1 menit lagi — jawaban akan otomatis disubmit saat waktu habis.
+            </Alert>
+          )}
+          {tabSwitchCount > 0 && (
+            <Alert variant="warning">
+              Terdeteksi {tabSwitchCount}x kamu meninggalkan tab ujian ini. Tetap di halaman ini
+              sampai selesai.
+            </Alert>
+          )}
 
-        {question.format === "pg" && (
-          <SoalPg
-            options={question.options}
-            value={answers[question.id]?.jawabanJson as { option_id: string } | undefined}
-            onChange={(j) => persistAnswer(question.id, j, answers[question.id]?.ragu ?? false)}
-          />
-        )}
-        {question.format === "pg_kompleks" && (
-          <SoalPgKompleks
-            options={question.options}
-            value={answers[question.id]?.jawabanJson as { option_ids: string[] } | undefined}
-            onChange={(j) => persistAnswer(question.id, j, answers[question.id]?.ragu ?? false)}
-          />
-        )}
-        {question.format === "pg_kategori" && (
-          <SoalPgKategori
-            categories={question.categories}
-            statements={question.statements}
-            value={answers[question.id]?.jawabanJson as Record<string, string> | undefined}
-            onChange={(j) => persistAnswer(question.id, j, answers[question.id]?.ragu ?? false)}
-          />
-        )}
-      </div>
+          {/* HP: Nomor Soal bisa dibuka/tutup (di layar lebar sudah tampil di sisi kanan). */}
+          <div className="lg:hidden">
+            <button
+              type="button"
+              onClick={() => setNavOpen((o) => !o)}
+              aria-expanded={navOpen}
+              className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-sm"
+            >
+              <span>
+                Nomor Soal{" "}
+                <span className="font-normal text-slate-500">
+                  · {answeredIds.size}/{questions.length} terjawab
+                </span>
+              </span>
+              <span aria-hidden className={cn("text-slate-400 transition-transform", navOpen && "rotate-180")}>
+                ▾
+              </span>
+            </button>
+            {navOpen && (
+              <div className="mt-2">
+                <NomorSoalCard
+                  questionIds={questionIds}
+                  currentIndex={currentIndex}
+                  answeredIds={answeredIds}
+                  raguIds={raguIds}
+                  onSelect={pilihNomor}
+                />
+              </div>
+            )}
+          </div>
 
-      <div className="fixed inset-x-0 bottom-0 flex justify-between border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
-        <Button
-          variant="secondary"
-          onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-          disabled={currentIndex === 0}
-        >
-          Sebelumnya
-        </Button>
-        {currentIndex < questions.length - 1 ? (
-          <Button onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}>
-            Selanjutnya
-          </Button>
-        ) : (
-          <button
-            onClick={() => handleSubmit(false)}
-            disabled={submitting}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm shadow-emerald-600/20 transition-colors hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting ? "Mengirim..." : "Submit"}
-          </button>
-        )}
+          <div className="select-none rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
+              <h2 className="text-lg font-bold text-slate-900">
+                Soal No. {currentIndex + 1}
+                <span className="ml-2 text-sm font-medium text-slate-400">dari {questions.length}</span>
+              </h2>
+              {subjectNama && (
+                <span className="shrink-0 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
+                  {subjectNama}
+                </span>
+              )}
+            </div>
+
+            <div className="px-5 py-5 sm:px-6">
+              <div className="mb-4 text-base leading-relaxed text-slate-900">
+                <RichText text={question.teks} />
+              </div>
+              {question.media && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={question.media} alt="" className="mb-4 max-w-full rounded-lg border border-slate-200" />
+              )}
+
+              {question.format === "pg" && (
+                <SoalPg
+                  options={question.options}
+                  value={answers[question.id]?.jawabanJson as { option_id: string } | undefined}
+                  onChange={(j) => persistAnswer(question.id, j, isRagu)}
+                />
+              )}
+              {question.format === "pg_kompleks" && (
+                <SoalPgKompleks
+                  options={question.options}
+                  value={answers[question.id]?.jawabanJson as { option_ids: string[] } | undefined}
+                  onChange={(j) => persistAnswer(question.id, j, isRagu)}
+                />
+              )}
+              {question.format === "pg_kategori" && (
+                <SoalPgKategori
+                  categories={question.categories}
+                  statements={question.statements}
+                  value={answers[question.id]?.jawabanJson as Record<string, string> | undefined}
+                  onChange={(j) => persistAnswer(question.id, j, isRagu)}
+                />
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">
+              <button
+                type="button"
+                onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+                disabled={currentIndex === 0}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span aria-hidden>←</span> Sebelumnya
+              </button>
+
+              <button
+                type="button"
+                onClick={() => toggleRagu(!isRagu)}
+                aria-pressed={isRagu}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                  isRagu
+                    ? "border-amber-300 bg-amber-100 text-amber-800"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                )}
+              >
+                <span
+                  aria-hidden
+                  className={cn("h-2.5 w-2.5 rounded-full border", isRagu ? "border-amber-500 bg-amber-500" : "border-slate-400")}
+                />
+                Tandai ragu-ragu
+              </button>
+
+              {isLast ? (
+                <button
+                  type="button"
+                  onClick={() => handleSubmit(false)}
+                  disabled={submitting}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2 text-sm font-bold text-white shadow-sm shadow-orange-500/30 transition hover:from-amber-400 hover:to-orange-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitting ? "Mengirim..." : "Selesaikan Ujian"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCurrentIndex((i) => Math.min(questions.length - 1, i + 1))}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-5 py-2 text-sm font-bold text-white shadow-sm shadow-indigo-600/30 transition hover:from-indigo-500 hover:to-violet-500"
+                >
+                  Selanjutnya <span aria-hidden>→</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* HP: tombol selesai di bawah kartu soal (di layar lebar ada di sisi kanan). */}
+          {!isLast && <div className="lg:hidden">{tombolSelesaikan}</div>}
+        </section>
+
+        <aside className="hidden flex-col gap-4 lg:sticky lg:top-4 lg:flex">
+          <WaktuTersisaCard remaining={remaining} totalDetik={durasiTotalDetik} />
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="mb-2 text-center text-sm font-semibold text-slate-700">Sudah Selesai?</p>
+            {tombolSelesaikan}
+          </div>
+
+          <NomorSoalCard
+            questionIds={questionIds}
+            currentIndex={currentIndex}
+            answeredIds={answeredIds}
+            raguIds={raguIds}
+            onSelect={pilihNomor}
+          />
+        </aside>
       </div>
     </div>
   );
