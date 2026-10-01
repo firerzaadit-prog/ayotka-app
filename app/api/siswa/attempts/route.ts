@@ -12,6 +12,7 @@ import { canStartAttempt, getActiveEntitlement, type AccessCheckResult } from "@
 import { getAiKuotaRemaining, getTryOutNasionalKuotaRemaining } from "@/lib/billing/plan-fitur";
 import { getSaldo, getHargaLearningAnalytics } from "@/lib/billing/saldo";
 import { putuskanLearningAnalytics, type TipeAkses } from "@/lib/billing/learning-analytics";
+import { nomorPercobaanById } from "@/lib/exam/percobaan";
 import { z } from "zod";
 
 function formatRupiah(n: number): string {
@@ -83,10 +84,15 @@ export async function GET() {
     },
   });
 
+  // "Percobaan ke-N" per paket (lihat lib/exam/percobaan.ts) - dihitung dari SEMUA attempt
+  // siswa ini (bukan cuma satu halaman), jadi nomornya tetap benar walau riwayat dipaginasi.
+  const nomorPercobaan = nomorPercobaanById(attempts);
+
   return NextResponse.json({
     attempts: attempts.map((a) => ({
       id: a.id,
       paketNama: a.package.nama,
+      percobaanKe: nomorPercobaan.get(a.id) ?? 1,
       terjadwal: a.assignmentId != null,
       status: a.status,
       skorAkhir: a.skorAkhir,

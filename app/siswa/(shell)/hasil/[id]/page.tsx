@@ -10,6 +10,8 @@ import { buttonClassName } from "@/components/ui/button";
 import { RincianJawaban, type PerSoal } from "@/components/hasil/rincian-jawaban";
 import { PetaKompetensiChart } from "@/components/hasil/peta-kompetensi-chart";
 import { RankingBoardCard } from "@/components/hasil/ranking-board";
+import { RiwayatPercobaanCard } from "@/components/hasil/riwayat-percobaan-card";
+import type { PercobaanItem } from "@/lib/exam/percobaan";
 
 type Hasil = {
   attempt: {
@@ -25,6 +27,8 @@ type Hasil = {
   canShowPembahasan: boolean;
   isFreeTrial: boolean;
   analisisAiDiminta: boolean;
+  /** Percobaan selesai pada paket yang sama, urut dari yang pertama (lib/exam/percobaan.ts). */
+  percobaan?: PercobaanItem[];
   bisaUnduhRapor: boolean;
   ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
@@ -121,6 +125,8 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
           {hasil.attempt.skorAkhir?.toFixed(0) ?? "-"}
         </p>
       </Card>
+
+      <RiwayatPercobaanCard items={hasil.percobaan ?? []} />
 
       {hasil.ranking && <RankingBoardCard ranking={hasil.ranking} />}
 

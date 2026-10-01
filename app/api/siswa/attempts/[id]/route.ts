@@ -6,6 +6,7 @@ import { getRemainingSeconds } from "@/lib/exam/timing";
 import { shuffleWithSeed } from "@/lib/exam/shuffle";
 import { buildHasil } from "@/lib/exam/hasil";
 import { checkAndClaimSession } from "@/lib/exam/session-guard";
+import { susunRiwayatPercobaan } from "@/lib/exam/percobaan";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -34,7 +35,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 
   if (attempt.status === "selesai" || attempt.status === "kedaluwarsa") {
-    return NextResponse.json(await buildHasil(attempt));
+    // Riwayat percobaan siswa ini pada paket (& jalur) yang sama, untuk kartu "Percobaan pada
+    // Paket Ini" di halaman hasil - lihat lib/exam/percobaan.ts.
+    const [hasil, attemptsPaket] = await Promise.all([
+      buildHasil(attempt),
+      prisma.attempt.findMany({
+        where: { studentId: attempt.studentId, packageId: attempt.packageId, assignmentId: attempt.assignmentId },
+        select: {
+          id: true,
+          packageId: true,
+          assignmentId: true,
+          status: true,
+          skorAkhir: true,
+          mulaiAt: true,
+          selesaiAt: true,
+        },
+      }),
+    ]);
+    return NextResponse.json({ ...hasil, percobaan: susunRiwayatPercobaan(attemptsPaket, attempt.id) });
   }
 
   // Tiket 4.13: satu sesi aktif per attempt - tab/device lain yang masih

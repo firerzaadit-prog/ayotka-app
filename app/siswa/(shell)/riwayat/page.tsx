@@ -16,6 +16,8 @@ import { formatWIB } from "@/lib/utils/datetime";
 type RiwayatItem = {
   id: string;
   paketNama: string;
+  /** Percobaan ke-N pada paket (& jalur) yang sama - lib/exam/percobaan.ts. */
+  percobaanKe: number;
   terjadwal: boolean;
   status: "berjalan" | "paused" | "selesai" | "kedaluwarsa";
   skorAkhir: number | null;
@@ -107,7 +109,10 @@ export default function RiwayatPage() {
                 <tbody>
                   {pageRows.map((a) => (
                     <Tr key={a.id}>
-                      <Td className="font-medium text-slate-900">{a.paketNama}</Td>
+                      <Td className="font-medium text-slate-900">
+                        {a.paketNama}
+                        <span className="block text-[11px] font-normal text-slate-500">Percobaan ke-{a.percobaanKe}</span>
+                      </Td>
                       <Td>{a.terjadwal ? "Terjadwal" : "Mandiri"}</Td>
                       <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
                       <Td>
