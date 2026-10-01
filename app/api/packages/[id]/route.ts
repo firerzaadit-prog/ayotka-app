@@ -6,6 +6,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
 import { packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
 import { urutanSeriBentrok } from "@/lib/exam/seri-mandiri";
+import { hitungPalingCepatTerbuka } from "@/lib/exam/seri-jadwal";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -56,7 +57,24 @@ export async function GET(_request: Request, { params }: RouteParams) {
     });
   }
 
-  return NextResponse.json({ package: pkg ? { ...pkg, prevPackage } : null });
+  // Perkiraan "paling cepat terbuka" untuk paket berseri (06.00 WIB sehari setelah
+  // paket sebelumnya) - rantainya dihitung dari semua paket published seri yang
+  // urutannya <= paket ini. Lihat lib/exam/seri-jadwal.ts.
+  let palingCepatTerbuka: Date | null = null;
+  if (pkg && pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null) {
+    const rantai = await prisma.package.findMany({
+      where: {
+        subjectId: pkg.subjectId,
+        kategori: "mandiri",
+        status: "published",
+        urutanSeri: { not: null, lte: pkg.urutanSeri },
+      },
+      select: { id: true, subjectId: true, urutanSeri: true, publishedAt: true, bukaMulai: true },
+    });
+    palingCepatTerbuka = hitungPalingCepatTerbuka(rantai).get(pkg.id) ?? null;
+  }
+
+  return NextResponse.json({ package: pkg ? { ...pkg, prevPackage, palingCepatTerbuka } : null });
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {

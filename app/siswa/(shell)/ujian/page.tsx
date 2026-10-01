@@ -539,6 +539,11 @@ function UjianContent() {
                               ? `Selesaikan dulu "${p.statusSeri.namaPaketSebelumnya}"`
                               : `Terbuka ${formatWIBHariTanggalJam(p.statusSeri.bukaPada)}`}
                           </span>
+                          {p.statusSeri.alasan === "belum_giliran" && (
+                            <span className="text-slate-500">
+                              Dibuka pukul 06.00 WIB, sehari setelah kamu menyelesaikannya
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>

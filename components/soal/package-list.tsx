@@ -13,6 +13,21 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 import { formatWIBHariTanggal, formatWIBHariTanggalJam, formatWIBJam } from "@/lib/utils/datetime";
+import { hitungPalingCepatTerbuka } from "@/lib/exam/seri-jadwal";
+
+/** Aturan buka paket berseri + perkiraan batas paling awal (tanggal pastinya berbeda per siswa). */
+function JadwalSeriInfo({ palingCepat }: { palingCepat: Date | undefined }) {
+  return (
+    <>
+      <span className="text-[10px] text-slate-500">Dibuka pukul 06.00 WIB, sehari setelah siswa selesai</span>
+      {palingCepat && (
+        <span className="text-[10px] text-slate-600">
+          Paling cepat: <b className="font-semibold">{formatWIBHariTanggalJam(palingCepat)}</b>
+        </span>
+      )}
+    </>
+  );
+}
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type BlueprintOption = { id: string; nama: string; jenjang: "SD" | "SMP"; subjectId: string };
@@ -360,6 +375,20 @@ export function PackageList({ basePath }: { basePath: string }) {
           }
         }
 
+        // Perkiraan "paling cepat terbuka" tiap paket berseri (06.00 WIB sehari setelah
+        // paket sebelumnya) - tanggal pastinya per siswa, ini batas paling awalnya.
+        const palingCepatById = hitungPalingCepatTerbuka(
+          [...seriesBySubject.values()].flatMap((list) =>
+            list.map((p) => ({
+              id: p.id,
+              subjectId: p.subject.id,
+              urutanSeri: p.urutanSeri ?? null,
+              publishedAt: p.publishedAt,
+              bukaMulai: p.bukaMulai,
+            })),
+          ),
+        );
+
         const totalPages = Math.max(1, Math.ceil(sortedPackages.length / pageSize));
         const pageRows = sortedPackages.slice((page - 1) * pageSize, page * pageSize);
         return (
@@ -445,6 +474,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                                 <span className="text-[10px] text-slate-500">
                                   Terbuka bagi siswa yang selesai &quot;{prevPackage?.nama}&quot;
                                 </span>
+                                <JadwalSeriInfo palingCepat={palingCepatById.get(pkg.id)} />
                               </div>
                             )}
 
@@ -457,6 +487,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                                 <span className="text-[10px] font-medium text-amber-700">
                                   • Selesaikan dulu &quot;{prevPackage?.nama ?? `Seri #${pkg.urutanSeri! - 1}`}&quot;
                                 </span>
+                                <JadwalSeriInfo palingCepat={palingCepatById.get(pkg.id)} />
                               </div>
                             )}
 

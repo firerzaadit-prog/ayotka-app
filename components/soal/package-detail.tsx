@@ -56,6 +56,8 @@ type PackageDetail = {
   bukaSelesai: string | null;
   publishedAt?: string | null;
   prevPackage?: { id: string; nama: string; urutanSeri: number | null; _count?: { attempts: number } } | null;
+  /** Batas paling awal paket berseri terbuka (06.00 WIB sehari setelah paket sebelumnya); tanggal pastinya per siswa. */
+  palingCepatTerbuka?: string | null;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -392,7 +394,10 @@ export function PackageDetail({
                 🟢 Status Akses Siswa (Seri #{pkg.urutanSeri}):
               </p>
               <p className="text-xs text-sky-800 mt-0.5">
-                Paket ini berstatus <strong>Published</strong>. Siswa yang telah menyelesaikan paket prasyarat (<strong>&quot;{pkg.prevPackage.nama}&quot;</strong>) sudah dapat langsung mengakses paket ini (tombol <strong>Mulai</strong> aktif di akun siswa setiap pukul 06:00 WIB keesokan harinya).
+                Paket ini berstatus <strong>Published</strong>. Siswa yang telah menyelesaikan paket prasyarat (<strong>&quot;{pkg.prevPackage.nama}&quot;</strong>) sudah dapat langsung mengakses paket ini (tombol <strong>Mulai</strong> aktif di akun siswa pukul 06.00 WIB, sehari setelah mereka menyelesaikannya).
+                {pkg.palingCepatTerbuka && (
+                  <> Paling cepat terbuka: <strong>{formatWIBHariTanggalJam(pkg.palingCepatTerbuka)}</strong>.</>
+                )}
               </p>
             </Alert>
           ) : (
@@ -401,7 +406,10 @@ export function PackageDetail({
                 🔒 Status Akses Siswa (Seri #{pkg.urutanSeri}):
               </p>
               <p className="text-xs text-amber-800 mt-0.5">
-                Paket ini berstatus <strong>Published</strong>, namun saat ini <strong>Terkunci</strong> di tampilan siswa. Siswa baru dapat mengakses tombol pengerjaan setelah menyelesaikan paket prasyarat: <strong>&quot;{pkg.prevPackage?.nama ?? `Seri #${pkg.urutanSeri - 1}`}&quot;</strong>.
+                Paket ini berstatus <strong>Published</strong>, namun saat ini <strong>Terkunci</strong> di tampilan siswa. Siswa baru dapat mengakses tombol pengerjaan setelah menyelesaikan paket prasyarat: <strong>&quot;{pkg.prevPackage?.nama ?? `Seri #${pkg.urutanSeri - 1}`}&quot;</strong>. Paket ini dibuka pukul <strong>06.00 WIB</strong>, sehari setelah siswa menyelesaikannya.
+                {pkg.palingCepatTerbuka && (
+                  <> Paling cepat terbuka: <strong>{formatWIBHariTanggalJam(pkg.palingCepatTerbuka)}</strong>.</>
+                )}
               </p>
             </Alert>
           )
