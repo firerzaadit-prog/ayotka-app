@@ -42,3 +42,6 @@ yarn-error.log*
 
 # catatan kerja internal (tidak disimpan di repo)
 PERBAIKAN-AUDIT-QA.md
+
+# Kredensial akun uji beban (dibuat seed-load-test-students.ts) - jangan pernah di-commit
+scripts/load-test/students.json

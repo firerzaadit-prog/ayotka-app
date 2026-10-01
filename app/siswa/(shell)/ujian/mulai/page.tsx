@@ -29,8 +29,12 @@ type Info = {
     | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string };
 } | null;
 
-/** Cermin RingkasanAksesUjian di lib/billing/akses-ujian.ts (respons GET /api/siswa/ujian/akses). */
+/**
+ * Respons GET /api/siswa/ujian/akses: ringkasan akses (cermin RingkasanAksesUjian di
+ * lib/billing/akses-ujian.ts) + data ujian itu sendiri, dalam satu permintaan.
+ */
 type Akses = {
+  info: NonNullable<Info>;
   tipe: "gratis" | "langganan" | "sekolah";
   mapel: string;
   jatahGratis: { terpakai: boolean } | null;
@@ -71,37 +75,39 @@ function InstruksiContent() {
   const [aksesVersi, setAksesVersi] = useState(0);
   // null = siswa belum menyentuh toggle -> pakai nilai awal turunan (lihat laNyala di bawah).
   const [pilihanLA, setPilihanLA] = useState<boolean | null>(null);
+  // True kalau pemuatan data ujian gagal (bukan "tidak ditemukan") - hanya dipakai selagi info belum ada.
+  const [gagalMuat, setGagalMuat] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      const res = await fetch("/api/siswa/ujian");
-      const data = await res.json();
-      if (assignmentId) {
-        const a = (data.assignments ?? []).find((x: { id: string }) => x.id === assignmentId);
-        setInfo(a ? { ...a.package, selesai: a.selesai, kategori: a.package.kategori ?? "mandiri" } : null);
-      } else {
-        const p = (data.packages ?? []).find((x: { id: string }) => x.id === packageId);
-        setInfo(p ?? null);
-      }
-    })();
-  }, [assignmentId, packageId]);
-
+  // Satu permintaan memuat data ujian + ringkasan akses (dulu: daftar lengkap semua ujian
+  // + permintaan akses terpisah). Dipanggil lagi saat tab difokuskan (saldo bisa berubah).
   useEffect(() => {
     let ignore = false;
     (async () => {
       const qs = assignmentId ? `assignmentId=${assignmentId}` : `packageId=${packageId}`;
-      let hasil: Akses | null = null;
       try {
         const res = await fetch(`/api/siswa/ujian/akses?${qs}`, { cache: "no-store" });
+        if (ignore) return;
+        if (res.status === 404) {
+          setInfo(null);
+          setAkses(null);
+          return;
+        }
         const data = await res.json().catch(() => null);
-        if (res.ok && data) hasil = data as Akses;
+        if (ignore) return;
+        if (res.ok && data?.info) {
+          setInfo(data.info);
+          setAkses(data as Akses);
+          return;
+        }
       } catch {
-        // Jaringan gagal: halaman tetap bisa dipakai tanpa keterangan akses (server tetap menjaga gerbangnya).
+        // jaringan gagal - ditangani di bawah
       }
-      if (!ignore) setAkses(hasil);
+      // Gagal memuat (jaringan/5xx). Pada pemuatan pertama ini memunculkan pesan "gagal memuat";
+      // pada pembaruan berikutnya (tab difokuskan) data yang sudah tampil dibiarkan apa adanya.
+      if (!ignore) setGagalMuat(true);
     })();
     return () => {
       ignore = true;
@@ -158,7 +164,26 @@ function InstruksiContent() {
     router.push(`/siswa/attempt/${data.attempt.id}`);
   }
 
-  if (info === undefined) return <InstruksiSkeleton />;
+  if (info === undefined) {
+    if (!gagalMuat) return <InstruksiSkeleton />;
+    return (
+      <div className="mx-auto max-w-md p-6">
+        <Alert variant="danger">
+          <p>Data ujian belum bisa dimuat. Periksa koneksi internetmu lalu coba lagi.</p>
+          <div className="mt-3">
+            <Button
+              onClick={() => {
+                setGagalMuat(false);
+                setAksesVersi((v) => v + 1);
+              }}
+            >
+              Coba lagi
+            </Button>
+          </div>
+        </Alert>
+      </div>
+    );
+  }
   if (info === null) {
     return (
       <div className="mx-auto max-w-md p-6">

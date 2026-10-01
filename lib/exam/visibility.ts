@@ -116,7 +116,7 @@ export async function getActiveAssignmentsFor(student: Student) {
     },
     orderBy: { selesai: "asc" },
     include: {
-      package: { select: { nama: true, jumlahSoal: true, durasiMenit: true, subject: { select: { nama: true } } } },
+      package: { select: { nama: true, jumlahSoal: true, durasiMenit: true, subject: { select: { id: true, nama: true } } } },
     },
   });
 }
