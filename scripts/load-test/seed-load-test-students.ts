@@ -2,7 +2,7 @@
  * Membuat akun siswa Jalur A massal untuk uji beban, lengkap dengan sekolah uji beban
  * (kuota kursi cukup) dan berkas scripts/load-test/students.json untuk skrip k6.
  *
- *   LOAD_TEST_CONFIRM_HOST=<host database> LOAD_TEST_COUNT=1000 \
+ *   LOAD_TEST_CONFIRM_PROJECT=<id proyek> LOAD_TEST_COUNT=1000 \
  *   npx tsx --env-file=.env scripts/load-test/seed-load-test-students.ts
  *
  * Aman dijalankan ulang: akun yang sudah ada dipakai lagi dan kata sandinya disamakan
@@ -11,7 +11,7 @@
  * cleanup-load-test-students.ts.
  *
  * PENTING: skrip ini menulis ke database yang ada di DATABASE_URL. Jalankan di lingkungan
- * UJI (staging), bukan production - karena itu wajib LOAD_TEST_CONFIRM_HOST.
+ * UJI (staging), bukan production - karena itu wajib LOAD_TEST_CONFIRM_PROJECT.
  */
 import { randomInt } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -26,7 +26,7 @@ import {
   emailDariNisn,
   namaSiswa,
   parseJumlah,
-  pastikanKonfirmasiHost,
+  pastikanKonfirmasiTujuan,
   SEKOLAH_NAMA_BAWAAN,
 } from "./helpers";
 
@@ -56,14 +56,14 @@ async function denganUlang<R extends { error: { message: string; status?: number
 
 async function main() {
   const jumlah = parseJumlah(process.env.LOAD_TEST_COUNT);
-  const host = pastikanKonfirmasiHost(process.env.DATABASE_URL, process.env.LOAD_TEST_CONFIRM_HOST);
+  const tujuan = pastikanKonfirmasiTujuan(process.env.DATABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.LOAD_TEST_CONFIRM_PROJECT);
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const kunci = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !kunci) throw new Error("NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY belum diisi.");
   const supabase = createClient(url, kunci, { auth: { autoRefreshToken: false, persistSession: false } });
 
   const namaSekolah = process.env.LOAD_TEST_SCHOOL_NAME?.trim() || SEKOLAH_NAMA_BAWAAN;
-  console.log(`Database tujuan: ${host}\nMembuat ${jumlah} akun uji di sekolah "${namaSekolah}"...`);
+  console.log(`Proyek/database tujuan: ${tujuan}\nMembuat ${jumlah} akun uji di sekolah "${namaSekolah}"...`);
 
   // Sekolah uji: kuota kursi dibuat cukup & aktif 30 hari ke depan (kursi dibagikan lazy saat siswa mulai ujian).
   const kuota = jumlah + 10;

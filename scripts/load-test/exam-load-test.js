@@ -16,6 +16,8 @@
 //   PACKAGE_ID     (opsional) paksa paket tertentu, kalau tidak: paket pertama yang bisa dikerjakan
 //   THINK_MIN/MAX  jeda berpikir per soal dalam detik (bawaan 3-15; kecilkan untuk uji cepat)
 //   MAX_MINUTES    batas waktu seluruh uji (bawaan 120)
+//   VERCEL_BYPASS  (opsional) kunci "Protection Bypass for Automation" Vercel, dikirim di header
+//                  x-vercel-protection-bypass supaya k6 bisa menembus perlindungan login pratinjau Vercel
 
 import http from "k6/http";
 import { check, sleep } from "k6";
@@ -34,6 +36,12 @@ const MAX_MINUTES = Number(__ENV.MAX_MINUTES || 120);
 const RESYNC_MS = 20000; // sama dengan RESYNC_INTERVAL_MS di app/siswa/attempt/[id]/page.tsx
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
+const BYPASS_HEADERS = __ENV.VERCEL_BYPASS ? { "x-vercel-protection-bypass": __ENV.VERCEL_BYPASS } : {};
+
+/** Parameter permintaan k6: nama untuk pengelompokan metrik, header JSON (kalau ada isi), dan kunci bypass Vercel (kalau diisi). */
+function opsi(nama, adaIsiJson) {
+  return { headers: Object.assign({}, BYPASS_HEADERS, adaIsiJson ? JSON_HEADERS : {}), tags: { name: nama } };
+}
 
 const students = new SharedArray("students", function () {
   const data = JSON.parse(open("./students.json"));
@@ -97,7 +105,7 @@ function login(siswa) {
     const res = http.post(
       `${BASE_URL}/api/auth/login`,
       JSON.stringify({ emailOrNisn: siswa.nisn, password: siswa.password }),
-      { headers: JSON_HEADERS, tags: { name: "login" } },
+      opsi("login", true),
     );
     if (res.status === 429) {
       // Kena batas laju (lihat README "Batas login": LOGIN_MAX_PER_IP di aplikasi uji, atau batas Supabase Auth).
@@ -125,9 +133,7 @@ function pilihUjian(data) {
 
 function sinkron(attemptId, tabToken, state) {
   state.terakhirSinkron = Date.now();
-  const res = http.get(`${BASE_URL}/api/siswa/attempts/${attemptId}/sinkron?tabToken=${tabToken}`, {
-    tags: { name: "sinkron" },
-  });
+  const res = http.get(`${BASE_URL}/api/siswa/attempts/${attemptId}/sinkron?tabToken=${tabToken}`, opsi("sinkron"));
   check(res, { "sinkron berhasil": (r) => r.status === 200 });
 }
 
@@ -150,7 +156,7 @@ export default function () {
   if (!login(siswa)) return;
 
   // Halaman daftar ujian
-  const daftar = http.get(`${BASE_URL}/api/siswa/ujian`, { tags: { name: "daftar_ujian" } });
+  const daftar = http.get(`${BASE_URL}/api/siswa/ujian`, opsi("daftar_ujian"));
   check(daftar, { "daftar ujian berhasil": (r) => r.status === 200 });
   const ujian = pilihUjian(jsonAman(daftar));
   if (!ujian) {
@@ -160,14 +166,14 @@ export default function () {
 
   // Halaman instruksi (data ujian + akses dalam satu permintaan)
   const qs = ujian.packageId ? `packageId=${ujian.packageId}` : `assignmentId=${ujian.assignmentId}`;
-  const info = http.get(`${BASE_URL}/api/siswa/ujian/akses?${qs}`, { tags: { name: "info_mulai" } });
+  const info = http.get(`${BASE_URL}/api/siswa/ujian/akses?${qs}`, opsi("info_mulai"));
   check(info, { "info mulai berhasil": (r) => r.status === 200 });
 
   // Mulai ujian
   const mulai = http.post(
     `${BASE_URL}/api/siswa/attempts`,
     JSON.stringify({ ...ujian, gunakanLearningAnalytics: false }),
-    { headers: JSON_HEADERS, tags: { name: "mulai_ujian" } },
+    opsi("mulai_ujian", true),
   );
   const mulaiOk = check(mulai, { "mulai ujian berhasil": (r) => r.status === 200 || r.status === 201 });
   const attemptId = mulaiOk ? (jsonAman(mulai) || {}).attempt?.id : null;
@@ -179,9 +185,7 @@ export default function () {
   // Muat soal sekali, seperti halaman ujian
   const tabToken = `lt-${__VU}-${__ITER}`;
   const state = { terakhirSinkron: Date.now() };
-  const detail = http.get(`${BASE_URL}/api/siswa/attempts/${attemptId}?tabToken=${tabToken}`, {
-    tags: { name: "soal" },
-  });
+  const detail = http.get(`${BASE_URL}/api/siswa/attempts/${attemptId}?tabToken=${tabToken}`, opsi("soal"));
   check(detail, { "muat soal berhasil": (r) => r.status === 200 });
   const soalList = (jsonAman(detail) || {}).questions || [];
   if (soalList.length === 0) return;
@@ -191,15 +195,15 @@ export default function () {
     const simpan = http.put(
       `${BASE_URL}/api/siswa/attempts/${attemptId}/jawaban`,
       JSON.stringify({ questionId: soal.id, jawabanJson: jawabanAcak(soal), ragu: false, tabToken }),
-      { headers: JSON_HEADERS, tags: { name: "jawaban" } },
+      opsi("jawaban", true),
     );
     check(simpan, { "simpan jawaban berhasil": (r) => r.status === 200 });
   }
 
-  const submit = http.post(`${BASE_URL}/api/siswa/attempts/${attemptId}/submit`, null, { tags: { name: "submit" } });
+  const submit = http.post(`${BASE_URL}/api/siswa/attempts/${attemptId}/submit`, null, opsi("submit"));
   if (check(submit, { "submit berhasil": (r) => r.status === 200 })) ujianSelesai.add(1);
 
   // Halaman hasil
-  const hasil = http.get(`${BASE_URL}/api/siswa/attempts/${attemptId}`, { tags: { name: "hasil" } });
+  const hasil = http.get(`${BASE_URL}/api/siswa/attempts/${attemptId}`, opsi("hasil"));
   check(hasil, { "hasil berhasil": (r) => r.status === 200 });
 }

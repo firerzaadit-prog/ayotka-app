@@ -10,7 +10,8 @@ import { describe, expect, it } from "vitest";
  */
 const SUMBER = readFileSync(path.join(__dirname, "../../scripts/load-test/exam-load-test.js"), "utf8");
 
-type Panggilan = { method: string; path: string; body: Record<string, unknown> | null; tag: string };
+type Params = { tags?: { name?: string }; headers?: Record<string, string> };
+type Panggilan = { method: string; path: string; body: Record<string, unknown> | null; tag: string; headers: Record<string, string> };
 type Balasan = { status: number; body?: unknown };
 type Router = (p: Panggilan, n: number) => Balasan;
 
@@ -24,18 +25,19 @@ function jalankan(opts: { env?: Record<string, string>; router: Router; vu?: num
   const env = { BASE_URL: "http://uji", RAMP_SECONDS: "0", THINK_MIN: "10", THINK_MAX: "10", ...opts.env };
 
   const respons = (b: Balasan) => ({ status: b.status, json: () => b.body });
-  const kirim = (method: string) => (url: string, body: unknown, params?: { tags?: { name?: string } }) => {
+  const kirim = (method: string) => (url: string, body: unknown, params?: Params) => {
     const p: Panggilan = {
       method,
       path: url.replace("http://uji", ""),
       body: typeof body === "string" ? JSON.parse(body) : null,
       tag: params?.tags?.name ?? "",
+      headers: params?.headers ?? {},
     };
     panggilan.push(p);
     return respons(opts.router(p, panggilan.length));
   };
   const http = {
-    get: (url: string, params?: { tags?: { name?: string } }) => kirim("GET")(url, null, params),
+    get: (url: string, params?: Params) => kirim("GET")(url, null, params),
     post: kirim("POST"),
     put: kirim("PUT"),
   };
@@ -285,6 +287,24 @@ describe("skrip uji beban k6 - konfigurasi", () => {
     ];
     const { panggilan } = jalankan({ vu: 2, siswa: akun, router: serverNormal({ packages: [PAKET("pkt-a", "mandiri")], assignments: [] }) });
     expect(panggilan[0]!.body).toEqual({ emailOrNisn: "9000000002", password: "p2" });
+  });
+
+  it("tanpa VERCEL_BYPASS tidak ada header bypass; permintaan berisi JSON membawa Content-Type", () => {
+    const { panggilan } = jalankan({ router: serverNormal({ packages: [PAKET("pkt-a", "mandiri")], assignments: [] }) });
+    expect(panggilan.every((p) => !("x-vercel-protection-bypass" in p.headers))).toBe(true);
+    for (const p of panggilan.filter((x) => ["login", "mulai_ujian", "jawaban"].includes(x.tag))) {
+      expect(p.headers["Content-Type"]).toBe("application/json");
+    }
+  });
+
+  it("dengan VERCEL_BYPASS, SETIAP permintaan (termasuk GET, penyegaran, submit) membawa header bypass Vercel", () => {
+    const { panggilan } = jalankan({
+      env: { VERCEL_BYPASS: "kunci-rahasia-uji" },
+      router: serverNormal({ packages: [PAKET("pkt-a", "mandiri")], assignments: [] }),
+    });
+    expect(panggilan.length).toBeGreaterThan(8);
+    expect(panggilan.every((p) => p.headers["x-vercel-protection-bypass"] === "kunci-rahasia-uji")).toBe(true);
+    expect(panggilan.find((p) => p.tag === "login")!.headers["Content-Type"]).toBe("application/json");
   });
 
   it("BASE_URL dengan garis miring di akhir dirapikan (tidak menghasilkan // di URL)", () => {

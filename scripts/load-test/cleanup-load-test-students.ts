@@ -2,7 +2,7 @@
  * Menghapus SEMUA jejak uji beban: percobaan & jawabannya, akun siswa uji, akun loginnya
  * (Supabase Auth), dan sekolah uji (kalau sudah kosong).
  *
- *   LOAD_TEST_CONFIRM_HOST=<host database> npx tsx --env-file=.env scripts/load-test/cleanup-load-test-students.ts
+ *   LOAD_TEST_CONFIRM_PROJECT=<id proyek> npx tsx --env-file=.env scripts/load-test/cleanup-load-test-students.ts
  *   (tambahkan LOAD_TEST_DRY_RUN=1 untuk hanya melihat apa yang akan dihapus)
  *
  * Pengaman berlapis: hanya siswa yang SEKALIGUS (1) milik sekolah uji, (2) NISN 10 digit
@@ -13,7 +13,7 @@ import { rmSync } from "node:fs";
 import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
-import { adalahNamaUjiBeban, adalahNisnUjiBeban, NAMA_AWALAN, pastikanKonfirmasiHost, SEKOLAH_NAMA_BAWAAN } from "./helpers";
+import { adalahNamaUjiBeban, adalahNisnUjiBeban, NAMA_AWALAN, pastikanKonfirmasiTujuan, SEKOLAH_NAMA_BAWAAN } from "./helpers";
 
 const prisma = new PrismaClient();
 const POTONGAN = 500;
@@ -25,7 +25,7 @@ function potong<T>(arr: T[], ukuran: number): T[][] {
 }
 
 async function main() {
-  const host = pastikanKonfirmasiHost(process.env.DATABASE_URL, process.env.LOAD_TEST_CONFIRM_HOST);
+  const tujuan = pastikanKonfirmasiTujuan(process.env.DATABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.LOAD_TEST_CONFIRM_PROJECT);
   const dryRun = process.env.LOAD_TEST_DRY_RUN === "1";
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const kunci = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -33,7 +33,7 @@ async function main() {
   const supabase = createClient(url, kunci, { auth: { autoRefreshToken: false, persistSession: false } });
 
   const namaSekolah = process.env.LOAD_TEST_SCHOOL_NAME?.trim() || SEKOLAH_NAMA_BAWAAN;
-  console.log(`Database: ${host}${dryRun ? "  [DRY RUN - tidak ada yang dihapus]" : ""}`);
+  console.log(`Proyek/database: ${tujuan}${dryRun ? "  [DRY RUN - tidak ada yang dihapus]" : ""}`);
 
   const sekolah = await prisma.school.findFirst({ where: { nama: namaSekolah } });
   if (!sekolah) {

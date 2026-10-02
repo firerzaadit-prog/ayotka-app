@@ -6,10 +6,15 @@ import {
   buatNisn,
   buatSandi,
   emailDariNisn,
+  buatKontenSoal,
+  formatUntukNomor,
   hostDatabase,
   namaSiswa,
   parseJumlah,
-  pastikanKonfirmasiHost,
+  pastikanKonfirmasiTujuan,
+  refProyekDariDatabase,
+  refProyekDariSupabaseUrl,
+  SOAL_AWALAN,
 } from "../../scripts/load-test/helpers";
 
 describe("buatNisn", () => {
@@ -63,24 +68,118 @@ describe("parseJumlah", () => {
   });
 });
 
-describe("pengaman konfirmasi host database", () => {
-  const URL_DB = "postgresql://user:rahasia@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true";
+describe("pengaman konfirmasi proyek tujuan", () => {
+  const REF_UJI = "abcdefghij1234567890";
+  const REF_PROD = "pyqeqhvouysotijhkhdg";
+  const POOLER = (ref: string) => `postgresql://postgres.${ref}:rahasia@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true`;
+  const SUPA = (ref: string) => `https://${ref}.supabase.co`;
 
-  it("hostDatabase tidak membawa kata sandi", () => {
-    expect(hostDatabase(URL_DB)).toBe("aws-0-ap-southeast-1.pooler.supabase.com");
+  it("hostDatabase tidak membawa kata sandi dan menolak url tidak valid", () => {
+    expect(hostDatabase(POOLER(REF_UJI))).toBe("aws-0-ap-southeast-1.pooler.supabase.com");
     expect(() => hostDatabase(undefined)).toThrow();
     expect(() => hostDatabase("bukan-url")).toThrow();
   });
 
-  it("tanpa konfirmasi / konfirmasi salah -> dibatalkan, pesan menyebut host tujuan", () => {
-    expect(() => pastikanKonfirmasiHost(URL_DB, undefined)).toThrow(/aws-0-ap-southeast-1\.pooler\.supabase\.com/);
-    expect(() => pastikanKonfirmasiHost(URL_DB, "localhost")).toThrow(/Dibatalkan/);
+  it("ID proyek dibaca dari pengguna pooler, host langsung, dan URL Supabase", () => {
+    expect(refProyekDariDatabase(POOLER(REF_UJI))).toBe(REF_UJI);
+    expect(refProyekDariDatabase(`postgresql://postgres:x@db.${REF_UJI}.supabase.co:5432/postgres`)).toBe(REF_UJI);
+    expect(refProyekDariDatabase("postgresql://postgres:x@localhost:5432/postgres")).toBeNull();
+    expect(refProyekDariSupabaseUrl(SUPA(REF_UJI))).toBe(REF_UJI);
+    expect(refProyekDariSupabaseUrl("http://127.0.0.1:54321")).toBeNull();
+    expect(refProyekDariDatabase(undefined)).toBeNull();
   });
 
-  it("konfirmasi persis sama dengan host -> lanjut", () => {
-    expect(pastikanKonfirmasiHost(URL_DB, "aws-0-ap-southeast-1.pooler.supabase.com")).toBe(
-      "aws-0-ap-southeast-1.pooler.supabase.com",
-    );
+  it("host pooler SAMA untuk semua proyek, jadi yang dikonfirmasi adalah ID proyek (bukan host)", () => {
+    expect(hostDatabase(POOLER(REF_UJI))).toBe(hostDatabase(POOLER(REF_PROD)));
+    // Mengetik host saja tidak cukup untuk membedakan uji dari production:
+    expect(() => pastikanKonfirmasiTujuan(POOLER(REF_PROD), SUPA(REF_PROD), "aws-0-ap-southeast-1.pooler.supabase.com")).toThrow(/Dibatalkan/);
+  });
+
+  it("tanpa konfirmasi / konfirmasi salah -> dibatalkan, pesan menyebut proyek tujuan dan perintah yang benar", () => {
+    expect(() => pastikanKonfirmasiTujuan(POOLER(REF_UJI), SUPA(REF_UJI), undefined)).toThrow(new RegExp(REF_UJI));
+    expect(() => pastikanKonfirmasiTujuan(POOLER(REF_UJI), SUPA(REF_UJI), REF_PROD)).toThrow(/LOAD_TEST_CONFIRM_PROJECT/);
+  });
+
+  it("konfirmasi persis sama dengan ID proyek -> lanjut", () => {
+    expect(pastikanKonfirmasiTujuan(POOLER(REF_UJI), SUPA(REF_UJI), REF_UJI)).toBe(REF_UJI);
+    expect(pastikanKonfirmasiTujuan(POOLER(REF_UJI), SUPA(REF_UJI), ` ${REF_UJI} `)).toBe(REF_UJI);
+  });
+
+  it("database dan Supabase Auth menunjuk proyek BERBEDA -> dibatalkan walau konfirmasi benar", () => {
+    expect(() => pastikanKonfirmasiTujuan(POOLER(REF_UJI), SUPA(REF_PROD), REF_UJI)).toThrow(/harus proyek yang sama/);
+    expect(() => pastikanKonfirmasiTujuan(POOLER(REF_PROD), SUPA(REF_UJI), REF_PROD)).toThrow(/harus proyek yang sama/);
+  });
+
+  it("database lokal (non-Supabase): yang dikonfirmasi nama host", () => {
+    const lokal = "postgresql://postgres:x@localhost:5432/postgres";
+    expect(pastikanKonfirmasiTujuan(lokal, undefined, "localhost")).toBe("localhost");
+    expect(() => pastikanKonfirmasiTujuan(lokal, undefined, undefined)).toThrow(/localhost/);
+  });
+});
+
+describe("buatKontenSoal (paket soal uji beban)", () => {
+  let n = 0;
+  const uuid = () => `id-${++n}`;
+
+  it("menghasilkan jumlah soal yang diminta dengan campuran 60% PG, 20% PG Kompleks, 20% PG Kategori", () => {
+    n = 0;
+    const k = buatKontenSoal(30, uuid);
+    expect(k.questions).toHaveLength(30);
+    const hitung = (f: string) => k.questions.filter((q) => q.format === f).length;
+    expect(hitung("pg")).toBe(18);
+    expect(hitung("pg_kompleks")).toBe(6);
+    expect(hitung("pg_kategori")).toBe(6);
+    expect(formatUntukNomor(5)).toBe("pg_kategori");
+    expect(formatUntukNomor(4)).toBe("pg_kompleks");
+    expect(formatUntukNomor(1)).toBe("pg");
+  });
+
+  it("aturan tiap format sama dengan validasi soal aplikasi", () => {
+    n = 0;
+    const k = buatKontenSoal(40, uuid);
+    for (const q of k.questions) {
+      const opsi = k.options.filter((o) => o.questionId === q.id);
+      const kunci = opsi.filter((o) => o.isCorrect).length;
+      if (q.format === "pg") {
+        expect(opsi).toHaveLength(4);
+        expect(kunci).toBe(1);
+      } else if (q.format === "pg_kompleks") {
+        expect(opsi).toHaveLength(4);
+        expect(kunci).toBe(2);
+      } else {
+        const kategori = k.categories.filter((c) => c.questionId === q.id);
+        const pernyataan = k.statements.filter((s) => s.questionId === q.id);
+        expect(kategori.map((c) => c.label)).toEqual(["Benar", "Salah"]);
+        expect(pernyataan.length).toBeGreaterThanOrEqual(1);
+        expect(pernyataan.length).toBeLessThanOrEqual(3);
+        for (const s of pernyataan) expect(kategori.some((c) => c.id === s.correctCategoryId)).toBe(true);
+        expect(opsi).toHaveLength(0);
+      }
+    }
+  });
+
+  it("semua id unik, tiap opsi/kategori/pernyataan menunjuk soal yang ada, dan teks diberi penanda uji beban", () => {
+    n = 0;
+    const k = buatKontenSoal(25, uuid);
+    const idSoal = new Set(k.questions.map((q) => q.id));
+    const semuaId = [...k.questions.map((q) => q.id), ...k.categories.map((c) => c.id)];
+    expect(new Set(semuaId).size).toBe(semuaId.length);
+    for (const x of [...k.options, ...k.categories, ...k.statements]) expect(idSoal.has(x.questionId)).toBe(true);
+    for (const q of k.questions) expect(q.teks.startsWith(SOAL_AWALAN)).toBe(true);
+    expect(k.questions.every((q) => q.bobot === 1)).toBe(true);
+  });
+
+  it("kesulitan dan level kognitif memakai nilai enum yang sah", () => {
+    n = 0;
+    const k = buatKontenSoal(12, uuid);
+    for (const q of k.questions) {
+      expect(["mudah", "sedang", "sulit"]).toContain(q.tingkatKesulitan);
+      expect(["L1", "L2", "L3"]).toContain(q.levelBloom);
+    }
+  });
+
+  it("jumlah di luar 1-200 atau bukan bilangan bulat ditolak", () => {
+    for (const j of [0, -1, 201, 1.5]) expect(() => buatKontenSoal(j, uuid)).toThrow();
   });
 });
 

@@ -7,7 +7,11 @@ kegagalan massal, sebelum Try Out Nasional atau ujian sekolah besar.
 > Skrip menciptakan ribuan akun & percobaan palsu, dan k6 menembak lalu lintas besar. Pakai
 > **lingkungan uji (staging)**: proyek Supabase terpisah + deployment Vercel terpisah (mis. branch
 > khusus dengan variabel lingkungan staging). Skrip `seed`/`cleanup` menolak berjalan kecuali Anda
-> mengetik host database tujuan di `LOAD_TEST_CONFIRM_HOST` — itu pengaman supaya tidak salah arah.
+> mengetik **ID proyek Supabase** tujuan di `LOAD_TEST_CONFIRM_PROJECT` (dan database serta Supabase Auth
+> di `.env` harus menunjuk proyek yang sama) — pengaman supaya tidak salah arah.
+>
+> **Belum punya lingkungan uji?** Ikuti `STAGING.md` (langkah demi langkah menyiapkan proyek Supabase dan
+> deployment Vercel khusus uji, termasuk perkiraan biaya) sebelum langkah di bawah.
 
 ## Yang diuji
 
@@ -22,14 +26,23 @@ seperti halaman ujian sungguhan) → submit → buka halaman hasil. Kedatangan s
 - Proyek Supabase uji dengan skema yang sama (`npx prisma migrate deploy` ke database uji).
 - Deployment aplikasi yang menunjuk ke database uji itu. Di deployment uji **saja**, naikkan langit-langit
   login (lihat bagian "Batas login" di bawah), mis. `LOGIN_MAX_PER_IP=100000`, dan batas Supabase Auth proyek uji.
-- Isi `.env` lokal dengan `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` milik
+- Isi berkas `.env.staging` (lihat `STAGING.md`) dengan `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` milik
   **lingkungan uji** (bukan production).
 
-### 2. Buat akun siswa uji
+### 2. Buat paket soal dan akun siswa uji
+
+Database uji yang masih kosong butuh paket soal dulu (`STAGING.md` langkah A.7):
 
 ```bash
-LOAD_TEST_CONFIRM_HOST=<host database uji> LOAD_TEST_COUNT=1000 \
-  npx tsx --env-file=.env scripts/load-test/seed-load-test-students.ts
+LOAD_TEST_CONFIRM_PROJECT=<id proyek uji> LOAD_TEST_QUESTIONS=30 \
+  npx tsx --env-file=.env.staging scripts/load-test/seed-load-test-exam.ts
+```
+
+Lalu akun siswa:
+
+```bash
+LOAD_TEST_CONFIRM_PROJECT=<id proyek uji> LOAD_TEST_COUNT=1000 \
+  npx tsx --env-file=.env.staging scripts/load-test/seed-load-test-students.ts
 ```
 
 Membuat sekolah uji "Sekolah Load Test (hapus setelah uji)" dengan kuota kursi cukup, `COUNT` akun
@@ -38,7 +51,8 @@ siswa Jalur A (NISN `9xxxxxxxxx`, nama `Load Test Siswa N`), dan menulis kredens
 Maksimum 10.000 akun per run.
 
 ### 3. Siapkan ujiannya (lewat aplikasi uji)
-- Buat & terbitkan satu paket soal (campur PG / PG Kompleks / PG Kategori supaya realistis).
+- Paket soal sudah dibuat `seed-load-test-exam.ts` (terbit, terlihat semua sekolah, campur PG / PG Kompleks /
+  PG Kategori). Kalau memakai paket buatan sendiri, terbitkan satu paket yang realistis.
 - **Try Out Mandiri/Nasional** (`MODE=package`, bawaan): pastikan paket terlihat oleh sekolah uji
   (distribusi ke semua sekolah/sekolah uji) dan jenjangnya cocok (akun uji = SMP).
 - **Ujian Terjadwal** (`MODE=assignment`): login sebagai admin sekolah "Sekolah Load Test" dan
@@ -57,7 +71,8 @@ k6 run -e BASE_URL=https://staging.contoh.id -e TARGET_VUS=1000 -e RAMP_SECONDS=
 ```
 
 Variabel: `BASE_URL`, `TARGET_VUS` (dibatasi jumlah akun), `RAMP_SECONDS`, `MODE` (`package`|`assignment`),
-`KATEGORI` (`mandiri`|`nasional`), `PACKAGE_ID`, `THINK_MIN`/`THINK_MAX` (detik), `MAX_MINUTES`.
+`KATEGORI` (`mandiri`|`nasional`), `PACKAGE_ID`, `THINK_MIN`/`THINK_MAX` (detik), `MAX_MINUTES`,
+`VERCEL_BYPASS` (kunci "Protection Bypass for Automation" Vercel, untuk menembus perlindungan login pratinjau).
 Install k6: https://k6.io/docs/get-started/installation/
 
 ### 5. Membaca hasil
@@ -83,10 +98,10 @@ Naikkan `TARGET_VUS` bertahap (50 → 200 → 1000 → ...) dan catat angka di m
 ### 6. Bersihkan
 
 ```bash
-LOAD_TEST_CONFIRM_HOST=<host database uji> LOAD_TEST_DRY_RUN=1 \
-  npx tsx --env-file=.env scripts/load-test/cleanup-load-test-students.ts   # lihat dulu apa yang dihapus
-LOAD_TEST_CONFIRM_HOST=<host database uji> \
-  npx tsx --env-file=.env scripts/load-test/cleanup-load-test-students.ts
+LOAD_TEST_CONFIRM_PROJECT=<id proyek uji> LOAD_TEST_DRY_RUN=1 \
+  npx tsx --env-file=.env.staging scripts/load-test/cleanup-load-test-students.ts   # lihat dulu apa yang dihapus
+LOAD_TEST_CONFIRM_PROJECT=<id proyek uji> \
+  npx tsx --env-file=.env.staging scripts/load-test/cleanup-load-test-students.ts
 ```
 
 Menghapus percobaan & jawaban uji, siswa uji, akun loginnya di Supabase Auth, dan sekolah uji (kalau
