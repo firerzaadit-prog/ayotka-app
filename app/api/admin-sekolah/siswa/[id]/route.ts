@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { resolveSchoolId } from "@/lib/schools/scope";
+import { loadSiswaKelolaan } from "@/lib/students/kelolaan";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   buatPenghapusAkunLogin,
@@ -15,14 +15,6 @@ import { studentUpdateSchema } from "@/lib/validations/student";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
-async function loadOwnedStudent(user: Awaited<ReturnType<typeof requireRole>>, id: string) {
-  const student = await prisma.student.findUnique({ where: { id } });
-  if (!student || student.deletedAt || !student.schoolId) return null;
-  const allowedSchoolId = await resolveSchoolId(user, student.schoolId);
-  if (allowedSchoolId !== student.schoolId) return null;
-  return student;
-}
-
 export async function PATCH(request: Request, { params }: RouteParams) {
   let user;
   try {
@@ -32,7 +24,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const before = await loadOwnedStudent(user, id);
+  const before = await loadSiswaKelolaan(user, id);
   if (!before) {
     return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
   }
@@ -87,7 +79,7 @@ export async function DELETE(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const before = await loadOwnedStudent(user, id);
+  const before = await loadSiswaKelolaan(user, id);
   if (!before) {
     return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
   }

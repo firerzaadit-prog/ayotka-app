@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { resolveSchoolId } from "@/lib/schools/scope";
+import { bisaDikelolaAdmin } from "@/lib/students/kelolaan";
 import { notFound } from "next/navigation";
 import { buildHasil } from "@/lib/exam/hasil";
 import { ringkasKesiapanSiswa } from "@/lib/analytics/kesiapan";
@@ -27,7 +28,9 @@ export default async function DetailSiswaAdminSekolahPage({ params }: { params: 
     },
   });
 
-  if (!student || student.deletedAt || student.schoolId !== schoolId) {
+  // Hanya siswa Jalur A milik sekolah ini: siswa mandiri (Jalur B) bisa punya schoolId tetapi riwayat
+  // ujiannya bukan untuk dilihat/dipicu admin sekolah (lihat lib/students/kelolaan.ts).
+  if (!student || !bisaDikelolaAdmin(student) || student.schoolId !== schoolId) {
     notFound();
   }
 

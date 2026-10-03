@@ -30,8 +30,9 @@ export async function POST(request: Request) {
   }
   const ids = [...new Set(parsed.data.ids)];
 
+  // Hanya Jalur A: siswa mandiri (Jalur B) bisa punya schoolId tetapi bukan milik sekolah (lihat lib/students/kelolaan.ts).
   const ditemukan = await prisma.student.findMany({
-    where: { id: { in: ids }, deletedAt: null, schoolId: { not: null } },
+    where: { id: { in: ids }, jalur: "A", deletedAt: null, schoolId: { not: null } },
   });
 
   // Otorisasi per sekolah (satu kali per sekolah yang berbeda, bukan per siswa).

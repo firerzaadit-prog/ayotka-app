@@ -366,12 +366,14 @@ export default function SemuaSiswaPage() {
                   <Td>{CLAIM_LABEL[s.claimStatus]}</Td>
                   <Td>{STATUS_LABEL[s.status]}</Td>
                   <Td className="text-right">
-                    <button
-                      onClick={() => handleDelete(s.id, s.nama)}
-                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
-                    >
-                      Hapus
-                    </button>
+                    {bisaDihapus(s) && (
+                      <button
+                        onClick={() => handleDelete(s.id, s.nama)}
+                        className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                      >
+                        Hapus
+                      </button>
+                    )}
                   </Td>
                 </Tr>
               ))}

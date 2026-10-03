@@ -33,7 +33,7 @@ import { GagalHapusAkunLoginError } from "@/lib/students/hapus";
 
 const ctx = { params: Promise.resolve({ id: "s1" }) };
 const reqHapus = () => new Request("http://localhost/api/admin-sekolah/siswa/s1", { method: "DELETE" });
-const SISWA = { id: "s1", schoolId: "sch-1", userId: "u1", nisn: "3156140153", nama: "Budi", deletedAt: null };
+const SISWA = { id: "s1", schoolId: "sch-1", jalur: "A", userId: "u1", nisn: "3156140153", nama: "Budi", deletedAt: null };
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -54,6 +54,12 @@ describe("DELETE /api/admin-sekolah/siswa/[id]", () => {
     ["siswa sudah dihapus", { ...SISWA, deletedAt: new Date() }],
   ])("404 kalau %s", async (_nama, siswa) => {
     m.findUnique.mockResolvedValue(siswa);
+    expect((await DELETE(reqHapus(), ctx)).status).toBe(404);
+    expect(m.hapusSiswa).not.toHaveBeenCalled();
+  });
+
+  it("404 kalau siswa mandiri (Jalur B): bukan milik sekolah walau punya schoolId", async () => {
+    m.findUnique.mockResolvedValue({ ...SISWA, jalur: "B" });
     expect((await DELETE(reqHapus(), ctx)).status).toBe(404);
     expect(m.hapusSiswa).not.toHaveBeenCalled();
   });
@@ -100,7 +106,7 @@ describe("DELETE /api/admin-sekolah/siswa/[id]", () => {
 
 describe("POST /api/admin-sekolah/siswa/hapus-massal", () => {
   const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-  const S = (n: number, schoolId = "sch-1") => ({ id: ID(n), schoolId, userId: null, nisn: `31000000${n}`, nama: `Siswa ${n}`, deletedAt: null });
+  const S = (n: number, schoolId = "sch-1") => ({ id: ID(n), schoolId, jalur: "A", userId: null, nisn: `31000000${n}`, nama: `Siswa ${n}`, deletedAt: null });
   const reqMassal = (body: unknown) =>
     new Request("http://localhost/api/admin-sekolah/siswa/hapus-massal", {
       method: "POST",
@@ -134,10 +140,10 @@ describe("POST /api/admin-sekolah/siswa/hapus-massal", () => {
     expect(m.hapusSiswaMassal).not.toHaveBeenCalled();
   });
 
-  it("hanya mencari siswa yang belum dihapus dan terikat sekolah", async () => {
+  it("hanya mencari siswa Jalur A yang belum dihapus dan terikat sekolah (Jalur B tidak pernah ikut terhapus)", async () => {
     await POST(reqMassal({ ids: [ID(1), ID(2), ID(3)] }));
     expect(m.findMany).toHaveBeenCalledWith({
-      where: { id: { in: [ID(1), ID(2), ID(3)] }, deletedAt: null, schoolId: { not: null } },
+      where: { id: { in: [ID(1), ID(2), ID(3)] }, jalur: "A", deletedAt: null, schoolId: { not: null } },
     });
   });
 

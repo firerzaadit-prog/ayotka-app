@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { resolveSchoolId } from "@/lib/schools/scope";
+import { loadSiswaKelolaan } from "@/lib/students/kelolaan";
 import { generateReadableCode } from "@/lib/utils/generate-code";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -26,12 +26,8 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const before = await prisma.student.findUnique({ where: { id } });
-  if (!before || before.deletedAt || !before.schoolId) {
-    return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
-  }
-  const allowedSchoolId = await resolveSchoolId(user, before.schoolId);
-  if (allowedSchoolId !== before.schoolId) {
+  const before = await loadSiswaKelolaan(user, id);
+  if (!before) {
     return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
   }
 

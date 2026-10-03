@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { resolveSchoolId } from "@/lib/schools/scope";
+import { loadSiswaKelolaan } from "@/lib/students/kelolaan";
 import { generateTempPassword } from "@/lib/utils/generate-code";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -23,13 +22,13 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const { id } = await params;
-  const student = await prisma.student.findUnique({ where: { id } });
-  if (!student || student.deletedAt || !student.schoolId || !student.userId) {
-    return NextResponse.json({ error: "Siswa belum punya akun untuk direset." }, { status: 404 });
-  }
-  const allowedSchoolId = await resolveSchoolId(user, student.schoolId);
-  if (allowedSchoolId !== student.schoolId) {
+  // Hanya siswa Jalur A milik sekolahnya: siswa mandiri (Jalur B) tidak boleh direset oleh admin sekolah.
+  const student = await loadSiswaKelolaan(user, id);
+  if (!student) {
     return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
+  }
+  if (!student.userId) {
+    return NextResponse.json({ error: "Siswa belum punya akun untuk direset." }, { status: 404 });
   }
 
   const tempPassword = generateTempPassword();
