@@ -131,9 +131,34 @@ model PeriodeLangganan {
   dibuatOleh   User?                    @relation("PeriodeDibuatOleh", fields: [dibuatOlehId], references: [id], onDelete: SetNull)
   entitlements Entitlement[]
   permintaan   PermintaanPerpanjangan[]
+  pengingat    PengingatPeriode[]
 
   @@index([schoolId, mulai])
   @@map("school_periods")
+}
+
+enum JenisPengingatPeriode {
+  h7
+  h1
+}
+
+/// Catatan pengingat langganan yang sudah dikirim ke admin sekolah: HANYA dua pengingat per periode (H-7 dan H-1).
+/// Baris dibuat SEBELUM mengirim (mengklaim jatah), jadi dua proses cron yang berjalan bersamaan tidak pernah
+/// mengirim ganda (batas unik periode+jenis); selesaiAt terisi setelah ada email yang berhasil terkirim. Klaim
+/// yang tidak pernah selesai (proses mati di tengah jalan) dibersihkan di awal proses cron berikutnya.
+model PengingatPeriode {
+  id        String                @id @default(uuid()) @db.Uuid
+  periodeId String                @map("periode_id") @db.Uuid
+  jenis     JenisPengingatPeriode
+  createdAt DateTime              @default(now()) @map("created_at")
+  selesaiAt DateTime?             @map("selesai_at")
+  /// Jumlah penerima yang emailnya berhasil terkirim.
+  penerima  Int                   @default(0)
+
+  periode PeriodeLangganan @relation(fields: [periodeId], references: [id], onDelete: Cascade)
+
+  @@unique([periodeId, jenis])
+  @@map("school_period_reminders")
 }
 
 enum StatusPermintaanPerpanjangan {

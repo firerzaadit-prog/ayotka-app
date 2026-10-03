@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/proses-antrean-ai",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/pengingat-langganan",
+      "schedule": "0 1 * * *"
     }
   ]
 }
