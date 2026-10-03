@@ -15,7 +15,7 @@ export type RentangWaktu = { dari?: Date | null; sampai?: Date | null };
  * Saring percobaan menurut waktu MULAI ujian (mis. satu periode langganan). Alumni (ditandai lulus, belum dihapus)
  * tetap ikut terhitung - hanya siswa yang DIHAPUS yang keluar dari angka - sehingga data angkatan lalu tetap terlihat.
  */
-function filterMulai(rentang?: RentangWaktu | null) {
+export function filterMulai(rentang?: RentangWaktu | null) {
   if (!rentang || (!rentang.dari && !rentang.sampai)) return {};
   return {
     mulaiAt: {
@@ -86,7 +86,7 @@ export async function buildAnalitikSekolah(
   const attempts = await prisma.attempt.findMany({
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
-      student: { schoolId, deletedAt: null },
+      student: { schoolId, jalur: "A", deletedAt: null },
       ...(filter.subjectId ? { package: { subjectId: filter.subjectId } } : {}),
       ...filterMulai(filter),
     },
@@ -168,7 +168,7 @@ export async function buildKesiapanSekolah(schoolId: string, rentang?: RentangWa
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
-      student: { schoolId, deletedAt: null },
+      student: { schoolId, jalur: "A", deletedAt: null },
       package: { subject: { nama: { in: [...KESIAPAN_SUBJECTS] } } },
       ...filterMulai(rentang),
     },
@@ -214,7 +214,7 @@ export async function buildDaftarSiswaKesiapanSekolah(
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
-      student: { schoolId, deletedAt: null },
+      student: { schoolId, jalur: "A", deletedAt: null },
       package: { subject: { nama: filter.subjectNama } },
       ...filterMulai(filter),
     },

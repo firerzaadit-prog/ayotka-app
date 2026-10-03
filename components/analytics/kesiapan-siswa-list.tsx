@@ -37,6 +37,8 @@ export function KesiapanSiswaList({
   jenjang,
   wilayah,
   schoolId,
+  dari,
+  sampai,
   showSekolahColumn = false,
   studentDetailHrefBase,
   periodeId,
@@ -45,6 +47,9 @@ export function KesiapanSiswaList({
   jenjang?: string;
   wilayah?: string;
   schoolId?: string;
+  /** Saring ke rentang tanggal (yyyy-MM-dd, tanggal WIB) untuk analitik lintas sekolah; kosong = semua waktu. */
+  dari?: string;
+  sampai?: string;
   showSekolahColumn?: boolean;
   /** Kalau diisi, nama siswa jadi tautan ke halaman detail riwayatnya (mis. "/admin-sekolah/siswa"). */
   studentDetailHrefBase?: string;
@@ -72,6 +77,8 @@ export function KesiapanSiswaList({
       if (wilayah) qs.set("wilayah", wilayah);
       if (schoolId) qs.set("schoolId", schoolId);
       if (periodeId) qs.set("periodeId", periodeId);
+      if (dari) qs.set("dari", dari);
+      if (sampai) qs.set("sampai", sampai);
       const res = await fetch(`${endpoint}?${qs.toString()}`);
       const data = await res.json().catch(() => null);
       if (ignore) return;
@@ -85,7 +92,7 @@ export function KesiapanSiswaList({
       ignore = true;
       clearTimeout(timeout);
     };
-  }, [endpoint, mapel, kategori, jenjang, wilayah, schoolId, periodeId]);
+  }, [endpoint, mapel, kategori, jenjang, wilayah, schoolId, periodeId, dari, sampai]);
 
   return (
     <div>

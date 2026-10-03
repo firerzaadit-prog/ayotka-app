@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/session";
 import { buildAnalitikGlobal, buildStatistikMataPelajaran } from "@/lib/analytics/global";
+import { bacaRentangTanggal } from "@/lib/analytics/rentang";
 
-/** Tiket 7.1: analitik lintas sekolah - filter sekolah/jenjang/mapel/wilayah, admin pusat saja. */
+/** Tiket 7.1: analitik lintas sekolah - filter sekolah/jenjang/mapel/wilayah/rentang tanggal, admin pusat saja. */
 export async function GET(request: Request) {
   try {
     await requireRole("admin_pusat");
@@ -12,6 +13,8 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url);
   const jenjang = url.searchParams.get("jenjang");
+  const waktu = bacaRentangTanggal(url);
+  if ("galat" in waktu) return waktu.galat;
 
   try {
     const filter = {
@@ -19,6 +22,7 @@ export async function GET(request: Request) {
       jenjang: jenjang === "SD" || jenjang === "SMP" ? (jenjang as "SD" | "SMP") : null,
       subjectId: url.searchParams.get("subjectId"),
       wilayah: url.searchParams.get("wilayah"),
+      ...waktu.rentang,
     };
     const [result, statistikMapel] = await Promise.all([
       buildAnalitikGlobal(filter),

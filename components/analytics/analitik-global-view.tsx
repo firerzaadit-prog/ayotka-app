@@ -10,6 +10,8 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TrendChart } from "@/components/ui/trend-chart";
 import { IconChart } from "@/components/ui/empty-state-icons";
+import { FilterTanggal } from "@/components/analytics/filter-tanggal";
+import { rentangTanggalValid } from "@/lib/analytics/preset-tanggal";
 import { labelPeriodeBulan } from "@/lib/utils/datetime";
 
 type SchoolOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
@@ -62,6 +64,8 @@ export function AnalitikGlobalView({
   const [jenjang, setJenjang] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [wilayah, setWilayah] = useState("");
+  const [dari, setDari] = useState("");
+  const [sampai, setSampai] = useState("");
 
   const [jumlahAttempt, setJumlahAttempt] = useState(0);
   const [perSekolah, setPerSekolah] = useState<PerSekolah[] | null>(null);
@@ -96,6 +100,8 @@ export function AnalitikGlobalView({
   }, [schoolsEndpoint, subjectsEndpoint]);
 
   useEffect(() => {
+    // Rentang tanggal terbalik tidak dikirim (server menolaknya); pesan kesalahannya tampil di filter tanggal.
+    if (!rentangTanggalValid(dari, sampai)) return;
     let ignore = false;
     const timeout = setTimeout(async () => {
       const qs = new URLSearchParams();
@@ -103,6 +109,8 @@ export function AnalitikGlobalView({
       if (jenjang) qs.set("jenjang", jenjang);
       if (subjectId) qs.set("subjectId", subjectId);
       if (wilayah) qs.set("wilayah", wilayah);
+      if (dari) qs.set("dari", dari);
+      if (sampai) qs.set("sampai", sampai);
       const res = await fetch(`${analitikEndpoint}?${qs.toString()}`);
       const data = await res.json().catch(() => null);
       if (!ignore) {
@@ -124,7 +132,7 @@ export function AnalitikGlobalView({
       ignore = true;
       clearTimeout(timeout);
     };
-  }, [schoolId, jenjang, subjectId, wilayah, analitikEndpoint]);
+  }, [schoolId, jenjang, subjectId, wilayah, dari, sampai, analitikEndpoint]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -190,6 +198,15 @@ export function AnalitikGlobalView({
           />
         </div>
       </div>
+
+      <FilterTanggal
+        dari={dari}
+        sampai={sampai}
+        onChange={(r) => {
+          setDari(r.dari);
+          setSampai(r.sampai);
+        }}
+      />
 
       {error && <Alert variant="danger">{error}</Alert>}
 

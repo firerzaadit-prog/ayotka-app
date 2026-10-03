@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/session";
 import { buildAnalitikGlobal, buildStatistikMataPelajaran } from "@/lib/analytics/global";
-import { getDinasWilayah } from "@/lib/dinas/wilayah";
+import { bacaRentangTanggal } from "@/lib/analytics/rentang";
+import { bacaCakupanDinas } from "@/lib/dinas/wilayah";
 
 /**
  * Analitik Global dinas pendidikan - data & bentuk respons SAMA PERSIS
@@ -21,14 +22,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  // Ambil wilayah cakupan dinas pendidikan
-  let kabupatenKota: string | null = null;
-  if (user.role === "dinas_pendidikan") {
-    kabupatenKota = await getDinasWilayah(user.id);
-  }
+  // Wilayah cakupan dinas pendidikan (gagal tertutup: akun dinas tanpa wilayah ditolak, bukan melihat semua wilayah)
+  const cakupan = await bacaCakupanDinas(user);
+  if ("galat" in cakupan) return cakupan.galat;
+  const kabupatenKota = cakupan.kabupatenKota;
 
   const url = new URL(request.url);
   const jenjang = url.searchParams.get("jenjang");
+  const waktu = bacaRentangTanggal(url);
+  if ("galat" in waktu) return waktu.galat;
 
   try {
     const filter = {
@@ -37,6 +39,7 @@ export async function GET(request: Request) {
       subjectId: url.searchParams.get("subjectId"),
       wilayah: url.searchParams.get("wilayah"),
       kabupatenKota,
+      ...waktu.rentang,
     };
     const [result, statistikMapel] = await Promise.all([
       buildAnalitikGlobal(filter),

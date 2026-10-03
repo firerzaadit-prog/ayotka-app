@@ -17,7 +17,9 @@ const TOP_N = 20;
  */
 export async function buildRanking(packageId: string, studentId: string): Promise<RankingBoard | null> {
   const attempts = await prisma.attempt.findMany({
-    where: { packageId, skorAkhir: { not: null } },
+    // Siswa yang sudah dihapus (diarsipkan karena punya riwayat) tidak ikut papan: namanya tidak boleh tampil di
+    // depan peserta lain dan tidak menggeser peringkat. Alumni tetap ikut (mereka memang mengikuti try out ini).
+    where: { packageId, skorAkhir: { not: null }, student: { deletedAt: null } },
     select: { studentId: true, skorAkhir: true, student: { select: { nama: true } } },
   });
 

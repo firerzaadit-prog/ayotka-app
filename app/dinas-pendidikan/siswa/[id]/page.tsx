@@ -4,16 +4,21 @@ import { notFound } from "next/navigation";
 import { buildHasil } from "@/lib/exam/hasil";
 import { ringkasKesiapanSiswa } from "@/lib/analytics/kesiapan";
 import { RiwayatSiswaView } from "@/components/siswa/riwayat-siswa-view";
+import { getDinasWilayah, siswaDalamWilayahDinas } from "@/lib/dinas/wilayah";
 
 /**
  * Detail riwayat siswa untuk dinas pendidikan - akses baca saja lintas
- * sekolah (tidak dibatasi satu sekolah seperti admin sekolah, sama seperti
- * halaman Kesiapan TKA Antar Sekolah), canTrigger=false supaya tombol
- * "Analisis ulang" AI (aksi tulis) tidak muncul di role ini.
+ * sekolah DALAM WILAYAHNYA (kota/kabupaten yang ditetapkan admin pusat; sama
+ * seperti daftar dan analitik dinas), canTrigger=false supaya tombol
+ * "Analisis ulang" AI (aksi tulis) tidak muncul di role ini. Siswa di luar
+ * wilayah, siswa mandiri (Jalur B), dan siswa yang sudah dihapus tampil
+ * sebagai "tidak ditemukan" - ID tidak boleh dipakai untuk mengintip data
+ * wilayah lain.
  */
 export default async function DetailSiswaDinasPendidikanPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireRole("dinas_pendidikan");
+  const user = await requireRole("dinas_pendidikan");
   const { id } = await params;
+  const wilayah = await getDinasWilayah(user.id);
 
   const student = await prisma.student.findUnique({
     where: { id },
@@ -26,7 +31,7 @@ export default async function DetailSiswaDinasPendidikanPage({ params }: { param
     },
   });
 
-  if (!student || student.deletedAt) {
+  if (!student || !siswaDalamWilayahDinas(student, wilayah)) {
     notFound();
   }
 

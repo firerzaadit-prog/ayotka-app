@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/session";
 import { buildDaftarSiswaKesiapanAntarSekolah } from "@/lib/analytics/global";
+import { bacaRentangTanggal } from "@/lib/analytics/rentang";
 import { KESIAPAN_SUBJECTS } from "@/lib/analytics/kesiapan";
-import { getDinasWilayah } from "@/lib/dinas/wilayah";
+import { bacaCakupanDinas } from "@/lib/dinas/wilayah";
 import type { KategoriKesiapan } from "@/lib/exam/scoring";
 
 const KATEGORI_VALID: readonly string[] = ["kurang", "memadai", "baik", "istimewa"];
@@ -24,11 +25,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  // Ambil wilayah cakupan dinas pendidikan
-  let kabupatenKota: string | null = null;
-  if (user.role === "dinas_pendidikan") {
-    kabupatenKota = await getDinasWilayah(user.id);
-  }
+  // Wilayah cakupan dinas pendidikan (gagal tertutup: akun dinas tanpa wilayah ditolak, bukan melihat semua wilayah)
+  const cakupan = await bacaCakupanDinas(user);
+  if ("galat" in cakupan) return cakupan.galat;
+  const kabupatenKota = cakupan.kabupatenKota;
 
   const url = new URL(request.url);
   const mapel = url.searchParams.get("mapel");
@@ -43,6 +43,8 @@ export async function GET(request: Request) {
   }
 
   const jenjang = url.searchParams.get("jenjang");
+  const waktu = bacaRentangTanggal(url);
+  if ("galat" in waktu) return waktu.galat;
 
   const siswa = await buildDaftarSiswaKesiapanAntarSekolah({
     subjectNama: mapel,
@@ -51,6 +53,7 @@ export async function GET(request: Request) {
     wilayah: url.searchParams.get("wilayah"),
     schoolId: url.searchParams.get("schoolId"),
     kabupatenKota,
+    ...waktu.rentang,
   });
 
   return NextResponse.json({ siswa });

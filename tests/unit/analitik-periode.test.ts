@@ -59,13 +59,13 @@ describe("filter periode pada analitik sekolah", () => {
     expect(whereTerakhir()).toMatchObject({ package: { subjectId: "mapel-1" }, mulaiAt: { gte: DARI, lte: SAMPAI } });
   });
 
-  it("REGRESI: alumni tetap terhitung - filter siswa hanya mengecualikan yang DIHAPUS, tidak yang lulus", async () => {
+  it("REGRESI: alumni tetap terhitung - filter siswa hanya mengecualikan yang DIHAPUS dan siswa mandiri (bukan yang lulus)", async () => {
     await buildAnalitikSekolah("sch-1", { dari: DARI, sampai: SAMPAI });
-    expect(whereTerakhir().student).toEqual({ schoolId: "sch-1", deletedAt: null });
+    expect(whereTerakhir().student).toEqual({ schoolId: "sch-1", jalur: "A", deletedAt: null });
     await buildKesiapanSekolah("sch-1");
-    expect(whereTerakhir().student).toEqual({ schoolId: "sch-1", deletedAt: null });
+    expect(whereTerakhir().student).toEqual({ schoolId: "sch-1", jalur: "A", deletedAt: null });
     await buildDaftarSiswaKesiapanSekolah("sch-1", { subjectNama: "Matematika" });
-    expect(whereTerakhir().student).toEqual({ schoolId: "sch-1", deletedAt: null });
+    expect(whereTerakhir().student).toEqual({ schoolId: "sch-1", jalur: "A", deletedAt: null });
   });
 
   it("hasil analitik dihitung dari percobaan yang lolos penyaringan", async () => {

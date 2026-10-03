@@ -9,6 +9,7 @@ import {
 } from "@/lib/analytics/kesiapan";
 import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
 import { hitungPersentil, hitungRerata, hitungStandarDeviasi } from "@/lib/analytics/statistik";
+import { filterMulai, type RentangWaktu } from "@/lib/analytics/sekolah";
 
 export type AnalitikGlobalFilter = {
   schoolId?: string | null;
@@ -24,7 +25,7 @@ export type AnalitikGlobalFilter = {
   /** Filter kota/kabupaten terstruktur (dropdown Jawa Timur) - dipakai
    * akun dinas pendidikan untuk membatasi data ke wilayah cakupannya. */
   kabupatenKota?: string | null;
-};
+} & RentangWaktu;
 
 /**
  * Tiket 7.1 (Bagian 5 brief, "Analitik Global"): perbandingan antar sekolah
@@ -64,7 +65,8 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
   const attempts = await prisma.attempt.findMany({
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
-      student: { schoolId: { in: schoolIds }, deletedAt: null },
+      student: { schoolId: { in: schoolIds }, jalur: "A", deletedAt: null },
+      ...filterMulai(filter),
       ...(filter.subjectId ? { package: { subjectId: filter.subjectId } } : {}),
     },
     select: {
@@ -250,7 +252,8 @@ export async function buildStatistikMataPelajaran(
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
-      student: { schoolId: { in: schoolIds }, deletedAt: null },
+      student: { schoolId: { in: schoolIds }, jalur: "A", deletedAt: null },
+      ...filterMulai(filter),
       package: {
         subject: {
           nama: { in: [...KESIAPAN_SUBJECTS] },
@@ -323,7 +326,7 @@ export type KesiapanAntarSekolahFilter = {
   jenjang?: "SD" | "SMP" | null;
   wilayah?: string | null;
   kabupatenKota?: string | null;
-};
+} & RentangWaktu;
 
 export type KesiapanPerSekolah = {
   schoolId: string;
@@ -359,7 +362,8 @@ export async function buildKesiapanAntarSekolah(
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
-      student: { schoolId: { in: schoolIds }, deletedAt: null },
+      student: { schoolId: { in: schoolIds }, jalur: "A", deletedAt: null },
+      ...filterMulai(filter),
       package: { subject: { nama: { in: [...KESIAPAN_SUBJECTS] } } },
     },
     select: {
@@ -421,7 +425,7 @@ export async function buildDaftarSiswaKesiapanAntarSekolah(filter: {
   wilayah?: string | null;
   schoolId?: string | null;
   kabupatenKota?: string | null;
-}): Promise<SiswaKesiapanAntarSekolah[]> {
+} & RentangWaktu): Promise<SiswaKesiapanAntarSekolah[]> {
   const schools = await prisma.school.findMany({
     where: {
       status: "aktif",
@@ -443,7 +447,8 @@ export async function buildDaftarSiswaKesiapanAntarSekolah(filter: {
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
-      student: { schoolId: { in: schoolIds }, deletedAt: null },
+      student: { schoolId: { in: schoolIds }, jalur: "A", deletedAt: null },
+      ...filterMulai(filter),
       package: { subject: { nama: filter.subjectNama } },
     },
     select: {

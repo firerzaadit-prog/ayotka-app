@@ -11,6 +11,8 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconChart } from "@/components/ui/empty-state-icons";
 import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
+import { FilterTanggal } from "@/components/analytics/filter-tanggal";
+import { rentangTanggalValid } from "@/lib/analytics/preset-tanggal";
 import type { KesiapanPerSekolah } from "@/lib/analytics/global";
 import { KESIAPAN_SUBJECTS } from "@/lib/analytics/kesiapan";
 
@@ -44,17 +46,25 @@ export function KesiapanAntarSekolahView({
 } = {}) {
   const [jenjang, setJenjang] = useState("");
   const [wilayah, setWilayah] = useState("");
+  const [dari, setDari] = useState("");
+  const [sampai, setSampai] = useState("");
   const [perSekolah, setPerSekolah] = useState<KesiapanPerSekolah[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
+  // Rentang tanggal terbalik tidak dikirim (server menolaknya); pesan kesalahannya tampil di filter tanggal.
+  const rentangValid = rentangTanggalValid(dari, sampai);
+
   useEffect(() => {
+    if (!rentangValid) return;
     let ignore = false;
     const timeout = setTimeout(async () => {
       const qs = new URLSearchParams();
       if (jenjang) qs.set("jenjang", jenjang);
       if (wilayah) qs.set("wilayah", wilayah);
+      if (dari) qs.set("dari", dari);
+      if (sampai) qs.set("sampai", sampai);
       const res = await fetch(`/api/dinas-pendidikan/kesiapan?${qs.toString()}`);
       const data = await res.json().catch(() => null);
       if (!ignore) {
@@ -71,7 +81,7 @@ export function KesiapanAntarSekolahView({
       ignore = true;
       clearTimeout(timeout);
     };
-  }, [jenjang, wilayah]);
+  }, [jenjang, wilayah, dari, sampai, rentangValid]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,6 +122,15 @@ export function KesiapanAntarSekolahView({
           />
         </div>
       </div>
+
+      <FilterTanggal
+        dari={dari}
+        sampai={sampai}
+        onChange={(r) => {
+          setDari(r.dari);
+          setSampai(r.sampai);
+        }}
+      />
 
       {error && <Alert variant="danger">{error}</Alert>}
 
@@ -179,6 +198,8 @@ export function KesiapanAntarSekolahView({
         endpoint="/api/dinas-pendidikan/kesiapan/siswa"
         jenjang={jenjang}
         wilayah={wilayah}
+        dari={rentangValid ? dari : ""}
+        sampai={rentangValid ? sampai : ""}
         showSekolahColumn
         studentDetailHrefBase={studentDetailHrefBase}
       />

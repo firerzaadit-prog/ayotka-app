@@ -1,7 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
+import { kirimEmail } from "@/lib/email/kirim";
+import { kirimNotifikasiPermintaan } from "@/lib/billing/notifikasi-permintaan";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { hitungKursiTerpakai } from "@/lib/students/create";
 import { permintaanBuatSchema } from "@/lib/validations/school-periode";
@@ -87,6 +89,32 @@ export async function POST(request: Request) {
       after: permintaan,
       ip: getClientIp(request),
     });
+
+    // Beri tahu admin pusat lewat email (hanya bila pengajunya admin sekolah; admin pusat yang mengajukan lewat mode
+    // "Kelola sekolah" sudah tahu). Di latar belakang lewat after() supaya admin sekolah tidak menunggu pengiriman
+    // dan kegagalan email tidak mengubah hasil pengajuan - fungsi ini tidak pernah melempar galat.
+    if (user.role === "admin_sekolah") {
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/+$/, "");
+      try {
+        after(() =>
+          kirimNotifikasiPermintaan(
+            {
+              db: prisma,
+              appUrl,
+              kirim: async (email) => {
+                const r = await kirimEmail(email);
+                return r.ok ? { ok: true } : { ok: false, error: r.error };
+              },
+            },
+            permintaan.id,
+          ),
+        );
+      } catch (error) {
+        // Pengajuan sudah tersimpan dan diaudit: gagal menjadwalkan email tidak boleh berubah menjadi galat 500
+        // (admin sekolah akan mengulang dan mendapat 409 "sudah ada permintaan").
+        console.error("[perpanjangan] gagal menjadwalkan pemberitahuan email ke admin pusat:", error);
+      }
+    }
     return NextResponse.json({ permintaan }, { status: 201 });
   } catch (error) {
     if (error instanceof PermintaanTidakValidError) {

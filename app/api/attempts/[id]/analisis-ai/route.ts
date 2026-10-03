@@ -7,6 +7,8 @@ import { runAnalisisAi } from "@/lib/ai/analyze";
 import { isProcessing, tryStartProcessing, finishProcessing, setLastError } from "@/lib/ai/analysis-guard";
 import { PROMPT_VERSION } from "@/lib/ai/version";
 import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
+import { getDinasWilayah, siswaDalamWilayahDinas } from "@/lib/dinas/wilayah";
+import { bisaDikelolaAdmin } from "@/lib/students/kelolaan";
 import type { Attempt } from "@prisma/client";
 
 // Gemini API bisa butuh 30-60 detik - naikkan limit Vercel dari default 10 detik.
@@ -30,15 +32,19 @@ function noStoreJson(body: unknown, status?: number) {
 async function loadAttemptForAdmin(user: CurrentUser, attemptId: string): Promise<Attempt | null> {
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
-    include: { student: true },
+    include: { student: { include: { school: { select: { kabupatenKota: true } } } } },
   });
   if (!attempt) return null;
-  // dinas_pendidikan: akses baca saja lintas sekolah, sama seperti Kesiapan
-  // TKA & Analitik Global (endpoint ini cuma dipanggil lewat GET untuk role
-  // ini - lihat requireRole di GET di bawah, POST tetap admin_sekolah/admin_pusat saja).
-  if (user.role === "admin_pusat" || user.role === "dinas_pendidikan") return attempt;
+  if (user.role === "admin_pusat") return attempt;
+  // dinas_pendidikan: akses baca saja, HANYA siswa dalam wilayahnya (sama seperti daftar/analitik dinas; endpoint
+  // ini cuma dipanggil lewat GET untuk role ini - lihat requireRole di GET di bawah, POST tetap admin_sekolah/
+  // admin_pusat saja). Sebelumnya lintas wilayah: ID attempt sembarang bisa dibuka akun dinas kota lain.
+  if (user.role === "dinas_pendidikan") {
+    return siswaDalamWilayahDinas(attempt.student, await getDinasWilayah(user.id)) ? attempt : null;
+  }
+  // admin_sekolah: hanya siswa Jalur A miliknya yang belum dihapus (siswa mandiri dan arsip bukan wewenangnya).
   const schoolId = await resolveSchoolId(user, null);
-  return schoolId && attempt.student.schoolId === schoolId ? attempt : null;
+  return schoolId && bisaDikelolaAdmin(attempt.student) && attempt.student.schoolId === schoolId ? attempt : null;
 }
 
 /**

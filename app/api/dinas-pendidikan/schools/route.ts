@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
-import { getDinasWilayah } from "@/lib/dinas/wilayah";
+import { bacaCakupanDinas } from "@/lib/dinas/wilayah";
 
 /**
  * Daftar sekolah aktif utk dropdown filter di halaman Analitik Global dinas
@@ -22,11 +22,10 @@ export async function GET() {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  // Dinas pendidikan: filter berdasarkan wilayah cakupan
-  let kabupatenKotaFilter: string | null = null;
-  if (user.role === "dinas_pendidikan") {
-    kabupatenKotaFilter = await getDinasWilayah(user.id);
-  }
+  // Dinas pendidikan: filter berdasarkan wilayah cakupan (gagal tertutup bila wilayahnya belum diatur)
+  const cakupan = await bacaCakupanDinas(user);
+  if ("galat" in cakupan) return cakupan.galat;
+  const kabupatenKotaFilter = cakupan.kabupatenKota;
 
   const schools = await prisma.school.findMany({
     where: {

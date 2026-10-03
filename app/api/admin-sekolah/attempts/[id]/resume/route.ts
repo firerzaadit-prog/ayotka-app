@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
+import { bisaDikelolaAdmin } from "@/lib/students/kelolaan";
 import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -32,7 +33,9 @@ export async function POST(request: Request, { params }: RouteParams) {
     where: { id },
     include: { student: true },
   });
-  if (!attempt || attempt.student.schoolId !== schoolId) {
+  // Hanya siswa Jalur A milik sekolah yang belum dihapus: siswa mandiri (yang cuma mencatat sekolah asal) dan siswa
+  // arsip bukan wewenang admin sekolah.
+  if (!attempt || !bisaDikelolaAdmin(attempt.student) || attempt.student.schoolId !== schoolId) {
     return NextResponse.json({ error: "Attempt tidak ditemukan." }, { status: 404 });
   }
   if (attempt.status !== "paused") {

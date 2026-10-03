@@ -3,6 +3,7 @@ import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole, type CurrentUser } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
+import { bisaDikelolaAdmin } from "@/lib/students/kelolaan";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
 import { buildHasil } from "@/lib/exam/hasil";
 import { fetchImageBuffer, renderRaporPdf } from "@/lib/pdf/rapor-renderer";
@@ -21,7 +22,9 @@ async function loadAttemptForRapor(user: CurrentUser, attemptId: string): Promis
   if (!attempt) return null;
   if (user.role === "admin_pusat") return attempt;
   const schoolId = await resolveSchoolId(user, null);
-  if (!schoolId || attempt.student.schoolId !== schoolId) return null;
+  // Admin sekolah hanya berhak atas rapor siswa Jalur A miliknya yang belum dihapus: siswa mandiri (sekolah asal
+  // hanyalah isian bebas) dan siswa arsip tidak boleh diambil lewat ID attempt.
+  if (!schoolId || !bisaDikelolaAdmin(attempt.student) || attempt.student.schoolId !== schoolId) return null;
   return attempt;
 }
 

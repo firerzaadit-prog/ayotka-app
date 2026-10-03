@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/session";
 import { buildKesiapanAntarSekolah } from "@/lib/analytics/global";
-import { getDinasWilayah } from "@/lib/dinas/wilayah";
+import { bacaRentangTanggal } from "@/lib/analytics/rentang";
+import { bacaCakupanDinas } from "@/lib/dinas/wilayah";
 
 /**
  * Kesiapan TKA lintas sekolah - dipakai halaman dashboard dinas pendidikan
@@ -19,19 +20,21 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  // Ambil wilayah cakupan dinas pendidikan
-  let kabupatenKota: string | null = null;
-  if (user.role === "dinas_pendidikan") {
-    kabupatenKota = await getDinasWilayah(user.id);
-  }
+  // Wilayah cakupan dinas pendidikan (gagal tertutup: akun dinas tanpa wilayah ditolak, bukan melihat semua wilayah)
+  const cakupan = await bacaCakupanDinas(user);
+  if ("galat" in cakupan) return cakupan.galat;
+  const kabupatenKota = cakupan.kabupatenKota;
 
   const url = new URL(request.url);
   const jenjang = url.searchParams.get("jenjang");
+  const waktu = bacaRentangTanggal(url);
+  if ("galat" in waktu) return waktu.galat;
 
   const perSekolah = await buildKesiapanAntarSekolah({
     jenjang: jenjang === "SD" || jenjang === "SMP" ? jenjang : null,
     wilayah: url.searchParams.get("wilayah"),
     kabupatenKota,
+    ...waktu.rentang,
   });
 
   return NextResponse.json({ perSekolah });

@@ -20,6 +20,10 @@ type Permintaan = {
 type PeriodeDb = { id: string; schoolId: string; mulai: Date; berakhir: Date; seatQuota: number; dicabutAt: Date | null };
 
 const h = vi.hoisted(() => ({
+  /** Pekerjaan latar belakang yang dijadwalkan lewat after() oleh rute. */
+  afterFns: [] as (() => unknown)[],
+  afterGagal: false,
+  notifikasi: vi.fn(),
   permintaan: [] as unknown[],
   periode: [] as unknown[],
   requireRole: vi.fn(),
@@ -34,6 +38,16 @@ vi.mock("@/lib/auth/session", () => ({ requireRole: h.requireRole }));
 vi.mock("@/lib/schools/scope", () => ({ resolveSchoolId: h.resolveSchoolId }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: h.logAudit, getClientIp: () => "1.2.3.4" }));
 vi.mock("@/lib/students/create", () => ({ hitungKursiTerpakai: h.siswaAktif }));
+// after() hanya berlaku di dalam request Next.js; di tes pekerjaannya ditampung lalu dijalankan manual.
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (fn: () => unknown) => {
+    if (h.afterGagal) throw new Error("after di luar request");
+    h.afterFns.push(fn);
+  },
+}));
+vi.mock("@/lib/billing/notifikasi-permintaan", () => ({ kirimNotifikasiPermintaan: h.notifikasi }));
+vi.mock("@/lib/email/kirim", () => ({ kirimEmail: vi.fn() }));
 vi.mock("@/lib/db/prisma", () => {
   const cocokStatus = (status: Permintaan["status"], w: string | { not: string } | undefined) =>
     w === undefined ? true : typeof w === "string" ? status === w : status !== w.not;
@@ -112,6 +126,9 @@ beforeEach(() => {
   vi.resetAllMocks();
   h.permintaan.length = 0;
   h.periode.length = 0;
+  h.afterFns.length = 0;
+  h.afterGagal = false;
+  h.notifikasi.mockResolvedValue({ penerima: 1, terkirim: 1, gagal: 0 });
   h.nomor = 0;
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-03-01T05:00:00Z"));
@@ -212,6 +229,42 @@ describe("rute admin sekolah /perpanjangan", () => {
       catatan: "mohon diproses",
     });
     expect(h.logAudit).toHaveBeenCalledWith(expect.objectContaining({ aksi: "create", entitas: "school_renewal_requests" }));
+  });
+
+  it("POST oleh admin sekolah: menjadwalkan email pemberitahuan ke admin pusat untuk permintaan yang baru dibuat", async () => {
+    expect((await post(BODY)).status).toBe(201);
+    expect(h.afterFns).toHaveLength(1);
+    expect(h.notifikasi).not.toHaveBeenCalled(); // baru dijadwalkan: dijalankan setelah respons terkirim
+    await h.afterFns[0]!();
+    expect(h.notifikasi).toHaveBeenCalledTimes(1);
+    const [deps, permintaanId] = h.notifikasi.mock.calls[0]!;
+    expect(permintaanId).toBe(daftar()[0]!.id);
+    expect(deps.appUrl).toMatch(/^https?:\/\/[^/]+$/); // tanpa garis miring akhir
+    expect(typeof deps.kirim).toBe("function");
+  });
+
+  it("POST oleh admin pusat (mode 'Kelola sekolah'): tidak mengirim email karena ia sendiri yang mengajukan", async () => {
+    h.requireRole.mockResolvedValue({ id: "pusat-1", role: "admin_pusat" });
+    expect((await post(BODY)).status).toBe(201);
+    expect(h.afterFns).toHaveLength(0);
+  });
+
+  it("POST ditolak (409/400): tidak ada email yang dijadwalkan", async () => {
+    expect((await post(BODY)).status).toBe(201);
+    h.afterFns.length = 0;
+    expect((await post(BODY)).status).toBe(409);
+    expect((await post({ ...BODY, kuotaDiminta: 0 })).status).toBe(400);
+    expect(h.afterFns).toHaveLength(0);
+  });
+
+  it("gagal menjadwalkan email tidak membatalkan pengajuan: tetap 201 dan permintaan tersimpan", async () => {
+    const galat = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    h.afterGagal = true;
+    const res = await post(BODY);
+    expect(res.status).toBe(201);
+    expect(daftar()).toHaveLength(1);
+    expect(galat).toHaveBeenCalled();
+    galat.mockRestore();
   });
 
   it.each([
