@@ -8,6 +8,7 @@ import {
   getResolvedMailketingConfig,
 } from "@/lib/settings/app-settings";
 import { isMaskedPlaceholder } from "@/lib/security/crypto";
+import { tafsirkanHasilUjiResend } from "@/lib/email/uji-resend";
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,6 +87,9 @@ export async function POST(request: NextRequest) {
       }
 
       const errText = await res.text().catch(() => "");
+      // Kunci "hanya kirim email" ditolak untuk daftar kunci API - itu bukan kegagalan (lihat lib/email/uji-resend.ts).
+      const tafsir = tafsirkanHasilUjiResend(res.status, errText);
+      if (tafsir.ok) return NextResponse.json({ ok: true, message: tafsir.message });
       return NextResponse.json(
         { ok: false, error: `Resend API merespons status ${res.status}: ${errText || res.statusText}` },
         { status: 400 },
