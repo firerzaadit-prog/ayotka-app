@@ -36,6 +36,9 @@ export const studentHapusMassalSchema = z.object({
     .max(HAPUS_MASSAL_MAKS, `Maksimal ${HAPUS_MASSAL_MAKS} siswa per permintaan`),
 });
 
+/** Tandai lulus (lulus: true) atau batalkan tanda lulus (lulus: false) untuk banyak siswa; batas ID sama dengan hapus massal. */
+export const studentLulusMassalSchema = studentHapusMassalSchema.extend({ lulus: z.boolean() });
+
 export type StudentCreateInput = z.infer<typeof studentCreateSchema>;
 export type StudentUpdateInput = z.infer<typeof studentUpdateSchema>;
 export type StudentImportRow = z.infer<typeof studentImportRowSchema>;

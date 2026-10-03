@@ -14,6 +14,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconSchool } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
 import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
+import { formatWIBDate } from "@/lib/utils/datetime";
 
 type SchoolStatus = "pending_verifikasi" | "aktif" | "suspend";
 
@@ -24,9 +25,48 @@ type SchoolListItem = {
   kodeSekolah: string;
   status: SchoolStatus;
   seatQuota?: number | null;
+  validUntil?: string | null;
+  statusLangganan?: "belum_aktif" | "akan_datang" | "aktif" | "tenggang" | "berakhir";
+  sisaHari?: number | null;
+  segeraBerakhir?: boolean;
+  adaPermintaan?: boolean;
   kabupatenKota?: string | null;
   _count: { schoolUsers: number; students: number };
 };
+
+/** Pilihan saringan kolom Langganan di daftar sekolah. "segera" = aktif dan tinggal H-7 atau kurang. */
+type FilterLangganan = "" | "aktif" | "segera" | "tenggang" | "berakhir" | "belum_aktif" | "permintaan";
+
+function lencanaLangganan(s: SchoolListItem): { teks: string; varian: "success" | "warning" | "danger" | "neutral" | "info" } {
+  switch (s.statusLangganan) {
+    case "aktif":
+      if (s.segeraBerakhir) {
+        return { teks: s.sisaHari === 0 ? "Berakhir hari ini" : `Segera berakhir (${s.sisaHari} hari)`, varian: "warning" };
+      }
+      return { teks: "Aktif", varian: "success" };
+    case "tenggang":
+      return { teks: "Masa tenggang", varian: "warning" };
+    case "berakhir":
+      return { teks: "Berakhir (dibekukan)", varian: "danger" };
+    case "akan_datang":
+      return { teks: "Akan datang", varian: "info" };
+    default:
+      return { teks: "Belum aktif", varian: "neutral" };
+  }
+}
+
+function cocokFilter(s: SchoolListItem, filter: FilterLangganan): boolean {
+  switch (filter) {
+    case "":
+      return true;
+    case "segera":
+      return s.statusLangganan === "aktif" && Boolean(s.segeraBerakhir);
+    case "permintaan":
+      return Boolean(s.adaPermintaan);
+    default:
+      return (s.statusLangganan ?? "belum_aktif") === filter;
+  }
+}
 
 const STATUS_LABEL: Record<SchoolStatus, string> = {
   pending_verifikasi: "Menunggu verifikasi",
@@ -81,6 +121,7 @@ export default function SekolahPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [filterLangganan, setFilterLangganan] = useState<FilterLangganan>("");
 
   useEffect(() => {
     let ignore = false;
@@ -340,7 +381,7 @@ export default function SekolahPage() {
         </form>
       )}
 
-      {schools === null && <TableSkeleton columns={8} />}
+      {schools === null && <TableSkeleton columns={9} />}
 
       {schools?.length === 0 && (
         <EmptyState
@@ -352,11 +393,39 @@ export default function SekolahPage() {
       )}
 
       {schools && schools.length > 0 && (() => {
-        const totalPages = Math.max(1, Math.ceil(schools.length / pageSize));
-        const pageRows = schools.slice((page - 1) * pageSize, page * pageSize);
+        const tersaring = schools.filter((s) => cocokFilter(s, filterLangganan));
+        const totalPages = Math.max(1, Math.ceil(tersaring.length / pageSize));
+        const pageRows = tersaring.slice((page - 1) * pageSize, page * pageSize);
         return (
           <div className="flex flex-col gap-3">
-            <TableContainer>
+            <div className="w-full max-w-xs">
+              <label htmlFor="filterLangganan" className="mb-1 block text-xs font-medium text-slate-500">
+                Saring langganan
+              </label>
+              <select
+                id="filterLangganan"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                value={filterLangganan}
+                onChange={(e) => {
+                  setFilterLangganan(e.target.value as FilterLangganan);
+                  setPage(1);
+                }}
+              >
+                <option value="">Semua sekolah</option>
+                <option value="segera">Segera berakhir (H-7)</option>
+                <option value="tenggang">Masa tenggang</option>
+                <option value="berakhir">Berakhir (dibekukan)</option>
+                <option value="permintaan">Ada permintaan perpanjangan</option>
+                <option value="aktif">Aktif</option>
+                <option value="belum_aktif">Belum aktif</option>
+              </select>
+            </div>
+            {tersaring.length === 0 && (
+              <p className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500">
+                Tidak ada sekolah yang cocok dengan saringan ini.
+              </p>
+            )}
+            <TableContainer className={tersaring.length === 0 ? "hidden" : undefined}>
               <Table>
                 <Thead>
                   <tr>
@@ -365,6 +434,7 @@ export default function SekolahPage() {
                     <Th>Kode Sekolah</Th>
                     <Th>Wilayah</Th>
                     <Th>Status</Th>
+                    <Th>Langganan</Th>
                     <Th>Admin</Th>
                     <Th>Siswa / Kuota</Th>
                     <Th></Th>
@@ -389,6 +459,20 @@ export default function SekolahPage() {
                           {STATUS_LABEL[school.status]}
                         </Badge>
                       </Td>
+                      <Td>
+                        {(() => {
+                          const lencana = lencanaLangganan(school);
+                          return (
+                            <div className="flex flex-col items-start gap-1">
+                              <Badge variant={lencana.varian}>{lencana.teks}</Badge>
+                              {school.validUntil && (
+                                <span className="text-xs text-slate-500">sampai {formatWIBDate(school.validUntil)}</span>
+                              )}
+                              {school.adaPermintaan && <Badge variant="info">Perpanjangan diajukan</Badge>}
+                            </div>
+                          );
+                        })()}
+                      </Td>
                       <Td>{school._count.schoolUsers}</Td>
                       <Td>
                         <span className="font-medium text-slate-800">{school._count.students}</span>
@@ -410,7 +494,7 @@ export default function SekolahPage() {
             <Pagination
               page={page}
               totalPages={totalPages}
-              totalItems={schools.length}
+              totalItems={tersaring.length}
               onPageChange={setPage}
               pageSize={pageSize}
               onPageSizeChange={(size) => {

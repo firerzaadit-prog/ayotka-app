@@ -20,6 +20,7 @@ import {
   BilahHapusMassal,
   CentangSemuaHalaman,
   useHapusMassal,
+  useLulusMassal,
   usePilihan,
 } from "@/components/sekolah/hapus-massal";
 import { Download, FileSpreadsheet } from "lucide-react";
@@ -31,7 +32,11 @@ type StudentRow = {
   claimToken: string | null;
   claimStatus: "belum_klaim" | "sudah_klaim";
   status: string;
+  /** Terisi = alumni (ditandai lulus). */
+  lulusAt: string | null;
 };
+
+type TabSiswa = "aktif" | "alumni";
 
 const CLAIM_LABEL: Record<string, string> = { belum_klaim: "Belum klaim", sudah_klaim: "Sudah klaim" };
 const CLAIM_VARIANT: Record<string, "warning" | "success"> = {
@@ -54,8 +59,14 @@ export default function KelolaSiswaPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [tab, setTab] = useState<TabSiswa>("aktif");
+  const [jumlah, setJumlah] = useState<{ aktif: number; alumni: number } | null>(null);
   const pilihan = usePilihan();
   const hapusMassal = useHapusMassal(() => {
+    pilihan.kosongkan();
+    setRefreshKey((k) => k + 1);
+  });
+  const lulusMassal = useLulusMassal(() => {
     pilihan.kosongkan();
     setRefreshKey((k) => k + 1);
   });
@@ -63,17 +74,27 @@ export default function KelolaSiswaPage() {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch("/api/admin-sekolah/siswa");
+      const res = await fetch(`/api/admin-sekolah/siswa?status=${tab}`);
       const data = await res.json();
       if (!ignore) {
         setStudents(data.students ?? []);
+        setJumlah(data.jumlah ?? null);
         setPage(1);
       }
     })();
     return () => {
       ignore = true;
     };
-  }, [refreshKey]);
+  }, [refreshKey, tab]);
+
+  function pindahTab(berikut: TabSiswa) {
+    if (berikut === tab) return;
+    setTab(berikut);
+    setStudents(null);
+    setSearch("");
+    setPage(1);
+    pilihan.kosongkan();
+  }
 
   async function handleAdd(e: FormEvent) {
     e.preventDefault();
@@ -134,7 +155,7 @@ export default function KelolaSiswaPage() {
     const ok = await confirm({
       title: `Hapus siswa "${nama}"?`,
       description:
-        "Data siswa dan akun loginnya dihapus, NISN-nya bisa ditambahkan lagi. Kalau siswa sudah pernah mengerjakan ujian, riwayat nilainya tetap tersimpan.",
+        "Data siswa dan akun loginnya dihapus, NISN-nya bisa ditambahkan lagi, dan siswa hilang dari analitik sekolah. Untuk siswa yang sudah lulus, gunakan Tandai lulus supaya nilainya tetap tampil di analitik.",
       danger: true,
     });
     if (!ok) return;
@@ -184,6 +205,9 @@ export default function KelolaSiswaPage() {
             <Link href="/api/admin-sekolah/siswa/kartu-klaim" className={buttonClassName("secondary")}>
               Cetak kartu klaim
             </Link>
+            <Link href="/admin-sekolah/periode-baru" className={buttonClassName("secondary")}>
+              Periode Baru
+            </Link>
             <Button onClick={() => setShowForm((v) => !v)}>{showForm ? "Batal" : "Tambah siswa"}</Button>
           </>
         }
@@ -197,6 +221,29 @@ export default function KelolaSiswaPage() {
       />
 
       <KuotaSummary />
+
+      <div role="tablist" aria-label="Status siswa" className="flex gap-1 border-b border-slate-200">
+        {(["aktif", "alumni"] as const).map((t) => (
+          <button
+            key={t}
+            role="tab"
+            aria-selected={tab === t}
+            onClick={() => pindahTab(t)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
+              tab === t
+                ? "border-indigo-600 text-indigo-700"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            {t === "aktif" ? "Aktif" : "Alumni"}
+            {jumlah && (
+              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
+                {jumlah[t].toLocaleString("id-ID")}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-wrap gap-3">
         <div className="w-56">
@@ -243,12 +290,19 @@ export default function KelolaSiswaPage() {
       )}
 
       {students === null && <TableSkeleton columns={6} />}
-      {students?.length === 0 && (
+      {students?.length === 0 && tab === "aktif" && (
         <EmptyState
           icon={<IconUsers />}
           title="Belum ada siswa"
           description="Import dari Excel atau tambah satu per satu."
           action={<Button onClick={() => setShowForm(true)}>Tambah siswa</Button>}
+        />
+      )}
+      {students?.length === 0 && tab === "alumni" && (
+        <EmptyState
+          icon={<IconUsers />}
+          title="Belum ada alumni"
+          description="Siswa yang lulus bisa dicentang di tab Aktif lalu ditandai lulus. Nilai mereka tetap tersimpan dan tetap terhitung di analitik."
         />
       )}
       {students && students.length > 0 && filteredStudents.length === 0 && (
@@ -264,10 +318,15 @@ export default function KelolaSiswaPage() {
         <BilahHapusMassal
           jumlahDipilih={terpilih.length}
           jumlahSemua={idSemua.length}
-          sedangHapus={hapusMassal.sedangHapus}
+          sedangHapus={hapusMassal.sedangHapus || lulusMassal.sedangUbah}
           onPilihSemua={() => pilihan.aturBanyak(idSemua, true)}
           onBatal={pilihan.kosongkan}
           onHapus={() => hapusMassal.hapus(terpilih)}
+          aksiLain={
+            tab === "aktif"
+              ? { label: "Tandai lulus", onClick: () => lulusMassal.ubah(terpilih, true) }
+              : { label: "Batalkan lulus", onClick: () => lulusMassal.ubah(terpilih, false) }
+          }
         />
         <TableContainer>
           <Table>
@@ -312,11 +371,15 @@ export default function KelolaSiswaPage() {
                     {s.claimStatus === "belum_klaim" ? s.claimToken : "-"}
                   </Td>
                   <Td>
-                    <Badge variant={CLAIM_VARIANT[s.claimStatus]}>{CLAIM_LABEL[s.claimStatus]}</Badge>
+                    {s.lulusAt ? (
+                      <Badge variant="info">Alumni</Badge>
+                    ) : (
+                      <Badge variant={CLAIM_VARIANT[s.claimStatus]}>{CLAIM_LABEL[s.claimStatus]}</Badge>
+                    )}
                   </Td>
                   <Td className="text-right">
                     <div className="flex items-center justify-end gap-3">
-                      {s.claimStatus === "belum_klaim" && (
+                      {s.claimStatus === "belum_klaim" && !s.lulusAt && (
                         <button
                           onClick={() => handleResetKode(s.id)}
                           className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"

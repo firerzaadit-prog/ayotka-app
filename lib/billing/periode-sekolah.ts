@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient, PeriodeLangganan } from "@prisma/client";
-import { formatWIBDate } from "../utils/datetime";
+import { formatWIBDate, tanggalWIB } from "../utils/datetime";
 
 /**
  * Periode langganan (kursi) sekolah. Satu-satunya tempat aturan waktu periode dan operasi buat/ubah/cabut
@@ -13,6 +13,8 @@ import { formatWIBDate } from "../utils/datetime";
 
 export const TENGGANG_DEFAULT_HARI = 14;
 export const TENGGANG_MAKS_HARI = 90;
+/** Penanda "segera berakhir" (banner, lencana, widget) dan pengingat dimulai tepat H-7, tidak lebih awal. */
+export const AMBANG_SEGERA_BERAKHIR_HARI = 7;
 const HARI_MS = 24 * 60 * 60 * 1000;
 
 /** `dicabut` = dibatalkan admin pusat (salah input); tidak pernah dihitung sebagai periode. */
@@ -67,6 +69,26 @@ export function pilihPeriodeTerakhirBerakhir<T extends PeriodeWaktu>(periode: T[
 /** Periode yang ditampilkan sebagai "status langganan sekolah": berjalan, kalau tidak ada yang terdekat berikutnya, kalau tidak yang terakhir berakhir. */
 export function pilihPeriodeRujukan<T extends PeriodeWaktu>(periode: T[], now: Date = new Date()): T | null {
   return pilihPeriodeBerjalan(periode, now) ?? pilihPeriodeAkanDatang(periode, now) ?? pilihPeriodeTerakhirBerakhir(periode, now);
+}
+
+/**
+ * Sisa hari KALENDER WIB sampai tanggal berakhir: 0 = berakhir hari ini (masih aktif sampai malam), 7 = H-7,
+ * negatif = sudah lewat. Dihitung dari tanggal kalender WIB, bukan selisih jam, supaya tidak meleset sehari.
+ */
+export function sisaHariWIB(berakhir: Date, now: Date = new Date()): number {
+  const [a1, a2, a3] = tanggalWIB(berakhir).split("-").map(Number) as [number, number, number];
+  const [b1, b2, b3] = tanggalWIB(now).split("-").map(Number) as [number, number, number];
+  return Math.round((Date.UTC(a1, a2 - 1, a3) - Date.UTC(b1, b2 - 1, b3)) / HARI_MS);
+}
+
+/** Periode aktif yang tinggal AMBANG_SEGERA_BERAKHIR_HARI hari atau kurang sebelum berakhir. */
+export function segeraBerakhir(p: PeriodeWaktu, now: Date = new Date()): boolean {
+  return statusPeriode(p, now) === "aktif" && sisaHariWIB(p.berakhir, now) <= AMBANG_SEGERA_BERAKHIR_HARI;
+}
+
+/** Rentang waktu satu periode untuk menyaring data (mis. analitik): dari awal periode sampai akhir masa tenggang. */
+export function rentangPeriode(p: Pick<PeriodeLangganan, "mulai" | "berakhir" | "masaTenggangHari">): { dari: Date; sampai: Date } {
+  return { dari: p.mulai, sampai: akhirEfektif(p) };
 }
 
 /** Tanggal kalender "yyyy-MM-dd" ditambah `hari` hari (murni kalender, tanpa zona waktu). */
@@ -128,7 +150,7 @@ export function ambilPeriodeSekolah(
 /** Kursi terpakai dalam satu periode: siswa (belum dihapus) yang punya kursi sekolah aktif pada periode itu. Unik per siswa per periode. */
 export function hitungKursiPeriode(db: DbPeriode, periodeId: string): Promise<number> {
   return db.entitlement.count({
-    where: { periodeId, source: "school_seat", revokedAt: null, student: { deletedAt: null } },
+    where: { periodeId, source: "school_seat", revokedAt: null, student: { deletedAt: null, lulusAt: null } },
   });
 }
 

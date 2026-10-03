@@ -12,6 +12,7 @@ import {
   statusPeriode,
   TENGGANG_DEFAULT_HARI,
 } from "@/lib/billing/periode-sekolah";
+import { ambilPermintaanMenunggu, PermintaanTidakValidError, setujuiPermintaan } from "@/lib/billing/permintaan-perpanjangan";
 import { akhirHariWIB, startOfDayWIB } from "@/lib/utils/datetime";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -46,6 +47,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const now = new Date();
   const partners = await prisma.partner.findMany({ orderBy: { nama: "asc" }, select: { id: true, nama: true } });
+  const permintaanMenunggu = await ambilPermintaanMenunggu(prisma, schoolId);
 
   return NextResponse.json({
     periode: semua
@@ -66,6 +68,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
     /** Siswa Jalur A terdaftar (belum dihapus): pembanding kuota saat periode dibuat/diubah. */
     siswaTerdaftar: await hitungKursiTerpakai(schoolId),
     referredByPartner: school.referredByPartner,
+    /** Permintaan perpanjangan dari admin sekolah yang menunggu diproses (atau null). */
+    permintaanMenunggu,
     /** true kalau sekolah belum pernah punya periode - rujukan mitra cuma boleh diisi sekarang (Bagian 4.1). */
     isFirstActivation: semua.length === 0,
     partners,
@@ -145,6 +149,21 @@ export async function POST(request: Request, { params }: RouteParams) {
         },
         now,
       );
+      // Periode ini memenuhi permintaan perpanjangan admin sekolah: tandai disetujui dalam transaksi yang sama,
+      // supaya periode dan permintaannya tidak pernah berselisih (gagal menandai = periode ikut dibatalkan).
+      // Tanpa permintaanId eksplisit (admin pusat membuat periode langsung dari tombol Perpanjang), permintaan yang
+      // menunggu tetap otomatis ditutup bila periode baru ini mencakup tanggal mulai yang diminta - kalau tidak,
+      // permintaan itu menggantung "menunggu" selamanya padahal sekolahnya sudah diperpanjang.
+      let permintaanTerkait: string | null = data.permintaanId ?? null;
+      if (!permintaanTerkait) {
+        const menunggu = await ambilPermintaanMenunggu(tx, schoolId);
+        if (menunggu && baru.mulai <= menunggu.mulaiDiminta && baru.berakhir >= menunggu.mulaiDiminta) {
+          permintaanTerkait = menunggu.id;
+        }
+      }
+      if (permintaanTerkait) {
+        await setujuiPermintaan(tx, { permintaanId: permintaanTerkait, schoolId, periodeId: baru.id, adminId: user.id }, now);
+      }
       await tx.school.update({
         where: { id: schoolId },
         data: {
@@ -173,6 +192,9 @@ export async function POST(request: Request, { params }: RouteParams) {
   } catch (error) {
     if (error instanceof PeriodeTidakValidError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof PermintaanTidakValidError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
     throw error;
   }

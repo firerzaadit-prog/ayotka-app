@@ -7,7 +7,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { generateReadableCode, generateTempPassword } from "@/lib/utils/generate-code";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { schoolCreateSchema } from "@/lib/validations/school";
-import { buatPeriode, pilihPeriodeRujukan, statusPeriode } from "@/lib/billing/periode-sekolah";
+import { buatPeriode, pilihPeriodeRujukan, segeraBerakhir, sisaHariWIB, statusPeriode } from "@/lib/billing/periode-sekolah";
 import { akhirHariWIB, startOfDayWIB, tanggalWIB } from "@/lib/utils/datetime";
 
 export async function GET() {
@@ -32,6 +32,14 @@ export async function GET() {
   const periodePerSekolah = new Map<string, PeriodeLangganan[]>();
   for (const p of periode) periodePerSekolah.set(p.schoolId, [...(periodePerSekolah.get(p.schoolId) ?? []), p]);
 
+  // Sekolah yang punya permintaan perpanjangan menunggu (untuk lencana di daftar).
+  const menunggu = await prisma.permintaanPerpanjangan.findMany({
+    where: { status: "menunggu" },
+    select: { schoolId: true },
+    distinct: ["schoolId"],
+  });
+  const adaPermintaan = new Set(menunggu.map((m) => m.schoolId));
+
   const now = new Date();
   return NextResponse.json({
     schools: schools.map((school) => {
@@ -41,6 +49,11 @@ export async function GET() {
         seatQuota: rujukan?.seatQuota ?? null,
         validUntil: rujukan?.berakhir ?? null,
         statusLangganan: rujukan ? statusPeriode(rujukan, now) : "belum_aktif",
+        /** Sisa hari kalender WIB sampai berakhir (0 = hari terakhir, negatif = lewat). */
+        sisaHari: rujukan ? sisaHariWIB(rujukan.berakhir, now) : null,
+        /** Periode aktif yang tinggal H-7 atau kurang. */
+        segeraBerakhir: rujukan ? segeraBerakhir(rujukan, now) : false,
+        adaPermintaan: adaPermintaan.has(school.id),
       };
     }),
   });

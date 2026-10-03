@@ -21,12 +21,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 400 });
   }
 
-  const students = await prisma.student.findMany({
-    where: { schoolId, jalur: "A", deletedAt: null },
-    orderBy: { nama: "asc" },
-  });
+  // ?status=alumni -> siswa yang sudah ditandai lulus; bawaan: siswa aktif (belum lulus).
+  const alumni = url.searchParams.get("status") === "alumni";
+  const dasar = { schoolId, jalur: "A" as const, deletedAt: null };
+  const [students, jumlahAktif, jumlahAlumni] = await Promise.all([
+    prisma.student.findMany({
+      where: { ...dasar, lulusAt: alumni ? { not: null } : null },
+      orderBy: { nama: "asc" },
+    }),
+    prisma.student.count({ where: { ...dasar, lulusAt: null } }),
+    prisma.student.count({ where: { ...dasar, lulusAt: { not: null } } }),
+  ]);
 
-  return NextResponse.json({ students });
+  return NextResponse.json({ students, jumlah: { aktif: jumlahAktif, alumni: jumlahAlumni } });
 }
 
 export async function POST(request: Request) {

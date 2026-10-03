@@ -46,6 +46,7 @@ export default async function AdminSekolahLayout({
           <SidebarLink href="/admin-sekolah/siswa">Siswa</SidebarLink>
           <SidebarLink href="/admin-sekolah/ujian">Ujian</SidebarLink>
           <SidebarLink href="/admin-sekolah/analitik">Analitik</SidebarLink>
+          <SidebarLink href="/admin-sekolah/periode-baru">Periode Baru</SidebarLink>
         </SidebarSection>
       }
     >

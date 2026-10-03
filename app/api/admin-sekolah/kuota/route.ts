@@ -7,8 +7,11 @@ import {
   akhirEfektif,
   ambilPeriodeSekolah,
   pilihPeriodeRujukan,
+  segeraBerakhir,
+  sisaHariWIB,
   statusPeriode,
 } from "@/lib/billing/periode-sekolah";
+import { ambilPermintaanMenunggu } from "@/lib/billing/permintaan-perpanjangan";
 
 /**
  * Status kursi (seat) sekolah - read-only, dipakai dashboard admin sekolah supaya admin sekolah tahu kuota,
@@ -32,7 +35,10 @@ export async function GET() {
   const now = new Date();
   const rujukan = pilihPeriodeRujukan(await ambilPeriodeSekolah(prisma, schoolId), now);
   const status = rujukan ? statusPeriode(rujukan, now) : null;
-  const seatsUsed = await hitungKursiTerpakai(schoolId);
+  const [seatsUsed, permintaanMenunggu] = await Promise.all([
+    hitungKursiTerpakai(schoolId),
+    ambilPermintaanMenunggu(prisma, schoolId),
+  ]);
   // Hanya periode yang berlaku/akan berlaku yang membatasi penambahan siswa lewat kuota; periode berakhir ditangani
   // pesan "langganan berakhir" di bawah.
   const membatasi = status === "aktif" || status === "tenggang" || status === "akan_datang";
@@ -49,5 +55,11 @@ export async function GET() {
     /** Batas terakhir siswa masih bisa mulai ujian (akhir periode + masa tenggang). */
     tenggangSampai: rujukan ? akhirEfektif(rujukan) : null,
     namaPeriode: rujukan?.nama ?? null,
+    /** Sisa hari kalender WIB sampai berakhir (0 = hari terakhir, negatif = sudah lewat); null bila belum ada periode. */
+    sisaHari: rujukan ? sisaHariWIB(rujukan.berakhir, now) : null,
+    /** Periode aktif yang tinggal H-7 atau kurang: dasar banner "segera berakhir". */
+    segeraBerakhir: rujukan ? segeraBerakhir(rujukan, now) : false,
+    /** true kalau admin sekolah sudah mengajukan perpanjangan yang menunggu diproses. */
+    permintaanMenunggu: permintaanMenunggu != null,
   });
 }

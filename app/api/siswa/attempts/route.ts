@@ -36,6 +36,16 @@ function accessDeniedResponse(access: Extract<AccessCheckResult, { allowed: fals
       { status: 402 },
     );
   }
+  if (access.reason === "alumni") {
+    return NextResponse.json(
+      {
+        error:
+          "Kamu sudah ditandai lulus dari sekolah ini, jadi kursi sekolah tidak berlaku lagi untuk try out baru. Riwayat dan nilaimu tetap bisa dibuka.",
+        code: "ALUMNI",
+      },
+      { status: 402 },
+    );
+  }
   if (access.reason === "sekolah_belum_mulai") {
     return NextResponse.json(
       {

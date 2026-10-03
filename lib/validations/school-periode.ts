@@ -23,6 +23,8 @@ export const periodeBuatSchema = z.object({
   masaTenggangHari: tenggang.optional(),
   catatan: teks(500).optional(),
   referredByPartnerId: z.string().uuid().optional().nullable(),
+  /** Bila periode ini dibuat untuk memenuhi permintaan perpanjangan admin sekolah: permintaan itu ikut ditandai disetujui. */
+  permintaanId: z.string().uuid().optional().nullable(),
 });
 
 export const periodeUbahSchema = z
@@ -37,6 +39,20 @@ export const periodeUbahSchema = z
     dicabut: z.boolean().optional(),
   })
   .refine((d) => Object.values(d).some((v) => v !== undefined), { message: "Tidak ada perubahan yang dikirim." });
+
+/** Admin sekolah mengajukan perpanjangan (halaman Periode Baru). Tanggal kalender WIB seperti periode. */
+export const permintaanBuatSchema = z.object({
+  kuotaDiminta: kuota,
+  mulai: tanggal,
+  berakhir: tanggal,
+  catatan: teks(500).optional(),
+});
+
+/** Admin pusat menolak permintaan perpanjangan (menyetujui = membuat periode dengan permintaanId). */
+export const permintaanTolakSchema = z.object({
+  aksi: z.literal("tolak"),
+  catatanAdmin: teks(500).optional(),
+});
 
 export type PeriodeBuatInput = z.infer<typeof periodeBuatSchema>;
 export type PeriodeUbahInput = z.infer<typeof periodeUbahSchema>;

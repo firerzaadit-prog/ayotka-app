@@ -39,6 +39,7 @@ export function KesiapanSiswaList({
   schoolId,
   showSekolahColumn = false,
   studentDetailHrefBase,
+  periodeId,
 }: {
   endpoint: string;
   jenjang?: string;
@@ -47,6 +48,8 @@ export function KesiapanSiswaList({
   showSekolahColumn?: boolean;
   /** Kalau diisi, nama siswa jadi tautan ke halaman detail riwayatnya (mis. "/admin-sekolah/siswa"). */
   studentDetailHrefBase?: string;
+  /** Saring ke satu periode langganan (hanya untuk analitik sekolah); kosong = semua waktu. */
+  periodeId?: string | null;
 }) {
   const [mapel, setMapel] = useState<string>(KESIAPAN_SUBJECTS[0]);
   const [kategori, setKategori] = useState<KategoriKesiapan | "">("");
@@ -68,6 +71,7 @@ export function KesiapanSiswaList({
       if (jenjang) qs.set("jenjang", jenjang);
       if (wilayah) qs.set("wilayah", wilayah);
       if (schoolId) qs.set("schoolId", schoolId);
+      if (periodeId) qs.set("periodeId", periodeId);
       const res = await fetch(`${endpoint}?${qs.toString()}`);
       const data = await res.json().catch(() => null);
       if (ignore) return;
@@ -81,7 +85,7 @@ export function KesiapanSiswaList({
       ignore = true;
       clearTimeout(timeout);
     };
-  }, [endpoint, mapel, kategori, jenjang, wilayah, schoolId]);
+  }, [endpoint, mapel, kategori, jenjang, wilayah, schoolId, periodeId]);
 
   return (
     <div>

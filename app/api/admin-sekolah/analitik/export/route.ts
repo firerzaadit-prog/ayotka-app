@@ -3,6 +3,7 @@ import ExcelJS from "exceljs";
 import { requireRole } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { buildAnalitikSekolah } from "@/lib/analytics/sekolah";
+import { bacaRentangPeriode } from "@/lib/analytics/rentang";
 
 /** Tiket 5.8: export Excel rekap kelas - sama persis datanya dengan halaman /admin-sekolah/analitik. */
 export async function GET(request: Request) {
@@ -19,8 +20,11 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
+  const hasilRentang = await bacaRentangPeriode(url, schoolId);
+  if ("galat" in hasilRentang) return hasilRentang.galat;
   const { ranking, kompetensi } = await buildAnalitikSekolah(schoolId, {
     subjectId: url.searchParams.get("subjectId"),
+    ...hasilRentang.rentang,
   });
 
   const workbook = new ExcelJS.Workbook();

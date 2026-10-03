@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { buildAnalitikSekolah } from "@/lib/analytics/sekolah";
+import { bacaRentangPeriode } from "@/lib/analytics/rentang";
 
 /**
  * Tiket 5.7: dashboard analitik admin sekolah - per kelas, per kompetensi,
@@ -23,8 +24,11 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
+  const hasilRentang = await bacaRentangPeriode(url, schoolId);
+  if ("galat" in hasilRentang) return hasilRentang.galat;
   const { jumlahAttempt, kompetensi, ranking, perMapel } = await buildAnalitikSekolah(schoolId, {
     subjectId: url.searchParams.get("subjectId"),
+    ...hasilRentang.rentang,
   });
 
   return NextResponse.json({

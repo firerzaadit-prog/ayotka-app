@@ -25,8 +25,18 @@ type Periode = {
   status: StatusPeriode;
   kursiTerpakai: number;
 };
+type PermintaanMenunggu = {
+  id: string;
+  kuotaDiminta: number;
+  mulaiDiminta: string;
+  berakhirDiminta: string;
+  catatan: string | null;
+  createdAt: string;
+};
 type Data = {
   periode: Periode[];
+  /** Permintaan perpanjangan dari admin sekolah yang menunggu diproses. */
+  permintaanMenunggu: PermintaanMenunggu | null;
   siswaTerdaftar: number;
   referredByPartner: Partner | null;
   isFirstActivation: boolean;
@@ -43,6 +53,8 @@ type FormState = {
   masaTenggangHari: string;
   catatan: string;
   partnerId: string;
+  /** Terisi bila periode ini dibuat untuk memenuhi permintaan perpanjangan (permintaan ikut disetujui). */
+  permintaanId: string | null;
 };
 
 const STATUS_LABEL: Record<StatusPeriode, string> = {
@@ -76,6 +88,9 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Alasan penolakan permintaan perpanjangan; null = kotak alasan tertutup.
+  const [alasanTolak, setAlasanTolak] = useState<string | null>(null);
+  const [menolak, setMenolak] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -115,7 +130,42 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
       masaTenggangHari: String(data.tenggangDefaultHari),
       catatan: "",
       partnerId: "",
+      permintaanId: null,
     });
+  }
+
+  /** Setujui permintaan: form periode baru diisi dari permintaan, admin pusat tinggal memeriksa lalu menyimpan. */
+  function bukaFormDariPermintaan(p: PermintaanMenunggu) {
+    if (!data) return;
+    setError(null);
+    setForm({
+      id: null,
+      nama: "",
+      mulai: tanggalWIB(new Date(p.mulaiDiminta)),
+      berakhir: tanggalWIB(new Date(p.berakhirDiminta)),
+      seatQuota: String(p.kuotaDiminta),
+      masaTenggangHari: String(data.tenggangDefaultHari),
+      catatan: p.catatan ?? "",
+      partnerId: "",
+      permintaanId: p.id,
+    });
+  }
+
+  async function handleTolak(p: PermintaanMenunggu) {
+    setMenolak(true);
+    const res = await fetch(`/api/admin-pusat/permintaan-perpanjangan/${p.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ aksi: "tolak", catatanAdmin: (alasanTolak ?? "").trim() || null }),
+    });
+    const json = await res.json().catch(() => null);
+    setMenolak(false);
+    if (!res.ok) {
+      toast.error(json?.error ?? "Gagal menolak permintaan.");
+      return;
+    }
+    setAlasanTolak(null);
+    setRefreshKey((k) => k + 1);
   }
 
   function bukaFormUbah(p: Periode) {
@@ -129,6 +179,7 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
       masaTenggangHari: String(p.masaTenggangHari),
       catatan: p.catatan ?? "",
       partnerId: "",
+      permintaanId: null,
     });
   }
 
@@ -146,6 +197,7 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
       masaTenggangHari: Number(form.masaTenggangHari),
       catatan: form.catatan.trim() || null,
       ...(form.id === null && data.isFirstActivation ? { referredByPartnerId: form.partnerId || null } : {}),
+      ...(form.id === null && form.permintaanId ? { permintaanId: form.permintaanId } : {}),
     };
     const res = await fetch(
       form.id === null
@@ -204,6 +256,45 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
           {form ? "Batal" : data.isFirstActivation ? "Aktifkan langganan" : "Perpanjang periode"}
         </Button>
       </div>
+
+      {data.permintaanMenunggu && (
+        <Alert variant="info">
+          <p className="font-semibold">Permintaan perpanjangan dari admin sekolah</p>
+          <p className="mt-1">
+            Diajukan {formatWIBDate(data.permintaanMenunggu.createdAt)}: kuota{" "}
+            {data.permintaanMenunggu.kuotaDiminta.toLocaleString("id-ID")} siswa, periode{" "}
+            {formatWIBDate(data.permintaanMenunggu.mulaiDiminta)} sampai{" "}
+            {formatWIBDate(data.permintaanMenunggu.berakhirDiminta)}.
+            {data.permintaanMenunggu.catatan ? ` Catatan: ${data.permintaanMenunggu.catatan}` : ""}
+          </p>
+          {alasanTolak === null ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button onClick={() => bukaFormDariPermintaan(data.permintaanMenunggu!)}>Setujui (isi form periode)</Button>
+              <Button variant="secondary" onClick={() => setAlasanTolak("")}>
+                Tolak
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-3 flex flex-col gap-2">
+              <Label htmlFor="alasanTolak">Alasan penolakan (opsional, dibaca admin sekolah)</Label>
+              <Input
+                id="alasanTolak"
+                maxLength={500}
+                value={alasanTolak}
+                onChange={(e) => setAlasanTolak(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button variant="danger" disabled={menolak} onClick={() => handleTolak(data.permintaanMenunggu!)}>
+                  {menolak ? "Menolak..." : "Tolak permintaan"}
+                </Button>
+                <Button variant="secondary" disabled={menolak} onClick={() => setAlasanTolak(null)}>
+                  Batal
+                </Button>
+              </div>
+            </div>
+          )}
+        </Alert>
+      )}
 
       {data.isFirstActivation && <Alert variant="warning">Langganan sekolah ini belum diaktifkan.</Alert>}
       {!data.isFirstActivation && !berjalan && (
@@ -280,6 +371,11 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
           <h3 className="text-sm font-semibold text-slate-900">
             {form.id === null ? (data.isFirstActivation ? "Aktifkan langganan" : "Periode baru") : "Ubah periode"}
           </h3>
+          {form.permintaanId && (
+            <Alert variant="info">
+              Form diisi dari permintaan admin sekolah. Setelah disimpan, permintaan itu otomatis ditandai disetujui.
+            </Alert>
+          )}
           {error && <Alert variant="danger">{error}</Alert>}
           <div>
             <Label htmlFor="periodeNama">Nama periode (opsional)</Label>

@@ -31,6 +31,8 @@ type StudentRow = {
   jalur: "A" | "B";
   claimStatus: "belum_klaim" | "sudah_klaim";
   status: "pending" | "active" | "nonaktif";
+  /** Terisi = alumni (ditandai lulus oleh admin sekolah). */
+  lulusAt?: string | null;
   school: { id: string; nama: string } | null;
 };
 
@@ -364,7 +366,7 @@ export default function SemuaSiswaPage() {
                   <Td>{s.school?.nama ?? "-"}</Td>
                   <Td>{JALUR_LABEL[s.jalur]}</Td>
                   <Td>{CLAIM_LABEL[s.claimStatus]}</Td>
-                  <Td>{STATUS_LABEL[s.status]}</Td>
+                  <Td>{s.lulusAt ? "Alumni" : STATUS_LABEL[s.status]}</Td>
                   <Td className="text-right">
                     {bisaDihapus(s) && (
                       <button

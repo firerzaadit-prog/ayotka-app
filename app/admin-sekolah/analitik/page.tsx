@@ -12,6 +12,9 @@ import { IconChart } from "@/components/ui/empty-state-icons";
 import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
 import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
 import type { KesiapanRingkasan } from "@/lib/analytics/kesiapan";
+import { formatWIBDate } from "@/lib/utils/datetime";
+
+type PeriodeOpsi = { id: string; nama: string | null; mulai: string; berakhir: string };
 
 type Kompetensi = { deskripsi: string; elemen: string; jmlBenar: number; jmlSoal: number; persentase: number };
 type RankingRow = { studentId: string; nama: string; rataRata: number; jumlahAttempt: number };
@@ -126,25 +129,41 @@ export default function AnalitikPage() {
   const [jumlahAttempt, setJumlahAttempt] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [kesiapan, setKesiapan] = useState<KesiapanRingkasan | null>(null);
+  // Saring per periode langganan ("" = semua waktu). Alumni tetap terhitung; hanya siswa yang dihapus yang keluar.
+  const [periodeList, setPeriodeList] = useState<PeriodeOpsi[]>([]);
+  const [periodeId, setPeriodeId] = useState("");
+  const qsPeriode = periodeId ? `?periodeId=${periodeId}` : "";
 
-  // Kesiapan TKA selalu gabungan semua mapel KESIAPAN_SUBJECTS untuk seluruh
-  // sekolah - diambil sekali saat halaman dibuka, bukan di dalam effect di bawah.
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch("/api/admin-sekolah/kesiapan");
+      const res = await fetch("/api/admin-sekolah/periode");
       const data = await res.json().catch(() => null);
-      if (!ignore && res.ok) setKesiapan(data.kesiapan ?? null);
+      if (!ignore && res.ok) setPeriodeList(data.periode ?? []);
     })();
     return () => {
       ignore = true;
     };
   }, []);
 
+  // Kesiapan TKA selalu gabungan semua mapel KESIAPAN_SUBJECTS untuk seluruh
+  // sekolah (pada periode terpilih) - diambil ulang saat periode berganti.
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch("/api/admin-sekolah/analitik");
+      const res = await fetch(`/api/admin-sekolah/kesiapan${qsPeriode}`);
+      const data = await res.json().catch(() => null);
+      if (!ignore && res.ok) setKesiapan(data.kesiapan ?? null);
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [qsPeriode]);
+
+  useEffect(() => {
+    let ignore = false;
+    (async () => {
+      const res = await fetch(`/api/admin-sekolah/analitik${qsPeriode}`);
       const data = await res.json().catch(() => null);
       if (!ignore) {
         if (res.ok) {
@@ -161,7 +180,7 @@ export default function AnalitikPage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, [qsPeriode]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -170,12 +189,36 @@ export default function AnalitikPage() {
         description="Kompetensi terlemah & ranking siswa berdasarkan hasil ujian yang sudah selesai."
         action={
           jumlahAttempt > 0 && (
-            <a href="/api/admin-sekolah/analitik/export" className={buttonClassName("secondary")}>
+            <a href={`/api/admin-sekolah/analitik/export${qsPeriode}`} className={buttonClassName("secondary")}>
               Unduh Rekap (Excel)
             </a>
           )
         }
       />
+
+      {periodeList.length > 0 && (
+        <div className="w-full max-w-md">
+          <label htmlFor="pilihPeriode" className="mb-1 block text-xs font-medium text-slate-500">
+            Periode
+          </label>
+          <select
+            id="pilihPeriode"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+            value={periodeId}
+            onChange={(e) => setPeriodeId(e.target.value)}
+          >
+            <option value="">Semua waktu</option>
+            {periodeList.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nama ?? "Periode langganan"} ({formatWIBDate(p.mulai)} - {formatWIBDate(p.berakhir)})
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            Siswa yang sudah lulus (alumni) tetap terhitung, jadi angkatan lalu bisa dibandingkan.
+          </p>
+        </div>
+      )}
 
       {kesiapan && (
         <div>
@@ -200,6 +243,7 @@ export default function AnalitikPage() {
             <KesiapanSiswaList
               endpoint="/api/admin-sekolah/kesiapan/siswa"
               studentDetailHrefBase="/admin-sekolah/siswa"
+              periodeId={periodeId || null}
             />
           </div>
         </div>
@@ -211,7 +255,11 @@ export default function AnalitikPage() {
         <EmptyState
           icon={<IconChart />}
           title="Belum ada data"
-          description="Belum ada ujian yang selesai dikerjakan di sekolah ini."
+          description={
+            periodeId
+              ? "Belum ada ujian yang selesai dikerjakan pada periode ini."
+              : "Belum ada ujian yang selesai dikerjakan di sekolah ini."
+          }
         />
       )}
 

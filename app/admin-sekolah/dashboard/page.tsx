@@ -33,11 +33,12 @@ export default async function AdminSekolahDashboardPage() {
 
   const school = await prisma.school.findUnique({ where: { id: schoolId } });
 
-  const [siswaAktif, belumKlaim, paketSoal, kesiapan] = await Promise.all([
-    prisma.student.count({ where: { schoolId, jalur: "A", deletedAt: null } }),
+  const [siswaAktif, belumKlaim, alumni, paketSoal, kesiapan] = await Promise.all([
+    prisma.student.count({ where: { schoolId, jalur: "A", deletedAt: null, lulusAt: null } }),
     prisma.student.count({
-      where: { schoolId, jalur: "A", deletedAt: null, claimStatus: "belum_klaim" },
+      where: { schoolId, jalur: "A", deletedAt: null, lulusAt: null, claimStatus: "belum_klaim" },
     }),
+    prisma.student.count({ where: { schoolId, jalur: "A", deletedAt: null, lulusAt: { not: null } } }),
     prisma.package.count({
       where: { ownerType: "sekolah", ownerId: schoolId, status: { not: "archived" } },
     }),
@@ -48,9 +49,10 @@ export default async function AdminSekolahDashboardPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title="Dashboard Admin Sekolah" description={school?.nama} />
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <StatCard label="Siswa aktif" value={siswaAktif} />
         <StatCard label="Siswa belum klaim akun" value={belumKlaim} />
+        <StatCard label="Alumni" value={alumni} />
         <StatCard label="Paket soal" value={paketSoal} />
       </div>
 

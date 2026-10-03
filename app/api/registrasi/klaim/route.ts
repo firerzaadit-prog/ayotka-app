@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     { error: "Data tidak cocok. Periksa kembali kode klaim atau tanggal lahirmu." },
     { status: 400 },
   );
-  if (!student || student.schoolId !== school.id || student.claimStatus !== "belum_klaim" || student.deletedAt) {
+  if (!student || student.schoolId !== school.id || student.claimStatus !== "belum_klaim" || student.deletedAt || student.lulusAt) {
     return genericError;
   }
 

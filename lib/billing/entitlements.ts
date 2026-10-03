@@ -118,6 +118,8 @@ export type SeatGrantResult =
   | { granted: false; reason: "not_activated" }
   /** Bukan siswa Jalur A di sekolah ini (mis. siswa mandiri yang hanya mencatat sekolah asal) atau sudah dihapus. */
   | { granted: false; reason: "not_eligible" }
+  /** Sudah ditandai lulus (alumni): kursi sekolah tidak berlaku lagi; riwayat dan nilai tetap bisa dibuka. */
+  | { granted: false; reason: "alumni" }
   /** Semua periode sudah lewat (termasuk masa tenggang): sekolah "dibekukan" sampai diperpanjang. */
   | { granted: false; reason: "period_ended"; berakhir: Date }
   /** Periode pertama/berikutnya belum mulai. */
@@ -133,13 +135,14 @@ export async function grantSchoolSeatIfAvailable(
 ): Promise<SeatGrantResult> {
   const student = await prisma.student.findUnique({
     where: { id: studentId },
-    select: { schoolId: true, jalur: true, deletedAt: true },
+    select: { schoolId: true, jalur: true, deletedAt: true, lulusAt: true },
   });
   // Kursi sekolah hanya untuk siswa Jalur A milik sekolah itu. Siswa mandiri (Jalur B) bisa mencatat sekolah
   // asal tetapi membeli langganannya sendiri; tanpa pagar ini mereka bisa menguras kursi sekolah.
   if (!student || student.jalur !== "A" || student.deletedAt || student.schoolId !== schoolId) {
     return { granted: false, reason: "not_eligible" };
   }
+  if (student.lulusAt) return { granted: false, reason: "alumni" };
 
   const periodeSekolah = await ambilPeriodeSekolah(prisma, schoolId);
   const berjalan = pilihPeriodeBerjalan(periodeSekolah, now);
@@ -207,10 +210,10 @@ export async function grantSchoolSeatIfAvailable(
  * grantSchoolSeatIfAvailable). Dipakai getTipeAkses untuk menampilkan tipe akses sebelum siswa menekan Mulai.
  */
 export async function kursiSekolahTersedia(
-  student: Pick<Student, "id" | "schoolId" | "jalur" | "deletedAt">,
+  student: Pick<Student, "id" | "schoolId" | "jalur" | "deletedAt" | "lulusAt">,
   now: Date = new Date(),
 ): Promise<boolean> {
-  if (!student.schoolId || student.jalur !== "A" || student.deletedAt) return false;
+  if (!student.schoolId || student.jalur !== "A" || student.deletedAt || student.lulusAt) return false;
   const berjalan = pilihPeriodeBerjalan(await ambilPeriodeSekolah(prisma, student.schoolId), now);
   if (!berjalan) return false;
   const ada = await prisma.entitlement.findUnique({
@@ -270,6 +273,8 @@ export type AccessCheckResult =
   | { allowed: false; reason: "sekolah_berakhir"; berakhir: Date }
   /** Langganan sekolah belum mulai berlaku. */
   | { allowed: false; reason: "sekolah_belum_mulai"; mulai: Date }
+  /** Siswa sudah ditandai lulus: kursi sekolah tidak berlaku lagi. */
+  | { allowed: false; reason: "alumni" }
   | { allowed: false; reason: "quota_required" };
 
 /**
@@ -296,6 +301,7 @@ export async function canStartAttempt(
 
   if (seatResult && !seatResult.granted) {
     if (seatResult.reason === "seat_full") return { allowed: false, reason: "waiting_for_seat" };
+    if (seatResult.reason === "alumni") return { allowed: false, reason: "alumni" };
     if (seatResult.reason === "period_ended") {
       return { allowed: false, reason: "sekolah_berakhir", berakhir: seatResult.berakhir };
     }

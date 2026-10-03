@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-type Siswa = { id: string; schoolId: string | null; jalur: "A" | "B"; deletedAt: Date | null };
+type Siswa = { id: string; schoolId: string | null; jalur: "A" | "B"; deletedAt: Date | null; lulusAt: Date | null };
 type Periode = {
   id: string;
   schoolId: string;
@@ -36,7 +36,8 @@ const s = vi.hoisted(() => ({
 
 vi.mock("@/lib/db/prisma", async () => {
   const { Prisma: P } = await import("@prisma/client");
-  const hidup = (id: string) => s.siswa.find((x) => x.id === id && x.deletedAt === null) !== undefined;
+  // Sama seperti filter hitungKursiPeriode: siswa yang dihapus ATAU sudah lulus tidak dihitung.
+  const hidup = (id: string) => s.siswa.find((x) => x.id === id && x.deletedAt === null && x.lulusAt === null) !== undefined;
   return {
     prisma: {
       student: {
@@ -108,7 +109,7 @@ function periode(id: string, mulai: string, berakhir: string, seatQuota: number,
   };
 }
 function siswa(id: string, lain: Partial<Siswa> = {}): Siswa {
-  return { id, schoolId: SEKOLAH, jalur: "A", deletedAt: null, ...lain };
+  return { id, schoolId: SEKOLAH, jalur: "A", deletedAt: null, lulusAt: null, ...lain };
 }
 const maju = (tanggal: string) => vi.setSystemTime(new Date(`${tanggal}T05:00:00Z`)); // 12.00 WIB
 
@@ -137,6 +138,12 @@ describe("grantSchoolSeatIfAvailable - siapa yang berhak", () => {
   ])("%s -> not_eligible dan tidak ada kursi dibuat", async (_nama, siapkan) => {
     siapkan();
     expect(await grantSchoolSeatIfAvailable("a", SEKOLAH)).toEqual({ granted: false, reason: "not_eligible" });
+    expect(s.kursi).toHaveLength(0);
+  });
+
+  it("alumni (sudah ditandai lulus) -> reason alumni dan tidak mendapat kursi baru", async () => {
+    s.siswa.push(siswa("a", { lulusAt: new Date("2026-02-01T00:00:00Z") }));
+    expect(await grantSchoolSeatIfAvailable("a", SEKOLAH)).toEqual({ granted: false, reason: "alumni" });
     expect(s.kursi).toHaveLength(0);
   });
 });
@@ -208,6 +215,15 @@ describe("grantSchoolSeatIfAvailable - pemberian kursi", () => {
     expect(await grantSchoolSeatIfAvailable("c", SEKOLAH)).toEqual({ granted: false, reason: "seat_full" });
 
     s.siswa.find((x) => x.id === "a")!.deletedAt = new Date();
+    expect((await grantSchoolSeatIfAvailable("c", SEKOLAH)).granted).toBe(true);
+  });
+
+  it("siswa yang lulus membebaskan kursi untuk siswa lain, tanpa menghapus datanya", async () => {
+    await grantSchoolSeatIfAvailable("a", SEKOLAH);
+    await grantSchoolSeatIfAvailable("b", SEKOLAH);
+    expect(await grantSchoolSeatIfAvailable("c", SEKOLAH)).toEqual({ granted: false, reason: "seat_full" });
+
+    s.siswa.find((x) => x.id === "a")!.lulusAt = new Date("2026-03-01T00:00:00Z");
     expect((await grantSchoolSeatIfAvailable("c", SEKOLAH)).granted).toBe(true);
   });
 
@@ -364,6 +380,19 @@ describe("canStartAttempt - alasan penolakan", () => {
     expect(await canStartAttempt("m", "mapel", SEKOLAH)).toEqual({ allowed: false, reason: "quota_required" });
   });
 
+  it("alumni dari sekolah yang masih berlangganan: reason alumni (bukan 'beli paket' yang buntu)", async () => {
+    s.siswa = [siswa("a", { lulusAt: new Date("2026-02-01T00:00:00Z") })];
+    s.periode = [periode("p1", "2026-01-01", "2026-06-30", 5)];
+    s.jumlahAttempt = 3;
+    expect(await canStartAttempt("a", "mapel", SEKOLAH)).toEqual({ allowed: false, reason: "alumni" });
+  });
+
+  it("alumni yang belum memakai jatah gratis mapel tetap boleh free_trial", async () => {
+    s.siswa = [siswa("a", { lulusAt: new Date("2026-02-01T00:00:00Z") })];
+    s.periode = [periode("p1", "2026-01-01", "2026-06-30", 5)];
+    expect(await canStartAttempt("a", "mapel", SEKOLAH)).toEqual({ allowed: true, reason: "free_trial" });
+  });
+
   it("tanpa sekolah -> quota_required", async () => {
     s.siswa = [siswa("m", { schoolId: null, jalur: "B" })];
     s.jumlahAttempt = 2;
@@ -392,6 +421,7 @@ describe("kursiSekolahTersedia (tanpa efek samping)", () => {
     expect(await kursiSekolahTersedia(siswa("x", { jalur: "B" }))).toBe(false);
     expect(await kursiSekolahTersedia(siswa("x", { deletedAt: new Date() }))).toBe(false);
     expect(await kursiSekolahTersedia(siswa("x", { schoolId: null }))).toBe(false);
+    expect(await kursiSekolahTersedia(siswa("x", { lulusAt: new Date() }))).toBe(false);
     maju("2027-03-01");
     expect(await kursiSekolahTersedia(siswa("a"))).toBe(false);
   });

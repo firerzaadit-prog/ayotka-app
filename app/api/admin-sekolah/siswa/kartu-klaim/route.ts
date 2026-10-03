@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   }
 
   const students = await prisma.student.findMany({
-    where: { schoolId, deletedAt: null, claimStatus: "belum_klaim" },
+    where: { schoolId, deletedAt: null, lulusAt: null, claimStatus: "belum_klaim" },
     orderBy: { nama: "asc" },
   });
 

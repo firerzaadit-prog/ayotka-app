@@ -40,6 +40,7 @@ export async function GET(request: Request) {
       schoolId: school.id,
       claimStatus: "belum_klaim",
       deletedAt: null,
+      lulusAt: null,
       nama: { contains: parsed.data.nama, mode: "insensitive" },
     },
     select: { id: true, nama: true },

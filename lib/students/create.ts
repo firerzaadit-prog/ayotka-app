@@ -49,13 +49,13 @@ export async function generateUniqueStudentReferralCode(): Promise<string> {
 }
 
 /**
- * Kursi terpakai = siswa Jalur A terdaftar yang belum dihapus. Satu definisi ini
+ * Kursi terpakai = siswa Jalur A terdaftar yang belum dihapus dan belum ditandai lulus (alumni tidak memakan kursi). Satu definisi ini
  * dipakai pembatas tambah/impor siswa DAN tampilan kuota (admin sekolah & admin
  * pusat) - dulu tampilan menghitung siswa yang sudah pernah mulai ujian, jadi bisa
  * tertulis "1/5 kursi terpakai" padahal tambah siswa ditolak "kuota penuh".
  */
 export function hitungKursiTerpakai(schoolId: string): Promise<number> {
-  return prisma.student.count({ where: { schoolId, jalur: "A", deletedAt: null } });
+  return prisma.student.count({ where: { schoolId, jalur: "A", deletedAt: null, lulusAt: null } });
 }
 
 /**

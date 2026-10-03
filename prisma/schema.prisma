@@ -51,15 +51,17 @@ model User {
   schoolUsers          SchoolUser[]
   studentProfile       Student?
   partnerProfile       Partner?
-  createdQuestions     Question[]         @relation("QuestionCreatedBy")
-  vouchersGenerated    Voucher[]          @relation("VoucherGeneratedBy")
-  schoolSeatsActivated School[]           @relation("SchoolSeatActivatedBy")
+  createdQuestions     Question[]               @relation("QuestionCreatedBy")
+  vouchersGenerated    Voucher[]                @relation("VoucherGeneratedBy")
+  schoolSeatsActivated School[]                 @relation("SchoolSeatActivatedBy")
   loginLogs            LoginLog[]
   auditLogs            AuditLog[]
-  taxonomyMappingsMade TaxonomyMapping[]  @relation("TaxonomyMappingCreatedBy")
-  soalImportsPerformed SoalImportLog[]    @relation("SoalImportLogImportedBy")
+  taxonomyMappingsMade TaxonomyMapping[]        @relation("TaxonomyMappingCreatedBy")
+  soalImportsPerformed SoalImportLog[]          @relation("SoalImportLogImportedBy")
   dinasProfile         DinasAdmin?
-  periodeDibuat        PeriodeLangganan[] @relation("PeriodeDibuatOleh")
+  periodeDibuat        PeriodeLangganan[]       @relation("PeriodeDibuatOleh")
+  permintaanDiajukan   PermintaanPerpanjangan[] @relation("PermintaanDiajukanOleh")
+  permintaanDitangani  PermintaanPerpanjangan[] @relation("PermintaanDitanganiOleh")
 
   @@map("users")
 }
@@ -91,15 +93,16 @@ model School {
   /// wilayah akun dinas pendidikan, menggantikan pencarian substring alamat.
   kabupatenKota       String?      @map("kabupaten_kota")
 
-  schoolUsers        SchoolUser[]
-  students           Student[]
-  packageVisibility  PackageVisibility[]
-  assignments        Assignment[]
-  seatActivatedBy    User?               @relation("SchoolSeatActivatedBy", fields: [seatActivatedById], references: [id], onDelete: SetNull)
-  referredByPartner  Partner?            @relation(fields: [referredByPartnerId], references: [id], onDelete: SetNull)
-  entitlements       Entitlement[]
-  partnerCommissions PartnerCommission[]
-  periode            PeriodeLangganan[]
+  schoolUsers            SchoolUser[]
+  students               Student[]
+  packageVisibility      PackageVisibility[]
+  assignments            Assignment[]
+  seatActivatedBy        User?                    @relation("SchoolSeatActivatedBy", fields: [seatActivatedById], references: [id], onDelete: SetNull)
+  referredByPartner      Partner?                 @relation(fields: [referredByPartnerId], references: [id], onDelete: SetNull)
+  entitlements           Entitlement[]
+  partnerCommissions     PartnerCommission[]
+  periode                PeriodeLangganan[]
+  permintaanPerpanjangan PermintaanPerpanjangan[]
 
   @@map("schools")
 }
@@ -124,12 +127,48 @@ model PeriodeLangganan {
   dibuatOlehId     String?   @map("dibuat_oleh_id") @db.Uuid
   createdAt        DateTime  @default(now()) @map("created_at")
 
-  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  dibuatOleh   User?         @relation("PeriodeDibuatOleh", fields: [dibuatOlehId], references: [id], onDelete: SetNull)
+  school       School                   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  dibuatOleh   User?                    @relation("PeriodeDibuatOleh", fields: [dibuatOlehId], references: [id], onDelete: SetNull)
   entitlements Entitlement[]
+  permintaan   PermintaanPerpanjangan[]
 
   @@index([schoolId, mulai])
   @@map("school_periods")
+}
+
+enum StatusPermintaanPerpanjangan {
+  menunggu
+  disetujui
+  ditolak
+}
+
+/// Permintaan perpanjangan dari admin sekolah (tombol "Ajukan perpanjangan" di halaman Periode Baru). Pembayaran
+/// dikonfirmasi di luar sistem; admin pusat yang membuat periode barunya (lalu permintaan ditandai disetujui dan
+/// ditautkan ke periode itu) atau menolaknya dengan alasan. Satu sekolah hanya boleh punya satu permintaan menunggu.
+model PermintaanPerpanjangan {
+  id              String                       @id @default(uuid()) @db.Uuid
+  schoolId        String                       @map("school_id") @db.Uuid
+  diajukanOlehId  String?                      @map("diajukan_oleh_id") @db.Uuid
+  kuotaDiminta    Int                          @map("kuota_diminta")
+  /// Awal hari WIB / akhir hari WIB, sama seperti PeriodeLangganan.
+  mulaiDiminta    DateTime                     @map("mulai_diminta")
+  berakhirDiminta DateTime                     @map("berakhir_diminta")
+  catatan         String?
+  status          StatusPermintaanPerpanjangan @default(menunggu)
+  periodeId       String?                      @map("periode_id") @db.Uuid
+  ditanganiOlehId String?                      @map("ditangani_oleh_id") @db.Uuid
+  ditanganiAt     DateTime?                    @map("ditangani_at")
+  catatanAdmin    String?                      @map("catatan_admin")
+  createdAt       DateTime                     @default(now()) @map("created_at")
+
+  school        School            @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  diajukanOleh  User?             @relation("PermintaanDiajukanOleh", fields: [diajukanOlehId], references: [id], onDelete: SetNull)
+  ditanganiOleh User?             @relation("PermintaanDitanganiOleh", fields: [ditanganiOlehId], references: [id], onDelete: SetNull)
+  periode       PeriodeLangganan? @relation(fields: [periodeId], references: [id], onDelete: SetNull)
+
+  @@index([schoolId, status])
+  @@index([status, createdAt])
+  @@map("school_renewal_requests")
 }
 
 enum Jenjang {
@@ -263,6 +302,9 @@ model Student {
   referredByPartnerId String?       @map("referred_by_partner_id") @db.Uuid
   /// Bagian 7.2: soal & siswa tidak boleh dihapus permanen, hanya soft delete.
   deletedAt           DateTime?     @map("deleted_at")
+  /// Alumni: ditandai lulus oleh admin sekolah. Berbeda dari dihapus - siswa tetap ada (login, riwayat, nilai, dan
+  /// analitik sekolah tetap), tetapi tidak memakan kursi sekolah dan tidak bisa mendapat kursi baru.
+  lulusAt             DateTime?     @map("lulus_at")
 
   user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   school            School?            @relation(fields: [schoolId], references: [id], onDelete: Restrict)
@@ -277,6 +319,7 @@ model Student {
 
   @@index([referredByPartnerId])
   @@index([schoolId])
+  @@index([schoolId, lulusAt])
   @@map("students")
 }
 

@@ -100,6 +100,55 @@ export function useHapusMassal(onSelesai: () => void) {
   return { hapus, sedangHapus };
 }
 
+/**
+ * Tandai lulus (lulus = true) atau batalkan tanda lulus (false) untuk banyak siswa. Alumni tetap ada (akun, riwayat,
+ * nilai, analitik) tetapi tidak memakai kursi sekolah. Dikirim bertahap seperti kirimHapusMassal; berhenti di
+ * kegagalan pertama (mis. kuota tidak cukup saat membatalkan) dan menampilkan alasan dari server.
+ */
+export function useLulusMassal(onSelesai: () => void) {
+  const toast = useToast();
+  const { confirm } = useDialog();
+  const [sedangUbah, setSedangUbah] = useState(false);
+
+  async function ubah(ids: string[], lulus: boolean) {
+    if (ids.length === 0 || sedangUbah) return;
+    const ok = await confirm({
+      title: lulus ? `Tandai ${ids.length} siswa sebagai lulus?` : `Batalkan status lulus ${ids.length} siswa?`,
+      description: lulus
+        ? "Siswa yang lulus pindah ke tab Alumni dan tidak memakai kursi sekolah lagi, tetapi akun, riwayat, dan nilainya tetap ada dan tetap terhitung di analitik sekolah. Bisa dibatalkan kapan saja."
+        : "Siswa kembali ke daftar aktif dan memakai kursi sekolah lagi, jadi kuota kursi harus cukup.",
+      confirmLabel: lulus ? `Ya, tandai ${ids.length} siswa lulus` : "Ya, batalkan lulus",
+    });
+    if (!ok) return;
+
+    setSedangUbah(true);
+    let berhasil = 0;
+    try {
+      for (let i = 0; i < ids.length; i += HAPUS_MASSAL_MAKS) {
+        const res = await fetch("/api/admin-sekolah/siswa/lulus-massal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: ids.slice(i, i + HAPUS_MASSAL_MAKS), lulus }),
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data) {
+          toast.error(data?.error ?? "Gagal mengubah status lulus. Silakan coba lagi.");
+          break;
+        }
+        berhasil += (lulus ? data.ditandai : data.dipulihkan) ?? 0;
+      }
+      if (berhasil > 0) {
+        toast.success(lulus ? `${berhasil} siswa ditandai lulus.` : `${berhasil} siswa dikembalikan ke daftar aktif.`);
+      }
+    } finally {
+      setSedangUbah(false);
+      onSelesai();
+    }
+  }
+
+  return { ubah, sedangUbah };
+}
+
 /** Kotak centang "pilih semua di halaman ini" (setengah tercentang kalau sebagian saja yang dipilih). */
 export function CentangSemuaHalaman({
   idHalaman,
@@ -135,6 +184,7 @@ export function BilahHapusMassal({
   onPilihSemua,
   onBatal,
   onHapus,
+  aksiLain,
 }: {
   jumlahDipilih: number;
   /** Jumlah siswa yang bisa dipilih pada filter/pencarian saat ini (semua halaman). */
@@ -142,7 +192,10 @@ export function BilahHapusMassal({
   sedangHapus: boolean;
   onPilihSemua: () => void;
   onBatal: () => void;
-  onHapus: () => void;
+  /** Tanpa ini tombol Hapus tidak ditampilkan (mis. panduan Periode Baru yang hanya menandai lulus). */
+  onHapus?: () => void;
+  /** Aksi tambahan di samping Hapus, mis. "Tandai lulus"; ikut dinonaktifkan selama proses berjalan. */
+  aksiLain?: { label: string; onClick: () => void };
 }) {
   if (jumlahDipilih === 0) return null;
   return (
@@ -166,9 +219,16 @@ export function BilahHapusMassal({
         <Button variant="secondary" onClick={onBatal} disabled={sedangHapus}>
           Batal pilih
         </Button>
-        <Button variant="danger" onClick={onHapus} disabled={sedangHapus}>
-          {sedangHapus ? "Menghapus..." : "Hapus terpilih"}
-        </Button>
+        {aksiLain && (
+          <Button variant="secondary" onClick={aksiLain.onClick} disabled={sedangHapus}>
+            {aksiLain.label}
+          </Button>
+        )}
+        {onHapus && (
+          <Button variant="danger" onClick={onHapus} disabled={sedangHapus}>
+            {sedangHapus ? "Memproses..." : "Hapus terpilih"}
+          </Button>
+        )}
       </div>
     </div>
   );

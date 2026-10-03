@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { formatWIBDate } from "@/lib/utils/datetime";
 import { Alert } from "@/components/ui/alert";
@@ -14,7 +15,18 @@ type SeatStatus = {
   mulai: string | null;
   tenggangSampai: string | null;
   namaPeriode: string | null;
+  sisaHari: number | null;
+  /** Periode aktif yang tinggal H-7 atau kurang. */
+  segeraBerakhir: boolean;
+  /** Admin sekolah sudah mengajukan perpanjangan yang menunggu diproses admin pusat. */
+  permintaanMenunggu: boolean;
 };
+
+const TAUTAN_PERIODE_BARU = (
+  <Link href="/admin-sekolah/periode-baru" className="font-semibold underline underline-offset-2">
+    Buka Periode Baru
+  </Link>
+);
 
 /** Ringkasan kursi (seat) sekolah yang diaktifkan admin pusat - read-only, dipakai di dashboard admin sekolah. */
 export function KuotaSummary() {
@@ -57,18 +69,30 @@ export function KuotaSummary() {
           )}
         </div>
       )}
-      {status.status === "tenggang" && status.validUntil && status.tenggangSampai && (
+      {status.segeraBerakhir && status.validUntil && status.sisaHari != null && !status.permintaanMenunggu && (
+        <Alert variant="warning" className="mt-3">
+          Langganan {status.sisaHari === 0 ? "berakhir hari ini" : `berakhir ${status.sisaHari} hari lagi`} (
+          {formatWIBDate(status.validUntil)}). Siapkan periode berikutnya: tandai siswa yang lulus, tambahkan siswa
+          baru, lalu ajukan perpanjangan. {TAUTAN_PERIODE_BARU}
+        </Alert>
+      )}
+      {status.status === "tenggang" && status.validUntil && status.tenggangSampai && !status.permintaanMenunggu && (
         <Alert variant="warning" className="mt-3">
           Langganan berakhir pada {formatWIBDate(status.validUntil)}. Sampai {formatWIBDate(status.tenggangSampai)}{" "}
           (masa tenggang) siswa masih bisa mengerjakan ujian. Setelah itu sekolah dibekukan sampai diperpanjang -
-          hubungi admin pusat untuk memperpanjang.
+          ajukan perpanjangan sekarang. {TAUTAN_PERIODE_BARU}
         </Alert>
       )}
-      {status.status === "berakhir" && status.validUntil && (
+      {status.status === "berakhir" && status.validUntil && !status.permintaanMenunggu && (
         <Alert variant="danger" className="mt-3">
           Langganan berakhir pada {formatWIBDate(status.validUntil)}. Siswa tidak bisa memulai ujian baru dan siswa
           baru belum bisa ditambahkan atau diimpor sampai langganan diperpanjang. Riwayat dan nilai siswa tetap
-          bisa dibuka. Hubungi admin pusat untuk memperpanjang.
+          bisa dibuka. {TAUTAN_PERIODE_BARU}
+        </Alert>
+      )}
+      {status.permintaanMenunggu && (
+        <Alert variant="info" className="mt-3">
+          Permintaan perpanjangan sudah diajukan dan menunggu diproses admin pusat. {TAUTAN_PERIODE_BARU}
         </Alert>
       )}
       {status.isFull && (

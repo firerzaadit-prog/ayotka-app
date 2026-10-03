@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { buildDaftarSiswaKesiapanSekolah } from "@/lib/analytics/sekolah";
+import { bacaRentangPeriode } from "@/lib/analytics/rentang";
 import { KESIAPAN_SUBJECTS } from "@/lib/analytics/kesiapan";
 import type { KategoriKesiapan } from "@/lib/exam/scoring";
 
@@ -37,9 +38,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Kategori tidak valid." }, { status: 400 });
   }
 
+  const hasilRentang = await bacaRentangPeriode(url, schoolId);
+  if ("galat" in hasilRentang) return hasilRentang.galat;
+
   const siswa = await buildDaftarSiswaKesiapanSekolah(schoolId, {
     subjectNama: mapel,
     kategori: kategoriParam as KategoriKesiapan | null,
+    ...hasilRentang.rentang,
   });
 
   return NextResponse.json({ siswa });

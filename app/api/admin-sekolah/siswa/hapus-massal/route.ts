@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { resolveSchoolId } from "@/lib/schools/scope";
+import { muatSiswaKelolaanMassal } from "@/lib/students/kelolaan";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buatPenghapusAkunLogin, hapusSiswaMassal, ringkasanAuditHapus } from "@/lib/students/hapus";
 import { studentHapusMassalSchema } from "@/lib/validations/student";
@@ -30,17 +30,8 @@ export async function POST(request: Request) {
   }
   const ids = [...new Set(parsed.data.ids)];
 
-  // Hanya Jalur A: siswa mandiri (Jalur B) bisa punya schoolId tetapi bukan milik sekolah (lihat lib/students/kelolaan.ts).
-  const ditemukan = await prisma.student.findMany({
-    where: { id: { in: ids }, jalur: "A", deletedAt: null, schoolId: { not: null } },
-  });
-
-  // Otorisasi per sekolah (satu kali per sekolah yang berbeda, bukan per siswa).
-  const izinSekolah = new Map<string, boolean>();
-  for (const schoolId of new Set(ditemukan.map((s) => s.schoolId!))) {
-    izinSekolah.set(schoolId, (await resolveSchoolId(user, schoolId)) === schoolId);
-  }
-  const boleh = ditemukan.filter((s) => izinSekolah.get(s.schoolId!) === true);
+  // Hanya Jalur A milik sekolah yang berhak; otorisasi dicek sekali per sekolah (lihat lib/students/kelolaan.ts).
+  const { boleh, tidakDitemukan } = await muatSiswaKelolaanMassal(user, ids);
 
   const hasil = await hapusSiswaMassal(
     { db: prisma, hapusAkunLogin: buatPenghapusAkunLogin(createAdminClient()) },
@@ -74,6 +65,6 @@ export async function POST(request: Request) {
     dihapus: hasil.permanen.length,
     diarsipkan: hasil.arsip.length,
     gagal: hasil.gagal.length,
-    tidakDitemukan: ids.length - boleh.length,
+    tidakDitemukan,
   });
 }
