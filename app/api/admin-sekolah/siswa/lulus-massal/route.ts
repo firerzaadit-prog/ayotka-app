@@ -4,6 +4,7 @@ import { requireRole, type CurrentUser } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { muatSiswaKelolaanMassal } from "@/lib/students/kelolaan";
 import { batalkanLulusMassal, tandaiLulusMassal } from "@/lib/students/lulus";
+import { selaraskanKreditBanyakSiswaAman } from "@/lib/billing/kredit-pribadi";
 import { assertKuotaTersedia, hitungKursiTerpakai, KuotaPenuhError, kuotaAcuanSekolah } from "@/lib/students/create";
 import { studentLulusMassalSchema } from "@/lib/validations/student";
 
@@ -51,6 +52,8 @@ export async function POST(request: Request) {
   if (parsed.data.lulus) {
     const hasil = await tandaiLulusMassal(prisma, boleh.map((s) => s.id), now);
     const ditandai = new Set(hasil.ditandai);
+    // Alumni tidak ditanggung sekolah lagi: kredit pribadi yang tadinya ditunda ditarik kembali supaya langsung bisa dipakai.
+    await selaraskanKreditBanyakSiswaAman(prisma, hasil.ditandai, now);
     await catatAudit(boleh.filter((s) => ditandai.has(s.id)), true);
     return NextResponse.json({ ditandai: hasil.ditandai.length, dilewati: hasil.dilewati, tidakDitemukan });
   }
@@ -83,6 +86,8 @@ export async function POST(request: Request) {
 
   const hasil = await batalkanLulusMassal(prisma, boleh.map((s) => s.id));
   const dipulihkan = new Set(hasil.dipulihkan);
+  // Siswa kembali ditanggung sekolah: kredit pribadi yang bersinggungan dengan masa tanggungan ditunda lagi.
+  await selaraskanKreditBanyakSiswaAman(prisma, hasil.dipulihkan, now);
   await catatAudit(boleh.filter((s) => dipulihkan.has(s.id)), false);
   return NextResponse.json({ dipulihkan: hasil.dipulihkan.length, dilewati: hasil.dilewati, tidakDitemukan });
 }

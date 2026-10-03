@@ -3,7 +3,9 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { createSnapTransaction } from "@/lib/billing/midtrans";
-import { getActiveEntitlement } from "@/lib/billing/entitlements";
+import { getActiveEntitlement, kursiSekolahTersedia } from "@/lib/billing/entitlements";
+import { PESAN_DITANGGUNG_SEKOLAH } from "@/lib/billing/kredit-pribadi-pesan";
+import { SUMBER_KREDIT_PRIBADI } from "@/lib/billing/kredit-pribadi";
 import {
   AFFILIATE_LINK_PLAN,
   buildKonfirmasiLanggananWa,
@@ -39,14 +41,29 @@ export async function GET() {
     return NextResponse.json({ error: "Profil siswa tidak ditemukan." }, { status: 404 });
   }
 
-  const [active, plans, pendingInvoice] = await Promise.all([
+  const now = new Date();
+  const [active, plans, pendingInvoice, ditanggungSekolah, kreditTertunda] = await Promise.all([
     getActiveEntitlement(student.id),
     prisma.plan.findMany({ where: { kode: { in: ["monthly", "semester"] }, isActive: true }, orderBy: { harga: "asc" } }),
     prisma.invoice.findFirst({
-      where: { studentId: student.id, status: "pending", expiresAt: { gt: new Date() } },
+      where: { studentId: student.id, status: "pending", expiresAt: { gt: now } },
       orderBy: { createdAt: "desc" },
     }),
+    kursiSekolahTersedia(student, now),
+    // Kredit pribadi yang ditunda karena sekolah sedang/akan menanggung (lib/billing/kredit-pribadi.ts): satu-satunya
+    // baris pribadi yang bisa mulai di masa depan.
+    prisma.entitlement.findMany({
+      where: { studentId: student.id, source: { in: SUMBER_KREDIT_PRIBADI }, revokedAt: null, startsAt: { gt: now } },
+      select: { startsAt: true, endsAt: true },
+    }),
   ]);
+  const kreditDitunda =
+    kreditTertunda.length > 0
+      ? {
+          mulai: new Date(Math.min(...kreditTertunda.map((k) => k.startsAt.getTime()))),
+          sampai: new Date(Math.max(...kreditTertunda.map((k) => k.endsAt.getTime()))),
+        }
+      : null;
 
   // Mode pembayaran sementara (affiliate.id, aktivasi manual admin) - lihat
   // lib/billing/pembayaran-affiliate.ts. Di mode ini UI memakai tautan di
@@ -70,6 +87,10 @@ export async function GET() {
   return NextResponse.json({
     jalur: student.jalur,
     sekolah: student.school,
+    /** Jalur A yang kursi sekolahnya berlaku/tersedia sekarang: tidak perlu (dan tidak boleh) membeli paket sendiri. */
+    ditanggungSekolah,
+    alumni: student.lulusAt !== null,
+    kreditDitunda,
     paymentMode,
     affiliatePlans,
     referralCode: student.referralCode,
@@ -120,6 +141,12 @@ export async function POST(request: Request) {
   const student = await prisma.student.findFirst({ where: { userId: user.id } });
   if (!student) {
     return NextResponse.json({ error: "Profil siswa tidak ditemukan." }, { status: 404 });
+  }
+
+  // Siswa sekolah yang kursinya sedang ditanggung sekolah tidak perlu membeli sendiri (uangnya akan terpakai percuma).
+  // Setelah sekolah berhenti/masa tenggang habis, atau setelah ditandai lulus, pembelian terbuka.
+  if (await kursiSekolahTersedia(student)) {
+    return NextResponse.json({ error: PESAN_DITANGGUNG_SEKOLAH, code: "DITANGGUNG_SEKOLAH" }, { status: 409 });
   }
 
   const plan = await prisma.plan.findUnique({ where: { id: parsed.data.planId } });

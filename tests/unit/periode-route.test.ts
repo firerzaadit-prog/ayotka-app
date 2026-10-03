@@ -43,6 +43,7 @@ const h = vi.hoisted(() => ({
   sekolahUpdate: vi.fn(),
   updateKursi: vi.fn(),
   kursiPerPeriode: vi.fn(),
+  selaraskan: vi.fn(),
 }));
 const daftar = () => h.store as PeriodeDb[];
 
@@ -50,6 +51,8 @@ vi.mock("@/lib/auth/session", () => ({ requireRole: h.requireRole }));
 vi.mock("@/lib/schools/scope", () => ({ resolveSchoolId: h.resolveSchoolId }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: h.logAudit, getClientIp: () => "1.2.3.4" }));
 vi.mock("@/lib/students/create", () => ({ hitungKursiTerpakai: h.hitungSiswa }));
+// Logika penundaan kredit pribadi diuji sendiri (kredit-pribadi.test.ts); di sini hanya dipastikan rute memanggilnya.
+vi.mock("@/lib/billing/kredit-pribadi", () => ({ selaraskanKreditSekolah: h.selaraskan }));
 vi.mock("@/lib/db/prisma", () => {
   const prisma: Record<string, unknown> = {
     school: { findUnique: h.sekolah, update: h.sekolahUpdate },
@@ -170,6 +173,7 @@ beforeEach(() => {
   h.updateKursi.mockResolvedValue({ count: 0 });
   h.kursiPerPeriode.mockResolvedValue([]);
   h.sekolahUpdate.mockResolvedValue({});
+  h.selaraskan.mockResolvedValue({ diperbarui: 0, dibuat: 0, siswa: 0 });
 });
 afterEach(() => vi.useRealTimers());
 
@@ -210,6 +214,24 @@ describe("POST /periode - aktivasi dan perpanjangan", () => {
     expect(h.logAudit).toHaveBeenCalledWith(
       expect.objectContaining({ aksi: "create", entitas: "school_periods", userId: "pusat-1" }),
     );
+  });
+
+  it("membuat periode menyelaraskan kredit pribadi siswa sekolah itu (ditunda, tidak hangus) dalam transaksi yang sama", async () => {
+    await POST(req("POST", BODY), ctx);
+    expect(h.selaraskan).toHaveBeenCalledTimes(1);
+    expect(h.selaraskan.mock.calls[0]![1]).toBe("sch-1");
+  });
+
+  it("penyelarasan kredit gagal: seluruh pembuatan periode dibatalkan (tidak ada periode setengah jadi)", async () => {
+    h.selaraskan.mockRejectedValue(new Error("db putus"));
+    await expect(POST(req("POST", BODY), ctx)).rejects.toThrow("db putus");
+    expect(daftar()).toHaveLength(0);
+  });
+
+  it("tumpang tindih yang ditolak tidak sempat menyentuh kredit siswa", async () => {
+    h.store.push(periode("lama", "2026-01-01", "2026-06-30"));
+    await POST(req("POST", BODY), ctx);
+    expect(h.selaraskan).not.toHaveBeenCalled();
   });
 
   it("aktivasi pertama dengan rujukan mitra: sekolah dicatat dan komisi 'pending' dibuat", async () => {
@@ -410,6 +432,14 @@ describe("PATCH /periode/[periodeId] - ubah dan cabut", () => {
       data: { revokedAt: new Date("2026-03-01T05:00:00Z") },
     });
     expect(h.logAudit).toHaveBeenCalledWith(expect.objectContaining({ aksi: "delete" }));
+  });
+
+  it("mengubah atau mencabut periode menghitung ulang kredit pribadi sekolah (pencabutan mengembalikan hari yang ditunda)", async () => {
+    await PATCH(req("PATCH", { dicabut: true }), ctxPeriode("p1"));
+    expect(h.selaraskan).toHaveBeenCalledTimes(1);
+    expect(h.selaraskan.mock.calls[0]![1]).toBe("sch-1");
+    // dipanggil SETELAH periode benar-benar dicabut di transaksi yang sama
+    expect(daftar()[0]!.dicabutAt).not.toBeNull();
   });
 
   it("periode yang sudah dicabut tidak bisa diubah lagi", async () => {

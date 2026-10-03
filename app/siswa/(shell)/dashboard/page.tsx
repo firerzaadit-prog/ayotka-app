@@ -5,6 +5,7 @@ import { RankingWidget } from "@/components/dashboard/ranking-widget";
 import { VoucherRedeemCard } from "@/components/siswa/voucher-redeem-card";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { kursiSekolahTersedia } from "@/lib/billing/entitlements";
 
 const QUICK_LINKS = [
   {
@@ -82,18 +83,19 @@ const QUICK_LINKS = [
 ];
 
 export default async function SiswaDashboardPage() {
-  // Jalur A (siswa sekolah): akses try out sudah ditanggung sekolah lewat
-  // admin pusat/admin sekolah, jadi kartu tukar voucher mitra tidak relevan
-  // di sini juga - sama seperti sudah dihapus dari halaman Langganan &
-  // Voucher untuk jalur ini (lihat app/siswa/langganan/page.tsx). Default
-  // ke MENAMPILKAN kalau data siswa/jalur gagal dimuat, konsisten dengan
-  // perilaku lama (selalu tampil) daripada diam-diam menyembunyikan sesuatu
-  // yang mungkin relevan.
+  // Jalur A (siswa sekolah) yang aksesnya SEDANG ditanggung sekolah tidak butuh kartu tukar voucher (juga disembunyikan
+  // di halaman Langganan, lihat app/siswa/(shell)/langganan/page.tsx). Alumni dan siswa dari sekolah yang berhenti
+  // berlangganan boleh lanjut dengan voucher/paket pribadi, jadi kartunya tampil lagi. Default ke MENAMPILKAN kalau data
+  // siswa gagal dimuat, konsisten dengan perilaku lama daripada diam-diam menyembunyikan sesuatu yang mungkin relevan.
   const user = await getCurrentUser();
   const student = user
-    ? await prisma.student.findFirst({ where: { userId: user.id }, select: { jalur: true } })
+    ? await prisma.student.findFirst({
+        where: { userId: user.id },
+        select: { id: true, schoolId: true, jalur: true, deletedAt: true, lulusAt: true },
+      })
     : null;
-  const tampilkanVoucher = student?.jalur !== "A";
+  const ditanggungSekolah = student ? await kursiSekolahTersedia(student).catch(() => false) : false;
+  const tampilkanVoucher = !ditanggungSekolah;
 
   return (
     <div className="flex flex-col gap-6">

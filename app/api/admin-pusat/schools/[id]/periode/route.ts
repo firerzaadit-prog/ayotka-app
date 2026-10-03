@@ -13,6 +13,7 @@ import {
   TENGGANG_DEFAULT_HARI,
 } from "@/lib/billing/periode-sekolah";
 import { ambilPermintaanMenunggu, PermintaanTidakValidError, setujuiPermintaan } from "@/lib/billing/permintaan-perpanjangan";
+import { selaraskanKreditSekolah } from "@/lib/billing/kredit-pribadi";
 import { akhirHariWIB, startOfDayWIB } from "@/lib/utils/datetime";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -176,8 +177,11 @@ export async function POST(request: Request, { params }: RouteParams) {
           data: { partnerId: data.referredByPartnerId, schoolId, status: "pending" },
         });
       }
+      // Siswa sekolah yang sudah membeli paket sendiri (saat sekolah berhenti): sisa harinya ditunda sampai masa
+      // tanggungan periode ini selesai, bukan berjalan bersamaan dengan kursi sekolah dan hangus.
+      await selaraskanKreditSekolah(tx, schoolId, now);
       return baru;
-    });
+    }, { maxWait: 10_000, timeout: 30_000 });
 
     await logAudit({
       userId: user.id,

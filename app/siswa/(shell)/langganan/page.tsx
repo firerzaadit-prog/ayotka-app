@@ -21,6 +21,11 @@ type Entitlement = {
 type CheckoutData = {
   jalur: "A" | "B";
   sekolah: { nama: string } | null;
+  /** Jalur A yang kursi sekolahnya berlaku/tersedia sekarang: akses ditanggung sekolah, tidak perlu beli paket. */
+  ditanggungSekolah: boolean;
+  alumni: boolean;
+  /** Kredit paket pribadi yang ditunda karena sekolah sedang/akan menanggung (lib/billing/kredit-pribadi.ts). */
+  kreditDitunda: { mulai: string; sampai: string } | null;
   /** "affiliate" = bayar lewat tautan affiliate.id + aktivasi manual admin (sementara, lihat lib/billing/pembayaran-affiliate.ts). */
   paymentMode: "affiliate" | "midtrans";
   affiliatePlans: Record<string, { url: string; waUrl: string }> | null;
@@ -96,7 +101,10 @@ export default function LanggananSiswaPage() {
     return <PageSkeleton />;
   }
 
-  if (data.jalur === "A") {
+  // Siswa sekolah (Jalur A) yang aksesnya sedang ditanggung sekolah tidak perlu membeli paket. Setelah sekolah berhenti
+  // menanggung (langganan + masa tenggang habis) atau setelah ditandai lulus, ia melihat halaman beli seperti siswa
+  // mandiri - di akun yang sama, riwayat dan nilainya tetap.
+  if (data.jalur === "A" && data.ditanggungSekolah) {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader title="Langganan" />
@@ -114,6 +122,14 @@ export default function LanggananSiswaPage() {
             . Akses Try Out ditanggung oleh sekolahmu — kamu tidak perlu membeli paket sendiri.
           </p>
         </Card>
+
+        {data.kreditDitunda && (
+          <Alert variant="info">
+            Kamu masih punya paket pribadi yang belum habis. Sisa harinya <b>tidak hangus</b>: ditunda selama sekolahmu
+            menanggung, lalu berlaku lagi mulai {formatWIBDate(data.kreditDitunda.mulai)} sampai{" "}
+            {formatWIBDate(data.kreditDitunda.sampai)}.
+          </Alert>
+        )}
 
         <Card>
           <p className="text-sm text-slate-500">Kode referral kamu</p>
@@ -137,10 +153,39 @@ export default function LanggananSiswaPage() {
     <div className="flex flex-col gap-8">
       <PageHeader
         title="Langganan & Voucher"
-        description="Kamu terdaftar sebagai siswa mandiri — beli paket langganan atau tukarkan kode voucher dari mitra untuk akses try out tanpa batas."
+        description={
+          data.jalur === "A"
+            ? "Beli paket langganan atau tukarkan kode voucher dari mitra untuk lanjut belajar dengan akses try out tanpa batas."
+            : "Kamu terdaftar sebagai siswa mandiri — beli paket langganan atau tukarkan kode voucher dari mitra untuk akses try out tanpa batas."
+        }
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
+
+      {data.jalur === "A" && (
+        <Alert variant="info">
+          {data.alumni ? (
+            <>
+              Kamu sudah ditandai lulus
+              {data.sekolah ? <> dari {data.sekolah.nama}</> : null}, jadi akses try out dari sekolah tidak berlaku lagi.
+            </>
+          ) : (
+            <>
+              Langganan sekolahmu
+              {data.sekolah ? <> ({data.sekolah.nama})</> : null} sedang tidak aktif.
+            </>
+          )}{" "}
+          Kamu bisa lanjut belajar dengan paket pribadi di akun yang sama — <b>riwayat dan nilaimu tetap tersimpan</b>. Kalau
+          sekolahmu berlangganan lagi, sisa hari paket pribadimu otomatis ditunda, tidak hangus.
+        </Alert>
+      )}
+
+      {data.kreditDitunda && (
+        <Alert variant="info">
+          Sebagian paket pribadimu ditunda karena sekolahmu menanggung aksesmu pada periode berikutnya. Paket itu berlaku
+          lagi mulai {formatWIBDate(data.kreditDitunda.mulai)} sampai {formatWIBDate(data.kreditDitunda.sampai)}.
+        </Alert>
+      )}
 
       <Card>
         <p className="text-sm text-slate-500">Status akses</p>

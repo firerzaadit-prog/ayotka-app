@@ -5,6 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { periodeUbahSchema } from "@/lib/validations/school-periode";
 import { hitungKursiTerpakai } from "@/lib/students/create";
 import { PeriodeTidakValidError, statusPeriode, ubahPeriode, type PerubahanPeriode } from "@/lib/billing/periode-sekolah";
+import { selaraskanKreditSekolah } from "@/lib/billing/kredit-pribadi";
 import { akhirHariWIB, startOfDayWIB } from "@/lib/utils/datetime";
 
 type RouteParams = { params: Promise<{ id: string; periodeId: string }> };
@@ -69,7 +70,16 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 
   try {
-    const baru = await prisma.$transaction((tx) => ubahPeriode(tx, periodeId, perubahan, now));
+    // Kredit pribadi siswa dihitung ulang terhadap periode yang berlaku SETELAH perubahan ini: periode dicabut atau
+    // dipersingkat mengembalikan kredit yang tadinya ditunda; diperpanjang menundanya lebih jauh.
+    const baru = await prisma.$transaction(
+      async (tx) => {
+        const hasil = await ubahPeriode(tx, periodeId, perubahan, now);
+        await selaraskanKreditSekolah(tx, schoolId, now);
+        return hasil;
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
     await logAudit({
       userId: user.id,
       aksi: data.dicabut ? "delete" : "update",

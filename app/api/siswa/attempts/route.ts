@@ -30,7 +30,7 @@ function accessDeniedResponse(access: Extract<AccessCheckResult, { allowed: fals
   if (access.reason === "sekolah_berakhir") {
     return NextResponse.json(
       {
-        error: `Langganan sekolahmu berakhir pada ${formatWIBDate(access.berakhir)}. Hubungi admin sekolahmu untuk perpanjangan. Riwayat dan nilaimu tetap bisa dibuka.`,
+        error: `Langganan sekolahmu berakhir pada ${formatWIBDate(access.berakhir)}. Hubungi admin sekolahmu untuk perpanjangan, atau lanjut belajar dengan paket pribadi di menu Langganan. Riwayat dan nilaimu tetap bisa dibuka.`,
         code: "SEKOLAH_BERAKHIR",
       },
       { status: 402 },
@@ -40,7 +40,7 @@ function accessDeniedResponse(access: Extract<AccessCheckResult, { allowed: fals
     return NextResponse.json(
       {
         error:
-          "Kamu sudah ditandai lulus dari sekolah ini, jadi kursi sekolah tidak berlaku lagi untuk try out baru. Riwayat dan nilaimu tetap bisa dibuka.",
+          "Kamu sudah ditandai lulus dari sekolah ini, jadi kursi sekolah tidak berlaku lagi untuk try out baru. Kamu bisa lanjut belajar dengan paket pribadi di menu Langganan. Riwayat dan nilaimu tetap bisa dibuka.",
         code: "ALUMNI",
       },
       { status: 402 },

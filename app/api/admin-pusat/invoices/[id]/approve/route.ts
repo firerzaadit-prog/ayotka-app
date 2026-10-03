@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
+import { selaraskanKreditSiswaAman } from "@/lib/billing/kredit-pribadi";
 import { z } from "zod";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -71,6 +72,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       },
     }),
   ]);
+
+  // Kalau sekolah siswa sedang/akan menanggung, sisa hari paket ini ditunda (tidak hangus); lihat lib/billing/kredit-pribadi.ts.
+  await selaraskanKreditSiswaAman(prisma, invoice.studentId);
 
   await logAudit({
     userId: actor.id,

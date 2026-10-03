@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { verifyMidtransSignature } from "@/lib/billing/midtrans";
 import { generateUniqueVoucherCodes } from "@/lib/billing/vouchers";
+import { selaraskanKreditSiswaAman } from "@/lib/billing/kredit-pribadi";
 import { logAudit } from "@/lib/audit/log";
 import { z } from "zod";
 
@@ -89,6 +90,10 @@ export async function POST(request: Request) {
           },
         });
       });
+
+      // Pembayaran bisa selesai setelah sekolah mulai menanggung siswa ini: sisa harinya ditunda, tidak hangus.
+      // SETELAH transaksi pembayaran commit dan tidak boleh menggagalkan webhook (galat hanya dicatat).
+      await selaraskanKreditSiswaAman(prisma, invoice.studentId);
 
       await logAudit({
         userId: null,

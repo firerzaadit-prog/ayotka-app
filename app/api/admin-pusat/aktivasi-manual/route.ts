@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { getActiveEntitlement } from "@/lib/billing/entitlements";
+import { getActiveEntitlement, kursiSekolahTersedia } from "@/lib/billing/entitlements";
+import { SUMBER_KREDIT_PRIBADI, selaraskanKreditSiswaAman } from "@/lib/billing/kredit-pribadi";
 import { getSaldo } from "@/lib/billing/saldo";
 import { aktivasiManualSchema, JENDELA_DUPLIKAT_MS } from "@/lib/validations/aktivasi-manual";
 
@@ -15,9 +16,10 @@ function addDays(date: Date, days: number): Date {
 }
 
 /**
- * Cari siswa mandiri (Jalur B) untuk diaktivasi manual: nama, email, atau NISN.
- * Hasil memuat status langganan & saldo sekarang supaya admin bisa melihat
- * kondisi akun sebelum mengaktifkan (mis. sudah punya langganan aktif).
+ * Cari siswa untuk diaktivasi manual: nama, email, atau NISN. Siswa mandiri (Jalur B) dan siswa sekolah (Jalur A)
+ * - yang terakhir untuk alumni atau siswa dari sekolah yang berhenti berlangganan dan lanjut belajar pribadi di akun
+ * yang sama. Hasil memuat status langganan & saldo sekarang supaya admin bisa melihat kondisi akun sebelum
+ * mengaktifkan (mis. sudah punya langganan aktif, atau masih ditanggung sekolah).
  */
 export async function GET(request: Request) {
   try {
@@ -34,7 +36,7 @@ export async function GET(request: Request) {
   const students = await prisma.student.findMany({
     where: {
       deletedAt: null,
-      jalur: "B",
+      jalur: { in: ["A", "B"] },
       OR: [
         { nama: { contains: q, mode: "insensitive" } },
         { nisn: { contains: q } },
@@ -43,16 +45,35 @@ export async function GET(request: Request) {
     },
     orderBy: { nama: "asc" },
     take: 10,
-    select: { id: true, nama: true, jenjang: true, user: { select: { email: true } } },
+    select: {
+      id: true,
+      nama: true,
+      jenjang: true,
+      jalur: true,
+      schoolId: true,
+      deletedAt: true,
+      lulusAt: true,
+      school: { select: { nama: true } },
+      user: { select: { email: true } },
+    },
   });
 
   const hasil = await Promise.all(
     students.map(async (s) => {
-      const [aktif, saldo] = await Promise.all([getActiveEntitlement(s.id), getSaldo(s.id)]);
+      const [aktif, saldo, ditanggungSekolah] = await Promise.all([
+        getActiveEntitlement(s.id),
+        getSaldo(s.id),
+        kursiSekolahTersedia(s),
+      ]);
       return {
         id: s.id,
         nama: s.nama,
         jenjang: s.jenjang,
+        jalur: s.jalur,
+        sekolah: s.jalur === "A" ? (s.school?.nama ?? null) : null,
+        alumni: s.lulusAt !== null,
+        /** Jalur A yang kursi sekolahnya berlaku sekarang: paket pribadi yang diaktifkan akan ditunda otomatis sampai tanggungan sekolah selesai. */
+        ditanggungSekolah,
         email: s.user?.email ?? null,
         saldo,
         langgananAktifSampai: aktif?.canStartNewAttempt ? aktif.entitlement.endsAt : null,
@@ -86,11 +107,11 @@ export async function POST(request: Request) {
   const input = parsed.data;
 
   const student = await prisma.student.findFirst({
-    where: { id: input.studentId, deletedAt: null, jalur: "B" },
+    where: { id: input.studentId, deletedAt: null, jalur: { in: ["A", "B"] } },
     select: { id: true, nama: true },
   });
   if (!student) {
-    return NextResponse.json({ error: "Siswa mandiri tidak ditemukan." }, { status: 404 });
+    return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
   }
 
   const sejak = new Date(Date.now() - JENDELA_DUPLIKAT_MS);
@@ -119,13 +140,25 @@ export async function POST(request: Request) {
       );
     }
 
-    // Kalau siswa masih punya langganan aktif, masa aktif baru DITAMBAHKAN setelah
+    // Kalau siswa masih punya langganan PRIBADI aktif, masa aktif baru DITAMBAHKAN setelah
     // yang lama habis (bukan menimpa) - siswa sudah membayar penuh, jangan sampai
     // sisa harinya hangus. getActiveEntitlement mengambil endsAt terjauh, jadi
     // entitlement baru yang berakhir lebih jauh otomatis jadi yang berlaku.
+    // Kursi sekolah (school_seat) SENGAJA tidak dihitung sebagai dasar: masa tanggungan sekolah bukan kredit yang dibeli
+    // siswa, kalau ikut dihitung siswa yang masih ditanggung sekolah mendapat hari ganda.
     const startsAt = new Date();
-    const aktif = await getActiveEntitlement(student.id);
-    const dasar = aktif?.canStartNewAttempt && aktif.entitlement.endsAt > startsAt ? aktif.entitlement.endsAt : startsAt;
+    const aktifPribadi = await prisma.entitlement.findFirst({
+      where: {
+        studentId: student.id,
+        source: { in: SUMBER_KREDIT_PRIBADI },
+        revokedAt: null,
+        startsAt: { lte: startsAt },
+        endsAt: { gt: startsAt },
+      },
+      orderBy: { endsAt: "desc" },
+      select: { endsAt: true },
+    });
+    const dasar = aktifPribadi ? aktifPribadi.endsAt : startsAt;
     const endsAt = addDays(dasar, plan.durasiHari ?? 30);
     const [invoice, entitlement] = await prisma.$transaction(async (tx) => {
       const inv = await tx.invoice.create({
@@ -144,6 +177,18 @@ export async function POST(request: Request) {
       return [inv, ent] as const;
     });
 
+    // Siswa sekolah yang sekolahnya sedang/akan menanggung: sisa hari ditunda otomatis (tidak hangus). Aman: galat di
+    // sini tidak membatalkan aktivasi yang sudah tersimpan.
+    await selaraskanKreditSiswaAman(prisma, student.id);
+    // Penundaan bisa memecah baris menjadi beberapa: ringkasan memakai semua baris dari invoice ini.
+    const baris = await prisma.entitlement.findMany({
+      where: { invoiceId: invoice.id, revokedAt: null },
+      select: { startsAt: true, endsAt: true },
+    });
+    const sekarang = Date.now();
+    const berlakuSampai = baris.length > 0 ? new Date(Math.max(...baris.map((b) => b.endsAt.getTime()))) : entitlement.endsAt;
+    const mulaiTertunda = baris.filter((b) => b.startsAt.getTime() > sekarang).map((b) => b.startsAt.getTime());
+
     await logAudit({
       userId: actor.id,
       aksi: "create",
@@ -153,7 +198,18 @@ export async function POST(request: Request) {
       ip,
     });
 
-    return NextResponse.json({ ok: true, tipe: "langganan", siswa: student.nama, paket: plan.nama, berlakuSampai: entitlement.endsAt }, { status: 201 });
+    return NextResponse.json(
+      {
+        ok: true,
+        tipe: "langganan",
+        siswa: student.nama,
+        paket: plan.nama,
+        berlakuSampai,
+        /** Terisi bila sekolah siswa sedang/akan menanggung: paket (seluruhnya atau sisanya) mulai berlaku di tanggal ini. */
+        ditundaSampaiMulai: mulaiTertunda.length > 0 ? new Date(Math.min(...mulaiTertunda)) : null,
+      },
+      { status: 201 },
+    );
   }
 
   const duplikat = await prisma.saldoTransaction.findFirst({

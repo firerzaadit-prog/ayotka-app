@@ -39,9 +39,14 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
-  const entitlement = await prisma.entitlement.findFirst({
+  // Satu invoice bisa punya lebih dari satu baris akses: penundaan kredit (lib/billing/kredit-pribadi.ts) memecah sisa
+  // hari yang bersinggungan dengan masa tanggungan sekolah menjadi baris lanjutan. Semuanya harus dicabut, kalau tidak
+  // akses hasil refund tetap menyala di baris lanjutan.
+  const entitlements = await prisma.entitlement.findMany({
     where: { invoiceId: invoice.id, revokedAt: null },
+    orderBy: { startsAt: "asc" },
   });
+  const entitlement = entitlements[0] ?? null;
 
   const attemptCount = entitlement
     ? await prisma.attempt.count({
@@ -62,8 +67,8 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   const [updatedInvoice] = await prisma.$transaction([
     prisma.invoice.update({ where: { id: invoice.id }, data: { status: "refunded" } }),
-    ...(entitlement
-      ? [prisma.entitlement.update({ where: { id: entitlement.id }, data: { revokedAt: new Date() } })]
+    ...(entitlements.length > 0
+      ? [prisma.entitlement.updateMany({ where: { invoiceId: invoice.id, revokedAt: null }, data: { revokedAt: new Date() } })]
       : []),
   ]);
 
