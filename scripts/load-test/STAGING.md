@@ -100,7 +100,11 @@ lingkungan sendiri.
    branch lain selain `staging`.
 4. Settings → **Deployment Protection** → **Protection Bypass for Automation** → buat kunci. Kunci ini
    dipakai k6 lewat `-e VERCEL_BYPASS=<kunci>` supaya bisa menembus perlindungan login pratinjau.
-5. Push ke branch `staging`, tunggu build selesai, catat URL pratinjau (mis.
+5. **Firewall:** Vercel → Firewall → tambahkan **System Bypass Rule** (atau aturan bypass sendiri) untuk IP
+   publik komputer yang menjalankan k6, supaya lalu lintas uji tidak diblokir mitigasi DDoS/WAF. Perhatikan:
+   System Bypass tidak menembus **Attack Challenge Mode** - pastikan mode itu mati selama uji. (Panduan
+   resmi: [How to Effectively Load Test Your Vercel Application](https://vercel.com/kb/guide/how-to-effectively-load-test-your-vercel-application).)
+6. Push ke branch `staging`, tunggu build selesai, catat URL pratinjau (mis.
    `https://ayotka-app-git-staging-<tim>.vercel.app`).
 
 ## C. Periksa sebelum menembak (3 hal, wajib)
@@ -123,8 +127,14 @@ k6 run -e BASE_URL=https://<URL-STAGING> -e VERCEL_BYPASS=<kunci> -e TARGET_VUS=
   scripts/load-test/exam-load-test.js
 ```
 
+**Aturan & biaya Vercel untuk uji beban** (dari panduan resmi Vercel): uji harus ke **staging/pratinjau**, bukan
+production (sudah demikian di panduan ini); uji di atas 50.000 permintaan per detik wajib membuka tiket ke
+Vercel (jauh di atas kebutuhan kita); naikkan beban **bertahap**, bukan lonjakan mendadak. Alat pemantauan
+Vercel (Observability Plus, Speed Insights, Web Analytics) bisa menghasilkan **biaya besar saat lalu lintas
+tinggi dan menjadi tanggungan Anda** - matikan atau kecilkan sampling selama uji kecuali memang dibutuhkan.
+
 Sebelum menaikkan beban, buat akun lebih banyak (`LOAD_TEST_COUNT=1000`, maks 10.000). Pantau Supabase
-**Reports** (CPU, koneksi, memori) dan Vercel **Observability** (error 5xx, durasi fungsi) selama uji. Kalau
+**Reports** (CPU, koneksi, memori) dan log fungsi Vercel (error 5xx, durasi fungsi) selama uji. Kalau
 CPU atau koneksi database jenuh, naikkan compute staging dan ulangi. Batasi satu uji ≤ 30 menit dan pasang
 Spend Management Vercel dengan batas kecil agar tagihan tidak kejutan.
 
