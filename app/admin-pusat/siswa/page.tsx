@@ -15,6 +15,12 @@ import { IconUsers, IconSearch } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
 import { ImportSiswaModal } from "@/components/sekolah/import-siswa-modal";
+import {
+  BilahHapusMassal,
+  CentangSemuaHalaman,
+  useHapusMassal,
+  usePilihan,
+} from "@/components/sekolah/hapus-massal";
 import { Download, FileSpreadsheet } from "lucide-react";
 
 type SchoolOption = { id: string; nama: string };
@@ -53,6 +59,11 @@ export default function SemuaSiswaPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [refreshKey, setRefreshKey] = useState(0);
+  const pilihan = usePilihan();
+  const hapusMassal = useHapusMassal(() => {
+    pilihan.kosongkan();
+    setRefreshKey((k) => k + 1);
+  });
 
   const [showForm, setShowForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -126,7 +137,8 @@ export default function SemuaSiswaPage() {
   async function handleDelete(id: string, namaSiswa: string) {
     const ok = await confirm({
       title: `Hapus siswa "${namaSiswa}"?`,
-      description: "Riwayat nilai tetap tersimpan.",
+      description:
+        "Data siswa dan akun loginnya dihapus, NISN-nya bisa ditambahkan lagi. Kalau siswa sudah pernah mengerjakan ujian, riwayat nilainya tetap tersimpan.",
       danger: true,
     });
     if (!ok) return;
@@ -144,6 +156,12 @@ export default function SemuaSiswaPage() {
   );
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
   const pageStudents = filteredStudents.slice((page - 1) * pageSize, page * pageSize);
+  // Hanya siswa Jalur A (terikat sekolah) yang bisa dihapus lewat sini; Jalur B tidak punya kotak centang.
+  const bisaDihapus = (s: StudentRow) => s.jalur === "A" && s.school != null;
+  const idSemua = filteredStudents.filter(bisaDihapus).map((s) => s.id);
+  const idHalaman = pageStudents.filter(bisaDihapus).map((s) => s.id);
+  // Yang dihapus hanya yang dicentang DAN masih tampil menurut filter saat ini - jumlah di bilah = jumlah yang dihapus.
+  const terpilih = idSemua.filter((id) => pilihan.dipilih.has(id));
 
   return (
     <div className="flex flex-col gap-6">
@@ -297,10 +315,25 @@ export default function SemuaSiswaPage() {
 
       {filteredStudents.length > 0 && (
         <>
+        <BilahHapusMassal
+          jumlahDipilih={terpilih.length}
+          jumlahSemua={idSemua.length}
+          sedangHapus={hapusMassal.sedangHapus}
+          onPilihSemua={() => pilihan.aturBanyak(idSemua, true)}
+          onBatal={pilihan.kosongkan}
+          onHapus={() => hapusMassal.hapus(terpilih)}
+        />
         <TableContainer>
           <Table>
             <Thead>
               <tr>
+                <Th className="w-10">
+                  <CentangSemuaHalaman
+                    idHalaman={idHalaman}
+                    dipilih={pilihan.dipilih}
+                    onUbah={(nyala) => pilihan.aturBanyak(idHalaman, nyala)}
+                  />
+                </Th>
                 <Th>Nama</Th>
                 <Th>Sekolah</Th>
                 <Th>Jalur</Th>
@@ -311,7 +344,18 @@ export default function SemuaSiswaPage() {
             </Thead>
             <tbody>
               {pageStudents.map((s) => (
-                <Tr key={s.id}>
+                <Tr key={s.id} className={pilihan.dipilih.has(s.id) ? "bg-indigo-50/40" : undefined}>
+                  <Td className="w-10">
+                    {bisaDihapus(s) && (
+                      <input
+                        type="checkbox"
+                        aria-label={`Pilih ${s.nama}`}
+                        className="accent-indigo-600"
+                        checked={pilihan.dipilih.has(s.id)}
+                        onChange={() => pilihan.toggle(s.id)}
+                      />
+                    )}
+                  </Td>
                   <Td className="font-medium">
                     <Link href={`/admin-pusat/siswa/${s.id}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
                       {s.nama}

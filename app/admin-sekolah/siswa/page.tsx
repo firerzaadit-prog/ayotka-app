@@ -16,6 +16,12 @@ import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
 import { KuotaSummary } from "@/components/sekolah/kuota-summary";
 import { ImportSiswaModal } from "@/components/sekolah/import-siswa-modal";
+import {
+  BilahHapusMassal,
+  CentangSemuaHalaman,
+  useHapusMassal,
+  usePilihan,
+} from "@/components/sekolah/hapus-massal";
 import { Download, FileSpreadsheet } from "lucide-react";
 
 type StudentRow = {
@@ -48,6 +54,11 @@ export default function KelolaSiswaPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const pilihan = usePilihan();
+  const hapusMassal = useHapusMassal(() => {
+    pilihan.kosongkan();
+    setRefreshKey((k) => k + 1);
+  });
 
   useEffect(() => {
     let ignore = false;
@@ -122,7 +133,8 @@ export default function KelolaSiswaPage() {
   async function handleDelete(id: string, nama: string) {
     const ok = await confirm({
       title: `Hapus siswa "${nama}"?`,
-      description: "Riwayat nilai tetap tersimpan.",
+      description:
+        "Data siswa dan akun loginnya dihapus, NISN-nya bisa ditambahkan lagi. Kalau siswa sudah pernah mengerjakan ujian, riwayat nilainya tetap tersimpan.",
       danger: true,
     });
     if (!ok) return;
@@ -142,6 +154,10 @@ export default function KelolaSiswaPage() {
   });
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
   const pageStudents = filteredStudents.slice((page - 1) * pageSize, page * pageSize);
+  // Yang dihapus hanya yang dicentang DAN masih tampil menurut pencarian saat ini - jumlah di bilah = jumlah yang dihapus.
+  const idSemua = filteredStudents.map((s) => s.id);
+  const idHalaman = pageStudents.map((s) => s.id);
+  const terpilih = idSemua.filter((id) => pilihan.dipilih.has(id));
 
   return (
     <div className="flex flex-col gap-6">
@@ -226,7 +242,7 @@ export default function KelolaSiswaPage() {
         </form>
       )}
 
-      {students === null && <TableSkeleton columns={5} />}
+      {students === null && <TableSkeleton columns={6} />}
       {students?.length === 0 && (
         <EmptyState
           icon={<IconUsers />}
@@ -245,10 +261,25 @@ export default function KelolaSiswaPage() {
 
       {filteredStudents.length > 0 && (
         <>
+        <BilahHapusMassal
+          jumlahDipilih={terpilih.length}
+          jumlahSemua={idSemua.length}
+          sedangHapus={hapusMassal.sedangHapus}
+          onPilihSemua={() => pilihan.aturBanyak(idSemua, true)}
+          onBatal={pilihan.kosongkan}
+          onHapus={() => hapusMassal.hapus(terpilih)}
+        />
         <TableContainer>
           <Table>
             <Thead>
               <Tr>
+                <Th className="w-10">
+                  <CentangSemuaHalaman
+                    idHalaman={idHalaman}
+                    dipilih={pilihan.dipilih}
+                    onUbah={(nyala) => pilihan.aturBanyak(idHalaman, nyala)}
+                  />
+                </Th>
                 <Th>Nama</Th>
                 <Th>NISN</Th>
                 <Th>Kode Klaim</Th>
@@ -258,7 +289,16 @@ export default function KelolaSiswaPage() {
             </Thead>
             <tbody>
               {pageStudents.map((s) => (
-                <Tr key={s.id}>
+                <Tr key={s.id} className={pilihan.dipilih.has(s.id) ? "bg-indigo-50/40" : undefined}>
+                  <Td className="w-10">
+                    <input
+                      type="checkbox"
+                      aria-label={`Pilih ${s.nama}`}
+                      className="accent-indigo-600"
+                      checked={pilihan.dipilih.has(s.id)}
+                      onChange={() => pilihan.toggle(s.id)}
+                    />
+                  </Td>
                   <Td className="font-medium text-slate-900">
                     <Link
                       href={`/admin-sekolah/siswa/${s.id}`}

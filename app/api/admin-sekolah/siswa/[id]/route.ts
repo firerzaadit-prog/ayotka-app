@@ -4,6 +4,13 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
+import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  buatPenghapusAkunLogin,
+  GagalHapusAkunLoginError,
+  hapusSiswa,
+  ringkasanAuditHapus,
+} from "@/lib/students/hapus";
 import { studentUpdateSchema } from "@/lib/validations/student";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -66,7 +73,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   }
 }
 
-/** Tiket 3.7 (Bagian 7.2 brief): soft delete - riwayat attempt/nilai tetap ada, login dinonaktifkan. */
+/**
+ * Hapus siswa (lihat lib/students/hapus.ts): akun login dihapus; siswa tanpa riwayat dihapus permanen,
+ * siswa yang sudah punya riwayat ujian/transaksi diarsipkan (Bagian 7.2 brief) tetapi NISN dan kode
+ * klaimnya dibebaskan - sehingga data yang sama bisa ditambahkan/diimpor lagi.
+ */
 export async function DELETE(request: Request, { params }: RouteParams) {
   let user;
   try {
@@ -81,15 +92,19 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Siswa tidak ditemukan." }, { status: 404 });
   }
 
-  const student = await prisma.$transaction(async (tx) => {
-    if (before.userId) {
-      await tx.user.update({ where: { id: before.userId }, data: { status: "nonaktif" } });
+  let mode: "permanen" | "arsip";
+  try {
+    mode = await hapusSiswa({ db: prisma, hapusAkunLogin: buatPenghapusAkunLogin(createAdminClient()) }, before);
+  } catch (error) {
+    if (error instanceof GagalHapusAkunLoginError) {
+      // Belum ada data yang berubah - aman diulang.
+      return NextResponse.json(
+        { error: "Gagal menghapus akun login siswa. Tidak ada data yang berubah, silakan coba lagi." },
+        { status: 502 },
+      );
     }
-    return tx.student.update({
-      where: { id },
-      data: { deletedAt: new Date(), status: "nonaktif" },
-    });
-  });
+    throw error;
+  }
 
   await logAudit({
     userId: user.id,
@@ -97,9 +112,9 @@ export async function DELETE(request: Request, { params }: RouteParams) {
     entitas: "students",
     entitasId: id,
     before,
-    after: student,
+    after: ringkasanAuditHapus(mode),
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, mode });
 }

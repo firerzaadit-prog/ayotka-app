@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HAPUS_MASSAL_MAKS } from "@/lib/students/batas";
 
 const nisnSchema = z
   .string()
@@ -25,6 +26,14 @@ export const studentImportRowSchema = z.object({
   nama: z.string().trim().min(2, "Nama wajib diisi"),
   nisn: nisnSchema,
   tanggalLahir: z.coerce.date().optional(),
+});
+
+/** Klien yang memilih lebih dari batas ini mengirim bertahap (lihat components/sekolah/hapus-massal.tsx). */
+export const studentHapusMassalSchema = z.object({
+  ids: z
+    .array(z.string().uuid("ID siswa tidak valid"))
+    .min(1, "Pilih minimal satu siswa")
+    .max(HAPUS_MASSAL_MAKS, `Maksimal ${HAPUS_MASSAL_MAKS} siswa per permintaan`),
 });
 
 export type StudentCreateInput = z.infer<typeof studentCreateSchema>;
