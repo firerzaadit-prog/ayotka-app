@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { getRemainingSeconds } from "@/lib/exam/timing";
+import { tutupPercobaanKedaluwarsa } from "@/lib/exam/tutup-kedaluwarsa";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -30,6 +31,12 @@ export async function GET(_request: Request, { params }: RouteParams) {
   if (!assignment) {
     return NextResponse.json({ error: "Penugasan tidak ditemukan." }, { status: 404 });
   }
+
+  // Tutup dulu percobaan yang waktunya sudah habis tapi belum pernah dibuka lagi siswanya, supaya status dan skor
+  // yang tampil benar (lihat lib/exam/tutup-kedaluwarsa.ts). Gagal menutup tidak boleh menggagalkan daftar ini.
+  await tutupPercobaanKedaluwarsa({ assignmentId: id }).catch((err) => {
+    console.error("[tutup-kedaluwarsa] gagal untuk penugasan", id, err);
+  });
 
   const attempts = await prisma.attempt.findMany({
     where: { assignmentId: id },
