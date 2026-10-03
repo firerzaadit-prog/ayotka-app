@@ -43,7 +43,8 @@ export async function GET(request: Request) {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
   });
 
-  const cardHeight = 110;
+  // 114 (bukan lebih): tetap muat 6 kartu per halaman A4.
+  const cardHeight = 114;
   const cardWidth = doc.page.width - 80;
   let y = 40;
 
@@ -75,6 +76,15 @@ export async function GET(request: Request) {
         "Daftar di ayotka.id -> pilih Jalur A -> masukkan Kode Sekolah, cari namamu, lalu masukkan Kode Klaim ini.",
         56,
         y + 92,
+        { width: cardWidth - 32 },
+      );
+    doc
+      .fontSize(8)
+      .fillColor("#94a3b8")
+      .text(
+        "Lupa kata sandi? Minta guru atau admin sekolah untuk mereset kata sandimu.",
+        56,
+        y + 102,
         { width: cardWidth - 32 },
       );
 

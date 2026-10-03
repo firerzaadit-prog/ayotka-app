@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -7,13 +8,22 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { findActiveSchoolByCode } from "@/lib/schools/lookup";
 import { klaimSchema } from "@/lib/validations/registrasi";
 
-function isSameDay(a: Date, b: Date): boolean {
-  return a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+/** Kode klaim dicetak berspasi/berhuruf kecil di kartu atau diketik tangan: samakan bentuknya sebelum dibandingkan. */
+function normalisasiKode(kode: string): string {
+  return kode.replace(/[\s-]+/g, "").toUpperCase();
+}
+
+/** Perbandingan waktu-konstan, supaya kode tidak bisa ditebak lewat selisih waktu respons. */
+function kodeSama(masukan: string, tersimpan: string | null): boolean {
+  if (!tersimpan) return false;
+  const a = Buffer.from(normalisasiKode(masukan));
+  const b = Buffer.from(normalisasiKode(tersimpan));
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 /**
  * Tiket 3.2/3.4 (Bagian 3.1 brief): langkah terakhir Jalur A - verifikasi
- * kepemilikan (kode klaim ATAU tanggal lahir), lalu buat akun Supabase Auth.
+ * kepemilikan (Kode Klaim dari kartu; tanggal lahir tidak lagi diterima), lalu buat akun Supabase Auth.
  * Kalau siswa tidak punya email (umum di SD), pakai email sintetis NISN
  * ({nisn}@nisn.ayotka.id) - tidak pernah ditampilkan ke siswa, lihat
  * keputusan #22 brief.
@@ -53,17 +63,16 @@ export async function POST(request: Request) {
 
   const student = await prisma.student.findUnique({ where: { id: data.studentId } });
   const genericError = NextResponse.json(
-    { error: "Data tidak cocok. Periksa kembali kode klaim atau tanggal lahirmu." },
+    { error: "Data tidak cocok. Periksa kembali kode klaimmu, atau minta kartu klaim ke guru atau admin sekolah." },
     { status: 400 },
   );
   if (!student || student.schoolId !== school.id || student.claimStatus !== "belum_klaim" || student.deletedAt || student.lulusAt) {
     return genericError;
   }
 
-  const kodeCocok = data.kodeKlaim && data.kodeKlaim.length > 0 && data.kodeKlaim === student.claimToken;
-  const tanggalCocok =
-    data.tanggalLahir && student.tanggalLahir && isSameDay(data.tanggalLahir, student.tanggalLahir);
-  if (!kodeCocok && !tanggalCocok) {
+  // Hanya Kode Klaim dari kartu yang membuktikan kepemilikan. Tanggal lahir sengaja tidak dipakai lagi: teman
+  // sekelas biasanya tahu tanggal lahir temannya, jadi pemegang Kode Sekolah bisa mengambil akun siswa lain.
+  if (!kodeSama(data.kodeKlaim, student.claimToken)) {
     return genericError;
   }
 

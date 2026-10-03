@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { PersetujuanDaftar } from "@/components/auth/persetujuan-daftar";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 
@@ -22,9 +23,7 @@ export default function RegistrasiSekolahPage() {
   const [hasil, setHasil] = useState<StudentOption[]>([]);
   const [selected, setSelected] = useState<StudentOption | null>(null);
 
-  const [verifMode, setVerifMode] = useState<"kode" | "tanggal">("kode");
   const [kodeKlaim, setKodeKlaim] = useState("");
-  const [tanggalLahir, setTanggalLahir] = useState("");
   const [punyaEmail, setPunyaEmail] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -77,8 +76,7 @@ export default function RegistrasiSekolahPage() {
       body: JSON.stringify({
         kodeSekolah,
         studentId: selected.id,
-        kodeKlaim: verifMode === "kode" ? kodeKlaim : undefined,
-        tanggalLahir: verifMode === "tanggal" ? tanggalLahir : undefined,
+        kodeKlaim,
         punyaEmail,
         email,
         password,
@@ -189,42 +187,21 @@ export default function RegistrasiSekolahPage() {
       </div>
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      <div className="flex gap-4 text-sm">
-        <label className="flex items-center gap-1">
-          <input
-            type="radio"
-            checked={verifMode === "kode"}
-            onChange={() => setVerifMode("kode")}
-          />
-          Kode klaim
-        </label>
-        <label className="flex items-center gap-1">
-          <input
-            type="radio"
-            checked={verifMode === "tanggal"}
-            onChange={() => setVerifMode("tanggal")}
-          />
-          Tanggal lahir
-        </label>
+      <div>
+        <Label htmlFor="kodeKlaim">Kode klaim (dari kartu klaim)</Label>
+        <Input
+          id="kodeKlaim"
+          required
+          autoComplete="off"
+          autoCapitalize="characters"
+          value={kodeKlaim}
+          onChange={(e) => setKodeKlaim(e.target.value)}
+        />
+        <p className="mt-1 text-xs text-slate-500">
+          Kode 8 huruf dan angka yang tercetak di kartu klaim dari sekolahmu. Belum menerima kartunya? Minta ke guru
+          atau admin sekolah.
+        </p>
       </div>
-
-      {verifMode === "kode" ? (
-        <div>
-          <Label htmlFor="kodeKlaim">Kode klaim (dari wali kelas)</Label>
-          <Input id="kodeKlaim" required value={kodeKlaim} onChange={(e) => setKodeKlaim(e.target.value)} />
-        </div>
-      ) : (
-        <div>
-          <Label htmlFor="tanggalLahir">Tanggal lahir</Label>
-          <Input
-            id="tanggalLahir"
-            type="date"
-            required
-            value={tanggalLahir}
-            onChange={(e) => setTanggalLahir(e.target.value)}
-          />
-        </div>
-      )}
 
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={punyaEmail} onChange={(e) => setPunyaEmail(e.target.checked)} />
@@ -259,6 +236,7 @@ export default function RegistrasiSekolahPage() {
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Memproses..." : "Buat akun"}
       </Button>
+      <PersetujuanDaftar />
       <button
         type="button"
         onClick={() => setStep("nama")}

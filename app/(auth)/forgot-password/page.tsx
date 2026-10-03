@@ -163,6 +163,16 @@ function ForgotPasswordContent() {
         {loading ? "Mengirim link..." : "Kirim Link Atur Ulang Password"}
       </Button>
 
+      {!portalConfig && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+          <p className="font-medium">Masuk memakai NISN dan tidak punya email?</p>
+          <p className="mt-1">
+            Link tidak bisa dikirim karena akunmu tidak punya alamat email. Minta guru atau admin sekolahmu untuk
+            mereset kata sandi, lalu masuk lagi dengan NISN dan kata sandi barumu.
+          </p>
+        </div>
+      )}
+
       <Link
         href={defaultLoginUrl}
         className="text-center text-sm font-medium text-slate-500 hover:text-slate-800 transition-colors"

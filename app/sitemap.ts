@@ -12,6 +12,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { url: `${APP_URL}/`, lastModified: now, changeFrequency: "weekly", priority: 1 },
     { url: `${APP_URL}/kerangka-asesmen`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${APP_URL}/kebijakan-privasi`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${APP_URL}/syarat-ketentuan`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${APP_URL}/registrasi`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${APP_URL}/registrasi/sekolah`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
     { url: `${APP_URL}/registrasi/mandiri`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },

@@ -63,10 +63,16 @@ export async function POST(request: Request) {
     }
     schoolId = school.id;
   } else {
-    // Sekolah yang diketik manual langsung dipakai TANPA verifikasi admin
-    // pusat (permintaan user). Supaya tidak menumpuk duplikat, nama yang sama
-    // (tanpa peduli huruf besar/kecil & spasi ganda) di jenjang yang sama
-    // memakai baris sekolah yang sudah ada.
+    // Sekolah yang diketik manual langsung dipakai siswa TANPA menunggu admin
+    // pusat (permintaan user): siswa mandiri (Jalur B) tidak digerbang status
+    // sekolah (lihat hasActiveSchoolAccess di lib/auth/session.ts), jadi akunnya
+    // langsung berfungsi. Barisnya sendiri dibuat sebagai "pending_verifikasi"
+    // supaya masuk antrean Verifikasi Sekolah (setujui / gabung / tolak) dan
+    // TIDAK muncul di pilihan sekolah siswa lain (cari-sekolah menyaring status
+    // ini) - dulu langsung "aktif", sehingga salah ketik, nama ganda, dan entri
+    // iseng menumpuk di daftar Sekolah tanpa ada yang menyaringnya. Supaya tidak
+    // menumpuk duplikat, nama yang sama (tanpa peduli huruf besar/kecil & spasi
+    // ganda) di jenjang yang sama memakai baris sekolah yang sudah ada.
     const namaManual = data.asalSekolahManual!.replace(/\s+/g, " ").trim();
     const existingSchool = await prisma.school.findFirst({
       where: { nama: { equals: namaManual, mode: "insensitive" }, jenjang: data.jenjang },
@@ -80,7 +86,7 @@ export async function POST(request: Request) {
           nama: namaManual,
           jenjang: data.jenjang,
           kodeSekolah: generateReadableCode(8),
-          status: "aktif",
+          status: "pending_verifikasi",
         },
       });
       schoolId = newSchool.id;

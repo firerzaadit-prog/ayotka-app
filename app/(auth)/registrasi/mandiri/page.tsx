@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { PersetujuanDaftar } from "@/components/auth/persetujuan-daftar";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { KirimUlangKonfirmasi } from "@/components/auth/kirim-ulang-konfirmasi";
@@ -293,6 +294,7 @@ function RegistrasiMandiriForm() {
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Memproses..." : "Daftar sebagai Siswa Mandiri"}
       </Button>
+      <PersetujuanDaftar />
 
       <div className="flex flex-col items-center gap-2 pt-1 text-center">
         <p className="text-sm text-slate-600">

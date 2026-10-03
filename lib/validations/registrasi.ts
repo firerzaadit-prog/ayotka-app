@@ -13,15 +13,11 @@ export const klaimSchema = z
   .object({
     kodeSekolah: z.string().trim().min(1, "Kode sekolah wajib diisi"),
     studentId: z.string().uuid(),
-    kodeKlaim: z.string().trim().optional().or(z.literal("")),
-    tanggalLahir: z.coerce.date().optional(),
+    /** Wajib: satu-satunya bukti kepemilikan. Tanggal lahir tidak lagi dipakai (mudah diketahui teman sekelas). */
+    kodeKlaim: z.string().trim().min(1, "Kode klaim wajib diisi."),
     punyaEmail: z.boolean(),
     email: z.string().trim().toLowerCase().email("Email tidak valid").optional().or(z.literal("")),
     password: z.string().min(8, "Password minimal 8 karakter"),
-  })
-  .refine((data) => (data.kodeKlaim && data.kodeKlaim.length > 0) || data.tanggalLahir, {
-    message: "Isi kode klaim atau tanggal lahir untuk verifikasi.",
-    path: ["kodeKlaim"],
   })
   .refine((data) => !data.punyaEmail || (data.email && data.email.length > 0), {
     message: "Email wajib diisi.",
