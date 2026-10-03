@@ -4,7 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
 import { statusSeriMandiri } from "@/lib/exam/seri-mandiri";
-import { formatWIBHariTanggalJam } from "@/lib/utils/datetime";
+import { formatWIBDate, formatWIBHariTanggalJam } from "@/lib/utils/datetime";
 import { sanitizeAttemptForClient } from "@/lib/exam/attempt-access";
 import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
@@ -25,6 +25,26 @@ function formatRupiah(n: number): string {
  * kuota, bukan jalan buntu yang perlu tindakan siswa (mis. beli paket).
  */
 function accessDeniedResponse(access: Extract<AccessCheckResult, { allowed: false }>, quotaRequiredMessage: string) {
+  // Sekolah "dibekukan": langganan sekolah sudah berakhir (termasuk masa tenggang). Riwayat dan nilai siswa tetap
+  // bisa dibuka; yang diblokir hanya memulai ujian baru. Pesannya menunjuk ke admin sekolah, bukan ke pembelian paket.
+  if (access.reason === "sekolah_berakhir") {
+    return NextResponse.json(
+      {
+        error: `Langganan sekolahmu berakhir pada ${formatWIBDate(access.berakhir)}. Hubungi admin sekolahmu untuk perpanjangan. Riwayat dan nilaimu tetap bisa dibuka.`,
+        code: "SEKOLAH_BERAKHIR",
+      },
+      { status: 402 },
+    );
+  }
+  if (access.reason === "sekolah_belum_mulai") {
+    return NextResponse.json(
+      {
+        error: `Langganan sekolahmu baru mulai berlaku pada ${formatWIBDate(access.mulai)}. Kamu bisa mulai try out setelah tanggal itu.`,
+        code: "SEKOLAH_BELUM_MULAI",
+      },
+      { status: 402 },
+    );
+  }
   if (access.reason === "waiting_for_seat") {
     return NextResponse.json(
       {

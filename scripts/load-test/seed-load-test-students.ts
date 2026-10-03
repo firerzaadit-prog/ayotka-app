@@ -19,6 +19,8 @@ import path from "node:path";
 import { PrismaClient } from "@prisma/client";
 import { createClient } from "@supabase/supabase-js";
 import { generateReadableCode } from "../../lib/utils/generate-code";
+import { akhirHariWIB, startOfDayWIB, tanggalWIB } from "../../lib/utils/datetime";
+import { ambilPeriodeSekolah, buatPeriode, pilihPeriodeBerjalan, ubahPeriode } from "../../lib/billing/periode-sekolah";
 import {
   adalahNamaUjiBeban,
   buatNisn,
@@ -65,25 +67,37 @@ async function main() {
   const namaSekolah = process.env.LOAD_TEST_SCHOOL_NAME?.trim() || SEKOLAH_NAMA_BAWAAN;
   console.log(`Proyek/database tujuan: ${tujuan}\nMembuat ${jumlah} akun uji di sekolah "${namaSekolah}"...`);
 
-  // Sekolah uji: kuota kursi dibuat cukup & aktif 30 hari ke depan (kursi dibagikan lazy saat siswa mulai ujian).
+  // Sekolah uji: kuota kursi dibuat cukup lewat PERIODE LANGGANAN yang aktif 30 hari ke depan (kursi dibagikan lazy
+  // saat siswa mulai ujian; tanpa periode siswa tidak mendapat kursi).
   const kuota = jumlah + 10;
-  const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+  const sekarang = new Date();
+  const mulaiPeriode = startOfDayWIB(tanggalWIB(sekarang));
+  const berakhirPeriode = akhirHariWIB(tanggalWIB(new Date(sekarang.getTime() + 30 * 24 * 60 * 60 * 1000)));
   const sekolahAda = await prisma.school.findFirst({ where: { nama: namaSekolah } });
-  const sekolah = sekolahAda
-    ? await prisma.school.update({
-        where: { id: sekolahAda.id },
-        data: { seatQuota: Math.max(sekolahAda.seatQuota ?? 0, kuota), validUntil, status: "aktif" },
-      })
+  const sekolahDasar = sekolahAda
+    ? await prisma.school.update({ where: { id: sekolahAda.id }, data: { status: "aktif" } })
     : await prisma.school.create({
-        data: {
-          nama: namaSekolah,
-          jenjang: "SMP",
-          kodeSekolah: generateReadableCode(8),
-          status: "aktif",
-          seatQuota: kuota,
-          validUntil,
-        },
+        data: { nama: namaSekolah, jenjang: "SMP", kodeSekolah: generateReadableCode(8), status: "aktif" },
       });
+  const periodeBerjalan = pilihPeriodeBerjalan(await ambilPeriodeSekolah(prisma, sekolahDasar.id), sekarang);
+  if (periodeBerjalan) {
+    await ubahPeriode(
+      prisma,
+      periodeBerjalan.id,
+      {
+        seatQuota: Math.max(periodeBerjalan.seatQuota, kuota),
+        ...(berakhirPeriode > periodeBerjalan.berakhir ? { berakhir: berakhirPeriode } : {}),
+      },
+      sekarang,
+    );
+  } else {
+    await buatPeriode(
+      prisma,
+      { schoolId: sekolahDasar.id, nama: "Periode uji beban", mulai: mulaiPeriode, berakhir: berakhirPeriode, seatQuota: kuota },
+      sekarang,
+    );
+  }
+  const sekolah = await prisma.school.findUniqueOrThrow({ where: { id: sekolahDasar.id } });
   console.log(`Sekolah uji: ${sekolah.id} (kuota kursi ${sekolah.seatQuota})`);
 
   const sandi = buatSandi(16, randomInt);

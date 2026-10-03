@@ -1,7 +1,6 @@
 import "server-only";
-import { prisma } from "@/lib/db/prisma";
 import type { Student } from "@prisma/client";
-import { getActiveEntitlement, hasUsedFreeTrial } from "@/lib/billing/entitlements";
+import { getActiveEntitlement, hasUsedFreeTrial, kursiSekolahTersedia } from "@/lib/billing/entitlements";
 import { getAiKuotaRemaining } from "@/lib/billing/plan-fitur";
 import { getHargaLearningAnalytics, getSaldo } from "@/lib/billing/saldo";
 import type { TipeAkses } from "@/lib/billing/learning-analytics";
@@ -33,18 +32,8 @@ export async function getTipeAkses(student: Student): Promise<TipeAkses> {
     return active.entitlement.source === "school_seat" ? "sekolah" : "langganan";
   }
 
-  if (student.schoolId) {
-    const school = await prisma.school.findUnique({
-      where: { id: student.schoolId },
-      select: { seatQuota: true, validUntil: true },
-    });
-    if (school?.seatQuota != null && school.validUntil && school.validUntil > new Date()) {
-      const terpakai = await prisma.entitlement.count({
-        where: { schoolId: student.schoolId, source: "school_seat", revokedAt: null, student: { deletedAt: null } },
-      });
-      if (terpakai < school.seatQuota) return "sekolah";
-    }
-  }
+  // Kursi sekolah dihitung per periode langganan (lihat lib/billing/entitlements.ts); hanya siswa Jalur A.
+  if (await kursiSekolahTersedia(student)) return "sekolah";
   return "gratis";
 }
 

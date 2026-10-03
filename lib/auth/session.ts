@@ -43,15 +43,15 @@ async function loadCurrentUser(): Promise<{ user: CurrentUser; mustChangePasswor
 }
 
 /**
- * Admin sekolah & siswa Jalur A terikat ke satu sekolah - kalau langganan
- * sekolahnya berakhir (atau di-suspend admin pusat), akses mereka wajib
- * putus juga, bukan cuma pendaftaran siswa baru yang ditolak (lihat
- * lib/schools/lookup.ts). Dipanggil dari getCurrentUser supaya berlaku di
- * SEMUA halaman & API route sekaligus (keduanya lewat fungsi ini/requireRole),
- * bukan cuma saat login pertama kali - sesi yang sedang berjalan pun ikut
- * putus begitu tanggal langganan lewat, sama seperti pola force-logout yang
- * sudah ada untuk akun yang di-nonaktifkan admin (lihat proxy.ts &
- * app/api/auth/force-logout/route.ts).
+ * Admin sekolah & siswa Jalur A terikat ke satu sekolah - kalau sekolahnya belum diverifikasi atau di-suspend
+ * admin pusat (status bukan "aktif"), akses mereka wajib putus, bukan cuma pendaftaran siswa baru yang ditolak
+ * (lihat lib/schools/lookup.ts). Dipanggil dari getCurrentUser supaya berlaku di SEMUA halaman & API route
+ * sekaligus (keduanya lewat fungsi ini/requireRole), bukan cuma saat login pertama kali - sesi yang sedang
+ * berjalan pun ikut putus, sama seperti pola force-logout yang sudah ada untuk akun yang di-nonaktifkan admin
+ * (lihat proxy.ts & app/api/auth/force-logout/route.ts).
+ *
+ * Langganan yang BERAKHIR sengaja TIDAK memutus akses: sekolah "dibekukan" (tidak bisa mulai ujian baru,
+ * lihat lib/billing/entitlements.ts) tetapi login, riwayat, dan nilai tetap terbuka.
  *
  * Siswa Jalur B (mandiri) SENGAJA dilewati - mereka tidak terikat langganan
  * sekolah manapun, tapi langganan individu sendiri (lib/billing).

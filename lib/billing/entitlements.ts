@@ -1,6 +1,15 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
-import type { Entitlement, EntitlementSource } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { Entitlement, EntitlementSource, Student } from "@prisma/client";
+import {
+  akhirEfektif,
+  ambilPeriodeSekolah,
+  hitungKursiPeriode,
+  pilihPeriodeAkanDatang,
+  pilihPeriodeBerjalan,
+  pilihPeriodeTerakhirBerakhir,
+} from "@/lib/billing/periode-sekolah";
 
 const GRACE_DAYS = 7;
 
@@ -85,58 +94,131 @@ export async function ensureSchoolPlan() {
 }
 
 /**
- * Jalur B (sekolah, Bagian 5): entitlement per siswa dibuat LAZY saat
- * dibutuhkan (dipanggil dari canStartAttempt), bukan retroaktif massal
- * begitu admin pusat mengaktifkan seat_quota - supaya siswa yang sudah
- * terdaftar sebelum kuota aktif otomatis kebagian tanpa skrip migrasi
- * terpisah. seatsUsed dihitung LIVE dari jumlah entitlements
- * source=school_seat milik sekolah tsb (bukan counter terpisah yang
- * rawan race condition antar-request paralel).
+ * Kursi sekolah (Bagian 5): entitlement per siswa dibuat LAZY saat dibutuhkan (dipanggil dari
+ * canStartAttempt), bukan retroaktif massal begitu admin pusat mengaktifkan periode - supaya siswa yang sudah
+ * terdaftar otomatis kebagian tanpa skrip migrasi terpisah.
  *
- * Bagian 6.6: kalau kuota penuh, siswa TIDAK dibuatkan entitlement -
- * pemanggil (canStartAttempt) tetap membiarkan progres attempt-nya
- * tersimpan sebagai "menunggu kuota", bukan mendaftarkan lalu memblokir.
+ * Kursi dihitung PER PERIODE LANGGANAN (lib/billing/periode-sekolah.ts) dan unik per siswa per periode.
+ * Dulu kursi dihitung dari semua entitlement sekolah tanpa melihat tanggal dan berakhir di snapshot
+ * School.validUntil, sehingga setelah perpanjangan kursi lama yang sudah kedaluwarsa tetap dihitung terpakai
+ * dan siswa lama kena "kuota penuh". Sekarang perpanjangan = periode baru dan siswa lama mendapat kursi baru
+ * (jatah AI/Try Out Nasional per jendela entitlement mulai dari nol).
+ *
+ * Bagian 6.6: kalau kuota penuh, siswa TIDAK dibuatkan entitlement - pemanggil (canStartAttempt) tetap
+ * membiarkan progres attempt-nya tersimpan sebagai "menunggu kuota", bukan mendaftarkan lalu memblokir.
+ *
+ * Catatan balapan: dua siswa berbeda yang mulai bersamaan saat sisa kuota tinggal satu bisa sama-sama lolos
+ * hitungan. Dibiarkan tanpa kunci baris (kunci akan membuat ratusan siswa yang mulai ujian serentak mengantre
+ * satu per satu): jumlah siswa terdaftar sudah dibatasi kuota saat ditambahkan (assertKuotaTersedia), sehingga
+ * kursi tidak melebihi kuota kecuali kuota periode baru sengaja diset di bawah jumlah siswa.
  */
 export type SeatGrantResult =
   | { granted: true; entitlement: Entitlement }
-  /** Sekolah belum pernah aktivasi kuota, atau sudah lewat validUntil-nya. */
+  /** Sekolah belum pernah punya periode langganan. */
   | { granted: false; reason: "not_activated" }
-  /** Bagian 9 kasus tepi #6: kuota aktif tapi penuh - siswa "menunggu kuota",
-   * bukan ditolak permanen. Begitu admin menambah seatQuota, panggilan
-   * canStartAttempt berikutnya otomatis berhasil tanpa aksi lain. */
+  /** Bukan siswa Jalur A di sekolah ini (mis. siswa mandiri yang hanya mencatat sekolah asal) atau sudah dihapus. */
+  | { granted: false; reason: "not_eligible" }
+  /** Semua periode sudah lewat (termasuk masa tenggang): sekolah "dibekukan" sampai diperpanjang. */
+  | { granted: false; reason: "period_ended"; berakhir: Date }
+  /** Periode pertama/berikutnya belum mulai. */
+  | { granted: false; reason: "period_not_started"; mulai: Date }
+  /** Bagian 9 kasus tepi #6: kuota periode aktif tapi penuh - siswa "menunggu kuota", bukan ditolak permanen.
+   * Begitu kuota ditambah atau kursi dibebaskan, panggilan canStartAttempt berikutnya otomatis berhasil. */
   | { granted: false; reason: "seat_full" };
 
 export async function grantSchoolSeatIfAvailable(
   studentId: string,
   schoolId: string,
+  now: Date = new Date(),
 ): Promise<SeatGrantResult> {
-  const school = await prisma.school.findUnique({ where: { id: schoolId } });
-  if (!school || school.seatQuota == null || !school.validUntil || school.validUntil < new Date()) {
+  const student = await prisma.student.findUnique({
+    where: { id: studentId },
+    select: { schoolId: true, jalur: true, deletedAt: true },
+  });
+  // Kursi sekolah hanya untuk siswa Jalur A milik sekolah itu. Siswa mandiri (Jalur B) bisa mencatat sekolah
+  // asal tetapi membeli langganannya sendiri; tanpa pagar ini mereka bisa menguras kursi sekolah.
+  if (!student || student.jalur !== "A" || student.deletedAt || student.schoolId !== schoolId) {
+    return { granted: false, reason: "not_eligible" };
+  }
+
+  const periodeSekolah = await ambilPeriodeSekolah(prisma, schoolId);
+  const berjalan = pilihPeriodeBerjalan(periodeSekolah, now);
+  if (!berjalan) {
+    const selesai = pilihPeriodeTerakhirBerakhir(periodeSekolah, now);
+    if (selesai) return { granted: false, reason: "period_ended", berakhir: selesai.berakhir };
+    const nanti = pilihPeriodeAkanDatang(periodeSekolah, now);
+    if (nanti) return { granted: false, reason: "period_not_started", mulai: nanti.mulai };
     return { granted: false, reason: "not_activated" };
   }
 
-  // Siswa yang sudah dihapus tidak lagi memakan kursi - kalau tidak, sekolah
-  // yang mengganti siswa bisa kena "kuota penuh" padahal jumlah siswa
-  // terdaftarnya masih di bawah kuota (lihat hitungKursiTerpakai).
-  const seatsUsed = await prisma.entitlement.count({
-    where: { schoolId, source: "school_seat", revokedAt: null, student: { deletedAt: null } },
+  const batas = akhirEfektif(berjalan);
+  // Kursi siswa ini pada periode ini (termasuk yang pernah dicabut): unik per siswa per periode.
+  const ada = await prisma.entitlement.findUnique({
+    where: { studentId_periodeId: { studentId, periodeId: berjalan.id } },
   });
-  if (seatsUsed >= school.seatQuota) {
+  if (ada && !ada.revokedAt) {
+    // Kursi dari data lama/periode yang diperpanjang bisa berakhir lebih awal dari batas periode: samakan.
+    if (ada.endsAt.getTime() >= batas.getTime()) return { granted: true, entitlement: ada };
+    const diperbarui = await prisma.entitlement.update({ where: { id: ada.id }, data: { endsAt: batas } });
+    return { granted: true, entitlement: diperbarui };
+  }
+
+  if ((await hitungKursiPeriode(prisma, berjalan.id)) >= berjalan.seatQuota) {
     return { granted: false, reason: "seat_full" };
   }
 
+  // Kursi yang pernah dicabut (mis. siswa sempat ditandai lulus lalu dibatalkan) dihidupkan lagi, bukan dibuat baru.
+  if (ada) {
+    const dihidupkan = await prisma.entitlement.update({
+      where: { id: ada.id },
+      data: { revokedAt: null, startsAt: now, endsAt: batas },
+    });
+    return { granted: true, entitlement: dihidupkan };
+  }
+
   const plan = await ensureSchoolPlan();
-  const entitlement = await prisma.entitlement.create({
-    data: {
-      studentId,
-      planId: plan.id,
-      source: "school_seat" as EntitlementSource,
-      schoolId,
-      startsAt: new Date(),
-      endsAt: school.validUntil,
-    },
+  try {
+    const entitlement = await prisma.entitlement.create({
+      data: {
+        studentId,
+        planId: plan.id,
+        source: "school_seat" as EntitlementSource,
+        schoolId,
+        periodeId: berjalan.id,
+        startsAt: now,
+        endsAt: batas,
+      },
+    });
+    return { granted: true, entitlement };
+  } catch (error) {
+    // Dua permintaan serentak untuk siswa yang sama: yang kedua kalah balapan pada batas unik - pakai kursi yang sudah jadi.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      const sudahAda = await prisma.entitlement.findUnique({
+        where: { studentId_periodeId: { studentId, periodeId: berjalan.id } },
+      });
+      if (sudahAda && !sudahAda.revokedAt) return { granted: true, entitlement: sudahAda };
+    }
+    throw error;
+  }
+}
+
+/**
+ * Apakah siswa BISA mendapat kursi sekolah sekarang, tanpa membuatnya (read-only; pasangan
+ * grantSchoolSeatIfAvailable). Dipakai getTipeAkses untuk menampilkan tipe akses sebelum siswa menekan Mulai.
+ */
+export async function kursiSekolahTersedia(
+  student: Pick<Student, "id" | "schoolId" | "jalur" | "deletedAt">,
+  now: Date = new Date(),
+): Promise<boolean> {
+  if (!student.schoolId || student.jalur !== "A" || student.deletedAt) return false;
+  const berjalan = pilihPeriodeBerjalan(await ambilPeriodeSekolah(prisma, student.schoolId), now);
+  if (!berjalan) return false;
+  const ada = await prisma.entitlement.findUnique({
+    where: { studentId_periodeId: { studentId: student.id, periodeId: berjalan.id } },
+    select: { revokedAt: true },
   });
-  return { granted: true, entitlement };
+  if (ada && !ada.revokedAt) return true;
+  return (await hitungKursiPeriode(prisma, berjalan.id)) < berjalan.seatQuota;
 }
 
 /**
@@ -184,6 +266,10 @@ export type AccessCheckResult =
    * quota_required biasa karena ini otomatis pulih sendiri begitu admin
    * menambah seatQuota, tanpa siswa perlu melakukan apa pun. */
   | { allowed: false; reason: "waiting_for_seat" }
+  /** Langganan sekolah sudah berakhir (termasuk tenggang): sekolah "dibekukan" sampai diperpanjang. */
+  | { allowed: false; reason: "sekolah_berakhir"; berakhir: Date }
+  /** Langganan sekolah belum mulai berlaku. */
+  | { allowed: false; reason: "sekolah_belum_mulai"; mulai: Date }
   | { allowed: false; reason: "quota_required" };
 
 /**
@@ -199,15 +285,23 @@ export async function canStartAttempt(
   const active = await getActiveEntitlement(studentId);
   if (active?.canStartNewAttempt) return { allowed: true, reason: "entitlement" };
 
-  let seatFull = false;
+  let seatResult: SeatGrantResult | null = null;
   if (schoolId) {
-    const seatResult = await grantSchoolSeatIfAvailable(studentId, schoolId);
+    seatResult = await grantSchoolSeatIfAvailable(studentId, schoolId);
     if (seatResult.granted) return { allowed: true, reason: "school_seat" };
-    seatFull = seatResult.reason === "seat_full";
   }
 
   const usedFree = await hasUsedFreeTrial(studentId, subjectId);
   if (!usedFree) return { allowed: true, reason: "free_trial" };
 
-  return { allowed: false, reason: seatFull ? "waiting_for_seat" : "quota_required" };
+  if (seatResult && !seatResult.granted) {
+    if (seatResult.reason === "seat_full") return { allowed: false, reason: "waiting_for_seat" };
+    if (seatResult.reason === "period_ended") {
+      return { allowed: false, reason: "sekolah_berakhir", berakhir: seatResult.berakhir };
+    }
+    if (seatResult.reason === "period_not_started") {
+      return { allowed: false, reason: "sekolah_belum_mulai", mulai: seatResult.mulai };
+    }
+  }
+  return { allowed: false, reason: "quota_required" };
 }

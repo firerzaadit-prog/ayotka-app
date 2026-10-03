@@ -77,6 +77,25 @@ export function startOfDayWIB(dateStr: string): Date {
   return fromZonedTime(`${dateStr}T00:00:00`, WIB_TIMEZONE);
 }
 
+/** true kalau `dateStr` berbentuk "yyyy-MM-dd" dan benar-benar ada di kalender (menolak mis. 2026-02-31). */
+export function adalahTanggalKalender(dateStr: string): boolean {
+  const cocok = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!cocok) return false;
+  const [tahun, bulan, hari] = [Number(cocok[1]), Number(cocok[2]), Number(cocok[3])];
+  const d = new Date(Date.UTC(tahun, bulan - 1, hari));
+  return d.getUTCFullYear() === tahun && d.getUTCMonth() === bulan - 1 && d.getUTCDate() === hari;
+}
+
+/**
+ * Ubah tanggal kalender WIB ("yyyy-MM-dd") jadi detik terakhir hari itu (23:59:59.999 WIB) dalam UTC -
+ * dipakai untuk "berlaku sampai {tanggal}" supaya tanggal itu benar-benar berlaku sepanjang hari (tanpa ini,
+ * tanggal dari input date HTML putus pukul 07.00 WIB). Aman dihitung sebagai awal hari + 24 jam - 1 ms
+ * karena WIB tidak kenal DST (lihat startOfDayWIB).
+ */
+export function akhirHariWIB(dateStr: string): Date {
+  return new Date(startOfDayWIB(dateStr).getTime() + 24 * 60 * 60 * 1000 - 1);
+}
+
 /**
  * Tanggal kalender WIB dari `date`, ditambah satu hari, jam 06:00 WIB -
  * dipakai jeda "satu paket per hari" pada seri Try Out Mandiri berurutan

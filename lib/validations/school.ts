@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
+import { adalahTanggalKalender } from "@/lib/utils/datetime";
 
-export const schoolCreateSchema = z.object({
+const schoolBaseSchema = z.object({
   nama: z.string().trim().min(3, "Nama sekolah minimal 3 karakter"),
   npsn: z
     .string()
@@ -22,15 +23,38 @@ export const schoolCreateSchema = z.object({
     })
     .optional()
     .or(z.literal("")),
+  /// Hanya saat membuat sekolah: kuota + tanggal berakhir membentuk periode langganan pertama
+  /// (lihat lib/billing/periode-sekolah.ts). Wajib berpasangan; perpanjangan lewat halaman periode sekolah.
   seatQuota: z.coerce.number().int().positive("Kuota kursi harus lebih dari 0").optional(),
-  validUntil: z.string().optional().or(z.literal("")),
+  validUntil: z
+    .string()
+    .refine(adalahTanggalKalender, { message: "Tanggal masa berlaku tidak valid" })
+    .optional()
+    .or(z.literal("")),
   adminEmail: z.string().trim().toLowerCase().email("Format email admin tidak valid").optional().or(z.literal("")),
   adminNama: z.string().trim().min(2, "Nama admin minimal 2 karakter").optional().or(z.literal("")),
 });
 
-export const schoolUpdateSchema = schoolCreateSchema.partial().extend({
-  status: z.enum(["pending_verifikasi", "aktif", "suspend"]).optional(),
+export const schoolCreateSchema = schoolBaseSchema.superRefine((data, ctx) => {
+  const adaKuota = data.seatQuota != null;
+  const adaTanggal = Boolean(data.validUntil);
+  if (adaKuota !== adaTanggal) {
+    ctx.addIssue({
+      code: "custom",
+      path: [adaKuota ? "validUntil" : "seatQuota"],
+      message: "Kuota kursi dan masa berlaku harus diisi bersamaan (atau dua-duanya dikosongkan).",
+    });
+  }
 });
+
+/// Mengubah data sekolah TIDAK menyentuh kuota/masa berlaku/akun admin (itu lewat periode langganan dan
+/// halaman admin sekolah); kolom itu dibuang supaya tidak bisa menimpa tabel sekolah langsung.
+export const schoolUpdateSchema = schoolBaseSchema
+  .omit({ seatQuota: true, validUntil: true, adminEmail: true, adminNama: true })
+  .partial()
+  .extend({
+    status: z.enum(["pending_verifikasi", "aktif", "suspend"]).optional(),
+  });
 
 export type SchoolCreateInput = z.infer<typeof schoolCreateSchema>;
 export type SchoolUpdateInput = z.infer<typeof schoolUpdateSchema>;

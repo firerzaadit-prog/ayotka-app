@@ -1,12 +1,19 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { generateReadableCode } from "@/lib/utils/generate-code";
+import { formatWIBDate } from "@/lib/utils/datetime";
+import {
+  ambilPeriodeSekolah,
+  pilihPeriodeAkanDatang,
+  pilihPeriodeBerjalan,
+  pilihPeriodeTerakhirBerakhir,
+} from "@/lib/billing/periode-sekolah";
 import type { Jenjang } from "@prisma/client";
 
 /**
  * Sejak redesign billing (Bagian 7.3, lalu entitlements Bagian 5), tidak
  * ada lagi batas jumlah siswa per sekolah di model School. Akses try out
- * siswa Jalur B (sekolah) diatur lewat seatQuota/validUntil + entitlements
+ * siswa Jalur B (sekolah) diatur lewat periode langganan + entitlements
  * (lib/billing/entitlements.ts), bukan jumlah akun siswa yang terdaftar.
  * KuotaPenuhError dipertahankan untuk kompatibilitas ke depan, tapi
  * assertKuotaTersedia tidak lagi memblokir penambahan siswa.
@@ -52,29 +59,48 @@ export function hitungKursiTerpakai(schoolId: string): Promise<number> {
 }
 
 /**
- * Pengecekan kuota kursi siswa yang telah disepakati & diaktifkan Admin Pusat.
- * Dipanggil saat Admin Sekolah menambah siswa secara manual maupun import Excel.
+ * Kuota acuan untuk batas tambah/impor siswa: kuota periode yang sedang berjalan (aktif atau tenggang), kalau
+ * tidak ada maka periode terdekat berikutnya. null = sekolah belum punya periode yang berlaku atau akan datang.
+ * Kolom lama School.seatQuota TIDAK dipakai karena tidak berubah sendiri saat waktu berjalan.
  */
-export async function assertKuotaTersedia(schoolId: string, tambahan: number): Promise<void> {
-  const school = await prisma.school.findUnique({
-    where: { id: schoolId },
-    select: { id: true, seatQuota: true, nama: true },
-  });
+export async function kuotaAcuanSekolah(schoolId: string, now: Date = new Date()): Promise<number | null> {
+  const periode = await ambilPeriodeSekolah(prisma, schoolId);
+  const acuan = pilihPeriodeBerjalan(periode, now) ?? pilihPeriodeAkanDatang(periode, now);
+  return acuan?.seatQuota ?? null;
+}
+
+/**
+ * Pengecekan kuota kursi siswa yang telah disepakati & diaktifkan Admin Pusat (per periode langganan).
+ * Dipanggil saat Admin Sekolah menambah siswa secara manual maupun import Excel. Setelah langganan berakhir
+ * (termasuk masa tenggang) sekolah "dibekukan": tidak bisa menambah/mengimpor siswa sampai diperpanjang.
+ */
+export async function assertKuotaTersedia(schoolId: string, tambahan: number, now: Date = new Date()): Promise<void> {
+  const school = await prisma.school.findUnique({ where: { id: schoolId }, select: { id: true } });
   if (!school) return;
 
-  // Jika sekolah belum memiliki kuota yang diaktifkan oleh admin pusat
-  if (school.seatQuota == null) {
+  const periode = await ambilPeriodeSekolah(prisma, schoolId);
+  if (periode.length === 0) {
     throw new KuotaPenuhError(
-      "Sekolah ini belum memiliki kuota siswa yang diaktifkan oleh Admin Pusat. Hubungi Admin Pusat untuk menetapkan kuota kursi terlebih dahulu."
+      "Sekolah ini belum memiliki periode langganan yang diaktifkan oleh Admin Pusat. Hubungi Admin Pusat untuk mengaktifkan kursi terlebih dahulu."
+    );
+  }
+
+  const acuan = pilihPeriodeBerjalan(periode, now) ?? pilihPeriodeAkanDatang(periode, now);
+  if (!acuan) {
+    const selesai = pilihPeriodeTerakhirBerakhir(periode, now);
+    throw new KuotaPenuhError(
+      selesai
+        ? `Langganan sekolah berakhir pada ${formatWIBDate(selesai.berakhir)}. Hubungi Admin Pusat untuk memperpanjang sebelum menambah atau mengimpor siswa.`
+        : "Sekolah ini tidak memiliki periode langganan yang berlaku. Hubungi Admin Pusat."
     );
   }
 
   const currentCount = await hitungKursiTerpakai(schoolId);
 
-  if (currentCount + tambahan > school.seatQuota) {
-    const sisa = Math.max(0, school.seatQuota - currentCount);
+  if (currentCount + tambahan > acuan.seatQuota) {
+    const sisa = Math.max(0, acuan.seatQuota - currentCount);
     throw new KuotaPenuhError(
-      `Kuota siswa sekolah tidak mencukupi. Kuota dari Admin Pusat: ${school.seatQuota} siswa, saat ini terdaftar: ${currentCount} siswa, sisa kuota: ${sisa} siswa. Menambahkan ${tambahan} siswa akan melebihi kuota kursi yang disepakati.`
+      `Kuota siswa sekolah tidak mencukupi. Kuota dari Admin Pusat: ${acuan.seatQuota} siswa, saat ini terdaftar: ${currentCount} siswa, sisa kuota: ${sisa} siswa. Menambahkan ${tambahan} siswa akan melebihi kuota kursi yang disepakati.`
     );
   }
 }

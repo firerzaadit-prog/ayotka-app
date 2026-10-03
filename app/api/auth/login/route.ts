@@ -162,18 +162,18 @@ export async function POST(request: Request) {
     }
   }
 
-  // Beda dari status akun (di atas): ini soal langganan SEKOLAHNYA, bukan
-  // akunnya sendiri - kredensialnya valid & akunnya aktif, jadi wajar dikasih
-  // alasan jelas (bukan pesan generik) supaya tahu harus hubungi siapa. Cek
-  // ini aman diungkap karena cuma tercapai setelah password terbukti benar
-  // (sama seperti email_not_confirmed di atas), jadi tidak menambah celah
-  // untuk menebak akun yang valid.
+  // Beda dari status akun (di atas): ini soal status SEKOLAHNYA (belum diverifikasi atau ditangguhkan admin
+  // pusat), bukan akunnya sendiri - kredensialnya valid & akunnya aktif, jadi wajar dikasih alasan jelas
+  // (bukan pesan generik) supaya tahu harus hubungi siapa. Langganan yang berakhir TIDAK memutus login:
+  // sekolah "dibekukan" (tidak bisa mulai ujian baru) tetapi riwayat dan nilai tetap bisa dibuka. Cek ini
+  // aman diungkap karena cuma tercapai setelah password terbukti benar (sama seperti email_not_confirmed di
+  // atas), jadi tidak menambah celah untuk menebak akun yang valid.
   if (!(await hasActiveSchoolAccess(data.user.id, localUser.role))) {
     await supabase.auth.signOut({ scope: "local" });
     return NextResponse.json(
       {
         error:
-          "Langganan sekolahmu sudah berakhir atau belum aktif. Hubungi admin sekolah atau admin pusat AyoTKA untuk mengaktifkan kembali.",
+          "Sekolahmu belum diaktifkan atau sedang ditangguhkan, jadi akun ini belum bisa masuk. Hubungi admin sekolah atau admin pusat AyoTKA.",
       },
       { status: 403 },
     );

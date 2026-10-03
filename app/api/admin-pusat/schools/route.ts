@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
+import type { PeriodeLangganan } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { generateReadableCode, generateTempPassword } from "@/lib/utils/generate-code";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { schoolCreateSchema } from "@/lib/validations/school";
+import { buatPeriode, pilihPeriodeRujukan, statusPeriode } from "@/lib/billing/periode-sekolah";
+import { akhirHariWIB, startOfDayWIB, tanggalWIB } from "@/lib/utils/datetime";
 
 export async function GET() {
   try {
@@ -19,7 +22,28 @@ export async function GET() {
     include: { _count: { select: { schoolUsers: true, students: true } } },
   });
 
-  return NextResponse.json({ schools });
+  // Kuota & masa berlaku yang ditampilkan dihitung SEGAR dari periode langganan, bukan dari kolom salinan
+  // School.seatQuota/validUntil (kolom itu tidak berubah sendiri saat periode berikutnya mulai berlaku).
+  const periode = schools.length
+    ? await prisma.periodeLangganan.findMany({
+        where: { schoolId: { in: schools.map((s) => s.id) }, dicabutAt: null },
+      })
+    : [];
+  const periodePerSekolah = new Map<string, PeriodeLangganan[]>();
+  for (const p of periode) periodePerSekolah.set(p.schoolId, [...(periodePerSekolah.get(p.schoolId) ?? []), p]);
+
+  const now = new Date();
+  return NextResponse.json({
+    schools: schools.map((school) => {
+      const rujukan = pilihPeriodeRujukan(periodePerSekolah.get(school.id) ?? [], now);
+      return {
+        ...school,
+        seatQuota: rujukan?.seatQuota ?? null,
+        validUntil: rujukan?.berakhir ?? null,
+        statusLangganan: rujukan ? statusPeriode(rujukan, now) : "belum_aktif",
+      };
+    }),
+  });
 }
 
 async function generateUniqueKodeSekolah(): Promise<string> {
@@ -48,8 +72,19 @@ export async function POST(request: Request) {
     );
   }
 
-  const kodeSekolah = await generateUniqueKodeSekolah();
   const { npsn, alamat, seatQuota, validUntil, adminEmail, adminNama, ...rest } = parsed.data;
+
+  // Kuota + tanggal berakhir (berpasangan, lihat schoolCreateSchema) membentuk periode langganan pertama. Tanggal
+  // yang sudah lewat ditolak SEBELUM akun admin dibuat, supaya tidak ada akun yatim bila periodenya tidak sah.
+  const periodeAwal =
+    seatQuota != null && validUntil
+      ? { seatQuota, mulai: startOfDayWIB(tanggalWIB()), berakhir: akhirHariWIB(validUntil) }
+      : null;
+  if (periodeAwal && periodeAwal.berakhir.getTime() < periodeAwal.mulai.getTime()) {
+    return NextResponse.json({ error: "Masa berlaku tidak boleh sebelum hari ini." }, { status: 400 });
+  }
+
+  const kodeSekolah = await generateUniqueKodeSekolah();
 
   // Jika adminEmail diisi, pastikan email belum dipakai
   if (adminEmail) {
@@ -86,8 +121,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const parsedValidUntil = validUntil ? new Date(validUntil) : null;
-    // Satu transaksi: sekolah + baris akun admin tersimpan bersama atau tidak sama sekali.
+    // Satu transaksi: sekolah + periode awal + baris akun admin tersimpan bersama atau tidak sama sekali.
     const school = await prisma.$transaction(async (tx) => {
       const created = await tx.school.create({
         data: {
@@ -97,18 +131,27 @@ export async function POST(request: Request) {
           kabupatenKota: rest.kabupatenKota && rest.kabupatenKota.length > 0 ? rest.kabupatenKota : null,
           kodeSekolah,
           status: "aktif",
-          seatQuota: seatQuota ?? null,
-          validUntil: parsedValidUntil,
-          seatActivatedById: seatQuota ? user.id : null,
         },
       });
+      if (periodeAwal) {
+        // buatPeriode juga mengisi kolom salinan School.seatQuota/validUntil.
+        await buatPeriode(tx, {
+          schoolId: created.id,
+          nama: "Periode awal",
+          mulai: periodeAwal.mulai,
+          berakhir: periodeAwal.berakhir,
+          seatQuota: periodeAwal.seatQuota,
+          dibuatOlehId: user.id,
+        });
+        await tx.school.update({ where: { id: created.id }, data: { seatActivatedById: user.id } });
+      }
       if (adminAuth) {
         await tx.user.create({
           data: { id: adminAuth.id, email: adminAuth.email, role: "admin_sekolah", status: "aktif" },
         });
         await tx.schoolUser.create({ data: { userId: adminAuth.id, schoolId: created.id } });
       }
-      return created;
+      return tx.school.findUniqueOrThrow({ where: { id: created.id } });
     });
 
     const tempPasswordInfo = adminAuth ? { email: adminAuth.email, password: adminAuth.password } : null;

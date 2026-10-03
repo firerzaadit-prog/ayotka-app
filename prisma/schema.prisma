@@ -51,14 +51,15 @@ model User {
   schoolUsers          SchoolUser[]
   studentProfile       Student?
   partnerProfile       Partner?
-  createdQuestions     Question[]        @relation("QuestionCreatedBy")
-  vouchersGenerated    Voucher[]         @relation("VoucherGeneratedBy")
-  schoolSeatsActivated School[]          @relation("SchoolSeatActivatedBy")
+  createdQuestions     Question[]         @relation("QuestionCreatedBy")
+  vouchersGenerated    Voucher[]          @relation("VoucherGeneratedBy")
+  schoolSeatsActivated School[]           @relation("SchoolSeatActivatedBy")
   loginLogs            LoginLog[]
   auditLogs            AuditLog[]
-  taxonomyMappingsMade TaxonomyMapping[] @relation("TaxonomyMappingCreatedBy")
-  soalImportsPerformed SoalImportLog[]   @relation("SoalImportLogImportedBy")
+  taxonomyMappingsMade TaxonomyMapping[]  @relation("TaxonomyMappingCreatedBy")
+  soalImportsPerformed SoalImportLog[]    @relation("SoalImportLogImportedBy")
   dinasProfile         DinasAdmin?
+  periodeDibuat        PeriodeLangganan[] @relation("PeriodeDibuatOleh")
 
   @@map("users")
 }
@@ -98,8 +99,37 @@ model School {
   referredByPartner  Partner?            @relation(fields: [referredByPartnerId], references: [id], onDelete: SetNull)
   entitlements       Entitlement[]
   partnerCommissions PartnerCommission[]
+  periode            PeriodeLangganan[]
 
   @@map("schools")
+}
+
+/// Satu periode langganan (kursi) sekolah, mis. satu semester atau satu tahun ajaran. Perpanjangan =
+/// membuat periode BARU (bukan menimpa tanggal lama) sehingga riwayat tersimpan dan kursi siswa dihitung
+/// per periode. Status (akan_datang/aktif/tenggang/berakhir) diturunkan dari tanggal, tidak disimpan -
+/// lihat lib/billing/periode-sekolah.ts. School.seatQuota/validUntil hanya salinan (cache) periode
+/// rujukan yang ditulis oleh sinkronkanCachePeriode.
+model PeriodeLangganan {
+  id               String    @id @default(uuid()) @db.Uuid
+  schoolId         String    @map("school_id") @db.Uuid
+  nama             String?
+  mulai            DateTime
+  /// Akhir hari WIB (23:59:59.999) tanggal berakhir yang dipilih admin pusat.
+  berakhir         DateTime
+  /// Siswa masih boleh mulai ujian selama masa tenggang setelah `berakhir`.
+  masaTenggangHari Int       @default(14) @map("masa_tenggang_hari")
+  seatQuota        Int       @map("seat_quota")
+  catatan          String?
+  dicabutAt        DateTime? @map("dicabut_at")
+  dibuatOlehId     String?   @map("dibuat_oleh_id") @db.Uuid
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  school       School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  dibuatOleh   User?         @relation("PeriodeDibuatOleh", fields: [dibuatOlehId], references: [id], onDelete: SetNull)
+  entitlements Entitlement[]
+
+  @@index([schoolId, mulai])
+  @@map("school_periods")
 }
 
 enum Jenjang {
@@ -843,16 +873,22 @@ model Entitlement {
   invoiceId  String?           @map("invoice_id") @db.Uuid
   voucherId  String?           @map("voucher_id") @db.Uuid
   schoolId   String?           @map("school_id") @db.Uuid
+  /// Hanya untuk source=school_seat: periode langganan sekolah yang memberi kursi ini. Unik per siswa per
+  /// periode, jadi satu siswa tidak pernah memakan lebih dari satu kursi dalam satu periode.
+  periodeId  String?           @map("periode_id") @db.Uuid
   revokedAt  DateTime?         @map("revoked_at")
   createdAt  DateTime          @default(now()) @map("created_at")
 
-  student Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  plan    Plan     @relation(fields: [planId], references: [id], onDelete: Restrict)
-  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
-  voucher Voucher? @relation(fields: [voucherId], references: [id], onDelete: SetNull)
-  school  School?  @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  student Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  plan    Plan              @relation(fields: [planId], references: [id], onDelete: Restrict)
+  invoice Invoice?          @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  voucher Voucher?          @relation(fields: [voucherId], references: [id], onDelete: SetNull)
+  school  School?           @relation(fields: [schoolId], references: [id], onDelete: SetNull)
+  periode PeriodeLangganan? @relation(fields: [periodeId], references: [id], onDelete: SetNull)
 
+  @@unique([studentId, periodeId])
   @@index([studentId, revokedAt, startsAt, endsAt])
+  @@index([periodeId])
   @@map("entitlements")
 }
 

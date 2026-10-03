@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import { formatWIBDate } from "@/lib/utils/datetime";
 import { Alert } from "@/components/ui/alert";
 
-type SeatStatus = { seatQuota: number | null; validUntil: string | null; seatsUsed: number; isFull: boolean };
+type StatusLangganan = "belum_aktif" | "akan_datang" | "aktif" | "tenggang" | "berakhir";
+type SeatStatus = {
+  seatQuota: number | null;
+  validUntil: string | null;
+  seatsUsed: number;
+  isFull: boolean;
+  status: StatusLangganan;
+  mulai: string | null;
+  tenggangSampai: string | null;
+  namaPeriode: string | null;
+};
 
 /** Ringkasan kursi (seat) sekolah yang diaktifkan admin pusat - read-only, dipakai di dashboard admin sekolah. */
 export function KuotaSummary() {
@@ -37,10 +47,29 @@ export function KuotaSummary() {
             {status.seatsUsed.toLocaleString("id-ID")}/{status.seatQuota.toLocaleString("id-ID")} kursi
             terpakai
           </span>
-          {status.validUntil && (
-            <p className="mt-0.5 text-xs text-slate-500">Berlaku sampai {formatWIBDate(status.validUntil)}</p>
+          {status.namaPeriode && <p className="mt-0.5 text-xs text-slate-500">{status.namaPeriode}</p>}
+          {status.status === "akan_datang" && status.mulai ? (
+            <p className="mt-0.5 text-xs text-slate-500">Mulai berlaku {formatWIBDate(status.mulai)}</p>
+          ) : (
+            status.validUntil && (
+              <p className="mt-0.5 text-xs text-slate-500">Berlaku sampai {formatWIBDate(status.validUntil)}</p>
+            )
           )}
         </div>
+      )}
+      {status.status === "tenggang" && status.validUntil && status.tenggangSampai && (
+        <Alert variant="warning" className="mt-3">
+          Langganan berakhir pada {formatWIBDate(status.validUntil)}. Sampai {formatWIBDate(status.tenggangSampai)}{" "}
+          (masa tenggang) siswa masih bisa mengerjakan ujian. Setelah itu sekolah dibekukan sampai diperpanjang -
+          hubungi admin pusat untuk memperpanjang.
+        </Alert>
+      )}
+      {status.status === "berakhir" && status.validUntil && (
+        <Alert variant="danger" className="mt-3">
+          Langganan berakhir pada {formatWIBDate(status.validUntil)}. Siswa tidak bisa memulai ujian baru dan siswa
+          baru belum bisa ditambahkan atau diimpor sampai langganan diperpanjang. Riwayat dan nilai siswa tetap
+          bisa dibuka. Hubungi admin pusat untuk memperpanjang.
+        </Alert>
       )}
       {status.isFull && (
         <Alert variant="warning" className="mt-3">

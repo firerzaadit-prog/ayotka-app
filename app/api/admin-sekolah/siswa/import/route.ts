@@ -7,7 +7,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { studentImportRowSchema } from "@/lib/validations/student";
-import { assertKuotaTersedia, createStudent, KuotaPenuhError, hitungKursiTerpakai } from "@/lib/students/create";
+import { assertKuotaTersedia, createStudent, KuotaPenuhError, hitungKursiTerpakai, kuotaAcuanSekolah } from "@/lib/students/create";
 
 const HEADER_ALIASES: Record<string, string[]> = {
   no: ["no", "nomor", "no urut", "nomor urut"],
@@ -236,16 +236,21 @@ export async function POST(request: Request) {
       }
       throw error;
     }
-  } else if (user.role === "admin_pusat" && school.seatQuota != null) {
-    const currentCount = await hitungKursiTerpakai(schoolId);
-    if (currentCount + pending.length > school.seatQuota) {
-      const sisa = Math.max(0, school.seatQuota - currentCount);
-      return NextResponse.json(
-        {
-          error: `Kuota sekolah tidak mencukupi. Kuota: ${school.seatQuota}, terdaftar: ${currentCount}, sisa: ${sisa}. Import ${pending.length} siswa melebihi kuota.`,
-        },
-        { status: 409 },
-      );
+  } else if (user.role === "admin_pusat") {
+    // Admin pusat tidak diblokir bila langganan sekolah berakhir (mis. menyiapkan siswa sebelum perpanjangan),
+    // tetapi tetap tidak boleh melewati kuota periode yang berlaku/berikutnya.
+    const kuota = await kuotaAcuanSekolah(schoolId);
+    if (kuota != null) {
+      const currentCount = await hitungKursiTerpakai(schoolId);
+      if (currentCount + pending.length > kuota) {
+        const sisa = Math.max(0, kuota - currentCount);
+        return NextResponse.json(
+          {
+            error: `Kuota sekolah tidak mencukupi. Kuota: ${kuota}, terdaftar: ${currentCount}, sisa: ${sisa}. Import ${pending.length} siswa melebihi kuota.`,
+          },
+          { status: 409 },
+        );
+      }
     }
   }
 

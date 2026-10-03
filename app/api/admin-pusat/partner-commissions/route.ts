@@ -27,7 +27,7 @@ export async function GET() {
  * Bagian 9 kasus tepi #7: klaim rujukan sekolah yang telat dicatat - SELALU
  * dibuat manual di sini, TIDAK PERNAH otomatis. Tidak mengubah
  * School.referredByPartnerId (itu cuma boleh diisi saat aktivasi kursi
- * pertama, lihat app/api/admin-pusat/schools/[id]/seat) - murni catatan
+ * pertama, lihat app/api/admin-pusat/schools/[id]/periode) - murni catatan
  * komisi berdasarkan verifikasi terpisah admin di luar sistem.
  */
 export async function POST(request: Request) {
