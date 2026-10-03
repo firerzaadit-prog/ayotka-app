@@ -79,8 +79,8 @@ export default async function AdminSekolahDashboardPage() {
         <Link href="/admin-sekolah/siswa" className={buttonClassName("primary")}>
           Kelola Siswa
         </Link>
-        <Link href="/admin-sekolah/bank-soal" className={buttonClassName("secondary")}>
-          Bank Soal
+        <Link href="/admin-sekolah/ujian" className={buttonClassName("secondary")}>
+          Penugasan Ujian
         </Link>
       </div>
     </div>

@@ -56,8 +56,8 @@ export function KuotaSummary() {
       ) : (
         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
           <span className="font-medium text-slate-800">
-            {status.seatsUsed.toLocaleString("id-ID")}/{status.seatQuota.toLocaleString("id-ID")} kursi
-            terpakai
+            {status.seatsUsed.toLocaleString("id-ID")}/{status.seatQuota.toLocaleString("id-ID")} siswa
+            terdaftar
           </span>
           {status.namaPeriode && <p className="mt-0.5 text-xs text-slate-500">{status.namaPeriode}</p>}
           {status.status === "akan_datang" && status.mulai ? (

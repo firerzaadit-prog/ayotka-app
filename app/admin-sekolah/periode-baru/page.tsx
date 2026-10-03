@@ -183,7 +183,7 @@ export default function PeriodeBaruPage() {
           <Badge variant={status.varian}>{status.teks}</Badge>
           {kuota.seatQuota != null && (
             <span className="text-slate-500">
-              {kuota.seatsUsed.toLocaleString("id-ID")}/{kuota.seatQuota.toLocaleString("id-ID")} kursi terpakai
+              {kuota.seatsUsed.toLocaleString("id-ID")}/{kuota.seatQuota.toLocaleString("id-ID")} siswa terdaftar
             </span>
           )}
         </div>

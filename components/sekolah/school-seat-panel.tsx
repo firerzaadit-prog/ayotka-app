@@ -327,8 +327,26 @@ export function SchoolSeatPanel({ schoolId }: { schoolId: string }) {
                   <span className="text-sm font-semibold text-slate-900">{p.nama ?? "Periode langganan"}</span>
                 </div>
                 {p.status !== "dicabut" && (
-                  <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200">
-                    {p.kursiTerpakai.toLocaleString("id-ID")}/{p.seatQuota.toLocaleString("id-ID")} kursi terpakai
+                  <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    {p.status === "aktif" || p.status === "tenggang" ? (
+                      <>
+                        {/* Periode berjalan: angka yang sama dengan yang dilihat admin sekolah (siswa terdaftar vs kuota).
+                            Kursi baru dibagikan saat siswa mulai ujian, jadi jumlahnya menyusul dan ditampilkan terpisah. */}
+                        <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200">
+                          {data.siswaTerdaftar.toLocaleString("id-ID")}/{p.seatQuota.toLocaleString("id-ID")} siswa terdaftar
+                        </span>
+                        <span
+                          className="text-xs text-slate-500"
+                          title="Kursi dibagikan otomatis saat siswa pertama kali memulai ujian pada periode ini."
+                        >
+                          {p.kursiTerpakai.toLocaleString("id-ID")} sudah memakai kursi
+                        </span>
+                      </>
+                    ) : (
+                      <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-indigo-200">
+                        {p.kursiTerpakai.toLocaleString("id-ID")}/{p.seatQuota.toLocaleString("id-ID")} kursi terpakai
+                      </span>
+                    )}
                   </span>
                 )}
               </div>
