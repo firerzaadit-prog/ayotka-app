@@ -12,6 +12,7 @@ import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconLink } from "@/components/ui/empty-state-icons";
 import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
+import { useResetPassword } from "@/components/admin/use-reset-password";
 
 type DinasAdmin = {
   id: string;
@@ -34,6 +35,7 @@ type EditForm = { nama: string; instansi: string; kabupatenKota: string };
  * kota/kabupaten yang sama - tidak dibatasi satu akun per wilayah.
  */
 export default function DinasPendidikanPage() {
+  const resetPassword = useResetPassword();
   const [dinasAdmins, setDinasAdmins] = useState<DinasAdmin[] | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -270,6 +272,18 @@ export default function DinasPendidikanPage() {
                               className="rounded-lg px-2.5 py-1 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-700"
                             >
                               Edit
+                            </button>
+                            <button
+                              onClick={() =>
+                                resetPassword({
+                                  endpoint: `/api/admin-pusat/dinas-admins/${d.id}/reset-password`,
+                                  nama: d.email,
+                                  pemilik: "Admin dinas",
+                                })
+                              }
+                              className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                            >
+                              Reset password
                             </button>
                             <button
                               onClick={() => handleToggleStatus(d)}

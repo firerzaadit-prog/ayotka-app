@@ -14,6 +14,7 @@ import { SchoolSeatPanel } from "@/components/sekolah/school-seat-panel";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { IconUsers } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
+import { useResetPassword } from "@/components/admin/use-reset-password";
 import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
 
 type SchoolAdmin = {
@@ -72,6 +73,7 @@ export default function SekolahDetailPage({
   const router = useRouter();
   const { id } = use(params);
   const { confirm } = useDialog();
+  const resetPassword = useResetPassword();
   const [school, setSchool] = useState<SchoolDetail | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState("");
@@ -438,12 +440,26 @@ export default function SekolahDetailPage({
                   <Td>{admin.user.email}</Td>
                   <Td>{admin.user.status}</Td>
                   <Td className="text-right">
-                    <button
-                      onClick={() => toggleStatus(admin)}
-                      className="text-sm font-medium text-slate-600 hover:text-slate-900"
-                    >
-                      {admin.user.status === "aktif" ? "Nonaktifkan" : "Aktifkan"}
-                    </button>
+                    <div className="flex justify-end gap-4">
+                      <button
+                        onClick={() =>
+                          resetPassword({
+                            endpoint: `/api/admin-pusat/school-admins/${admin.userId}/reset-password`,
+                            nama: admin.user.email,
+                            pemilik: "Admin sekolah",
+                          })
+                        }
+                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
+                      >
+                        Reset password
+                      </button>
+                      <button
+                        onClick={() => toggleStatus(admin)}
+                        className="text-sm font-medium text-slate-600 hover:text-slate-900"
+                      >
+                        {admin.user.status === "aktif" ? "Nonaktifkan" : "Aktifkan"}
+                      </button>
+                    </div>
                   </Td>
                 </Tr>
               ))}

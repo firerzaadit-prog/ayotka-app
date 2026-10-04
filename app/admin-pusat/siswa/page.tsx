@@ -14,6 +14,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconUsers, IconSearch } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
+import { useResetPassword } from "@/components/admin/use-reset-password";
 import { ImportSiswaModal } from "@/components/sekolah/import-siswa-modal";
 import {
   BilahHapusMassal,
@@ -53,6 +54,7 @@ const SELECT_CLASS =
 export default function SemuaSiswaPage() {
   const toast = useToast();
   const { confirm } = useDialog();
+  const resetPassword = useResetPassword();
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [students, setStudents] = useState<StudentRow[] | null>(null);
   const [filterSchoolId, setFilterSchoolId] = useState("");
@@ -368,6 +370,20 @@ export default function SemuaSiswaPage() {
                   <Td>{CLAIM_LABEL[s.claimStatus]}</Td>
                   <Td>{s.lulusAt ? "Alumni" : STATUS_LABEL[s.status]}</Td>
                   <Td className="text-right">
+                    {bisaDihapus(s) && s.claimStatus === "sudah_klaim" && (
+                      <button
+                        onClick={() =>
+                          resetPassword({
+                            endpoint: `/api/admin-sekolah/siswa/${s.id}/reset-password`,
+                            nama: s.nama,
+                            pemilik: "Siswa",
+                          })
+                        }
+                        className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                      >
+                        Reset password
+                      </button>
+                    )}
                     {bisaDihapus(s) && (
                       <button
                         onClick={() => handleDelete(s.id, s.nama)}

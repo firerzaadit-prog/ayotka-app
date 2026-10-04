@@ -11,6 +11,7 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconWallet } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
+import { useResetPassword } from "@/components/admin/use-reset-password";
 
 type Partner = {
   id: string;
@@ -62,6 +63,7 @@ function formatRupiah(n: number): string {
  * dibuat di sini.
  */
 export default function MitraPage() {
+  const resetPassword = useResetPassword();
   const toast = useToast();
   const [partners, setPartners] = useState<Partner[] | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -374,6 +376,7 @@ export default function MitraPage() {
                   <Th>Voucher</Th>
                   <Th>Sekolah rujukan</Th>
                   <Th>Siswa via voucher</Th>
+                  <Th></Th>
                 </Tr>
               </Thead>
               <tbody>
@@ -391,6 +394,22 @@ export default function MitraPage() {
                     </Td>
                     <Td>{p.totalSekolahRujukan}</Td>
                     <Td>{p.siswaViaKode}</Td>
+                    <Td className="text-right">
+                      {/* Baris ini memilih mitra saat diklik; tombol reset tidak boleh ikut memilihnya. */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void resetPassword({
+                            endpoint: `/api/admin-pusat/partners/${p.id}/reset-password`,
+                            nama: p.email,
+                            pemilik: "Mitra",
+                          });
+                        }}
+                        className="rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+                      >
+                        Reset password
+                      </button>
+                    </Td>
                   </Tr>
                 ))}
               </tbody>
