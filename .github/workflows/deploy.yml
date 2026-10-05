@@ -1,13 +1,24 @@
 name: Deploy ayotka.id to VPS
 on:
   push:
-    branches: [ main, claude/fase-1-github-setup-8ttlac ]
+    # Hanya main. Cabang kerja lama tidak lagi dipakai, dan `git reset --hard origin/<cabang>` di server akan mengganti
+    # kode produksi dengan isi cabang apa pun yang kebetulan di-push.
+    branches: [ main ]
+
+# Satu deploy pada satu waktu: dua push berurutan tidak boleh membangun di direktori yang sama secara bersamaan
+# (build kedua menimpa .next yang sedang dipakai build pertama). Deploy yang menunggu diurutkan, tidak dibatalkan.
+concurrency:
+  group: deploy-ayotka-vps
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@v1.2.0
+        # Versi dikunci ke SHA (v1.2.0): aksi ini memegang kunci SSH server, jadi tag yang bisa dipindah tidak dipercaya.
+        uses: appleboy/ssh-action@7eaf76671a0d7eec5d98ee897acda4f968735a17 # v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USERNAME }}
@@ -32,3 +43,11 @@ jobs:
             pm2 reload ayotka-app
 
             echo ">>> Deploy ayotka.id selesai dengan sukses!"
+
+      # Pastikan situs benar-benar menjawab setelah deploy. Gagal di sini tidak membatalkan apa pun di server, tetapi
+      # menandai deploy merah supaya langsung terlihat (mis. 502 dari nginx atau aplikasi gagal naik).
+      - name: Periksa situs setelah deploy
+        run: |
+          curl --fail --silent --show-error --location --max-time 20 \
+            --retry 6 --retry-delay 10 --retry-all-errors \
+            https://ayotka.id/login --output /dev/null
