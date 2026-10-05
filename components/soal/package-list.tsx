@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -13,36 +13,27 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 import { formatWIBHariTanggal, formatWIBHariTanggalJam, formatWIBJam } from "@/lib/utils/datetime";
-import { hitungJadwalBukaSeri } from "@/lib/exam/seri-jadwal";
+import { galatUrutanSeri, ringkasSeri } from "@/lib/exam/seri-jadwal";
+import { RingkasanSeri } from "@/components/soal/ringkasan-seri";
+import { UrutanSeriField } from "@/components/soal/urutan-seri-field";
+import { useUrutanSeri } from "@/components/soal/use-urutan-seri";
 
 /**
- * Status jadwal buka paket berseri (sama untuk semua siswa): urutan 1 terbuka saat
- * dipublish, berikutnya 06.00 WIB sehari setelah urutan sebelumnya - lihat lib/exam/seri-jadwal.ts.
+ * Penanda paket berseri. Jadwal bukanya per siswa (bukan satu jadwal untuk semua): paket pembuka
+ * langsung terbuka begitu dipublish, paket lainnya terbuka untuk seorang siswa pukul 06.00 WIB
+ * pertama setelah ia menyelesaikan urutan sebelumnya - lihat lib/exam/seri-jadwal.ts.
  */
-function JadwalSeriBadge({ urutan, buka }: { urutan: number; buka: Date | undefined }) {
-  const belumBuka = buka != null && buka > new Date();
-  if (belumBuka) {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <span className="inline-flex w-fit items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-          <span>🔒</span> Terjadwal (Seri #{urutan})
-        </span>
-        <span className="text-[10px] text-amber-700">
-          Dibuka otomatis <b className="font-semibold">{formatWIBHariTanggalJam(buka)}</b>
-        </span>
-        {urutan > 1 && <span className="text-[10px] text-slate-500">Siswa juga wajib selesaikan urutan sebelumnya</span>}
-      </div>
-    );
-  }
+function SeriBadge({ urutan, pembuka }: { urutan: number; pembuka: boolean }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="inline-flex w-fit items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-        <span>{urutan === 1 ? "✨" : "🟢"}</span> Seri #{urutan} {urutan === 1 ? "(Paket Pembuka)" : "(Terbuka)"}
+        <span>{pembuka ? "✨" : "🔓"}</span> Seri #{urutan} {pembuka ? "(Paket Pembuka)" : "(Terbuka Bertahap)"}
       </span>
-      {buka && (
-        <span className="text-[10px] text-slate-500">Dibuka sejak {formatWIBHariTanggalJam(buka)}</span>
-      )}
-      {urutan > 1 && <span className="text-[10px] text-slate-500">Siswa wajib selesaikan urutan sebelumnya</span>}
+      <span className="text-[10px] text-slate-500">
+        {pembuka
+          ? "Langsung terbuka begitu dipublish"
+          : "Terbuka per siswa: 06.00 WIB setelah urutan sebelumnya selesai"}
+      </span>
     </div>
   );
 }
@@ -56,6 +47,8 @@ type PackageListItem = {
   status: string;
   jumlahSoal: number;
   kategori: "mandiri" | "nasional";
+  ownerType?: "pusat" | "sekolah";
+  bolehDipilihSiswa?: boolean;
   urutanSeri?: number | null;
   bukaMulai?: string | null;
   bukaSelesai?: string | null;
@@ -98,6 +91,8 @@ const selectClassName =
 
 export function PackageList({ basePath }: { basePath: string }) {
   const [packages, setPackages] = useState<PackageListItem[] | null>(null);
+  // Jumlah siswa yang sudah menyelesaikan tiap paket berseri; null = belum dimuat / gagal dimuat (angkanya disembunyikan).
+  const [siswaSelesai, setSiswaSelesai] = useState<Record<string, number> | null>(null);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [blueprints, setBlueprints] = useState<BlueprintOption[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -105,6 +100,19 @@ export function PackageList({ basePath }: { basePath: string }) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Try Out Mandiri wajib punya urutan seri (permintaan user, 5 Okt 2026): nomor tidak boleh kosong dan tidak boleh
+  // sama dengan paket lain di mapel yang sama. Nomor kosong berikutnya diisi otomatis, tapi tidak menimpa ketikan admin.
+  const wajibUrutan = form.kategori === "mandiri";
+  const urutanOtomatis = useRef("");
+  // Jenjang mengikuti mapel yang dipilih (mapel itu per jenjang); tiap jenjang punya urutannya sendiri.
+  const jenjangForm = subjects.find((s) => s.id === form.subjectId)?.jenjang ?? "";
+  const urutan = useUrutanSeri(form.subjectId, jenjangForm, showForm && wajibUrutan, undefined, refreshKey, (berikutnya) => {
+    const saran = String(berikutnya);
+    const sebelumnya = urutanOtomatis.current;
+    setForm((f) => (f.urutanSeri === "" || f.urutanSeri === sebelumnya ? { ...f, urutanSeri: saran } : f));
+    urutanOtomatis.current = saran;
+  });
+  const galatUrutan = wajibUrutan ? galatUrutanSeri(form.urutanSeri, urutan.terpakai, true) : null;
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
@@ -119,6 +127,7 @@ export function PackageList({ basePath }: { basePath: string }) {
       const subjectData = await subjectRes.json();
       if (!ignore) {
         setPackages(pkgData.packages ?? []);
+        setSiswaSelesai(pkgData.siswaSelesai ?? null);
         setSubjects(subjectData.subjects ?? []);
       }
     })();
@@ -282,7 +291,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                   });
                 }}
               >
-                <option value="mandiri">Try Out Mandiri (kapan saja, sepuasnya)</option>
+                <option value="mandiri">Try Out Mandiri (latihan mandiri, bisa dibuat berseri)</option>
                 <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis Learning Analytics otomatis)</option>
               </select>
               <p className="mt-1 text-xs text-slate-500">
@@ -332,28 +341,19 @@ export function PackageList({ basePath }: { basePath: string }) {
                 </p>
               </div>
             )}
-            {form.bolehDipilihSiswa && form.kategori === "mandiri" && (
-              <div>
-                <Label htmlFor="urutanSeri">Urutan dalam seri (opsional)</Label>
-                <Input
-                  id="urutanSeri"
-                  type="number"
-                  min="1"
-                  placeholder="Kosongkan kalau paket ini berdiri sendiri"
-                  value={form.urutanSeri}
-                  onChange={(e) => setForm({ ...form, urutanSeri: e.target.value })}
-                  className="max-w-40"
-                />
-                <p className="mt-1 text-xs text-slate-500">
-                  Isi untuk menjadwalkan rangkaian paket per mata pelajaran (Paket 1, 2, 3, ...): urutan 1 terbuka
-                  begitu dipublish, urutan 2 terbuka otomatis jam 06:00 WIB keesokan harinya, urutan 3 sehari
-                  setelahnya, dan seterusnya. Siswa tetap wajib menyelesaikan paket urutan sebelumnya dulu (siswa yang
-                  absen beberapa hari mengerjakan berurutan, tanpa menunggu besok lagi). Kosongkan supaya paket ini
-                  bebas dikerjakan kapan saja seperti biasa.
-                </p>
-              </div>
+            {wajibUrutan && (
+              <UrutanSeriField
+                id="urutanSeri"
+                nilai={form.urutanSeri}
+                onChange={(nilai) => setForm({ ...form, urutanSeri: nilai })}
+                wajib
+                galat={galatUrutan}
+                terpakai={urutan.terpakai}
+                berikutnya={urutan.berikutnya}
+                memuat={urutan.memuat}
+              />
             )}
-            <Button type="submit" disabled={submitting} className="w-fit">
+            <Button type="submit" disabled={submitting || galatUrutan != null} className="w-fit">
               {submitting ? "Menyimpan..." : "Simpan paket"}
             </Button>
           </form>
@@ -371,6 +371,10 @@ export function PackageList({ basePath }: { basePath: string }) {
         />
       )}
 
+      {packages && packages.length > 0 && (
+        <RingkasanSeri kelompok={ringkasSeri(packages, siswaSelesai ?? {})} tampilkanSiswa={siswaSelesai != null} />
+      )}
+
       {packages && packages.length > 0 && (() => {
         // Urutkan paket agar sinkron dengan urutan tampilan siswa:
         // jenjang -> mapel -> urutanSeri (1, 2, 3...) -> nama
@@ -383,19 +387,14 @@ export function PackageList({ basePath }: { basePath: string }) {
           return a.nama.localeCompare(b.nama);
         });
 
-        // Jadwal buka tiap paket berseri. Hanya paket published yang dihitung: siswa tidak
-        // pernah melihat draft, jadi draft tidak ikut membentuk jadwal (sama seperti di sisi siswa).
-        const jadwalBukaById = hitungJadwalBukaSeri(
-          sortedPackages
-            .filter((p) => p.kategori === "mandiri" && p.urutanSeri != null && p.status === "published")
-            .map((p) => ({
-              id: p.id,
-              subjectId: p.subject.id,
-              urutanSeri: p.urutanSeri ?? null,
-              publishedAt: p.publishedAt,
-              bukaMulai: p.bukaMulai,
-            })),
-        );
+        // Paket pembuka seri = urutan terkecil yang published per mapel (langsung terbuka begitu
+        // dipublish). Draft tidak dihitung: siswa tidak pernah melihatnya (sama seperti di sisi siswa).
+        const urutanPembukaByMapel = new Map<string, number>();
+        for (const p of sortedPackages) {
+          if (p.kategori !== "mandiri" || p.urutanSeri == null || p.status !== "published") continue;
+          const saatIni = urutanPembukaByMapel.get(p.subject.id);
+          if (saatIni == null || p.urutanSeri < saatIni) urutanPembukaByMapel.set(p.subject.id, p.urutanSeri);
+        }
 
         const totalPages = Math.max(1, Math.ceil(sortedPackages.length / pageSize));
         const pageRows = sortedPackages.slice((page - 1) * pageSize, page * pageSize);
@@ -418,9 +417,7 @@ export function PackageList({ basePath }: { basePath: string }) {
                   {pageRows.map((pkg) => {
                     const isPublished = pkg.status === "published";
                     const isSeries = isPublished && pkg.kategori === "mandiri" && pkg.urutanSeri != null;
-                    // Paket berseri memakai jadwal serinya (sudah memperhitungkan bukaMulai), bukan chip "Terjadwal".
-                    const isScheduledFuture =
-                      isPublished && !isSeries && Boolean(pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date());
+                    const isScheduledFuture = isPublished && Boolean(pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date());
 
                     return (
                       <Tr key={pkg.id}>
@@ -446,12 +443,15 @@ export function PackageList({ basePath }: { basePath: string }) {
                               <Badge variant={STATUS_BADGE_VARIANT[pkg.status] ?? "neutral"}>{pkg.status}</Badge>
                             </div>
 
-                            {/* Paket berseri: jadwal buka otomatis (urutan 1 saat dipublish, berikutnya 06.00 WIB per hari) */}
+                            {/* Paket berseri: terbuka bertahap per siswa (06.00 WIB setelah urutan sebelumnya selesai) */}
                             {isSeries && (
-                              <JadwalSeriBadge urutan={pkg.urutanSeri!} buka={jadwalBukaById.get(pkg.id)} />
+                              <SeriBadge
+                                urutan={pkg.urutanSeri!}
+                                pembuka={urutanPembukaByMapel.get(pkg.subject.id) === pkg.urutanSeri}
+                              />
                             )}
 
-                            {/* Terjadwal di masa mendatang (paket tunggal dengan bukaMulai manual) */}
+                            {/* Terjadwal di masa mendatang (bukaMulai manual) */}
                             {isScheduledFuture && (
                               <div className="flex flex-col gap-0.5">
                                 <span className="inline-flex w-fit items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
@@ -464,9 +464,23 @@ export function PackageList({ basePath }: { basePath: string }) {
                             )}
 
                             {isPublished && !pkg.urutanSeri && !isScheduledFuture && (
-                              <span className="inline-flex w-fit items-center rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-                                Akses Bebas
-                              </span>
+                              pkg.kategori === "mandiri" && (pkg.ownerType === "pusat" || pkg.bolehDipilihSiswa !== false) ? (
+                                // Try Out Mandiri yang bisa dipilih siswa (paket pusat selalu bisa, paket sekolah kalau
+                                // "boleh dipilih bebas siswa") tanpa urutan seri tidak ikut aturan "1 paket baru per hari":
+                                // siswa bisa membukanya kapan saja. Ditandai jelas supaya tidak terlewat tanpa sengaja.
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="inline-flex w-fit items-center rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">
+                                    Akses Bebas
+                                  </span>
+                                  <span className="text-[10px] text-slate-500">
+                                    Tidak ikut aturan 1 paket per hari. Isi urutan seri agar terbuka bertahap.
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex w-fit items-center rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                                  Akses Bebas
+                                </span>
+                              )
                             )}
                           </div>
                         </Td>

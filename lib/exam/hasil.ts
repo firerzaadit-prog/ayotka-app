@@ -5,7 +5,8 @@ import { shuffleWithSeed } from "@/lib/exam/shuffle";
 import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
 import { aggregateElemenScores } from "@/lib/exam/elemen-scores";
 import { buildRanking } from "@/lib/exam/ranking";
-import { firstFinishedAttempt } from "@/lib/exam/seri-mandiri";
+import { firstFinishedAttempt, percobaanBerjawabPertama } from "@/lib/exam/seri-mandiri";
+import { bukaPaketBerikutnyaSetelah } from "@/lib/exam/seri-jadwal";
 
 /**
  * Tiket 5.9: ID separuh disamarkan untuk watermark - cukup untuk dilacak
@@ -124,6 +125,24 @@ export async function buildHasil(attempt: Attempt) {
     bisaUnduhRapor = pertama == null || pertama.id === attempt.id;
   }
 
+  // Paket berseri (Try Out Mandiri): beri tahu kapan paket berikutnya di seri terbuka (06.00 WIB pertama setelah
+  // selesai - lib/exam/seri-jadwal.ts) pada percobaan yang PERTAMA kali dihitung "sudah mengerjakan" (selesai dan
+  // minimal satu soal terjawab). Kalau percobaan ini selesai tapi belum ada satu pun percobaan paket ini yang
+  // punya soal terjawab, siswa diberi tahu bahwa paket berikutnya belum terbuka. Pengerjaan ulang, Ujian Terjadwal,
+  // dan paket yang tidak berseri tidak mendapat keterangan ini.
+  let bukaPaketBerikutnya: Date | null = null;
+  let paketBerseriBelumTerjawab = false;
+  if (
+    attempt.assignmentId === null &&
+    pkg.kategori === "mandiri" &&
+    pkg.urutanSeri != null &&
+    (attempt.status === "selesai" || attempt.status === "kedaluwarsa")
+  ) {
+    const pertama = await percobaanBerjawabPertama(attempt.studentId, attempt.packageId);
+    if (pertama == null) paketBerseriBelumTerjawab = true;
+    else if (pertama.id === attempt.id) bukaPaketBerikutnya = bukaPaketBerikutnyaSetelah(pertama.percobaan);
+  }
+
   return {
     attempt: {
       id: attempt.id,
@@ -141,6 +160,8 @@ export async function buildHasil(attempt: Attempt) {
     // melihat hasil analisisnya - teaser blur hanya untuk yang tidak memintanya.
     analisisAiDiminta: attempt.analisisAiDiminta,
     bisaUnduhRapor,
+    bukaPaketBerikutnya,
+    paketBerseriBelumTerjawab,
     ranking,
     perSoal,
     competencyScores: competencyScores.map((c) => ({

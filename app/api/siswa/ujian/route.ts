@@ -42,9 +42,9 @@ export async function GET() {
     getActiveEntitlement(student.id),
   ]);
 
-  // Anotasi status buka seri Try Out Mandiri (jadwal global 06.00 WIB + wajib
-  // selesaikan urutan sebelumnya) - lihat lib/exam/seri-mandiri.ts. Paket tanpa
-  // urutanSeri (mayoritas, & semua Nasional) langsung {terkunci:false}.
+  // Anotasi status buka seri Try Out Mandiri (paket baru terbuka per siswa, pukul
+  // 06.00 WIB pertama setelah urutan sebelumnya selesai) - lihat lib/exam/seri-jadwal.ts.
+  // Paket tanpa urutanSeri (& semua Nasional) langsung {terkunci:false}.
   const packagesBerseri = await annotateSeriMandiri(student.id, packages);
 
   let activePlan: { kode: string; nama: string; aiKuotaPerMapel: number; tryOutNasionalKuotaPerMapel: number } | null = null;
@@ -81,6 +81,8 @@ export async function GET() {
       bukaMulai: p.bukaMulai,
       publishedAt: p.publishedAt,
       subject: p.subject,
+      // Dipakai halaman siswa untuk menampilkan penjelasan aturan seri hanya kalau memang ada paket berseri.
+      urutanSeri: p.urutanSeri,
       statusSeri: p.statusSeri,
     })),
     attempts: attempts.map((a) => ({

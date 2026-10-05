@@ -17,14 +17,14 @@ type KategoriTO = "nasional" | "mandiri";
 type SubjectInfo = { id: string; nama: string; jenjang?: string };
 
 /**
- * Status buka paket berseri (lib/exam/seri-jadwal.ts): "menunggu_jadwal" = belum waktunya
- * (bukaPada, + prasyarat kalau urutan sebelumnya juga belum selesai); "belum_giliran" = sudah
- * waktunya tapi urutan sebelumnya belum diselesaikan siswa ini.
+ * Status buka paket berseri (lib/exam/seri-jadwal.ts): "belum_giliran" = siswa ini belum
+ * menyelesaikan paket urutan sebelumnya (percobaanKosong: sudah dikumpulkan tapi belum ada soal yang dijawab);
+ * "menunggu_jadwal" = paket sebelumnya sudah selesai, tapi paket ini baru terbuka pukul 06.00 WIB (bukaPada).
  */
 type StatusSeri =
   | { terkunci: false }
-  | { terkunci: true; alasan: "menunggu_jadwal"; bukaPada: string; prasyarat: string | null }
-  | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string };
+  | { terkunci: true; alasan: "menunggu_jadwal"; bukaPada: string; namaPaketSebelumnya: string }
+  | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string; percobaanKosong?: boolean };
 
 type PackageItem = {
   id: string;
@@ -36,6 +36,7 @@ type PackageItem = {
   bukaSelesai: string | null;
   publishedAt: string | null;
   subject: SubjectInfo;
+  urutanSeri: number | null;
   statusSeri: StatusSeri;
 };
 
@@ -108,6 +109,16 @@ function getJadwalStatus(bukaMulai: string | null, bukaSelesai: string | null): 
   };
 }
 
+/**
+ * Paket berseri yang menunggu pukul 06.00 WIB terbuka sendiri begitu waktunya tiba (dihitung ulang
+ * tiap render, lihat detak di UjianContent) - tanpa ini siswa yang menunggu di halaman ini harus
+ * memuat ulang. Keputusan sebenarnya tetap di server (POST /api/siswa/attempts).
+ */
+function seriMasihTerkunci(status: StatusSeri): boolean {
+  if (!status.terkunci) return false;
+  return status.alasan === "belum_giliran" || new Date(status.bukaPada).getTime() > Date.now();
+}
+
 function UjianContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -121,6 +132,13 @@ function UjianContent() {
   const [assignments, setAssignments] = useState<AssignmentItem[] | null>(null);
   const [packages, setPackages] = useState<PackageItem[] | null>(null);
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
+  // Detak 30 detik: render ulang supaya paket yang jadwal bukanya (06.00 WIB / bukaMulai) tiba saat halaman
+  // sedang terbuka ikut berubah dari terkunci jadi bisa dimulai.
+  const [, setDetak] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setDetak((n) => n + 1), 30_000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleKategoriChange = (newKategori: KategoriTO) => {
     setSelectedSubject("semua");
@@ -208,6 +226,8 @@ function UjianContent() {
 
   const totalNasionalCount = packages?.filter((p) => p.kategori === "nasional").length ?? 0;
   const totalMandiriCount = packages?.filter((p) => p.kategori === "mandiri").length ?? 0;
+  // Ada paket Mandiri yang berseri (terbuka bertahap per siswa) -> tampilkan penjelasan aturannya.
+  const adaSeriMandiri = packages?.some((p) => p.kategori === "mandiri" && p.urutanSeri != null) ?? false;
 
   const isNasional = kategori === "nasional";
   const noNasionalQuota = isNasional && activePlan && activePlan.tryOutNasionalKuotaPerMapel === 0;
@@ -220,7 +240,9 @@ function UjianContent() {
         description={
           isNasional
             ? "Try Out terjadwal resmi berskala nasional dengan sistem penilaian terstandar dan Analisis Learning Analytics."
-            : "Latihan try out fleksibel kapan saja untuk mengasah pemahaman materi dan kesiapan ujianmu."
+            : adaSeriMandiri
+              ? "Latihan try out mandiri untuk mengasah pemahaman materi dan kesiapan ujianmu. Paket baru terbuka bertahap, satu paket per hari untuk tiap mata pelajaran."
+              : "Latihan try out fleksibel kapan saja untuk mengasah pemahaman materi dan kesiapan ujianmu."
         }
       />
 
@@ -357,7 +379,7 @@ function UjianContent() {
               </span>
             </div>
             <p className="mt-0.5 text-xs text-slate-500">
-              Latihan sepuasnya 24 jam · Bebas pilih mapel
+              {adaSeriMandiri ? "Paket baru terbuka tiap hari · Bebas pilih mapel" : "Latihan sepuasnya 24 jam · Bebas pilih mapel"}
             </p>
           </div>
         </button>
@@ -399,6 +421,35 @@ function UjianContent() {
               </Link>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Penjelasan aturan buka paket berseri Try Out Mandiri */}
+      {!isNasional && adaSeriMandiri && (
+        <div className="flex items-start gap-3 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-white to-sky-50/80 p-4 sm:p-5">
+          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
+            <IconCalendar />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-indigo-950">Cara Paket Try Out Mandiri Dibuka</h3>
+            <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-slate-600">
+              <li>
+                Paket dibuka bertahap untuk tiap mata pelajaran. Selesaikan satu paket, maka paket berikutnya terbuka
+                pada pukul <span className="font-semibold text-indigo-800">06.00 WIB</span> berikutnya. Contoh: selesai
+                hari Selasa, paket baru terbuka Rabu pukul 06.00 WIB.
+              </li>
+              <li>
+                Jadi paling banyak satu paket baru per hari untuk tiap mapel. Kalau belum mengerjakan, paket berikutnya
+                belum terbuka: selesaikan dulu paket yang sedang terbuka dan jawab minimal satu soal (paket yang
+                dikumpulkan kosong tidak membuka paket berikutnya).
+              </li>
+              <li>
+                Semua paket yang sudah terbit tetap tampil. Paket yang masih terkunci belum bisa dibuka, dan kartunya
+                menjelaskan kapan atau syarat apa yang perlu kamu penuhi.
+              </li>
+              <li>Paket yang sudah pernah kamu kerjakan tetap bisa dikerjakan ulang kapan saja.</li>
+            </ul>
+          </div>
         </div>
       )}
 
@@ -486,11 +537,13 @@ function UjianContent() {
               const sudahSelesai = attempt?.status === "selesai" || attempt?.status === "kedaluwarsa";
               const jadwal = getJadwalStatus(p.bukaMulai, p.bukaSelesai);
               const label = actionLabel(attempt);
+              const status = p.statusSeri;
+              const seriTerkunci = seriMasihTerkunci(status);
               // Kalau sudah pernah ada attempt (berjalan atau selesai), paket ini
-              // sudah pasti pernah/sedang terbuka - statusSeri.terkunci tidak
-              // pernah balik jadi true lagi setelah pernah terbuka sekali, tapi
+              // sudah pasti pernah/sedang terbuka - server menjamin paket yang sudah
+              // dimasuki siswa tidak terkunci lagi (lib/exam/seri-jadwal.ts), tapi
               // dicek eksplisit di sini supaya tidak tergantung asumsi itu.
-              const disabled = !sedangBerjalan && !sudahSelesai && (!jadwal.canStart || p.statusSeri.terkunci);
+              const disabled = !sedangBerjalan && !sudahSelesai && (!jadwal.canStart || seriTerkunci);
 
               return (
                 <Card
@@ -525,9 +578,9 @@ function UjianContent() {
                         </p>
                       )}
 
-                      {/* Info Jadwal Jika Ada (paket berseri yang belum waktunya memakai chip jadwal seri di bawah) */}
+                      {/* Info Jadwal Jika Ada (paket berseri yang menunggu 06.00 WIB memakai chip jadwal seri di bawah, yang sudah memperhitungkan bukaMulai) */}
                       {(p.bukaMulai || p.bukaSelesai) &&
-                        !(p.statusSeri.terkunci && p.statusSeri.alasan === "menunggu_jadwal") && (
+                        !(seriTerkunci && status.terkunci && status.alasan === "menunggu_jadwal") && (
                         <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                           <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-medium ${jadwal.colorClass}`}>
                             <span className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -536,18 +589,24 @@ function UjianContent() {
                         </div>
                       )}
 
-                      {/* Seri Try Out Mandiri: jadwal buka harian 06.00 WIB (sama untuk semua siswa) + wajib selesaikan urutan sebelumnya */}
-                      {p.statusSeri.terkunci && (
-                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                          <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                      {/* Seri Try Out Mandiri: terbuka per siswa, 06.00 WIB pertama setelah paket sebelumnya selesai */}
+                      {seriTerkunci && status.terkunci && (
+                        <div className="mt-1 flex flex-col gap-1 text-xs">
+                          <span className="inline-flex w-fit items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
                             <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                            {p.statusSeri.alasan === "menunggu_jadwal"
-                              ? `Akan dibuka ${formatWIBHariTanggalJam(p.statusSeri.bukaPada)}`
-                              : `Selesaikan dulu "${p.statusSeri.namaPaketSebelumnya}"`}
+                            {status.alasan === "menunggu_jadwal"
+                              ? `Akan dibuka ${formatWIBHariTanggalJam(status.bukaPada)}`
+                              : status.percobaanKosong
+                ? `Jawab dulu "${status.namaPaketSebelumnya}"`
+                : `Selesaikan dulu "${status.namaPaketSebelumnya}"`}
                           </span>
-                          {p.statusSeri.alasan === "menunggu_jadwal" && p.statusSeri.prasyarat && (
-                            <span className="text-slate-500">dan selesaikan dulu &quot;{p.statusSeri.prasyarat}&quot;</span>
-                          )}
+                          <span className="text-slate-500">
+                            {status.alasan === "menunggu_jadwal"
+                              ? `Kamu sudah menyelesaikan "${status.namaPaketSebelumnya}". Paket baru dibuka tiap pukul 06.00 WIB.`
+                              : status.percobaanKosong
+                                ? `Kamu sudah mengumpulkan "${status.namaPaketSebelumnya}", tapi belum ada soal yang dijawab. Jawab minimal satu soal agar paket ini terbuka.`
+                                : "Setelah itu paket ini terbuka pukul 06.00 WIB berikutnya."}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -568,7 +627,7 @@ function UjianContent() {
                         disabled
                         className="w-full rounded-xl bg-slate-100 px-4 py-2 text-center text-sm font-semibold text-slate-400 sm:w-auto"
                       >
-                        {p.statusSeri.terkunci && p.statusSeri.alasan === "belum_giliran" ? "Terkunci" : "Belum Dibuka"}
+                        {seriTerkunci && status.terkunci && status.alasan === "belum_giliran" ? "Terkunci" : "Belum Dibuka"}
                       </button>
                     ) : (
                       <Link

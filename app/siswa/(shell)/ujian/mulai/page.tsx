@@ -17,16 +17,18 @@ type Info = {
   kategori?: "mandiri" | "nasional";
   selesai?: string;
   bukaMulai?: string | null;
+  /** Urutan dalam seri Try Out Mandiri; null/kosong = paket berdiri sendiri. */
+  urutanSeri?: number | null;
   subject?: { id: string; nama: string };
   /**
-   * Status buka paket berseri (GET /api/siswa/ujian): "menunggu_jadwal" = belum waktunya
-   * (bukaPada, + prasyarat kalau urutan sebelumnya juga belum selesai); "belum_giliran" =
-   * sudah waktunya tapi urutan sebelumnya belum diselesaikan.
+   * Status buka paket berseri (lib/exam/seri-jadwal.ts): "belum_giliran" = paket urutan sebelumnya
+   * belum diselesaikan siswa ini (percobaanKosong: sudah dikumpulkan tapi belum ada soal yang dijawab); "menunggu_jadwal" = paket sebelumnya sudah selesai, tapi paket ini
+   * baru terbuka pukul 06.00 WIB (bukaPada).
    */
   statusSeri?:
     | { terkunci: false }
-    | { terkunci: true; alasan: "menunggu_jadwal"; bukaPada: string; prasyarat: string | null }
-    | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string };
+    | { terkunci: true; alasan: "menunggu_jadwal"; bukaPada: string; namaPaketSebelumnya: string }
+    | { terkunci: true; alasan: "belum_giliran"; namaPaketSebelumnya: string; percobaanKosong?: boolean };
 } | null;
 
 /**
@@ -196,12 +198,13 @@ function InstruksiContent() {
   // Event nasional yang belum dibuka tampil di daftar supaya siswa tahu
   // jadwalnya, tapi tidak boleh dimulai (server juga menolak, lihat
   // includeUpcoming di lib/exam/visibility.ts).
-  // Paket berseri yang belum waktunya memakai jadwal serinya (sudah memperhitungkan bukaMulai).
+  // Paket berseri yang menunggu pukul 06.00 WIB memakai jadwal serinya (sudah memperhitungkan bukaMulai).
   const seri = info.statusSeri?.terkunci ? info.statusSeri : null;
   const bukaPada = seri?.alasan === "menunggu_jadwal" ? seri.bukaPada : info.bukaMulai;
   const belumDibuka = Boolean(bukaPada && new Date(bukaPada) > new Date());
-  // Sudah waktunya, tapi siswa belum menyelesaikan paket urutan sebelumnya.
+  // Siswa belum menyelesaikan paket urutan sebelumnya.
   const belumGiliran = seri?.alasan === "belum_giliran" ? seri.namaPaketSebelumnya : null;
+  const percobaanKosong = seri?.alasan === "belum_giliran" && seri.percobaanKosong === true;
   const jatahGratisHabis = akses?.tipe === "gratis" && akses.jatahGratis?.terpakai === true;
   const mapel = akses?.mapel ?? info.subject?.nama ?? "ini";
 
@@ -392,26 +395,45 @@ function InstruksiContent() {
           <li>Jawaban tersimpan otomatis secara real-time ke server.</li>
           <li>Jika waktu habis, lembar jawaban akan langsung tersubmit otomatis.</li>
           <li>Dilarang berpindah tab atau aplikasi selama pengerjaan berlangsung.</li>
+          {info.urutanSeri != null && (
+            <li>
+              Paket ini bagian dari seri Try Out Mandiri: setelah kamu menyelesaikannya, paket berikutnya terbuka pukul
+              06.00 WIB berikutnya (satu paket baru per hari untuk tiap mata pelajaran).
+            </li>
+          )}
         </ul>
       </Alert>
 
       {belumDibuka && bukaPada && (
         <Alert variant="warning">
-          Try out ini baru dibuka pada {formatWIBHariTanggalJam(bukaPada)}. Kamu bisa mulai mengerjakan begitu jadwalnya tiba
-          {seri?.alasan === "menunggu_jadwal" && seri.prasyarat ? (
+          {seri?.alasan === "menunggu_jadwal" ? (
             <>
-              {" "}
-              — dan setelah menyelesaikan &quot;{seri.prasyarat}&quot;
+              Kamu sudah menyelesaikan &quot;{seri.namaPaketSebelumnya}&quot;. Paket ini terbuka{" "}
+              {formatWIBHariTanggalJam(bukaPada)} — paket baru dibuka tiap pukul 06.00 WIB, satu paket per hari untuk
+              tiap mata pelajaran.
             </>
-          ) : null}
-          .
+          ) : (
+            <>
+              Try out ini baru dibuka pada {formatWIBHariTanggalJam(bukaPada)}. Kamu bisa mulai mengerjakan begitu
+              jadwalnya tiba.
+            </>
+          )}
         </Alert>
       )}
 
       {belumGiliran && (
         <Alert variant="warning">
-          Selesaikan dulu &quot;{belumGiliran}&quot; sebelum mengerjakan paket ini. Paketnya sudah dibuka sesuai jadwal,
-          jadi begitu &quot;{belumGiliran}&quot; selesai, paket ini langsung bisa kamu kerjakan.
+          {percobaanKosong ? (
+            <>
+              Kamu sudah mengumpulkan &quot;{belumGiliran}&quot;, tetapi belum ada soal yang dijawab. Jawab minimal satu
+              soal di &quot;{belumGiliran}&quot; agar paket ini terbuka pada pukul 06.00 WIB berikutnya.
+            </>
+          ) : (
+            <>
+              Selesaikan dulu &quot;{belumGiliran}&quot; sebelum mengerjakan paket ini. Setelah &quot;{belumGiliran}&quot;
+              selesai, paket ini terbuka pada pukul 06.00 WIB berikutnya.
+            </>
+          )}
         </Alert>
       )}
 

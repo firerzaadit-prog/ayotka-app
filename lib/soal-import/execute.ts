@@ -9,6 +9,8 @@ import { resolveSourceImage } from "./media";
 import { importImagePath, publicImageUrl, uploadImportImages } from "@/lib/supabase/storage";
 import { autoResolveOrCreateTaxonomy } from "./taxonomy-resolver";
 import { kompetensiKey } from "@/lib/soal/excel-format";
+import { simpanDenganUrutanSeri, urutanSeriTerpakai } from "@/lib/exam/seri-mandiri";
+import { urutanSeriBerikutnya } from "@/lib/exam/seri-jadwal";
 
 export interface ExecuteImportParams {
   sourcePaketId: string;
@@ -202,43 +204,56 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
     }
   });
 
-  await prisma.$transaction([
-    prisma.package.create({
-      data: {
-        id: packageId,
-        ownerType: "pusat",
-        ownerId: params.importedBy,
-        subjectId: params.subjectId,
-        jenjang,
-        nama: `${preview.sourcePaket.nama} (${preview.sourcePaket.code})`,
-        durasiMenit: params.durasiMenit,
-        jumlahSoal: preview.questions.length,
-        kategori: params.kategori,
-        bolehDipilihSiswa: true,
-        targetSiswa: "semua",
-        status: "draft",
-      },
-    }),
-    prisma.packageVisibility.createMany({
-      data: [
-        { packageId, targetType: "semua" },
-        { packageId, targetType: "publik" },
-      ],
-    }),
-    ...(stimulusCreates.length > 0 ? [prisma.stimulus.createMany({ data: stimulusCreates })] : []),
-    prisma.question.createMany({ data: questionRows }),
-    ...(optionRows.length > 0 ? [prisma.questionOption.createMany({ data: optionRows })] : []),
-    ...(categoryRows.length > 0 ? [prisma.questionCategory.createMany({ data: categoryRows })] : []),
-    ...(statementRows.length > 0 ? [prisma.questionStatement.createMany({ data: statementRows })] : []),
-    prisma.soalImportLog.create({
-      data: {
-        sourcePaketId: preview.sourcePaket.id,
-        sourcePaketCode: preview.sourcePaket.code,
-        packageId,
-        importedBy: params.importedBy,
-      },
-    }),
-  ]);
+  // Try Out Mandiri wajib berseri (permintaan user, 5 Okt 2026): paket hasil impor langsung diberi urutan kosong
+  // berikutnya pada mapelnya supaya tidak tertahan saat diterbitkan. Admin bisa mengubahnya lewat Edit paket.
+  const simpanSemua = (urutan: number | null) =>
+    prisma.$transaction([
+      prisma.package.create({
+        data: {
+          id: packageId,
+          ownerType: "pusat",
+          ownerId: params.importedBy,
+          subjectId: params.subjectId,
+          jenjang,
+          nama: `${preview.sourcePaket.nama} (${preview.sourcePaket.code})`,
+          durasiMenit: params.durasiMenit,
+          jumlahSoal: preview.questions.length,
+          kategori: params.kategori,
+          bolehDipilihSiswa: true,
+          targetSiswa: "semua",
+          status: "draft",
+          urutanSeri: urutan,
+        },
+      }),
+      prisma.packageVisibility.createMany({
+        data: [
+          { packageId, targetType: "semua" },
+          { packageId, targetType: "publik" },
+        ],
+      }),
+      ...(stimulusCreates.length > 0 ? [prisma.stimulus.createMany({ data: stimulusCreates })] : []),
+      prisma.question.createMany({ data: questionRows }),
+      ...(optionRows.length > 0 ? [prisma.questionOption.createMany({ data: optionRows })] : []),
+      ...(categoryRows.length > 0 ? [prisma.questionCategory.createMany({ data: categoryRows })] : []),
+      ...(statementRows.length > 0 ? [prisma.questionStatement.createMany({ data: statementRows })] : []),
+      prisma.soalImportLog.create({
+        data: {
+          sourcePaketId: preview.sourcePaket.id,
+          sourcePaketCode: preview.sourcePaket.code,
+          packageId,
+          importedBy: params.importedBy,
+        },
+      }),
+    ]);
+
+  // Dua impor ke mapel & jenjang yang sama pada saat bersamaan bisa mengambil nomor yang sama: indeks unik
+  // (packages_urutan_seri_unik) menolak yang kedua dan seluruh transaksinya dibatalkan, jadi aman dihitung ulang
+  // dan diulang (simpanDenganUrutanSeri).
+  await simpanDenganUrutanSeri({
+    berseri: params.kategori === "mandiri",
+    ambilNomor: async () => urutanSeriBerikutnya(await urutanSeriTerpakai({ subjectId: params.subjectId, jenjang })),
+    simpan: simpanSemua,
+  });
 
   const pkg = await prisma.package.findUniqueOrThrow({ where: { id: packageId } });
   return { package: pkg, jumlahSoal: preview.questions.length };

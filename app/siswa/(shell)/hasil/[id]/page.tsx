@@ -6,12 +6,14 @@ import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
 import { AnalisisAiTeaser } from "@/components/ai/analisis-teaser";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 import { buttonClassName } from "@/components/ui/button";
 import { RincianJawaban, type PerSoal } from "@/components/hasil/rincian-jawaban";
 import { PetaKompetensiChart } from "@/components/hasil/peta-kompetensi-chart";
 import { RankingBoardCard } from "@/components/hasil/ranking-board";
 import { RiwayatPercobaanCard } from "@/components/hasil/riwayat-percobaan-card";
 import type { PercobaanItem } from "@/lib/exam/percobaan";
+import { formatWIBHariTanggalJam } from "@/lib/utils/datetime";
 
 type Hasil = {
   attempt: {
@@ -30,6 +32,10 @@ type Hasil = {
   /** Percobaan selesai pada paket yang sama, urut dari yang pertama (lib/exam/percobaan.ts). */
   percobaan?: PercobaanItem[];
   bisaUnduhRapor: boolean;
+  /** Penyelesaian pertama paket berseri: kapan paket berikutnya di seri terbuka (06.00 WIB); null selain itu. */
+  bukaPaketBerikutnya?: string | null;
+  /** Paket berseri sudah dikumpulkan/habis waktunya tapi belum ada soal yang dijawab: paket berikutnya belum terbuka. */
+  paketBerseriBelumTerjawab?: boolean;
   ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
   elemenScores: { elemenNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
@@ -125,6 +131,21 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
           {hasil.attempt.skorAkhir?.toFixed(0) ?? "-"}
         </p>
       </Card>
+
+      {hasil.bukaPaketBerikutnya && (
+        <Alert variant="info">
+          Kalau ada paket berikutnya di seri ini, paket itu terbuka{" "}
+          <span className="font-semibold">{formatWIBHariTanggalJam(hasil.bukaPaketBerikutnya)}</span>. Paket baru
+          dibuka tiap pukul 06.00 WIB setelah paket sebelumnya selesai, satu paket per hari untuk tiap mata pelajaran.
+        </Alert>
+      )}
+
+      {hasil.paketBerseriBelumTerjawab && (
+        <Alert variant="warning">
+          Belum ada soal yang kamu jawab di paket ini, jadi paket berikutnya belum terbuka. Kerjakan paket ini lagi dan
+          jawab minimal satu soal; paket berikutnya terbuka pukul 06.00 WIB berikutnya setelah itu.
+        </Alert>
+      )}
 
       <RiwayatPercobaanCard items={hasil.percobaan ?? []} />
 

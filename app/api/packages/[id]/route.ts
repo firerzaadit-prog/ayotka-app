@@ -5,8 +5,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
 import { packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
-import { urutanSeriBentrok } from "@/lib/exam/seri-mandiri";
-import { hitungJadwalBukaSeri } from "@/lib/exam/seri-jadwal";
+import { adalahPelanggaranUnik, GALAT_URUTAN_BERSAMAAN, periksaUrutanSeriPaket } from "@/lib/exam/seri-mandiri";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -37,24 +36,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     },
   });
 
-  // Jadwal buka paket berseri (urutan 1 saat dipublish, berikutnya 06.00 WIB sehari
-  // setelah paket sebelumnya) - rantainya dihitung dari semua paket published seri
-  // yang urutannya <= paket ini. Lihat lib/exam/seri-jadwal.ts.
-  let jadwalBukaSeri: Date | null = null;
-  if (pkg && pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null) {
-    const rantai = await prisma.package.findMany({
-      where: {
-        subjectId: pkg.subjectId,
-        kategori: "mandiri",
-        status: "published",
-        urutanSeri: { not: null, lte: pkg.urutanSeri },
-      },
-      select: { id: true, subjectId: true, urutanSeri: true, publishedAt: true, bukaMulai: true },
-    });
-    jadwalBukaSeri = hitungJadwalBukaSeri(rantai).get(pkg.id) ?? null;
-  }
-
-  return NextResponse.json({ package: pkg ? { ...pkg, jadwalBukaSeri } : null });
+  return NextResponse.json({ package: pkg });
 }
 
 export async function PATCH(request: Request, { params }: RouteParams) {
@@ -105,13 +87,21 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   // saat kategori paket diganti. Lihat lib/exam/seri-mandiri.ts.
   const effectiveKategori = rest.kategori !== undefined ? rest.kategori : before?.kategori;
   const urutanSeriValue = effectiveKategori === "nasional" ? null : toNullableInt(urutanSeri);
-  if (urutanSeriValue != null) {
-    const effectiveSubjectId = rest.subjectId !== undefined ? rest.subjectId : before?.subjectId;
-    if (effectiveSubjectId && (await urutanSeriBentrok(effectiveSubjectId, urutanSeriValue, id))) {
-      return NextResponse.json(
-        { error: `Urutan ${urutanSeriValue} sudah dipakai paket lain di mata pelajaran ini. Pakai angka lain.` },
-        { status: 409 },
-      );
+
+  // Sejak 5 Okt 2026: Try Out Mandiri milik pusat WAJIB punya urutan seri, dan urutan tidak boleh kembar dalam satu
+  // mapel. Diperiksa terhadap keadaan AKHIR paket (nilai baru, atau nilai tersimpan kalau tidak dikirim), jadi
+  // paket lama yang belum punya urutan harus diisi dulu begitu diedit. Paket yang sudah diarsipkan dilewati.
+  if (before && before.status !== "archived") {
+    const periksaUrutan = await periksaUrutanSeriPaket({
+      subjectId: rest.subjectId !== undefined ? rest.subjectId : before.subjectId,
+      jenjang: rest.jenjang !== undefined ? rest.jenjang : before.jenjang,
+      kategori: effectiveKategori,
+      ownerType: before.ownerType,
+      urutanSeri: urutanSeriValue !== undefined ? urutanSeriValue : before.urutanSeri,
+      excludePackageId: id,
+    });
+    if (!periksaUrutan.ok) {
+      return NextResponse.json({ error: periksaUrutan.error, code: periksaUrutan.code }, { status: periksaUrutan.status });
     }
   }
 
@@ -146,19 +136,26 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     }
   }
 
-  const pkg = await prisma.package.update({
-    where: { id },
-    data: {
-      ...rest,
-      ...(blueprintId !== undefined
-        ? { blueprintId: blueprintId.length > 0 ? blueprintId : null }
-        : {}),
-      ...(bukaMulaiDate !== undefined ? { bukaMulai: bukaMulaiDate } : {}),
-      ...(bukaSelesaiDate !== undefined ? { bukaSelesai: bukaSelesaiDate } : {}),
-      ...(urutanSeriValue !== undefined ? { urutanSeri: urutanSeriValue } : {}),
-      ...(visibilityUpdate ? { visibility: visibilityUpdate } : {}),
-    },
-  });
+  let pkg;
+  try {
+    pkg = await prisma.package.update({
+      where: { id },
+      data: {
+        ...rest,
+        ...(blueprintId !== undefined
+          ? { blueprintId: blueprintId.length > 0 ? blueprintId : null }
+          : {}),
+        ...(bukaMulaiDate !== undefined ? { bukaMulai: bukaMulaiDate } : {}),
+        ...(bukaSelesaiDate !== undefined ? { bukaSelesai: bukaSelesaiDate } : {}),
+        ...(urutanSeriValue !== undefined ? { urutanSeri: urutanSeriValue } : {}),
+        ...(visibilityUpdate ? { visibility: visibilityUpdate } : {}),
+      },
+    });
+  } catch (error) {
+    // Dua admin menyimpan nomor yang sama pada saat bersamaan: indeks unik menolak yang kedua.
+    if (adalahPelanggaranUnik(error)) return NextResponse.json(GALAT_URUTAN_BERSAMAAN, { status: 409 });
+    throw error;
+  }
 
   await logAudit({
     userId: user.id,

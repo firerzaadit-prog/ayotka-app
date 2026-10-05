@@ -80,6 +80,7 @@ describe("GET /api/siswa/ujian/akses - data ujian + akses dalam satu permintaan"
       durasiMenit: 90,
       kategori: "mandiri",
       subject: { id: "mat", nama: "Matematika" },
+      urutanSeri: 1,
       statusSeri: { terkunci: false },
     });
     expect(body.tipe).toBe("gratis");
@@ -102,8 +103,14 @@ describe("GET /api/siswa/ujian/akses - data ujian + akses dalam satu permintaan"
 
     const [studentId, target, kandidat] = m.statusSeriMandiri.mock.calls[0]!;
     expect(studentId).toBe("siswa-1");
-    expect(target).toEqual({ id: "paket-b", subjectId: "mat", urutanSeri: 2 });
+    expect(target).toEqual({ id: "paket-b", subjectId: "mat", urutanSeri: 2, bukaMulai: null });
     expect((kandidat as { id: string }[]).map((p) => p.id).sort()).toEqual(["paket-a", "paket-b"]); // tanpa paket IPA
+  });
+
+  it("paket Nasional dilaporkan tanpa urutan seri (hanya Try Out Mandiri yang berseri)", async () => {
+    m.getSelfSelectPackagesFor.mockResolvedValue([{ ...PAKET_A, id: "paket-nas", kategori: "nasional", urutanSeri: 3 }]);
+    const body = await (await GET(req("packageId=paket-nas"))).json();
+    expect(body.info.urutanSeri).toBeNull();
   });
 
   it("memuat paket dengan includeUpcoming (paket yang belum dibuka tetap tampil, seperti di daftar ujian)", async () => {

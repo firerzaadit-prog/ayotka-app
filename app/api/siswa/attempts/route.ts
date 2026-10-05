@@ -222,13 +222,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Seri Try Out Mandiri: paket terbuka sesuai jadwal global (06.00 WIB per urutan)
-    // DAN siswa harus sudah menyelesaikan urutan sebelumnya - lihat
-    // lib/exam/seri-mandiri.ts. Paket dengan urutanSeri kosong tidak kena gerbang
-    // ini (statusSeriMandiri langsung {terkunci:false}).
+    // Seri Try Out Mandiri: paket baru terbuka per siswa, pukul 06.00 WIB pertama setelah
+    // ia menyelesaikan urutan sebelumnya (satu paket baru per hari per mapel) - lihat
+    // lib/exam/seri-jadwal.ts. Paket yang sudah pernah dimasuki siswa (Lanjutkan,
+    // kerjakan ulang) dan paket dengan urutanSeri kosong tidak kena gerbang ini.
     const statusSeri = await statusSeriMandiri(
       student.id,
-      { id: chosenPackage.id, subjectId: chosenPackage.subjectId, urutanSeri: chosenPackage.urutanSeri },
+      {
+        id: chosenPackage.id,
+        subjectId: chosenPackage.subjectId,
+        urutanSeri: chosenPackage.urutanSeri,
+        bukaMulai: chosenPackage.bukaMulai,
+      },
       options.filter((p) => p.subjectId === chosenPackage!.subjectId && p.kategori === "mandiri"),
     );
     if (statusSeri.terkunci) {
@@ -236,10 +241,10 @@ export async function POST(request: Request) {
         {
           error:
             statusSeri.alasan === "belum_giliran"
-              ? `Selesaikan dulu "${statusSeri.namaPaketSebelumnya}" sebelum mengerjakan paket ini.`
-              : `Paket ini dijadwalkan terbuka ${formatWIBHariTanggalJam(statusSeri.bukaPada)}.${
-                  statusSeri.prasyarat ? ` Selesaikan juga "${statusSeri.prasyarat}" terlebih dahulu.` : ""
-                }`,
+              ? statusSeri.percobaanKosong
+                ? `Kamu sudah mengumpulkan "${statusSeri.namaPaketSebelumnya}", tetapi belum ada soal yang dijawab. Jawab minimal satu soal di "${statusSeri.namaPaketSebelumnya}" agar paket ini terbuka pukul 06.00 WIB berikutnya.`
+                : `Selesaikan dulu "${statusSeri.namaPaketSebelumnya}" sebelum mengerjakan paket ini. Setelah itu, paket ini terbuka pukul 06.00 WIB berikutnya.`
+              : `Paket ini terbuka ${formatWIBHariTanggalJam(statusSeri.bukaPada)}. Paket baru dibuka tiap pukul 06.00 WIB setelah paket sebelumnya ("${statusSeri.namaPaketSebelumnya}") selesai.`,
           code: "PAKET_TERKUNCI",
         },
         { status: 409 },

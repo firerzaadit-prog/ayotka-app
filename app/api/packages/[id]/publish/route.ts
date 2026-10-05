@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
 import { validateBlueprintCompliance, formatBlueprintGapMessage } from "@/lib/blueprint/validate";
+import { adalahPelanggaranUnik, GALAT_URUTAN_BERSAMAAN, periksaUrutanSeriPaket } from "@/lib/exam/seri-mandiri";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,29 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Paket tidak ditemukan." }, { status: 404 });
   }
 
+  // Try Out Mandiri milik pusat wajib punya urutan seri sebelum terbit (permintaan user, 5 Okt 2026) - paket lama yang
+  // masih kosong harus diisi lewat Edit paket dulu. Sekalian memastikan nomornya tidak kembar dengan paket lain.
+  const periksaUrutan = await periksaUrutanSeriPaket({
+    subjectId: pkg.subjectId,
+    jenjang: pkg.jenjang,
+    kategori: pkg.kategori,
+    ownerType: pkg.ownerType,
+    urutanSeri: pkg.urutanSeri,
+    excludePackageId: pkg.id,
+  });
+  if (!periksaUrutan.ok) {
+    return NextResponse.json(
+      {
+        error:
+          periksaUrutan.code === "URUTAN_SERI_WAJIB"
+            ? "Urutan seri belum diisi. Isi dulu lewat tombol Edit paket sebelum menerbitkan Try Out Mandiri ini."
+            : periksaUrutan.error,
+        code: periksaUrutan.code,
+      },
+      { status: periksaUrutan.status },
+    );
+  }
+
   if (pkg.blueprint) {
     const result = validateBlueprintCompliance(
       pkg.blueprint.items.map((item) => ({
@@ -56,10 +80,17 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
 
   const before = pkg;
-  const updated = await prisma.package.update({
-    where: { id },
-    data: { status: "published", publishedAt: new Date() },
-  });
+  let updated;
+  try {
+    updated = await prisma.package.update({
+      where: { id },
+      data: { status: "published", publishedAt: new Date() },
+    });
+  } catch (error) {
+    // Paket diarsipkan lalu diterbitkan lagi sementara nomornya sudah dipakai paket lain: indeks unik menolaknya.
+    if (adalahPelanggaranUnik(error)) return NextResponse.json(GALAT_URUTAN_BERSAMAAN, { status: 409 });
+    throw error;
+  }
 
   await logAudit({
     userId: user.id,

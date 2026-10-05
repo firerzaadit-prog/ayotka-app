@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Input, Label } from "@/components/ui/input";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { formatWIBDate } from "@/lib/utils/datetime";
 import { VoucherRedeemCard } from "@/components/siswa/voucher-redeem-card";
@@ -155,8 +154,8 @@ export default function LanggananSiswaPage() {
         title="Langganan & Voucher"
         description={
           data.jalur === "A"
-            ? "Beli paket langganan atau tukarkan kode voucher dari mitra untuk lanjut belajar dengan akses try out tanpa batas."
-            : "Kamu terdaftar sebagai siswa mandiri — beli paket langganan atau tukarkan kode voucher dari mitra untuk akses try out tanpa batas."
+            ? "Beli paket langganan atau tukarkan kode voucher dari mitra untuk lanjut belajar dengan akses Try Out Mandiri semua mapel."
+            : "Kamu terdaftar sebagai siswa mandiri — beli paket langganan atau tukarkan kode voucher dari mitra untuk akses Try Out Mandiri semua mapel."
         }
       />
 
@@ -233,6 +232,22 @@ export default function LanggananSiswaPage() {
 
       <section className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold text-slate-900">Pilih Paket</h2>
+        <Alert variant="info">
+          <p className="font-semibold">Ketentuan Try Out Mandiri</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5 text-xs leading-relaxed">
+            <li>
+              Paket dibuka bertahap untuk tiap mata pelajaran: selesaikan satu paket, maka paket berikutnya terbuka
+              pukul 06.00 WIB berikutnya (selesai hari Selasa, terbuka Rabu pukul 06.00 WIB). Jadi paling banyak satu
+              paket baru per hari untuk tiap mapel.
+            </li>
+            <li>
+              Kalau belum mengerjakan, paket berikutnya belum terbuka. Paket yang dikumpulkan kosong (tanpa satu soal
+              pun dijawab) tidak dihitung. Semua paket yang sudah terbit tetap tampil; yang masih terkunci belum bisa
+              dibuka.
+            </li>
+            <li>Paket yang sudah terbuka bisa dikerjakan ulang kapan saja selama langgananmu aktif.</li>
+          </ul>
+        </Alert>
         {data.plans.length === 0 ? (
           <Alert variant="danger">Belum ada paket langganan yang tersedia. Hubungi admin pusat.</Alert>
         ) : (
@@ -280,7 +295,7 @@ export default function LanggananSiswaPage() {
                           </li>
                           <li className="flex items-start gap-2">
                             <span className="text-emerald-600 font-bold">✓</span>
-                            <span>Try Out Mandiri tanpa batas semua mapel</span>
+                            <span>Try Out Mandiri semua mapel, paket baru terbuka tiap hari</span>
                           </li>
                           <li className="flex items-start gap-2">
                             <span className="text-emerald-600 font-bold">✓</span>
@@ -295,7 +310,7 @@ export default function LanggananSiswaPage() {
                         <>
                           <li className="flex items-start gap-2">
                             <span className="text-emerald-600 font-bold">✓</span>
-                            <span>Try Out Mandiri tanpa batas semua mapel</span>
+                            <span>Try Out Mandiri semua mapel, paket baru terbuka tiap hari</span>
                           </li>
                           <li className="flex items-start gap-2">
                             <span className="text-emerald-600 font-bold">✓</span>

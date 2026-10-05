@@ -30,8 +30,8 @@ const QUICK_LINKS = [
     href: "/siswa/ujian?kategori=mandiri",
     id: "link-tryout-mandiri",
     title: "Try Out Mandiri",
-    description: "Latihan kapan saja dan sepuasnya sesuai jenjang dan mata pelajaranmu.",
-    badge: "Buka 24 jam",
+    description: "Latihan sesuai jenjang dan mata pelajaranmu. Paket baru terbuka bertahap, satu per hari untuk tiap mapel.",
+    badge: "Paket baru tiap hari",
     badgeColor: "bg-indigo-100 text-indigo-700",
     iconColor: "bg-indigo-50 text-indigo-600",
     icon: (

@@ -5,7 +5,12 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { getOwnerScope } from "@/lib/packages/scope";
 import { packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
-import { urutanSeriBentrok } from "@/lib/exam/seri-mandiri";
+import {
+  adalahPelanggaranUnik,
+  GALAT_URUTAN_BERSAMAAN,
+  hitungSiswaSelesaiPerPaket,
+  periksaUrutanSeriPaket,
+} from "@/lib/exam/seri-mandiri";
 
 export async function GET() {
   let user;
@@ -39,7 +44,11 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json({ packages });
+  // Jumlah siswa yang sudah menyelesaikan tiap paket berseri - untuk panel posisi urutan seri di halaman admin.
+  const idBerseri = packages.filter((p) => p.kategori === "mandiri" && p.urutanSeri != null).map((p) => p.id);
+  const siswaSelesai = await hitungSiswaSelesaiPerPaket(idBerseri);
+
+  return NextResponse.json({ packages, siswaSelesai });
 }
 
 export async function POST(request: Request) {
@@ -75,12 +84,19 @@ export async function POST(request: Request) {
 
   // Urutan seri cuma berlaku untuk kategori "mandiri" (permintaan user, 30
   // Sep 2026) - diabaikan diam-diam untuk "nasional" (lihat lib/exam/seri-mandiri.ts).
-  const urutanSeriValue = (rest.kategori ?? "mandiri") === "nasional" ? null : (toNullableInt(urutanSeri) ?? null);
-  if (urutanSeriValue != null && (await urutanSeriBentrok(rest.subjectId, urutanSeriValue))) {
-    return NextResponse.json(
-      { error: `Urutan ${urutanSeriValue} sudah dipakai paket lain di mata pelajaran ini. Pakai angka lain.` },
-      { status: 409 },
-    );
+  // Sejak 5 Okt 2026 Try Out Mandiri milik pusat WAJIB punya urutan, dan urutan tidak boleh kembar
+  // dalam satu mapel (periksaUrutanSeriPaket).
+  const kategori = rest.kategori ?? "mandiri";
+  const urutanSeriValue = kategori === "nasional" ? null : (toNullableInt(urutanSeri) ?? null);
+  const periksaUrutan = await periksaUrutanSeriPaket({
+    subjectId: rest.subjectId,
+    jenjang: rest.jenjang,
+    kategori,
+    ownerType: scope.ownerType,
+    urutanSeri: urutanSeriValue,
+  });
+  if (!periksaUrutan.ok) {
+    return NextResponse.json({ error: periksaUrutan.error, code: periksaUrutan.code }, { status: periksaUrutan.status });
   }
 
   // Distribusi lintas sekolah (visibility) cuma konsep milik paket pusat
@@ -97,17 +113,24 @@ export async function POST(request: Request) {
     }
   }
 
-  const pkg = await prisma.package.create({
-    data: {
-      ...rest,
-      ...scope,
-      blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
-      bukaMulai: bukaMulaiDate ?? null,
-      bukaSelesai: bukaSelesaiDate ?? null,
-      urutanSeri: urutanSeriValue,
-      ...(visibilityCreate ? { visibility: visibilityCreate } : {}),
-    },
-  });
+  let pkg;
+  try {
+    pkg = await prisma.package.create({
+      data: {
+        ...rest,
+        ...scope,
+        blueprintId: blueprintId && blueprintId.length > 0 ? blueprintId : null,
+        bukaMulai: bukaMulaiDate ?? null,
+        bukaSelesai: bukaSelesaiDate ?? null,
+        urutanSeri: urutanSeriValue,
+        ...(visibilityCreate ? { visibility: visibilityCreate } : {}),
+      },
+    });
+  } catch (error) {
+    // Dua admin menyimpan nomor yang sama pada saat bersamaan: indeks unik menolak yang kedua.
+    if (adalahPelanggaranUnik(error)) return NextResponse.json(GALAT_URUTAN_BERSAMAAN, { status: 409 });
+    throw error;
+  }
 
   await logAudit({
     userId: user.id,

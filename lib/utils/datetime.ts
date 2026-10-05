@@ -97,13 +97,16 @@ export function akhirHariWIB(dateStr: string): Date {
 }
 
 /**
- * Tanggal kalender WIB dari `date`, ditambah satu hari, jam 06:00 WIB -
- * dipakai jeda "satu paket per hari" pada seri Try Out Mandiri berurutan
- * (lib/exam/seri-mandiri.ts). WIB tidak kenal DST (lihat startOfDayWIB),
- * jadi aman dihitung sebagai offset jam tetap (24 jam ke hari berikutnya +
- * 6 jam) dari awal hari kalender `date`.
+ * Pukul 06:00 WIB PERTAMA yang jatuh SETELAH `date` (tepat pukul 06:00:00.000
+ * dihitung sudah lewat, jadi hasilnya 06:00 hari berikutnya) - dipakai jeda
+ * "satu paket baru per hari" pada seri Try Out Mandiri (lib/exam/seri-jadwal.ts):
+ * selesai Selasa siang -> terbuka Rabu 06:00; selesai Rabu 02:00 dini hari ->
+ * terbuka Rabu 06:00 hari itu juga. Sama persis dengan hasil cron harian
+ * pukul 06:00 yang memeriksa siapa yang sudah selesai. WIB tidak kenal DST
+ * (lihat startOfDayWIB), jadi aman dihitung sebagai offset jam tetap dari awal
+ * hari kalender WIB `date`.
  */
-export function besokJam6WIB(date: Date): Date {
-  const awalHariIni = startOfDayWIB(tanggalWIB(date));
-  return new Date(awalHariIni.getTime() + 30 * 60 * 60 * 1000);
+export function jam6WIBBerikutnya(date: Date): Date {
+  const jam6HariIni = startOfDayWIB(tanggalWIB(date)).getTime() + 6 * 60 * 60 * 1000;
+  return new Date(date.getTime() < jam6HariIni ? jam6HariIni : jam6HariIni + 24 * 60 * 60 * 1000);
 }

@@ -13,6 +13,9 @@ import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
 import { formatWIBHariTanggalJam } from "@/lib/utils/datetime";
 import { ExcelSoalPanel } from "@/components/soal/excel-soal-panel";
+import { UrutanSeriField } from "@/components/soal/urutan-seri-field";
+import { useUrutanSeri } from "@/components/soal/use-urutan-seri";
+import { galatUrutanSeri, wajibUrutanSeri } from "@/lib/exam/seri-jadwal";
 /** Bersihkan simbol LaTeX untuk preview singkat di tabel */
 function stripLatex(text: string): string {
   return text
@@ -55,8 +58,6 @@ type PackageDetail = {
   bukaMulai: string | null;
   bukaSelesai: string | null;
   publishedAt?: string | null;
-  /** Jadwal buka paket berseri (urutan 1 saat dipublish, berikutnya 06.00 WIB sehari setelah urutan sebelumnya); null kalau bukan paket berseri. */
-  jadwalBukaSeri?: string | null;
   blueprint: { id: string; nama: string; totalSoal: number } | null;
   questions: Question[];
 };
@@ -180,6 +181,19 @@ export function PackageDetail({
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Try Out Mandiri milik pusat wajib punya urutan seri, dan nomornya tidak boleh sama dengan paket lain di mapel yang
+  // sama (permintaan user, 5 Okt 2026). Nomor milik paket ini sendiri tidak dihitung terpakai (excludePackageId).
+  const wajibUrutan =
+    pkg != null && editForm?.kategori === "mandiri" && wajibUrutanSeri({ kategori: editForm.kategori, ownerType: pkg.ownerType });
+  const tampilUrutan = editForm != null && editForm.kategori === "mandiri" && (wajibUrutan || editForm.bolehDipilihSiswa);
+  const urutan = useUrutanSeri(
+    editForm?.subjectId ?? "",
+    editForm?.jenjang ?? "",
+    showEditForm && tampilUrutan,
+    packageId,
+    refreshKey,
+  );
+  const galatUrutan = editForm && tampilUrutan ? galatUrutanSeri(editForm.urutanSeri, urutan.terpakai, wajibUrutan) : null;
 
   useEffect(() => {
     let ignore = false;
@@ -212,6 +226,10 @@ export function PackageDetail({
   async function handleEditSubmit(e: FormEvent) {
     e.preventDefault();
     if (!editForm) return;
+    if (galatUrutan) {
+      setEditError(galatUrutan);
+      return;
+    }
     setEditError(null);
     setEditSubmitting(true);
 
@@ -347,17 +365,11 @@ export function PackageDetail({
             <Badge variant="neutral">Urutan seri #{pkg.urutanSeri}</Badge>
           )}
           {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && (
-            pkg.jadwalBukaSeri && new Date(pkg.jadwalBukaSeri) > new Date() ? (
-              <span className="inline-flex items-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                <span>🔒</span> Terjadwal (Seri #{pkg.urutanSeri})
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
-                <span>🟢</span> Seri #{pkg.urutanSeri} (Terbuka untuk Siswa)
-              </span>
-            )
+            <span className="inline-flex items-center gap-1 rounded-md border border-emerald-300 bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+              <span>🔓</span> Seri #{pkg.urutanSeri} (Terbuka Bertahap per Siswa)
+            </span>
           )}
-          {pkg.status === "published" && pkg.urutanSeri == null && pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date() && (
+          {pkg.status === "published" && pkg.bukaMulai && new Date(pkg.bukaMulai) > new Date() && (
             <span className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-800">
               <span>🔒</span> Terjadwal (Buka {formatWIBHariTanggalJam(pkg.bukaMulai)})
             </span>
@@ -387,26 +399,14 @@ export function PackageDetail({
         </p>
 
         {pkg.status === "published" && pkg.kategori === "mandiri" && pkg.urutanSeri != null && (
-          pkg.jadwalBukaSeri && new Date(pkg.jadwalBukaSeri) > new Date() ? (
-            <Alert variant="warning" className="mt-2.5">
-              <p className="font-semibold text-xs text-amber-900">
-                🔒 Jadwal Buka (Seri #{pkg.urutanSeri}):
-              </p>
-              <p className="text-xs text-amber-800 mt-0.5">
-                Paket ini berstatus <strong>Published</strong> dan dijadwalkan <strong>terbuka otomatis {formatWIBHariTanggalJam(pkg.jadwalBukaSeri)}</strong>. Sebelum waktu itu tombol <strong>Mulai</strong> di akun siswa belum aktif. Aturannya: urutan 1 terbuka begitu dipublish, urutan berikutnya pukul 06.00 WIB sehari setelah urutan sebelumnya. Selain jadwal, siswa wajib menyelesaikan paket urutan sebelumnya dulu.
-              </p>
-            </Alert>
-          ) : (
-            <Alert variant="info" className="mt-2.5">
-              <p className="font-semibold text-xs text-sky-900">
-                🟢 Status Akses Siswa (Seri #{pkg.urutanSeri}):
-              </p>
-              <p className="text-xs text-sky-800 mt-0.5">
-                Paket ini berstatus <strong>Published</strong> dan sudah <strong>dibuka sesuai jadwal</strong>
-                {pkg.jadwalBukaSeri && <> sejak {formatWIBHariTanggalJam(pkg.jadwalBukaSeri)}</>}. Urutan seri mengatur jadwal buka otomatis (urutan 1 saat dipublish, urutan berikutnya pukul 06.00 WIB sehari setelah urutan sebelumnya), dan siswa wajib menyelesaikan paket urutan sebelumnya dulu - jadi paket ini baru bisa dikerjakan siswa yang sudah menyelesaikannya.
-              </p>
-            </Alert>
-          )
+          <Alert variant="info" className="mt-2.5">
+            <p className="font-semibold text-xs text-sky-900">
+              🔓 Cara Paket Ini Terbuka untuk Siswa (Seri #{pkg.urutanSeri}):
+            </p>
+            <p className="text-xs text-sky-800 mt-0.5">
+              Paket ini berstatus <strong>Published</strong> dan <strong>terbuka bertahap per siswa</strong>. Paket pembuka seri (urutan terkecil) langsung terbuka begitu dipublish. Paket berikutnya terbuka untuk seorang siswa <strong>pukul 06.00 WIB pertama setelah ia menyelesaikan paket urutan sebelumnya</strong> (selesai Selasa, terbuka Rabu 06.00 WIB), jadi paling banyak satu paket baru per hari per mapel. Siswa yang belum mengerjakan (atau mengumpulkan paket tanpa menjawab satu soal pun) tidak mendapat paket baru: paketnya tetap tampil di akunnya tetapi terkunci. Paket yang sudah pernah dikerjakan tetap bisa dikerjakan ulang.
+            </p>
+          </Alert>
         )}
 
         <div className="mt-2 flex flex-wrap gap-2">
@@ -510,7 +510,7 @@ export function PackageDetail({
                     });
                   }}
                 >
-                  <option value="mandiri">Try Out Mandiri (kapan saja, sepuasnya)</option>
+                  <option value="mandiri">Try Out Mandiri (latihan mandiri, bisa dibuat berseri)</option>
                   <option value="nasional">Try Out Nasional (terjadwal, kuota &amp; Analisis Learning Analytics otomatis)</option>
                 </select>
               </div>
@@ -554,26 +554,17 @@ export function PackageDetail({
                 </div>
               )}
 
-              {editForm.bolehDipilihSiswa && editForm.kategori === "mandiri" && (
-                <div>
-                  <Label htmlFor="editPkgUrutanSeri">Urutan dalam seri (opsional)</Label>
-                  <Input
-                    id="editPkgUrutanSeri"
-                    type="number"
-                    min="1"
-                    placeholder="Kosongkan kalau paket ini berdiri sendiri"
-                    value={editForm.urutanSeri}
-                    onChange={(e) => setEditForm({ ...editForm, urutanSeri: e.target.value })}
-                    className="max-w-40"
-                  />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Isi untuk menjadwalkan rangkaian paket per mata pelajaran (Paket 1, 2, 3, ...): urutan 1 terbuka
-                    begitu dipublish, urutan 2 terbuka otomatis jam 06:00 WIB keesokan harinya, urutan 3 sehari
-                    setelahnya, dan seterusnya. Siswa tetap wajib menyelesaikan paket urutan sebelumnya dulu (siswa
-                    yang absen beberapa hari mengerjakan berurutan, tanpa menunggu besok lagi). Kosongkan supaya
-                    paket ini bebas dikerjakan kapan saja seperti biasa.
-                  </p>
-                </div>
+              {tampilUrutan && (
+                <UrutanSeriField
+                  id="editPkgUrutanSeri"
+                  nilai={editForm.urutanSeri}
+                  onChange={(nilai) => setEditForm({ ...editForm, urutanSeri: nilai })}
+                  wajib={wajibUrutan}
+                  galat={galatUrutan}
+                  terpakai={urutan.terpakai}
+                  berikutnya={urutan.berikutnya}
+                  memuat={urutan.memuat}
+                />
               )}
 
               {pkg.ownerType === "pusat" && (
@@ -669,6 +660,7 @@ export function PackageDetail({
                   type="submit"
                   disabled={
                     editSubmitting ||
+                    galatUrutan != null ||
                     (editForm.forSekolah && editForm.sekolahMode === "terpilih" && editForm.visibilitySchoolIds.length === 0)
                   }
                 >

@@ -5,6 +5,7 @@ import {
   formatWIBHariTanggal,
   formatWIBHariTanggalJam,
   formatWIBJam,
+  jam6WIBBerikutnya,
   startOfDayWIB,
 } from "@/lib/utils/datetime";
 
@@ -54,5 +55,36 @@ describe("startOfDayWIB (Tiket 7.3: filter tanggal audit log dari input date HTM
   it("hasilnya bisa dipakai formatWIB balik jadi tanggal yang sama", () => {
     const start = startOfDayWIB("2026-08-01");
     expect(formatWIB(start, "yyyy-MM-dd HH:mm")).toBe("2026-08-01 00:00 WIB");
+  });
+});
+
+describe("jam6WIBBerikutnya (buka paket seri Try Out Mandiri: 06.00 WIB pertama setelah selesai)", () => {
+  // 06.00 WIB = 23.00 UTC hari sebelumnya.
+  const hasil = (iso: string) => jam6WIBBerikutnya(new Date(iso)).toISOString();
+
+  it("siang hari Selasa (10.00 WIB) -> Rabu 06.00 WIB", () => {
+    expect(hasil("2026-10-06T03:00:00.000Z")).toBe("2026-10-06T23:00:00.000Z");
+  });
+
+  it("dini hari sebelum 06.00 WIB -> 06.00 hari yang sama", () => {
+    expect(hasil("2026-10-06T17:00:00.000Z")).toBe("2026-10-06T23:00:00.000Z"); // 00.00 WIB Rabu
+    expect(hasil("2026-10-06T22:59:59.999Z")).toBe("2026-10-06T23:00:00.000Z"); // 05.59.59,999 WIB Rabu
+  });
+
+  it("tepat 06.00:00.000 WIB sudah dianggap lewat -> 06.00 hari berikutnya", () => {
+    expect(hasil("2026-10-06T23:00:00.000Z")).toBe("2026-10-07T23:00:00.000Z");
+    expect(hasil("2026-10-06T23:00:00.001Z")).toBe("2026-10-07T23:00:00.000Z");
+  });
+
+  it("malam hari (23.59 WIB) -> 06.00 keesokan harinya", () => {
+    expect(hasil("2026-10-07T16:59:59.999Z")).toBe("2026-10-07T23:00:00.000Z");
+  });
+
+  it("tanggal kalender WIB dipakai, bukan tanggal UTC: 20.00 UTC = 03.00 WIB hari berikutnya", () => {
+    expect(hasil("2026-09-30T20:00:00.000Z")).toBe("2026-09-30T23:00:00.000Z"); // 1 Okt 03.00 WIB -> 1 Okt 06.00 WIB
+  });
+
+  it("melewati pergantian tahun", () => {
+    expect(hasil("2026-12-31T16:00:00.000Z")).toBe("2026-12-31T23:00:00.000Z"); // 31 Des 23.00 WIB -> 1 Jan 06.00 WIB
   });
 });

@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       // Sama persis dengan gerbang mulai ujian: prasyarat dicari dari paket seri yang TERLIHAT siswa.
       const statusSeri = await statusSeriMandiri(
         student.id,
-        { id: paket.id, subjectId: paket.subjectId, urutanSeri: paket.urutanSeri },
+        { id: paket.id, subjectId: paket.subjectId, urutanSeri: paket.urutanSeri, bukaMulai: paket.bukaMulai },
         options.filter((p) => p.subjectId === paket.subjectId && p.kategori === "mandiri"),
       );
       subject = { id: paket.subject.id, nama: paket.subject.nama };
@@ -58,6 +58,8 @@ export async function GET(request: Request) {
         durasiMenit: paket.durasiMenit,
         kategori: paket.kategori,
         bukaMulai: paket.bukaMulai,
+        // Dipakai halaman petunjuk untuk menjelaskan aturan seri (hanya Try Out Mandiri yang berseri).
+        urutanSeri: paket.kategori === "mandiri" ? paket.urutanSeri : null,
         subject,
         statusSeri,
       };
