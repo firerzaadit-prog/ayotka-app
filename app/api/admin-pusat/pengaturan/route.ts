@@ -5,7 +5,6 @@ import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import {
   encryptSecret,
-  decryptSecret,
   maskSecret,
   isMaskedPlaceholder,
 } from "@/lib/security/crypto";
@@ -55,9 +54,8 @@ const updateSettingsSchema = z.object({
 });
 
 export async function GET() {
-  let user;
   try {
-    user = await requireRole("admin_pusat");
+    await requireRole("admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }

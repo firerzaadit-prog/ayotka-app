@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- gambar soal berasal dari URL penyimpanan dengan ukuran & domain yang beragam, jadi sengaja memakai <img> biasa */
 "use client";
 
 import { RichText } from "@/components/soal/rich-text";

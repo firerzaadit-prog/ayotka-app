@@ -166,7 +166,6 @@ export async function POST(request: NextRequest) {
 
     // Validasi format server key Midtrans (biasanya diawali SB-Mid-server- untuk Sandbox atau Mid-server- untuk Prod)
     const isSandboxFormat = serverKey.includes("SB-Mid-server-") || serverKey.startsWith("SB-");
-    const isProdFormat = serverKey.startsWith("Mid-server-");
 
     if (isProduction && isSandboxFormat) {
       return NextResponse.json(

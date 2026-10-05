@@ -53,12 +53,6 @@ export async function getActiveEntitlement(studentId: string): Promise<Entitleme
   };
 }
 
-async function ensurePlanByKode(kode: "free" | "monthly" | "semester" | "school", nama: string, harga: number, durasiHari: number | null) {
-  const existing = await prisma.plan.findFirst({ where: { kode } });
-  if (existing) return existing;
-  return prisma.plan.create({ data: { kode, nama, harga, durasiHari, isActive: true } });
-}
-
 /** Plan `school` dipakai sebagai plan_id generik untuk entitlement source=school_seat (setara Paket Semester: 3x TO Nasional + 1x AI per mapel). */
 export async function ensureSchoolPlan() {
   const existing = await prisma.plan.findFirst({ where: { kode: "school" } });

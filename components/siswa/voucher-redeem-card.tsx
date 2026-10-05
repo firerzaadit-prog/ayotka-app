@@ -8,7 +8,6 @@ import { formatWIBDate } from "@/lib/utils/datetime";
 
 export function VoucherRedeemCard({
   onSuccess,
-  compact = false,
 }: {
   onSuccess?: () => void;
   compact?: boolean;
