@@ -74,7 +74,9 @@ vi.mock("@/lib/db/prisma", () => {
       return { count: 0 };
     },
   };
-  const prisma = { student, entitlement } as Record<string, unknown>;
+  // GET /api/admin-sekolah/siswa juga membaca Kode Sekolah (ditampilkan ke admin sekolah).
+  const school = { findUnique: async () => ({ kodeSekolah: "KODE01" }) };
+  const prisma = { student, entitlement, school } as Record<string, unknown>;
   prisma.$transaction = async (fn: (tx: unknown) => unknown) => {
     h.pernahTransaksi++;
     return fn(prisma);
@@ -254,6 +256,7 @@ describe("GET /api/admin-sekolah/siswa - tab Aktif dan Alumni", () => {
     const json = await (await get()).json();
     expect(json.students.map((s: Siswa) => s.id).sort()).toEqual([ID(1), ID(2)]);
     expect(json.jumlah).toEqual({ aktif: 2, alumni: 1 });
+    expect(json.kodeSekolah).toBe("KODE01");
   });
 
   it("?status=alumni: hanya alumni; siswa mandiri dan yang dihapus tidak pernah muncul", async () => {

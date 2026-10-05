@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { prisma } from "@/lib/db/prisma";
+import { getNamaAkun } from "@/lib/auth/nama-akun";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SidebarSection, SidebarLink } from "@/components/layout/sidebar-nav";
 import { ActingAsSchoolBanner } from "@/components/layout/acting-as-school-banner";
@@ -35,10 +36,15 @@ export default async function AdminSekolahLayout({
     banner = <ActingAsSchoolBanner schoolName={school.nama} />;
   }
 
+  // Label akun di pojok kanan atas: nama sekolah untuk admin sekolah. Admin pusat (mode Kelola Sekolah) tetap
+  // memakai email-nya sendiri; sekolah yang sedang dikelola sudah tertulis di banner.
+  const akun = await getNamaAkun(user);
+
   return (
     <DashboardShell
       title="Admin Sekolah"
-      email={user.email}
+      akun={akun}
+      akunDetail={user.email}
       banner={banner}
       nav={
         <SidebarSection>

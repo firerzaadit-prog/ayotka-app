@@ -7,13 +7,17 @@ import Image from "next/image";
 
 export function DashboardShell({
   title,
-  email,
+  akun,
+  akunDetail,
   nav,
   banner,
   children,
 }: {
   title: string;
-  email: string;
+  /** Label akun di pojok kanan atas: nama siswa / sekolah / mitra / dinas (lib/auth/nama-akun.ts); admin pusat memakai email. */
+  akun: string;
+  /** Keterangan saat kursor diarahkan ke label akun (mis. email akun), supaya akun tetap bisa dikenali. */
+  akunDetail?: string;
   nav?: ReactNode;
   banner?: ReactNode;
   children: ReactNode;
@@ -92,7 +96,7 @@ export function DashboardShell({
 
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200/80 bg-white/90 px-4 backdrop-blur-md shadow-[0_1px_3px_rgba(0,0,0,0.03)] sm:px-6">
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <button
               onClick={() => setMobileNavOpen(true)}
               className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
@@ -107,20 +111,24 @@ export function DashboardShell({
                 />
               </svg>
             </button>
+            {/* Di layar sangat sempit nama AyoTKA/peran disembunyikan supaya nama akun di kanan tetap terbaca
+                (merek & peran tetap ada di menu samping). */}
             <div className="flex items-center gap-2 lg:hidden">
-              <span className="text-sm font-bold text-slate-900">AyoTKA</span>
-              <span className="text-xs text-slate-400">&middot;</span>
-              <span className="text-xs font-semibold text-indigo-600">{title}</span>
+              <span className="hidden text-sm font-bold text-slate-900 min-[420px]:inline">AyoTKA</span>
+              <span className="hidden text-xs text-slate-400 sm:inline">&middot;</span>
+              <span className="hidden text-xs font-semibold text-indigo-600 sm:inline">{title}</span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-600 shadow-xs">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
-              <span>{email}</span>
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+            <div className="flex min-w-0 items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 shadow-xs sm:px-3">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
+              <span className="min-w-0 max-w-[10rem] truncate sm:max-w-[16rem]" title={akunDetail ?? akun}>
+                {akun}
+              </span>
             </div>
             <button
               onClick={handleLogout}
-              className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+              className="shrink-0 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
             >
               Keluar
             </button>

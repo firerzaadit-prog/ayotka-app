@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getNamaAkun } from "@/lib/auth/nama-akun";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SidebarSection, SidebarLink } from "@/components/layout/sidebar-nav";
 
@@ -15,10 +16,13 @@ export default async function DinasPendidikanLayout({
     redirect("/api/auth/force-logout?next=/login");
   }
 
+  const akun = await getNamaAkun(user);
+
   return (
     <DashboardShell
       title="Dinas Pendidikan"
-      email={user.email}
+      akun={akun}
+      akunDetail={user.email}
       nav={
         <SidebarSection>
           <SidebarLink href="/dinas-pendidikan/dashboard">Kesiapan TKA</SidebarLink>

@@ -24,7 +24,8 @@ export async function GET(request: Request) {
   // ?status=alumni -> siswa yang sudah ditandai lulus; bawaan: siswa aktif (belum lulus).
   const alumni = url.searchParams.get("status") === "alumni";
   const dasar = { schoolId, jalur: "A" as const, deletedAt: null };
-  const [students, jumlahAktif, jumlahAlumni] = await Promise.all([
+  const [school, students, jumlahAktif, jumlahAlumni] = await Promise.all([
+    prisma.school.findUnique({ where: { id: schoolId }, select: { kodeSekolah: true } }),
     prisma.student.findMany({
       where: { ...dasar, lulusAt: alumni ? { not: null } : null },
       orderBy: { nama: "asc" },
@@ -33,7 +34,12 @@ export async function GET(request: Request) {
     prisma.student.count({ where: { ...dasar, lulusAt: { not: null } } }),
   ]);
 
-  return NextResponse.json({ students, jumlah: { aktif: jumlahAktif, alumni: jumlahAlumni } });
+  return NextResponse.json({
+    students,
+    jumlah: { aktif: jumlahAktif, alumni: jumlahAlumni },
+    // Kode Sekolah ditampilkan ke admin sekolah (kartu di halaman Kelola Siswa) supaya bisa dibagikan ke siswa.
+    kodeSekolah: school?.kodeSekolah ?? null,
+  });
 }
 
 export async function POST(request: Request) {

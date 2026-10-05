@@ -20,7 +20,7 @@ export default async function AdminPusatLayout({
   return (
     <DashboardShell
       title="Admin Pusat"
-      email={user.email}
+      akun={user.email}
       nav={
         <>
           <SidebarSection>

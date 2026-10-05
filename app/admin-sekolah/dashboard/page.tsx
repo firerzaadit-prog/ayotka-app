@@ -10,6 +10,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { IconLink } from "@/components/ui/empty-state-icons";
 import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
 import { KuotaSummary } from "@/components/sekolah/kuota-summary";
+import { KodeSekolahCard } from "@/components/sekolah/kode-sekolah-card";
 import { buildKesiapanSekolah } from "@/lib/analytics/sekolah";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,8 @@ export default async function AdminSekolahDashboardPage() {
         <StatCard label="Alumni" value={alumni} />
         <StatCard label="Paket soal" value={paketSoal} />
       </div>
+
+      {school && <KodeSekolahCard kodeSekolah={school.kodeSekolah} />}
 
       <KuotaSummary />
 

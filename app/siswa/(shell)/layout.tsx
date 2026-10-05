@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
+import { pilihNamaAkun } from "@/lib/auth/nama-akun";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SidebarSection, SidebarLink } from "@/components/layout/sidebar-nav";
 
@@ -17,7 +18,7 @@ export default async function SiswaLayout({ children }: { children: React.ReactN
   // A sekolah mana, atau memang siswa mandiri.
   const student = await prisma.student.findFirst({
     where: { userId: user.id },
-    select: { jalur: true, school: { select: { nama: true } } },
+    select: { nama: true, jalur: true, school: { select: { nama: true } } },
   });
   const title =
     student?.jalur === "B"
@@ -29,7 +30,8 @@ export default async function SiswaLayout({ children }: { children: React.ReactN
   return (
     <DashboardShell
       title={title}
-      email={user.email}
+      akun={pilihNamaAkun(user.email, student?.nama)}
+      akunDetail={user.email}
       nav={
         <SidebarSection>
           <SidebarLink href="/siswa/dashboard">Dashboard</SidebarLink>

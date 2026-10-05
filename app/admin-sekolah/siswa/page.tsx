@@ -23,6 +23,7 @@ import {
   useLulusMassal,
   usePilihan,
 } from "@/components/sekolah/hapus-massal";
+import { KodeSekolahCard } from "@/components/sekolah/kode-sekolah-card";
 import { Download, FileSpreadsheet } from "lucide-react";
 
 type StudentRow = {
@@ -61,6 +62,7 @@ export default function KelolaSiswaPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [tab, setTab] = useState<TabSiswa>("aktif");
   const [jumlah, setJumlah] = useState<{ aktif: number; alumni: number } | null>(null);
+  const [kodeSekolah, setKodeSekolah] = useState<string | null>(null);
   const pilihan = usePilihan();
   const hapusMassal = useHapusMassal(() => {
     pilihan.kosongkan();
@@ -79,6 +81,7 @@ export default function KelolaSiswaPage() {
       if (!ignore) {
         setStudents(data.students ?? []);
         setJumlah(data.jumlah ?? null);
+        setKodeSekolah(data.kodeSekolah ?? null);
         setPage(1);
       }
     })();
@@ -219,6 +222,8 @@ export default function KelolaSiswaPage() {
         onSuccess={() => setRefreshKey((k) => k + 1)}
         role="admin_sekolah"
       />
+
+      {kodeSekolah && <KodeSekolahCard kodeSekolah={kodeSekolah} />}
 
       <KuotaSummary />
 
