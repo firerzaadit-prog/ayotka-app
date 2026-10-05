@@ -22,6 +22,10 @@ const FAQ = [
     a: "Tidak untuk identitasnya. Mitra hanya bisa melihat berapa kode yang sudah terpakai dari kuota mereka — bukan NISN atau nama lengkap siswa yang memakainya.",
   },
   {
+    q: "Bagaimana paket Try Out Mandiri dibuka? Apakah bisa dikerjakan sekaligus?",
+    a: "Paket dibuka bertahap untuk tiap mata pelajaran. Selesaikan satu paket (jawab minimal satu soal), maka paket berikutnya terbuka pukul 06.00 WIB berikutnya — misalnya selesai hari Selasa, paket baru terbuka Rabu pukul 06.00 WIB. Jadi satu paket baru per hari untuk tiap mapel. Siswa yang belum mengerjakan belum mendapat paket baru, dan setiap siswa punya hitungannya sendiri. Semua paket yang sudah terbit tetap terlihat, dan paket yang sudah dikerjakan bisa diulang kapan saja.",
+  },
+  {
     q: "Kalau langganan habis, riwayat hasilnya hilang?",
     a: "Tidak. Riwayat nilai dan pembahasan tetap bisa dibuka kapan saja, bahkan setelah masa langganan berakhir — yang berhenti hanya akses untuk memulai tryout baru.",
   },

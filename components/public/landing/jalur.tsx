@@ -16,10 +16,10 @@ const JALUR: JalurItem[] = [
   {
     label: "Jalur A · Siswa",
     judul: "Daftar sebagai siswa",
-    deskripsi: "Coba gratis dulu, lalu pilih paket mandiri sesuai kebutuhan: Paket Bulanan (latihan tanpa batas) atau Paket Semester (lengkap 3x Try Out Nasional + Analisis Learning Analytics).",
+    deskripsi: "Coba gratis dulu, lalu pilih paket mandiri sesuai kebutuhan: Paket Bulanan (latihan rutin, paket baru terbuka tiap hari) atau Paket Semester (lengkap 3x Try Out Nasional + Analisis Learning Analytics).",
     poin: [
       "Coba gratis awal: 1 tryout per mata pelajaran, tanpa kartu",
-      "Paket Bulanan: Try Out Mandiri sepuasnya + 1x Analisis Learning Analytics per mapel",
+      "Paket Bulanan: Try Out Mandiri semua mapel, paket baru terbuka tiap hari + 1x Analisis Learning Analytics per mapel",
       "Paket Semester: Mendapatkan Try Out Nasional 3 kali + Analisis Learning Analytics lengkap",
     ],
     cta: "Daftar sebagai siswa",

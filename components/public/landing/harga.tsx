@@ -8,9 +8,7 @@ import {
   Sparkles,
   Award,
   Bot,
-  GraduationCap,
   Building2,
-  Users,
   ArrowRight,
 } from "lucide-react";
 
@@ -102,7 +100,7 @@ export function Harga() {
 
                 <h3 className="mt-2 text-xl font-extrabold text-slate-900">Paket Bulanan</h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  Latihan mandiri rutin tanpa batas. Berhenti atau perpanjang kapan saja.
+                  Latihan mandiri rutin, paket baru terbuka tiap hari. Berhenti atau perpanjang kapan saja.
                 </p>
 
                 <div className="mt-4 border-y border-slate-100 py-3">
@@ -116,7 +114,7 @@ export function Harga() {
                 <ul className="mt-5 flex flex-col gap-2.5 text-xs text-slate-600">
                   <li className="flex items-start gap-2 font-medium text-slate-900">
                     <Check className="h-4 w-4 shrink-0 text-emerald-600 font-bold" />
-                    <span><strong>Try Out Mandiri sepuasnya</strong> semua mapel</span>
+                    <span><strong>Try Out Mandiri semua mapel</strong>, paket baru terbuka tiap hari</span>
                   </li>
                   <li className="flex items-start gap-2 font-medium text-slate-900">
                     <Check className="h-4 w-4 shrink-0 text-emerald-600 font-bold" />
@@ -191,7 +189,7 @@ export function Harga() {
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="h-4 w-4 shrink-0 text-white font-bold" />
-                    <span><strong>Try Out Mandiri tanpa batas</strong> semua mapel</span>
+                    <span><strong>Try Out Mandiri semua mapel</strong>, paket baru terbuka tiap hari</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="h-4 w-4 shrink-0 text-white font-bold" />
@@ -249,7 +247,7 @@ export function Harga() {
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="h-4 w-4 shrink-0 text-emerald-600 font-bold" />
-                    <span><strong>Try Out Mandiri sepuasnya</strong> + 1x AI per mapel</span>
+                    <span><strong>Try Out Mandiri semua mapel</strong> (paket baru tiap hari) + 1x AI per mapel</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Building2 className="h-4 w-4 shrink-0 text-indigo-600 font-bold" />
@@ -308,8 +306,8 @@ export function Harga() {
                 <tbody className="divide-y divide-slate-100">
                   <tr>
                     <td className="px-6 py-3.5 font-medium text-slate-900">Try Out Mandiri (Semua Mapel)</td>
-                    <td className="px-6 py-3.5 text-center text-emerald-600 font-semibold">Sepuasnya / Tanpa Batas</td>
-                    <td className="px-6 py-3.5 text-center bg-indigo-50/30 text-emerald-600 font-semibold">Sepuasnya / Tanpa Batas</td>
+                    <td className="px-6 py-3.5 text-center text-emerald-600 font-semibold">Paket baru terbuka tiap hari</td>
+                    <td className="px-6 py-3.5 text-center bg-indigo-50/30 text-emerald-600 font-semibold">Paket baru terbuka tiap hari</td>
                   </tr>
                   <tr>
                     <td className="px-6 py-3.5 font-medium text-slate-900">Akses Nilai Skor &amp; Peta Kompetensi</td>
