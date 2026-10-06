@@ -1,0 +1,2 @@
+# Skrip dan konfigurasi untuk server Linux harus selalu berakhir baris LF (CRLF merusak bash dan YAML).
+deploy/self-host/** text eol=lf

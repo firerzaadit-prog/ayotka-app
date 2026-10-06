@@ -1,0 +1,128 @@
+# Paket self-host AyoTKA: database Postgres + mesin login (GoTrue) milik sendiri, menggantikan Supabase Cloud.
+# Sengaja RAMPING: hanya dua layanan yang benar-benar dipakai aplikasi (login + database). Studio, Realtime, REST,
+# Storage, Edge Functions, dst. dari paket resmi Supabase TIDAK dijalankan (aplikasi tidak memakainya).
+#
+# Sumber konfigurasi: docker-compose resmi supabase/supabase (folder docker/), versi image sama dengan yang dirujuk
+# di sana. Semua port hanya terikat ke 127.0.0.1 - tidak ada yang terbuka ke internet; nginx yang meneruskan
+# /supabase/auth/v1/ ke GoTrue (lihat nginx/ayotka-selfhost.conf).
+#
+# Nilai ${...} dibaca dari berkas .env di folder ini (dibuat skrip 01-siapkan.sh, izin 600).
+name: ayotka-selfhost
+
+services:
+  db:
+    image: supabase/postgres:17.6.1.136
+    container_name: ayotka-db
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./volumes/db/data:/var/lib/postgresql/data
+      # Hanya dijalankan saat folder data masih kosong (inisialisasi pertama).
+      - ./init/99-roles.sql:/docker-entrypoint-initdb.d/init-scripts/99-roles.sql:ro
+      - ./init/99-jwt.sql:/docker-entrypoint-initdb.d/init-scripts/99-jwt.sql:ro
+      # Kunci pgsodium (bawaan image) dipertahankan antar restart.
+      - db-config:/etc/postgresql-custom
+    environment:
+      POSTGRES_HOST: /var/run/postgresql
+      PGPORT: "5432"
+      POSTGRES_PORT: "5432"
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD belum diisi - jalankan skrip/01-siapkan.sh}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: postgres
+      POSTGRES_DB: postgres
+      JWT_EXP: ${JWT_EXPIRY:-3600}
+    command:
+      - postgres
+      - -c
+      - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=warning
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    # Server ini juga menjalankan aplikasi Next.js dan proses build: batasi supaya Postgres tidak menelan semua RAM.
+    mem_limit: 2g
+    shm_size: 256mb
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  auth:
+    image: supabase/gotrue:v2.196.0
+    container_name: ayotka-auth
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:9999:9999"
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9999/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    environment:
+      GOTRUE_API_HOST: 0.0.0.0
+      GOTRUE_API_PORT: "9999"
+      API_EXTERNAL_URL: ${API_EXTERNAL_URL:?API_EXTERNAL_URL belum diisi}
+
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+
+      GOTRUE_SITE_URL: ${SITE_URL:?SITE_URL belum diisi}
+      GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS:-}
+      # Pendaftaran publik lewat API ditutup (aplikasi mendaftarkan akun lewat API admin: createUser/generateLink,
+      # yang tidak terpengaruh pengaturan ini - dibuktikan skrip/04-uji-gotrue.mjs).
+      GOTRUE_DISABLE_SIGNUP: ${DISABLE_SIGNUP:-true}
+
+      GOTRUE_JWT_ADMIN_ROLES: service_role
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_JWT_EXP: ${JWT_EXPIRY:-3600}
+      GOTRUE_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET belum diisi}
+      GOTRUE_JWT_ISSUER: ${API_EXTERNAL_URL}
+
+      GOTRUE_EXTERNAL_EMAIL_ENABLED: "true"
+      GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED: "false"
+      GOTRUE_EXTERNAL_PHONE_ENABLED: "false"
+      GOTRUE_MAILER_AUTOCONFIRM: "false"
+
+      # Pembaruan sesi: dua permintaan yang memperbarui token yang sama bersamaan (proxy + halaman di Next.js) HARUS
+      # lolos keduanya. Tanpa jendela pemakaian ulang ini, yang kedua ditolak dan seluruh sesi pengguna dicabut,
+      # jadi pengguna terlempar ke halaman login secara acak. Nilai 10 detik = bawaan Supabase Cloud.
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
+      GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: "10"
+
+      # Batas laju GoTrue dihitung PER IP, sedangkan SEMUA login/pembaruan sesi datang dari satu IP (server ini
+      # sendiri). Bawaannya (150 per 5 menit) akan menahan satu kelas yang login serentak. Pembatasan percobaan salah
+      # per IP/akun sudah dilakukan aplikasi (app/api/auth/login), jadi di sini dilonggarkan.
+      GOTRUE_RATE_LIMIT_TOKEN_REFRESH: "20000"
+      GOTRUE_RATE_LIMIT_VERIFY: "2000"
+      GOTRUE_RATE_LIMIT_OTP: "2000"
+
+      # Email konfirmasi/reset dikirim aplikasi sendiri (Resend/Mailketing). GoTrue hanya perlu SMTP kalau jalur
+      # cadangan resetPasswordForEmail terpakai; tanpa SMTP, jalur itu gagal pelan-pelan (sudah di-catch aplikasi).
+      GOTRUE_SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL:-noreply@ayotka.id}
+      GOTRUE_SMTP_HOST: ${SMTP_HOST:-localhost}
+      GOTRUE_SMTP_PORT: ${SMTP_PORT:-25}
+      GOTRUE_SMTP_USER: ${SMTP_USER:-}
+      GOTRUE_SMTP_PASS: ${SMTP_PASS:-}
+      GOTRUE_SMTP_SENDER_NAME: AyoTKA
+      GOTRUE_MAILER_URLPATHS_INVITE: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify
+      GOTRUE_MAILER_URLPATHS_EMAIL_CHANGE: /auth/v1/verify
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  db-config:
