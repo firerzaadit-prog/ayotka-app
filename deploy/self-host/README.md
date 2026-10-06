@@ -72,7 +72,9 @@ ls /tmp/ayotka-selesai 2>/dev/null && echo "(proses sudah berhenti)"
 
 Langkah 3 memakai `--ya` agar tidak menunggu ketikan (aman: database lokal belum dipakai):
 `bash skrip/03-pulihkan.sh --ya > /tmp/ayotka-langkah3.log 2>&1 && node skrip/04-uji-gotrue.mjs > /tmp/ayotka-langkah4.log 2>&1`.
-Langkah 5 meminta ketikan `PINDAH`, jadi jalankan di depan layar (bukan nohup).
+Langkah 5 meminta ketikan `PINDAH`. Cara yang terbukti (7 Okt 2026, selesai sekitar 2 menit karena build ter-cache) dan
+tahan SSH putus: `echo PINDAH | sudo nohup bash skrip/05-pindah.sh > /tmp/ayotka-langkah5.log 2>&1 &`, lalu baca
+`tail -n 40 /tmp/ayotka-langkah5.log`. Langkah 7: `sudo nohup node skrip/07-verifikasi-peran.mjs > /tmp/ayotka-langkah7.log 2>&1 &`.
 
 ## Langkah 0 - periksa server (hanya membaca)
 
@@ -198,7 +200,24 @@ Membuat akun sementara siswa, admin sekolah, mitra, dinas pendidikan, dan admin 
 masuk, beranda tiap peran (nama akun tampil), sesi bertahan, keluar, alur reset kata sandi, **sesi kedaluwarsa (penyebab
 502 dulu)**, dan unggah gambar ke disk. Semua data uji dihapus otomatis. Semua harus `LULUS`.
 
-## Langkah 8 - pindahkan gambar lama (nanti)
+## Langkah 9 - bangun ulang gambar impor TANPA menunggu Storage (bisa langsung setelah Langkah 5)
+
+Gambar soal hasil impor soal.ayotka.id (berkas `impor/<sha256>.<ekstensi>`) bisa dibuat ulang dari data soal di skema
+`soal`, yang tetap terjangkau walau Supabase Storage dibatasi. Logikanya sama persis dengan impor di aplikasi
+(`lib/soal-import/media.ts`, dijaga tes) sehingga **nama berkasnya identik** dengan yang dulu diunggah.
+
+```bash
+sudo node skrip/09-bangun-ulang-gambar-impor.mjs            # hanya memeriksa dan melaporkan
+sudo node skrip/09-bangun-ulang-gambar-impor.mjs --tulis    # membuat berkas di MEDIA_DIR + mengganti alamat lama di database
+```
+
+Laporannya menyebut berapa gambar yang bisa dibangun, dan paket mana yang gambarnya masih menunggu Storage
+(unggahan manual dan gambar dari impor Excel tidak punya sumber lain). Hasil di server pada 7 Okt 2026: dari 43 gambar
+yang dirujuk, 20 bisa dibangun; soal bergambar di paket terbit yang masih menunggu turun dari 33 menjadi 13. Alamat lama
+diganti ke alamat server untuk SEMUA gambar, jadi gambar sisanya otomatis tampil begitu Langkah 8 menyalin berkasnya.
+Aman diulang.
+
+## Langkah 8 - pindahkan gambar lama (setelah Storage Supabase pulih)
 
 Gambar soal lama masih di Supabase Storage yang sekarang dibatasi (HTTP 402). Setelah pembatasan dicabut (upgrade atau
 siklus tagihan baru):
