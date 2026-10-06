@@ -1,6 +1,13 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sniffGambar } from "@/lib/soal/gambar-format";
+import { pakaiPenyimpananLokal, simpanBerkasLokal, urlPublikLokal } from "@/lib/storage/media-lokal";
+
+/**
+ * Penyimpanan gambar soal. Default: bucket publik "soal-media" di Supabase Storage. Dengan STORAGE_DRIVER=local,
+ * berkas ditulis ke disk server dan dilayani nginx (lib/storage/media-lokal.ts) - dipakai setelah aplikasi pindah ke
+ * server sendiri. Seluruh pemanggil (unggah soal, impor Excel, impor soal.ayotka.id) tidak perlu tahu bedanya.
+ */
 
 /** Bagian 9 brief: maks. 5 MB per file, hanya tipe gambar. */
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -9,6 +16,7 @@ export const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "im
 const BUCKET = "soal-media";
 
 async function ensureBucketExists(): Promise<void> {
+  if (pakaiPenyimpananLokal()) return;
   const admin = createAdminClient();
   const { data: buckets } = await admin.storage.listBuckets();
   if (buckets?.some((b) => b.name === BUCKET)) return;
@@ -36,10 +44,17 @@ export async function uploadQuestionImage(
     return { error: "Isi file bukan gambar PNG/JPEG/WEBP/GIF yang valid." };
   }
 
+  const path = `${crypto.randomUUID()}.${info.ext}`;
+
+  if (pakaiPenyimpananLokal()) {
+    const gagal = await simpanBerkasLokal(path, new Uint8Array(await file.arrayBuffer()), { timpa: false });
+    if (gagal) return { error: `Gagal mengunggah file: ${gagal.error}` };
+    return { url: urlPublikLokal(path) };
+  }
+
   await ensureBucketExists();
 
   const admin = createAdminClient();
-  const path = `${crypto.randomUUID()}.${info.ext}`;
 
   const { error } = await admin.storage.from(BUCKET).upload(path, file, {
     contentType: info.mime,
@@ -66,6 +81,7 @@ export function importImagePath(sha256: string, ext: string): string {
 
 /** URL publik dihitung lokal dari path (tanpa panggilan jaringan), jadi bisa dipakai sebelum gambar benar-benar diunggah. */
 export function publicImageUrl(path: string): string {
+  if (pakaiPenyimpananLokal()) return urlPublikLokal(path);
   return createAdminClient().storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
@@ -73,6 +89,16 @@ export async function uploadImportImages(
   items: Array<{ path: string; bytes: Buffer; mime: string }>,
 ): Promise<{ error: string } | null> {
   if (items.length === 0) return null;
+
+  if (pakaiPenyimpananLokal()) {
+    // Sama seperti jalur Supabase: isi berkas ditentukan hash-nya, jadi menimpa yang sudah ada aman.
+    for (const item of items) {
+      const gagal = await simpanBerkasLokal(item.path, item.bytes, { timpa: true });
+      if (gagal) return { error: gagal.error };
+    }
+    return null;
+  }
+
   await ensureBucketExists();
   const admin = createAdminClient();
 
