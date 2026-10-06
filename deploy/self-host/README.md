@@ -40,24 +40,39 @@ Cek di server: `ls /var/www/ayotka-app/lib/storage/media-lokal.ts` (harus ada).
 
 ## Langkah B - salin paket ke server
 
-Di PowerShell komputermu (folder proyek `D:\ayotka-app`):
-
-```powershell
-scp -r deploy\self-host firerza@187.77.115.29:~/selfhost-paket
-```
-
-Lalu masuk ke server (`ssh firerza@187.77.115.29`) dan jalankan:
+Paket ikut terkirim ke server lewat deploy GitHub (folder `deploy/self-host` di dalam folder aplikasi), jadi cukup
+disalin di server. Masuk dengan `ssh -o ServerAliveInterval=30 firerza@187.77.115.29`, lalu:
 
 ```bash
 sudo mkdir -p /opt/ayotka-selfhost
-sudo cp -r ~/selfhost-paket/. /opt/ayotka-selfhost/
-sudo find /opt/ayotka-selfhost -type f \( -name '*.sh' -o -name '*.mjs' -o -name '*.yml' -o -name '*.sql' -o -name '*.conf' \) -exec sed -i 's/\r$//' {} +
+sudo cp -r /var/www/ayotka-app/deploy/self-host/. /opt/ayotka-selfhost/
 cd /opt/ayotka-selfhost
 ```
 
-(Baris `sed` membuang sisa format Windows; aman dijalankan walau tidak ada yang perlu dibuang.)
+Menyalin ulang paket yang diperbarui aman: `.env` rahasia, `volumes/`, dan `backup/` tidak ada di repo sehingga tidak
+tertimpa. (Mengirim dari komputer lain: `scp -r deploy\self-host firerza@IP:~/selfhost-paket`, lalu
+`sudo find /opt/ayotka-selfhost -type f \( -name '*.sh' -o -name '*.mjs' -o -name '*.yml' -o -name '*.sql' -o -name '*.conf' \) -exec sed -i 's/\r$//' {} +`
+untuk membuang sisa format Windows.)
 
 Semua perintah berikut dijalankan dari `/opt/ayotka-selfhost` dengan `sudo`.
+
+### Langkah panjang: jalankan di latar belakang server
+
+Sambungan SSH bisa putus di tengah jalan (idle, laptop tidur, jaringan). Langkah yang lama (1, 2, 3+4, 5) sebaiknya
+dijalankan seperti ini, supaya tetap berjalan walau SSH putus; hasilnya dibaca dari berkas log:
+
+```bash
+sudo -v
+sudo rm -f /tmp/ayotka-selesai
+sudo nohup bash -c 'bash skrip/01-siapkan.sh > /tmp/ayotka-langkah1.log 2>&1 && bash skrip/02-cadangkan-supabase.sh > /tmp/ayotka-langkah2.log 2>&1; echo selesai > /tmp/ayotka-selesai' > /dev/null 2>&1 &
+# lihat hasilnya (ulangi sampai muncul "proses sudah berhenti"):
+tail -n 25 /tmp/ayotka-langkah1.log | cut -c1-220; tail -n 40 /tmp/ayotka-langkah2.log | cut -c1-220
+ls /tmp/ayotka-selesai 2>/dev/null && echo "(proses sudah berhenti)"
+```
+
+Langkah 3 memakai `--ya` agar tidak menunggu ketikan (aman: database lokal belum dipakai):
+`bash skrip/03-pulihkan.sh --ya > /tmp/ayotka-langkah3.log 2>&1 && node skrip/04-uji-gotrue.mjs > /tmp/ayotka-langkah4.log 2>&1`.
+Langkah 5 meminta ketikan `PINDAH`, jadi jalankan di depan layar (bukan nohup).
 
 ## Langkah 0 - periksa server (hanya membaca)
 
@@ -119,34 +134,45 @@ pembaruan serentak), tautan pemulihan dan pendaftaran, penolakan kunci anon di A
 Aplikasi akan memanggil login lewat `https://ayotka.id/supabase/auth/v1/...` dan menyajikan gambar dari
 `https://ayotka.id/media/soal-media/...`. Keduanya diatur satu potongan konfigurasi.
 
-1. Cari berkas konfigurasi situs ayotka.id:
-   ```bash
-   sudo grep -rln "server_name" /etc/nginx/sites-enabled /etc/nginx/conf.d 2>/dev/null
-   sudo nginx -T 2>/dev/null | grep -n "server_name"
-   ```
-2. Pasang potongan dan buat cadangan konfigurasi (ganti `NAMA_BERKAS` dengan berkas dari langkah 1):
-   ```bash
-   sudo mkdir -p /etc/nginx/snippets /var/www/ayotka-media/soal-media
-   sudo cp /opt/ayotka-selfhost/nginx/ayotka-selfhost.conf /etc/nginx/snippets/ayotka-selfhost.conf
-   sudo cp /etc/nginx/sites-enabled/NAMA_BERKAS ~/nginx-NAMA_BERKAS.bak
-   ```
-3. Buka berkas itu (`sudo nano /etc/nginx/sites-enabled/NAMA_BERKAS`), cari blok `server { ... }` yang memuat
-   `server_name ayotka.id` dan `listen 443`, lalu tambahkan **satu baris** tepat sebelum `location / {`:
-   ```
-       include /etc/nginx/snippets/ayotka-selfhost.conf;
-   ```
-   Simpan: `Ctrl+O`, `Enter`, `Ctrl+X`. (Jika alamat IP server bukan `187.77.115.29`, ubah dua baris `allow` di
-   `ayotka-selfhost.conf` dulu.)
-4. Uji lalu muat ulang:
-   ```bash
-   sudo nginx -t && sudo systemctl reload nginx
-   ```
-5. Dari server: `curl -s https://ayotka.id/supabase/auth/v1/health` harus menjawab JSON (bukan 404).
-   Dari komputermu (PowerShell): `curl.exe -s -o NUL -w "%{http_code}" https://ayotka.id/supabase/auth/v1/admin/users`
-   harus **403** (API admin tertutup dari internet).
-6. Uji ulang login lewat alamat publik: `sudo node skrip/04-uji-gotrue.mjs --publik` (semua LULUS).
+Server ini punya beberapa situs, masing-masing berkas sendiri di `/etc/nginx/sites-enabled/` (ayotka.id, soal.ayotka.id,
+ai.ayotka.id, dst.). Potongan hanya disisipkan ke blok HTTPS milik **ayotka.id**; situs lain tidak tersentuh. Lihat
+dulu petanya (hanya membaca):
 
-Kalau bingung di langkah 3, kirim hasil `sudo nginx -T | sed -n '1,400p'` (tanpa rahasia) dan saya tuliskan barisnya.
+```bash
+sudo nginx -T 2>/dev/null | grep -nE "^# configuration file|server_name|listen |location |proxy_pass" | cut -c1-150
+```
+
+Cari berkas `ayotka.id` (di server ini: `/etc/nginx/sites-enabled/ayotka.id`, satu `location / {` ke
+`127.0.0.1:3001`). Lalu jalankan blok ini (terbukti di server pada 6 Okt 2026). Ia memberi cadangan berkas,
+mendaftarkan alamat server sendiri (IPv4 dan IPv6) sebagai satu-satunya yang boleh memanggil API admin login,
+menyisipkan satu baris `include` tepat sebelum `location / {` (hanya bila belum ada), menguji dengan `nginx -t`, dan
+**mengembalikan berkas lama otomatis bila gagal**:
+
+```bash
+sudo mkdir -p /etc/nginx/snippets /var/www/ayotka-media/soal-media
+sudo cp /opt/ayotka-selfhost/nginx/ayotka-selfhost.conf /etc/nginx/snippets/ayotka-selfhost.conf
+BERKAS=/etc/nginx/sites-enabled/ayotka.id
+sudo cp -L "$BERKAS" ~/nginx-ayotka.id.sebelum-selfhost.bak
+for a in ::1 $(ip -6 addr show scope global | awk '/inet6/ {print $2}' | cut -d/ -f1); do sudo grep -q "allow $a;" /etc/nginx/snippets/ayotka-selfhost.conf || sudo sed -i "/allow 187.77.115.29;/a\    allow $a;" /etc/nginx/snippets/ayotka-selfhost.conf; done
+grep -n "allow\|deny" /etc/nginx/snippets/ayotka-selfhost.conf
+sudo grep -q "ayotka-selfhost.conf" "$BERKAS" || sudo sed -i --follow-symlinks '0,/^[[:space:]]*location \/ {/s//    include \/etc\/nginx\/snippets\/ayotka-selfhost.conf;\n\n    location \/ {/' "$BERKAS"
+grep -n -B1 -A3 "ayotka-selfhost.conf" "$BERKAS"
+sudo nginx -t && sudo systemctl reload nginx && echo "NGINX DIMUAT ULANG" || { echo "nginx -t GAGAL - mengembalikan berkas lama"; sudo cp ~/nginx-ayotka.id.sebelum-selfhost.bak "$BERKAS"; sudo nginx -t; }
+```
+
+(Jika IP publik server bukan `187.77.115.29`, ubah baris `allow` di `nginx/ayotka-selfhost.conf` dulu.)
+
+Uji hasilnya:
+
+```bash
+curl -s --max-time 20 https://ayotka.id/supabase/auth/v1/health; echo                     # JSON ber-"version"
+curl -s -o /dev/null -w "%{http_code}\n" https://ayotka.id/supabase/auth/v1/admin/users    # dari server: 401
+sudo node skrip/04-uji-gotrue.mjs --publik                                                 # semua LULUS
+```
+
+Dari komputer lain (internet), API admin harus tertutup: `curl.exe -s -o NUL -w "%{http_code}" https://ayotka.id/supabase/auth/v1/admin/users`
+harus **403**, dan `/supabase/rest/v1/` serta gambar yang tidak ada harus 404. Berkas statis di `/media/soal-media/`
+dilayani nginx dari `/var/www/ayotka-media/soal-media/` (uji penuhnya dilakukan otomatis oleh Langkah 5).
 
 ## Langkah 5 - PINDAH
 
@@ -223,6 +249,9 @@ sebelum diganti. Nilainya tidak pernah dicetak.
 |---|---|
 | Login 503 "Layanan masuk sedang gangguan" | `sudo docker compose ps` (auth sehat?), `sudo docker compose logs --tail 50 auth`, `curl -s https://ayotka.id/supabase/auth/v1/health` |
 | Login 401 padahal password benar | akun ada? `sudo docker exec ayotka-db psql -h localhost -U postgres -c "select email from auth.users limit 5"` |
+| `ayotka-auth` restart terus, log "must be owner of function uid" | GoTrue harus memakai `supabase_admin` di `GOTRUE_DB_DATABASE_URL` (fungsi `auth.uid()` dimiliki role `postgres` pada image ini) |
+| Buat akun gagal 500 "column users.aud does not exist" | `GOTRUE_DB_DATABASE_URL` harus berakhiran `?search_path=auth` (kalau tidak, GoTrue membaca tabel `users` aplikasi di skema `public`) |
+| SSH putus di tengah langkah panjang | jalankan lewat `sudo nohup ... &` dan baca log di /tmp (lihat "Langkah panjang" di Langkah B) |
 | Semua pengguna terlempar ke login secara acak | `GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL` harus 10 di `docker-compose.yml` (uji Langkah 4 membuktikannya) |
 | Gambar baru tidak tampil | `ls -l /var/www/ayotka-media/soal-media`, snippet nginx ter-include?, izin folder 755 |
 | Kunci Gemini "tidak terbaca" | jalankan `sudo node skrip/kunci-enkripsi.mjs`; bila perlu isi ulang di Admin Pusat > Pengaturan |

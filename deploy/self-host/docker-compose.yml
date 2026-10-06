@@ -72,7 +72,16 @@ services:
       API_EXTERNAL_URL: ${API_EXTERNAL_URL:?API_EXTERNAL_URL belum diisi}
 
       GOTRUE_DB_DRIVER: postgres
-      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@db:5432/postgres
+      # Memakai supabase_admin (pemilik database), BUKAN supabase_auth_admin seperti paket resmi: pada image
+      # supabase/postgres:17.6.1.136 fungsi auth.uid()/role()/email() sudah ada dan dimiliki role "postgres", sehingga
+      # migrasi GoTrue (create or replace function auth.uid()) gagal "must be owner of function uid" jika dijalankan
+      # sebagai supabase_auth_admin dan GoTrue masuk putaran restart tanpa henti (terbukti di server 6 Okt 2026).
+      # Aman: database hanya terikat ke 127.0.0.1 dan jaringan Docker privat.
+      # WAJIB ?search_path=auth: query GoTrue memakai nama tabel tanpa skema ("users"). Role bawaan paket resmi
+      # (supabase_auth_admin) sudah ber-search_path auth; supabase_admin tidak, sehingga "users" jatuh ke tabel users
+      # MILIK APLIKASI di skema public ("column users.aud does not exist", HTTP 500 saat buat akun) - bisa lebih buruk
+      # lagi bila kolomnya kebetulan cocok. Terbukti di server 6 Okt 2026; uji skrip/04-uji-gotrue.mjs menjaganya.
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_admin:${POSTGRES_PASSWORD}@db:5432/postgres?search_path=auth
 
       GOTRUE_SITE_URL: ${SITE_URL:?SITE_URL belum diisi}
       GOTRUE_URI_ALLOW_LIST: ${ADDITIONAL_REDIRECT_URLS:-}

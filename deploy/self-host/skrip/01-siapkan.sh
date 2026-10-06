@@ -58,14 +58,17 @@ mkdir -p "$PAKET_DIR/volumes/db/data" "$PAKET_DIR/backup"
 chmod 700 "$PAKET_DIR/backup"
 
 # ---------- jalankan ----------
-info "Mengunduh image (pertama kali beberapa menit, ~1 GB)..."
-docker compose pull
+info "Mengunduh image (pertama kali beberapa menit, ~1 GB; tanpa tampilan kemajuan)..."
+docker compose pull --quiet
 info "Menjalankan database dan mesin login..."
-docker compose up -d
+docker compose up -d --quiet-pull
 
-tunggu "database siap" 180 wadah_sehat "$DB_CONTAINER" || { docker compose logs --tail=40 db; gagal "Database tidak sehat dalam 3 menit."; }
+# Galat container ditampilkan ringkas (satu baris dipotong 400 karakter): log GoTrue bisa memuat SQL panjang berulang-ulang.
+cuplik_log() { docker compose logs --no-log-prefix --tail="${2:-6}" "$1" 2>&1 | cut -c1-400; }
+
+tunggu "database siap" 180 wadah_sehat "$DB_CONTAINER" || { cuplik_log db 15; gagal "Database tidak sehat dalam 3 menit."; }
 ok "Database siap."
-tunggu "mesin login siap" 180 curl -fsS http://127.0.0.1:9999/health || { docker compose logs --tail=60 auth; gagal "Mesin login tidak sehat dalam 3 menit."; }
+tunggu "mesin login siap" 180 curl -fsS http://127.0.0.1:9999/health || { cuplik_log auth 6; gagal "Mesin login tidak sehat dalam 3 menit. Lihat galat terakhir di atas."; }
 ok "Mesin login siap (GoTrue menjawab /health)."
 
 # GoTrue membuat tabel auth.* sendiri saat pertama berjalan.

@@ -69,7 +69,7 @@ fi
 
 echo
 echo "=== Firewall"
-if command -v ufw >/dev/null 2>&1; then ufw status | head -5 | sed 's/^/    /'; else info "ufw tidak terpasang"; fi
+if command -v ufw >/dev/null 2>&1; then ufw status | head -25 | sed 's/^/    /'; else info "ufw tidak terpasang"; fi
 
 echo
 echo "=== Kunci enkripsi pengaturan (hanya memeriksa; tidak mengubah)"

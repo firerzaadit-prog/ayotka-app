@@ -89,11 +89,36 @@ try {
     }
     const perluDibaca = terisi.length - tanpaEnkripsi;
     const [namaTerbaik, jumlahTerbaik] = [...cocok.entries()].sort((a, b) => b[1] - a[1])[0];
+    const appTerisi = Boolean(env.APP_ENCRYPTION_KEY);
+
+    /** Menulis APP_ENCRYPTION_KEY ke .env (cadangan .env dibuat dulu). Nilainya TIDAK pernah dicetak. */
+    const tulisAppKey = (nilai, keterangan) => {
+      const isi = fs.readFileSync(ENV_FILE, "utf8");
+      const baru = /^\s*APP_ENCRYPTION_KEY\s*=/m.test(isi)
+        ? isi.replace(/^\s*APP_ENCRYPTION_KEY\s*=.*$/m, `APP_ENCRYPTION_KEY="${nilai}"`)
+        : `${isi.replace(/\s*$/, "")}\nAPP_ENCRYPTION_KEY="${nilai}"\n`;
+      const cadangan = `${ENV_FILE}.sebelum-kunci-${Date.now()}`;
+      fs.copyFileSync(ENV_FILE, cadangan);
+      fs.writeFileSync(ENV_FILE, baru);
+      console.log(`APP_ENCRYPTION_KEY diisi: ${keterangan} (cadangan .env: ${path.basename(cadangan)}). Nilainya tidak dicetak.`);
+    };
+    const kunciAcak = () => crypto.randomBytes(32).toString("hex");
+    // Tanpa APP_ENCRYPTION_KEY, kunci enkripsi ikut SUPABASE_SERVICE_ROLE_KEY: kunci API yang disimpan di Admin Pusat
+    // SETELAH pindah pun akan tak terbaca begitu kunci service diganti lagi. Karena itu, dengan --kunci, kunci khusus
+    // selalu diisi bila belum ada.
+    const kunciKhususBelumAda = (alasan) => {
+      if (appTerisi) return;
+      if (KUNCI) tulisAppKey(kunciAcak(), alasan);
+      else console.log("APP_ENCRYPTION_KEY belum diisi. Jalankan dengan --kunci supaya kunci enkripsi tidak ikut berganti saat SUPABASE_SERVICE_ROLE_KEY diganti.");
+    };
+
     if (perluDibaca === 0) {
       console.log("Tidak ada nilai terenkripsi yang perlu dibaca.");
+      kunciKhususBelumAda("kunci acak baru untuk kunci API yang akan disimpan nanti");
     } else if (jumlahTerbaik < perluDibaca) {
       console.error(`\nPERINGATAN: hanya ${jumlahTerbaik} dari ${perluDibaca} nilai yang terbaca. Ada kunci yang sudah tidak terbaca SEBELUM pindah.`);
-      console.error("Jangan lanjut pindah sebelum ini dipahami (kunci diganti tanpa disengaja? pengaturan perlu diisi ulang lewat Admin Pusat).");
+      console.error("Ini bukan akibat pemindahan. Nilai yang tidak terbaca perlu diisi ulang lewat Admin Pusat > Pengaturan setelah login pulih.");
+      kunciKhususBelumAda("kunci acak baru; nilai lama yang tidak terbaca diisi ulang lewat Admin Pusat");
       kode = 3;
     } else if (namaTerbaik.startsWith("APP_ENCRYPTION_KEY")) {
       console.log("\nAMAN: semua nilai terbaca dengan APP_ENCRYPTION_KEY. Mengganti SUPABASE_SERVICE_ROLE_KEY tidak berpengaruh.");
@@ -101,15 +126,7 @@ try {
       console.log("\nPERLU DIKUNCI: nilai terbaca dengan SUPABASE_SERVICE_ROLE_KEY (cadangan bawaan), bukan APP_ENCRYPTION_KEY.");
       console.log("Kalau SUPABASE_SERVICE_ROLE_KEY diganti tanpa mengunci ini dulu, semua kunci API tersimpan tidak terbaca.");
       if (KUNCI) {
-        const isi = fs.readFileSync(ENV_FILE, "utf8");
-        const nilai = env.SUPABASE_SERVICE_ROLE_KEY;
-        const baru = /^\s*APP_ENCRYPTION_KEY\s*=/m.test(isi)
-          ? isi.replace(/^\s*APP_ENCRYPTION_KEY\s*=.*$/m, `APP_ENCRYPTION_KEY="${nilai}"`)
-          : `${isi.replace(/\s*$/, "")}\nAPP_ENCRYPTION_KEY="${nilai}"\n`;
-        const cadangan = `${ENV_FILE}.sebelum-kunci-${Date.now()}`;
-        fs.copyFileSync(ENV_FILE, cadangan);
-        fs.writeFileSync(ENV_FILE, baru);
-        console.log(`APP_ENCRYPTION_KEY diisi dengan nilai kunci lama (cadangan .env: ${path.basename(cadangan)}). Nilainya TIDAK dicetak.`);
+        tulisAppKey(env.SUPABASE_SERVICE_ROLE_KEY, "nilai kunci lama, supaya nilai tersimpan tetap terbaca");
       } else {
         console.log("Jalankan ulang dengan --kunci untuk mengisinya otomatis (cadangan .env dibuat dulu).");
         kode = 4;
