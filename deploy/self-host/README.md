@@ -253,6 +253,10 @@ sebelum diganti. Nilainya tidak pernah dicetak.
 
 - **Cadangan:** otomatis harian di `/var/backups/ayotka` (14 hari). Cadangan di server yang sama tidak melindungi dari
   server rusak: salin berkala ke komputermu, mis. `scp "firerza@187.77.115.29:/var/backups/ayotka/db-*.dump" .`
+  atau jalankan `deploy\self-host\tarik-cadangan.ps1` dari PowerShell di PC. Folder cadangan tertutup untuk orang lain
+  tetapi dimiliki `firerza`, jadi tanpa `sudo`. Berkas cadangan lama (milik root) baru bisa disalin setelah skrip
+  terbaru dipasang dan dijalankan sekali: `sudo cp -r /var/www/ayotka-app/deploy/self-host/. /opt/ayotka-selfhost/`
+  lalu `sudo bash /opt/ayotka-selfhost/skrip/backup-harian.sh`.
 - **Status:** `cd /opt/ayotka-selfhost && sudo docker compose ps`; log: `sudo docker compose logs --tail 100 auth`
 - **Mulai ulang:** `sudo docker compose restart` (container otomatis hidup lagi setelah server restart).
 - **Pembaruan image:** versi dikunci di `docker-compose.yml`. Perbarui sengaja, bukan otomatis: ubah versi, lalu
@@ -280,10 +284,11 @@ sebelum diganti. Nilainya tidak pernah dicetak.
 
 ## Setelah pindah: matikan Vercel
 
-Vercel masih punya `.env` dan cron lama yang menunjuk ke database Supabase LAMA (data di sana sudah tidak dipakai).
-Setelah Langkah 7 lulus, hentikan proyek Vercel (atau hapus entri `crons` di `vercel.json` dan hentikan deployment
-otomatisnya) supaya tidak ada proses yang menulis ke database lama. Penjadwalan sudah berjalan lewat cron server
-(`/etc/cron.d/ayotka`, tiap 5 menit).
+Vercel masih punya `.env` yang menunjuk ke database Supabase LAMA (data di sana sudah tidak dipakai). Entri `crons`
+di `vercel.json` sudah dihapus (7 Okt 2026; dijaga tes) supaya Vercel tidak memproses antrean atau mengirim email
+pengingat dari data lama. Penjadwalan hanya lewat cron server (`/etc/cron.d/ayotka`, tiap 5 menit). Pastikan di
+dashboard Vercel (Settings > Cron Jobs) daftarnya kosong setelah deploy berikutnya; bila ingin lebih bersih, jeda
+atau hentikan proyek Vercel-nya sama sekali.
 
 ## Tahap 2 (nanti, bersama dosen): data soal generator
 

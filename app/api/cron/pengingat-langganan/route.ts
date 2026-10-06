@@ -4,14 +4,14 @@ import { kirimEmail } from "@/lib/email/kirim";
 import { jalankanPengingatPeriode } from "@/lib/billing/pengingat-periode";
 
 /**
- * Dipanggil Vercel Cron setiap hari untuk mengirim pengingat langganan sekolah lewat email ke admin sekolah:
+ * Dipanggil cron server setiap hari (/etc/cron.d/ayotka di VPS, 02.00 UTC = 09.00 WIB) untuk mengirim pengingat
+ * langganan sekolah lewat email ke admin sekolah:
  * HANYA H-7 dan H-1 sebelum periode berakhir (lihat lib/billing/pengingat-periode.ts untuk aturan lengkapnya,
- * termasuk anti ganda dan kapan dilewati). Aman dipanggil berulang: pengingat yang sudah terkirim tidak dikirim lagi.
+ * termasuk anti ganda dan kapan dilewati). Aman dipanggil berulang: pengingat yang sudah terkirim tidak dikirim lagi
+ * - tetapi hanya di database yang SAMA; karena itu vercel.json tidak boleh punya `crons` (Vercel menunjuk ke database
+ * Supabase lama yang basi, jadi akan mengirim ganda/salah). Hitungan H-7/H-1 memakai tanggal kalender WIB.
  *
- * Jadwal "0 1 * * *" (01.00 UTC = 08.00 WIB) di vercel.json: Hobby hanya mengizinkan sekali sehari dan bisa meleset
- * sampai satu jam, jadi tetap jatuh pada tanggal WIB yang sama (hitungan H-7/H-1 memakai tanggal kalender WIB).
- *
- * Diverifikasi lewat header Authorization standar Vercel Cron (CRON_SECRET) - sama seperti
+ * Diverifikasi lewat header Authorization: Bearer CRON_SECRET (format yang sama dengan Vercel Cron) - sama seperti
  * /api/cron/proses-antrean-ai - supaya tidak bisa dipicu sembarang orang (yang akan menghabiskan kuota email).
  * Untuk memeriksa tanpa mengirim apa pun: tambahkan ?dryRun=1 (tidak mengirim dan tidak mencatat klaim).
  */

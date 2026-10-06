@@ -104,28 +104,17 @@ describe("GET /api/cron/pengingat-langganan - menjalankan pengingat", () => {
   });
 });
 
-describe("vercel.json - jadwal cron", () => {
+describe("vercel.json - tanpa cron (penjadwalan hanya lewat cron server)", () => {
   const akar = path.resolve(__dirname, "../..");
-  const konfig = JSON.parse(readFileSync(path.join(akar, "vercel.json"), "utf8")) as {
-    crons: { path: string; schedule: string }[];
-  };
+  const konfig = JSON.parse(readFileSync(path.join(akar, "vercel.json"), "utf8")) as { crons?: unknown };
 
-  it("JSON valid dan memuat cron pengingat langganan sekali sehari pukul 01.00 UTC (08.00 WIB)", () => {
-    const pengingat = konfig.crons.find((c) => c.path === "/api/cron/pengingat-langganan");
-    expect(pengingat).toEqual({ path: "/api/cron/pengingat-langganan", schedule: "0 1 * * *" });
+  it("JSON valid dan tidak mendefinisikan cron: Vercel masih menunjuk ke database Supabase lama, jadi bila dinyalakan lagi ia mengirim pengingat dari data basi (dobel dengan cron VPS)", () => {
+    expect(konfig.crons ?? []).toEqual([]);
   });
 
-  it("cron antrean AI yang sudah ada tidak berubah", () => {
-    expect(konfig.crons.find((c) => c.path === "/api/cron/proses-antrean-ai")).toEqual({
-      path: "/api/cron/proses-antrean-ai",
-      schedule: "0 3 * * *",
-    });
-  });
-
-  it("setiap cron menunjuk rute yang benar-benar ada dan berjadwal sekali sehari (batas plan Hobby)", () => {
-    for (const cron of konfig.crons) {
-      expect(existsSync(path.join(akar, "app", ...cron.path.split("/").filter(Boolean), "route.ts"))).toBe(true);
-      expect(cron.schedule).toMatch(/^\d{1,2} \d{1,2} \* \* \*$/);
+  it("rute yang dipanggil cron server (/etc/cron.d/ayotka) tetap ada", () => {
+    for (const rute of ["proses-antrean-ai", "pengingat-langganan"]) {
+      expect(existsSync(path.join(akar, "app", "api", "cron", rute, "route.ts"))).toBe(true);
     }
   });
 });
