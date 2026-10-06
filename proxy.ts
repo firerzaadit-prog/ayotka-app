@@ -1,5 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { bacaPengaturanMaintenance } from "@/lib/maintenance/pengaturan";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -14,9 +14,10 @@ import { NextResponse, type NextRequest } from "next/server";
  * cuma nama & gaya export-nya menyesuaikan versi Next.js yang dipakai.
  *
  * Role diambil dari app_metadata token Supabase Auth (bukan query ke
- * Prisma/Postgres - proxy jalan di Edge runtime yang tidak mendukung
- * koneksi Postgres langsung). app_metadata hanya bisa ditulis lewat Admin
- * API (service_role), jadi tidak bisa dipalsukan user sendiri.
+ * Prisma/Postgres di setiap request - cukup dari token). app_metadata hanya
+ * bisa ditulis lewat Admin API (service_role), jadi tidak bisa dipalsukan
+ * user sendiri. Proxy jalan di runtime Node.js (Next 16), jadi satu-satunya
+ * query database di sini - status maintenance - memakai Prisma dan di-cache.
  */
 
 const ROLE_HOME: Record<string, string> = {
@@ -72,44 +73,8 @@ const PUBLIC_AUTH_PATHS = [
   "/admin/dinas-pendidikan",
 ];
 
-// Status maintenance dibaca pakai service_role (proxy jalan di server - Node.js
-// runtime - jadi kuncinya tidak pernah sampai ke browser). Dulu pakai anon key,
-// sehingga tabel app_settings harus dibuka untuk publik lewat RLS dan ikut
-// membocorkan kunci bypass maintenance serta kolom kunci API terenkripsi.
-// Hasilnya disimpan sebentar di memori supaya tidak menambah satu panggilan ke
-// Supabase di setiap request: toggle maintenance berlaku paling lambat
-// MAINTENANCE_CACHE_MS setelah disimpan.
-const MAINTENANCE_CACHE_MS = 10_000;
-let maintenanceCache: { at: number; mode: boolean; secret: string | null } | null = null;
-
-async function readMaintenanceSetting() {
-  if (maintenanceCache && Date.now() - maintenanceCache.at < MAINTENANCE_CACHE_MS) {
-    return maintenanceCache;
-  }
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!serviceKey) return null;
-  try {
-    const admin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    const { data, error } = await admin
-      .from("app_settings")
-      .select("maintenance_mode, maintenance_bypass_secret")
-      .eq("id", "global")
-      .maybeSingle();
-    // Query gagal sesaat: pakai nilai terakhir yang diketahui.
-    if (error) return maintenanceCache;
-    maintenanceCache = {
-      at: Date.now(),
-      mode: Boolean(data?.maintenance_mode),
-      secret: data?.maintenance_bypass_secret || null,
-    };
-    return maintenanceCache;
-  } catch {
-    return maintenanceCache;
-  }
-}
-
+// Status maintenance dibaca lewat Prisma (lib/maintenance/pengaturan.ts): proxy jalan di runtime Node.js, dan
+// pemeriksaan ini sengaja tidak bergantung pada REST Supabase. Hasilnya di-cache sebentar di memori.
 export default async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const response = NextResponse.next({ request });
@@ -151,7 +116,7 @@ export default async function proxy(request: NextRequest) {
   let bypassSecret: string | null = process.env.MAINTENANCE_BYPASS_SECRET || null;
 
   if (!isMaintenance) {
-    const setting = await readMaintenanceSetting();
+    const setting = await bacaPengaturanMaintenance();
     if (setting?.mode) {
       isMaintenance = true;
       if (setting.secret) bypassSecret = setting.secret;
