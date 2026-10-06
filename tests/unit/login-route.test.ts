@@ -154,6 +154,42 @@ describe("POST /api/auth/login - kasus yang bukan penebakan tidak dihitung", () 
     expect((await masuk(ip, "9000000010")).status).toBe(200);
   });
 
+  it("layanan login dibatasi/mati (402, 500, 502, jaringan, bukan JSON) -> 503 'gangguan' (BUKAN 'password salah') dan tidak dihitung gagal", async () => {
+    const diam = vi.spyOn(console, "error").mockImplementation(() => {});
+    const ip = ipBaru();
+    const galat = [
+      { name: "AuthApiError", status: 402, message: "Service for this project is restricted due to exceed_egress_quota" },
+      { name: "AuthApiError", status: 500, code: "unexpected_failure", message: "x" },
+      { name: "AuthRetryableFetchError", status: 502, message: "Bad gateway" },
+      { name: "AuthRetryableFetchError", status: 0, message: "fetch failed" },
+      { name: "AuthUnknownError", message: "bukan JSON" },
+    ];
+    for (const e of galat) {
+      m.signIn.mockResolvedValue({ data: { user: null }, error: e });
+      const res = await masuk(ip, "9000000020");
+      expect(res.status).toBe(503);
+      expect(res.headers.get("Retry-After")).toBe("60");
+      const body = await res.json();
+      expect(body.code).toBe("LAYANAN_LOGIN_GANGGUAN");
+      expect(body.error).not.toMatch(/password salah/i);
+    }
+
+    // Puluhan kali gangguan tidak membuat akun/IP itu terblokir oleh pembatas kita begitu layanan pulih.
+    m.signIn.mockResolvedValue({ data: { user: null }, error: galat[0] });
+    for (let i = 0; i < 40; i++) await masuk(ip, "9000000020");
+    akunNormal();
+    expect((await masuk(ip, "9000000020")).status).toBe(200);
+    diam.mockRestore();
+  });
+
+  it("kredensial salah (400) dan kode lain di bawah 500 tetap 'password salah' 401 - tidak salah dikira gangguan layanan", async () => {
+    const ip = ipBaru();
+    m.signIn.mockResolvedValue({ data: { user: null }, error: { name: "AuthApiError", code: "invalid_credentials", status: 400, message: "Invalid login credentials" } });
+    const res = await masuk(ip, "9000000021");
+    expect(res.status).toBe(401);
+    expect((await res.json()).error).toMatch(/password salah/i);
+  });
+
   it("email belum dikonfirmasi: pesan khusus, dan 10 kali berturut-turut tidak membuat kena 429", async () => {
     const ip = ipBaru();
     m.signIn.mockResolvedValue({ data: { user: null }, error: { code: "email_not_confirmed", status: 400, message: "x" } });

@@ -22,6 +22,18 @@ function resolveEmail(emailOrNisn: string): string {
 
 const LOGIN_JENDELA_MS = 60_000;
 
+/**
+ * Galat dari layanan login yang BUKAN urusan kredensial: tidak terjangkau (status 0 / galat jaringan), dibatasi
+ * penyedia (402), atau galat server (>= 500, termasuk jawaban non-JSON dari gerbang). Kredensial salah, email belum
+ * dikonfirmasi, akun diblokir, dan batas laju (429) punya status 400-429 dan ditangani terpisah.
+ */
+function layananLoginBermasalah(error: { status?: number; name?: string } | null): boolean {
+  if (!error) return false;
+  const status = error.status;
+  if (typeof status === "number" && (status === 0 || status === 402 || status >= 500)) return true;
+  return error.name === "AuthRetryableFetchError" || error.name === "AuthUnknownError";
+}
+
 function terlaluBanyakPercobaan() {
   return NextResponse.json(
     { error: "Terlalu banyak percobaan masuk, coba lagi sebentar lagi." },
@@ -73,6 +85,21 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "Sistem sedang ramai. Tunggu beberapa saat lalu coba masuk lagi." },
       { status: 429, headers: { "Retry-After": "30" } },
+    );
+  }
+
+  // Layanan login sendiri yang bermasalah (dibatasi/diblokir penyedia, mati, atau jawabannya bukan JSON) - BUKAN
+  // salah kata sandi. Dulu jatuh ke pesan "password salah" di bawah: siswa mengetik ulang berkali-kali dan admin
+  // mengira kata sandinya yang bermasalah, padahal yang mati layanannya (6 Okt 2026: HTTP 402 exceed_egress_quota).
+  // Tidak dihitung sebagai kegagalan login supaya tidak ikut memicu pembatas kita.
+  if (layananLoginBermasalah(error)) {
+    console.error("[login] layanan autentikasi bermasalah:", error?.status ?? "-", error?.code ?? error?.name ?? "-");
+    return NextResponse.json(
+      {
+        error: "Layanan masuk sedang gangguan. Kata sandimu bukan masalahnya - coba lagi beberapa saat lagi.",
+        code: "LAYANAN_LOGIN_GANGGUAN",
+      },
+      { status: 503, headers: { "Retry-After": "60" } },
     );
   }
 
