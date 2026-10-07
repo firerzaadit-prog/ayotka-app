@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LearningAnalyticsSiswa } from "@/components/ai/learning-analytics-siswa";
 import { PageHeader } from "@/components/ui/page-header";
@@ -45,6 +45,8 @@ type Hasil = {
   indikator?: LaporanIndikatorSiswa | null;
   /** Opsi menjalankan Learning Analytics susulan (null bila server gagal menghitungnya: kartu tidak ditampilkan). */
   laSusulan?: OpsiLaSusulan | null;
+  /** Status Tanya Tutor AI untuk percobaan ini (null bila server gagal menghitungnya: tombol Tutor tidak muncul). */
+  tutorAi?: { aktif: boolean; sisaHariIni: number; batasHarian: number } | null;
 };
 
 /**
@@ -65,6 +67,11 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
   const router = useRouter();
   const [hasil, setHasil] = useState<Hasil | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tutor, setTutor] = useState<{ aktif: boolean; sisaHariIni: number; batasHarian: number } | null>(null);
+  const tutorAktifRef = useRef(false);
+  useEffect(() => {
+    tutorAktifRef.current = tutor?.aktif ?? false;
+  }, [tutor]);
 
   useEffect(() => {
     let retryCount = 0;
@@ -93,10 +100,24 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         return;
       }
       setHasil(data);
+      setTutor(data.tutorAi ?? null);
     }
 
     void tryLoad();
   }, [id, router]);
+
+  // Learning Analytics baru saja jadi di halaman ini (mis. dibeli susulan): Tanya Tutor AI ikut aktif tanpa muat ulang.
+  // Dipanggil tiap panel melaporkan status "ready", jadi hanya bertanya ke server selama Tutor belum aktif.
+  const segarkanTutor = useCallback(async () => {
+    if (tutorAktifRef.current) return;
+    try {
+      const res = await fetch(`/api/siswa/attempts/${id}/tutor`, { cache: "no-store" });
+      const json = await res.json().catch(() => null);
+      if (res.ok && typeof json?.aktif === "boolean") setTutor(json);
+    } catch {
+      // gagal sesaat: tombol Tutor muncul pada muat ulang berikutnya
+    }
+  }, [id]);
 
   if (error) {
     return <p className="p-6 text-sm text-rose-700">{error}</p>;
@@ -171,7 +192,7 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         </Card>
       )}
 
-      <LearningAnalyticsSiswa attemptId={id} laSusulan={hasil.laSusulan ?? null} />
+      <LearningAnalyticsSiswa attemptId={id} laSusulan={hasil.laSusulan ?? null} onAnalisisSiap={segarkanTutor} />
 
       <div
         className="select-none"
@@ -179,7 +200,22 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         onCopy={(e) => e.preventDefault()}
       >
         <h2 className="mb-2 text-lg font-semibold text-slate-900">Rincian Jawaban</h2>
-        <RincianJawaban perSoal={hasil.perSoal} canShowPembahasan={hasil.canShowPembahasan} />
+        <RincianJawaban
+          perSoal={hasil.perSoal}
+          canShowPembahasan={hasil.canShowPembahasan}
+          tutor={
+            tutor
+              ? {
+                  attemptId: id,
+                  judul: hasil.package.nama,
+                  aktif: tutor.aktif,
+                  sisaHariIni: tutor.sisaHariIni,
+                  batasHarian: tutor.batasHarian,
+                  onSisaBerubah: (sisa) => setTutor((t) => (t ? { ...t, sisaHariIni: sisa } : t)),
+                }
+              : undefined
+          }
+        />
       </div>
     </div>
   );

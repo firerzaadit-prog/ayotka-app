@@ -6,6 +6,7 @@ import { getRemainingSeconds } from "@/lib/exam/timing";
 import { shuffleWithSeed } from "@/lib/exam/shuffle";
 import { buildHasil } from "@/lib/exam/hasil";
 import { hitungOpsiLaSusulan } from "@/lib/billing/la-susulan";
+import { ringkasanTutor } from "@/lib/tutor/penggunaan";
 import { checkAndClaimSession } from "@/lib/exam/session-guard";
 import { susunRiwayatPercobaan } from "@/lib/exam/percobaan";
 
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Paket Ini" di halaman hasil - lihat lib/exam/percobaan.ts.
     // laSusulan (apa yang bisa dilakukan siswa untuk Learning Analytics di percobaan ini) sengaja dihitung HANYA di
     // sini, bukan di buildHasil: buildHasil juga dipakai halaman admin dan rapor PDF, yang tidak boleh membaca saldo siswa.
-    const [hasil, attemptsPaket, laSusulan] = await Promise.all([
+    const [hasil, attemptsPaket, laSusulan, tutorAi] = await Promise.all([
       buildHasil(attempt),
       prisma.attempt.findMany({
         where: { studentId: attempt.studentId, packageId: attempt.packageId, assignmentId: attempt.assignmentId },
@@ -60,8 +61,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         console.error(`[hasil] gagal menghitung opsi Learning Analytics susulan untuk attempt ${attempt.id}:`, err);
         return null;
       }),
+      // Status Tanya Tutor AI (aktif bila Learning Analytics percobaan ini sudah jadi + sisa pesan hari ini). Sama
+      // seperti laSusulan: gagal menghitung tidak boleh merusak halaman hasil, tombol Tutor saja yang tidak muncul.
+      ringkasanTutor(attempt).catch((err) => {
+        console.error(`[hasil] gagal menghitung status Tanya Tutor AI untuk attempt ${attempt.id}:`, err);
+        return null;
+      }),
     ]);
-    return NextResponse.json({ ...hasil, laSusulan, percobaan: susunRiwayatPercobaan(attemptsPaket, attempt.id) });
+    return NextResponse.json({ ...hasil, laSusulan, tutorAi, percobaan: susunRiwayatPercobaan(attemptsPaket, attempt.id) });
   }
 
   // Tiket 4.13: satu sesi aktif per attempt - tab/device lain yang masih

@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Bot } from "lucide-react";
 import { RichText } from "@/components/soal/rich-text";
+import { TutorAiChat, type SoalChat } from "@/components/tutor/tutor-ai-chat";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -30,6 +32,46 @@ export type PerSoal = {
   categories?: { id: string; label: string }[];
 };
 
+/** Tanya Tutor AI di halaman pembahasan siswa. Tidak diberikan = tidak ada tombol (halaman admin, dsb). */
+export type TutorProps = {
+  attemptId: string;
+  /** Nama paket, ditampilkan di kepala drawer. */
+  judul: string;
+  aktif: boolean;
+  sisaHariIni: number;
+  batasHarian: number;
+  onSisaBerubah: (sisa: number) => void;
+};
+
+/** Ubah data satu soal pembahasan menjadi bahan tampilan drawer Tutor (label jawaban siswa, benar/salah, dst). */
+function keSoalChat(s: PerSoal, nomor: number): SoalChat {
+  const jawaban = (s.jawabanJson ?? null) as { option_id?: string; option_ids?: string[] } | Record<string, string> | null;
+  let dipilihIds: string[] = [];
+  let adaJawaban = false;
+  if (s.format === "pg") {
+    const id = (jawaban as { option_id?: string } | null)?.option_id;
+    dipilihIds = id ? [id] : [];
+    adaJawaban = dipilihIds.length > 0;
+  } else if (s.format === "pg_kompleks") {
+    dipilihIds = (jawaban as { option_ids?: string[] } | null)?.option_ids ?? [];
+    adaJawaban = dipilihIds.length > 0;
+  } else {
+    adaJawaban = jawaban !== null && typeof jawaban === "object" && Object.keys(jawaban).length > 0;
+  }
+  const label = (s.options ?? []).filter((o) => dipilihIds.includes(o.id)).map((o) => o.label);
+  return {
+    questionId: s.questionId,
+    nomor,
+    format: s.format,
+    adaJawaban,
+    teks: s.teks,
+    options: s.options?.map(({ id, label: l, teks, isCorrect }) => ({ id, label: l, teks, isCorrect })),
+    jawabanLabel: s.format === "pg_kategori" || label.length === 0 ? null : label.join(", "),
+    benar: (s.skor ?? 0) >= s.skorMaks,
+    dipilihIds,
+  };
+}
+
 /**
  * Diekstrak dari app/siswa/hasil/[id]/page.tsx (Tiket 4.10) supaya bisa
  * dipakai juga di halaman detail siswa admin pusat - satu tempat untuk
@@ -40,10 +82,31 @@ export type PerSoal = {
 export function RincianJawaban({
   perSoal,
   canShowPembahasan,
+  tutor,
 }: {
   perSoal: PerSoal[];
   canShowPembahasan: boolean;
+  tutor?: TutorProps;
 }) {
+  // Drawer Tutor yang pernah dibuka tetap terpasang (tidak digambar saat tertutup) supaya percakapan dan permintaan
+  // yang sedang berjalan tidak hilang kalau siswa menutupnya sebentar - lihat components/tutor/tutor-ai-chat.tsx.
+  const [terbuka, setTerbuka] = useState<string | null>(null);
+  const [pernahDibuka, setPernahDibuka] = useState<string[]>([]);
+  const terbukaRef = useRef<string | null>(null);
+  useEffect(() => {
+    terbukaRef.current = terbuka;
+  }, [terbuka]);
+  const bukaTutor = (id: string) => {
+    setPernahDibuka((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setTerbuka(id);
+  };
+  const tutupTutor = useCallback(() => {
+    const id = terbukaRef.current;
+    setTerbuka(null);
+    // kembalikan fokus ke tombol yang membukanya (aksesibilitas papan ketik)
+    if (id) requestAnimationFrame(() => document.getElementById(`tutor-tombol-${id}`)?.focus());
+  }, []);
+
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const totalPages = Math.max(1, Math.ceil(perSoal.length / pageSize));
@@ -131,9 +194,40 @@ export function RincianJawaban({
                 <RichText text={s.pembahasan} />
               </div>
             )}
+            {canShowPembahasan && tutor?.aktif && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  id={`tutor-tombol-${s.questionId}`}
+                  onClick={() => bukaTutor(s.questionId)}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-700 hover:to-indigo-700"
+                >
+                  <Bot className="h-4 w-4" aria-hidden="true" />
+                  Tanya Tutor AI
+                </button>
+              </div>
+            )}
           </Card>
         ))}
       </div>
+      {tutor?.aktif &&
+        pernahDibuka.map((id) => {
+          const indeks = perSoal.findIndex((s) => s.questionId === id);
+          if (indeks < 0) return null;
+          return (
+            <TutorAiChat
+              key={id}
+              attemptId={tutor.attemptId}
+              judul={tutor.judul}
+              soal={keSoalChat(perSoal[indeks]!, indeks + 1)}
+              buka={terbuka === id}
+              sisaHariIni={tutor.sisaHariIni}
+              batasHarian={tutor.batasHarian}
+              onSisaBerubah={tutor.onSisaBerubah}
+              onTutup={tutupTutor}
+            />
+          );
+        })}
       <div className="mt-3">
         <Pagination
           page={page}

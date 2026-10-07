@@ -337,6 +337,7 @@ model Student {
   referrals         Student[]          @relation("StudentReferral")
   referredByPartner Partner?           @relation("StudentPartnerReferral", fields: [referredByPartnerId], references: [id], onDelete: SetNull)
   attempts          Attempt[]
+  tutorPesan        TutorAiPesan[]
   invoices          Invoice[]
   entitlements      Entitlement[]
   vouchersUsed      Voucher[]
@@ -687,6 +688,7 @@ model Attempt {
   answers          AttemptAnswer[]
   competencyScores CompetencyScore[]
   aiAnalysis       AiAnalysis?
+  tutorPesan       TutorAiPesan[]
 
   // Indeks kunci asing yang dipakai jalur panas (daftar & mulai ujian, ranking, analitik).
   @@index([studentId])
@@ -767,6 +769,24 @@ model AiAnalysis {
   attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@map("ai_analyses")
+}
+
+/// Satu baris = satu pesan siswa ke fitur Tanya Tutor AI di halaman pembahasan. TANPA isi pesan: hanya jejak pemakaian
+/// untuk batas harian per siswa (dan gambaran biaya). Dicatat SEBELUM AI dipanggil (reservasi, supaya batas tidak bisa
+/// ditembus dengan permintaan serentak) dan dihapus lagi bila AI gagal menjawab - lihat lib/tutor/penggunaan.ts.
+model TutorAiPesan {
+  id         String   @id @default(uuid()) @db.Uuid
+  studentId  String   @map("student_id") @db.Uuid
+  attemptId  String   @map("attempt_id") @db.Uuid
+  /// Tanpa kunci asing: soal hanya diarsipkan (soft delete), dan jejak ini tidak boleh menghalangi apa pun.
+  questionId String   @map("question_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, createdAt])
+  @@map("tutor_ai_pesan")
 }
 
 /// Baris tunggal (id selalu "global") untuk pengaturan global yang admin

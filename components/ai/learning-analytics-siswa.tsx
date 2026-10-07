@@ -12,12 +12,26 @@ import type { OpsiLaSusulan } from "@/lib/billing/learning-analytics";
  * Kalau analisis yang baru dipesan ternyata tidak jadi (gagal dan saldo dikembalikan, atau terlewat), siswa dikembalikan
  * ke kartu dengan pesan dan angka terbaru, bukan dibiarkan menatap pesan "hubungi admin".
  */
-export function LearningAnalyticsSiswa({ attemptId, laSusulan }: { attemptId: string; laSusulan: OpsiLaSusulan | null }) {
+export function LearningAnalyticsSiswa({
+  attemptId,
+  laSusulan,
+  onAnalisisSiap,
+}: {
+  attemptId: string;
+  laSusulan: OpsiLaSusulan | null;
+  /** Dipanggil setiap kali panel melaporkan hasil analisis sudah ada (halaman memakainya untuk mengaktifkan Tanya Tutor AI). */
+  onAnalisisSiap?: () => void;
+}) {
   const [opsi, setOpsi] = useState<OpsiLaSusulan | null>(laSusulan);
   const [fase, setFase] = useState<"kartu" | "panel">(laSusulan?.tersedia ? "kartu" : "panel");
   const [catatan, setCatatan] = useState<string | null>(null);
   // true hanya setelah siswa menekan tombol di sesi halaman ini: status "none"/"error" sebelum itu bukan kegagalan pesanan.
   const dipesanRef = useRef(false);
+  // Ref supaya callback yang berubah tiap render tidak mengubah saatStatus (yang diteruskan ke panel).
+  const onAnalisisSiapRef = useRef(onAnalisisSiap);
+  useEffect(() => {
+    onAnalisisSiapRef.current = onAnalisisSiap;
+  }, [onAnalisisSiap]);
 
   const muatOpsi = useCallback(async (): Promise<OpsiLaSusulan | null> => {
     try {
@@ -56,6 +70,7 @@ export function LearningAnalyticsSiswa({ attemptId, laSusulan }: { attemptId: st
 
   const saatStatus = useCallback(
     async (status: "none" | "queued" | "processing" | "ready" | "error") => {
+      if (status === "ready") onAnalisisSiapRef.current?.();
       if (!dipesanRef.current) return;
       if (status !== "none" && status !== "error") return;
       dipesanRef.current = false;
