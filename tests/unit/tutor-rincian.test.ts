@@ -38,6 +38,8 @@ const tutor = (o: Partial<TutorProps> = {}): TutorProps => ({
   aktif: true,
   sisaHariIni: 20,
   batasHarian: 20,
+  hariSimpan: 7,
+  soalBerriwayat: [],
   onSisaBerubah: () => {},
   ...o,
 });
@@ -67,6 +69,25 @@ describe("RincianJawaban - tombol Tanya Tutor AI", () => {
 
   it("pembahasan belum boleh tampil: tombol Tutor juga tidak tampil", () => {
     expect(render(tutor(), false)).not.toContain("Tanya Tutor AI");
+  });
+
+  it("soal yang punya percakapan tersimpan: tombolnya berlabel 'Lanjutkan chat Tutor AI', soal lain tetap 'Tanya Tutor AI'", () => {
+    const html = render(tutor({ soalBerriwayat: ["q-1"] }));
+    expect(hitung(html, "Lanjutkan chat Tutor AI")).toBe(1);
+    expect(hitung(html, "Tanya Tutor AI")).toBe(1);
+    expect(html.indexOf("Lanjutkan chat Tutor AI")).toBeLessThan(html.indexOf("Tanya Tutor AI"));
+  });
+
+  it("tanpa riwayat tersimpan: semua tombol 'Tanya Tutor AI', tidak ada 'Lanjutkan'", () => {
+    const html = render(tutor({ soalBerriwayat: [] }));
+    expect(hitung(html, "Tanya Tutor AI")).toBe(2);
+    expect(html).not.toContain("Lanjutkan chat");
+  });
+
+  it("riwayat untuk soal yang tidak ada di halaman ini diabaikan", () => {
+    const html = render(tutor({ soalBerriwayat: ["soal-lain"] }));
+    expect(hitung(html, "Tanya Tutor AI")).toBe(2);
+    expect(html).not.toContain("Lanjutkan chat");
   });
 
   it("drawer tidak digambar sebelum ada yang membukanya (tidak ada dialog di halaman)", () => {

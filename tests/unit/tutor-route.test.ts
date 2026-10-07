@@ -7,6 +7,9 @@ const m = vi.hoisted(() => ({
   loadOwnedAttempt: vi.fn(),
   checkRateLimit: vi.fn(),
   ringkasanTutor: vi.fn(),
+  infoTutorHalaman: vi.fn(),
+  simpanPercakapan: vi.fn(),
+  bersihkanBilaPerlu: vi.fn(),
   reservasiPesan: vi.fn(),
   lepasReservasi: vi.fn(),
   batasHarianTutor: vi.fn(),
@@ -24,6 +27,11 @@ vi.mock("@/lib/db/prisma", () => ({
 vi.mock("@/lib/auth/session", () => ({ requireRole: m.requireRole }));
 vi.mock("@/lib/exam/attempt-access", () => ({ loadOwnedAttempt: m.loadOwnedAttempt }));
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: m.checkRateLimit }));
+vi.mock("@/lib/tutor/penyimpanan", () => ({
+  infoTutorHalaman: m.infoTutorHalaman,
+  simpanPercakapan: m.simpanPercakapan,
+  bersihkanBilaPerlu: m.bersihkanBilaPerlu,
+}));
 vi.mock("@/lib/tutor/penggunaan", () => ({
   ringkasanTutor: m.ringkasanTutor,
   reservasiPesan: m.reservasiPesan,
@@ -68,6 +76,8 @@ beforeEach(() => {
   m.loadOwnedAttempt.mockResolvedValue(ATTEMPT);
   m.checkRateLimit.mockReturnValue(true);
   m.ringkasanTutor.mockResolvedValue({ aktif: true, sisaHariIni: 20, batasHarian: 20 });
+  m.infoTutorHalaman.mockResolvedValue({ aktif: true, sisaHariIni: 20, batasHarian: 20, soalBerriwayat: ["q-a"], hariSimpan: 7 });
+  m.simpanPercakapan.mockResolvedValue(undefined);
   m.batasHarianTutor.mockReturnValue(20);
   m.answerFindUnique.mockResolvedValue(SOAL);
   m.packageFindUniqueOrThrow.mockResolvedValue({ acakOpsi: false, jenjang: "SMP", subject: { nama: "Matematika" } });
@@ -89,7 +99,12 @@ describe("GET status Tutor", () => {
     const res = await GET(req(""), params);
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.json()).toEqual({ aktif: true, sisaHariIni: 20, batasHarian: 20 });
+    expect(await res.json()).toEqual({ aktif: true, sisaHariIni: 20, batasHarian: 20, soalBerriwayat: ["q-a"], hariSimpan: 7 });
+  });
+
+  it("memicu pembersihan cadangan riwayat kedaluwarsa", async () => {
+    await GET(req(""), params);
+    expect(m.bersihkanBilaPerlu).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -213,6 +228,76 @@ describe("POST Tanya Tutor AI - berhasil", () => {
   it("urutan: reservasi dulu, baru AI dipanggil", async () => {
     await POST(req(BODY), params);
     expect(m.reservasiPesan.mock.invocationCallOrder[0]).toBeLessThan(m.tanyaTutorAi.mock.invocationCallOrder[0]!);
+  });
+});
+
+describe("POST Tanya Tutor AI - penyimpanan percakapan 7 hari", () => {
+  it("setelah AI menjawab: menyimpan pesan siswa TERAKHIR dan balasan ke baris reservasi, tanpa foto", async () => {
+    await POST(req(BODY), params);
+    expect(m.simpanPercakapan).toHaveBeenCalledWith("res-1", {
+      pesan: "Kenapa jawabanku salah?",
+      balasan: "Ayo kita telusuri bersama.",
+      adaFoto: false,
+    });
+  });
+
+  it("percakapan beberapa giliran: yang disimpan hanya giliran baru (pesan terakhir), bukan seluruh riwayat", async () => {
+    await POST(
+      req({
+        questionId: QID,
+        messages: [
+          { role: "user", content: "pertama" },
+          { role: "assistant", content: "balasan pertama" },
+          { role: "user", content: "lanjutan" },
+        ],
+      }),
+      params,
+    );
+    expect(m.simpanPercakapan).toHaveBeenCalledTimes(1);
+    expect(m.simpanPercakapan.mock.calls[0]![1].pesan).toBe("lanjutan");
+  });
+
+  it("dengan foto: hanya penanda adaFoto=true yang disimpan, fotonya tidak pernah", async () => {
+    const png = "data:image/png;base64,iVBORw0KGgo=";
+    await POST(req({ ...BODY, gambar: png }), params);
+    const [, isi] = m.simpanPercakapan.mock.calls[0]!;
+    expect(isi.adaFoto).toBe(true);
+    expect(JSON.stringify(isi)).not.toContain("iVBORw0KGgo");
+    expect(JSON.stringify(isi)).not.toContain("data:image");
+  });
+
+  it("AI gagal: tidak ada yang disimpan", async () => {
+    m.tanyaTutorAi.mockResolvedValue({ ok: false, alasan: "http", status: 500 });
+    await POST(req(BODY), params);
+    expect(m.simpanPercakapan).not.toHaveBeenCalled();
+  });
+
+  it("ditolak (batas harian / tidak aktif / validasi): tidak ada yang disimpan", async () => {
+    m.reservasiPesan.mockResolvedValue({ ok: false });
+    await POST(req(BODY), params);
+    m.ringkasanTutor.mockResolvedValue({ aktif: false, sisaHariIni: 20, batasHarian: 20 });
+    await POST(req(BODY), params);
+    await POST(req({}), params);
+    expect(m.simpanPercakapan).not.toHaveBeenCalled();
+  });
+
+  it("gagal menyimpan tidak menggagalkan jawaban: siswa tetap menerima balasan dan jatah terpakai", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    m.simpanPercakapan.mockRejectedValue(new Error("db sesaat bermasalah"));
+    const res = await POST(req(BODY), params);
+    expect(res.status).toBe(200);
+    expect((await res.json()).balasan).toBe("Ayo kita telusuri bersama.");
+    expect(m.lepasReservasi).not.toHaveBeenCalled();
+  });
+
+  it("urutan: AI menjawab dulu, baru disimpan", async () => {
+    await POST(req(BODY), params);
+    expect(m.tanyaTutorAi.mock.invocationCallOrder[0]).toBeLessThan(m.simpanPercakapan.mock.invocationCallOrder[0]!);
+  });
+
+  it("memicu pembersihan cadangan riwayat kedaluwarsa", async () => {
+    await POST(req(BODY), params);
+    expect(m.bersihkanBilaPerlu).toHaveBeenCalled();
   });
 });
 

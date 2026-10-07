@@ -34,3 +34,12 @@ export const MAKS_TEKS_OPSI = 1000;
 
 /** Balasan tutor dipotong sampai sepanjang ini sebelum dikirim ke siswa. */
 export const MAKS_PANJANG_BALASAN = 6000;
+
+/**
+ * Lama isi percakapan Tanya Tutor AI disimpan, dihitung sejak tiap pesan dikirim. Sesudah itu isinya tidak ditampilkan
+ * lagi dan barisnya dihapus otomatis (lib/tutor/penyimpanan.ts). Angka ini juga dipakai untuk keterangan ke siswa.
+ */
+export const HARI_SIMPAN_RIWAYAT = 7;
+
+/** Paling banyak giliran yang dimuat saat siswa membuka kembali percakapan satu soal (batas harian x hari simpan jauh di bawahnya). */
+export const MAKS_GILIRAN_DIMUAT = 200;

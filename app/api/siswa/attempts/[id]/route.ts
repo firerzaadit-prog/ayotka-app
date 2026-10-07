@@ -6,7 +6,7 @@ import { getRemainingSeconds } from "@/lib/exam/timing";
 import { shuffleWithSeed } from "@/lib/exam/shuffle";
 import { buildHasil } from "@/lib/exam/hasil";
 import { hitungOpsiLaSusulan } from "@/lib/billing/la-susulan";
-import { ringkasanTutor } from "@/lib/tutor/penggunaan";
+import { infoTutorHalaman } from "@/lib/tutor/penyimpanan";
 import { checkAndClaimSession } from "@/lib/exam/session-guard";
 import { susunRiwayatPercobaan } from "@/lib/exam/percobaan";
 
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }),
       // Status Tanya Tutor AI (aktif bila Learning Analytics percobaan ini sudah jadi + sisa pesan hari ini). Sama
       // seperti laSusulan: gagal menghitung tidak boleh merusak halaman hasil, tombol Tutor saja yang tidak muncul.
-      ringkasanTutor(attempt).catch((err) => {
+      infoTutorHalaman(attempt).catch((err) => {
         console.error(`[hasil] gagal menghitung status Tanya Tutor AI untuk attempt ${attempt.id}:`, err);
         return null;
       }),

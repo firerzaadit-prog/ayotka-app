@@ -7,6 +7,7 @@ import { tutorBodySchema } from "@/lib/tutor/validasi";
 import { susunKonteksTutor } from "@/lib/tutor/konteks-soal";
 import { tanyaTutorAi } from "@/lib/tutor/klien-ai";
 import { batasHarianTutor, lepasReservasi, reservasiPesan, ringkasanTutor } from "@/lib/tutor/penggunaan";
+import { bersihkanBilaPerlu, infoTutorHalaman, simpanPercakapan } from "@/lib/tutor/penyimpanan";
 
 // Layanan Tutor AI bisa membutuhkan puluhan detik (ada pergantian model cadangan di sisinya).
 export const maxDuration = 90;
@@ -17,7 +18,7 @@ function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-/** Status Tanya Tutor AI untuk satu percobaan: aktif atau tidak, dan sisa pesan hari ini. */
+/** Status Tanya Tutor AI untuk satu percobaan: aktif atau tidak, sisa pesan hari ini, dan soal yang punya riwayat chat. */
 export async function GET(_request: Request, { params }: RouteParams) {
   let user;
   try {
@@ -28,7 +29,8 @@ export async function GET(_request: Request, { params }: RouteParams) {
   const { id } = await params;
   const attempt = await loadOwnedAttempt(user.id, id);
   if (!attempt) return json({ error: "Attempt tidak ditemukan." }, 404);
-  return json(await ringkasanTutor(attempt));
+  bersihkanBilaPerlu();
+  return json(await infoTutorHalaman(attempt));
 }
 
 /**
@@ -52,6 +54,8 @@ export async function POST(request: Request, { params }: RouteParams) {
   if (attempt.status !== "selesai" && attempt.status !== "kedaluwarsa") {
     return json({ error: "Ujian belum selesai, pembahasan belum bisa ditanyakan.", code: "BELUM_SELESAI" }, 409);
   }
+
+  bersihkanBilaPerlu();
 
   // Pembatas laju per siswa (menahan banjir permintaan); batas HARIAN yang sebenarnya ada di reservasi di bawah.
   if (!checkRateLimit(`tutor:${attempt.studentId}`, 10, 60_000)) {
@@ -146,6 +150,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       502,
     );
   }
+
+  // Simpan percakapan (pesan siswa + balasan) SEMINGGU supaya bisa dilanjutkan; foto tidak disimpan. Gagal menyimpan
+  // tidak boleh menggagalkan jawaban yang sudah sampai: siswa tetap menerima balasannya.
+  const pesanTerakhir = body.messages[body.messages.length - 1]!;
+  await simpanPercakapan(reservasi.id, {
+    pesan: pesanTerakhir.content,
+    balasan: hasil.balasan,
+    adaFoto: Boolean(body.gambar),
+  }).catch((err) => console.error("[tutor] gagal menyimpan percakapan:", err));
 
   return json({ balasan: hasil.balasan, sisaHariIni: reservasi.sisaSetelah });
 }

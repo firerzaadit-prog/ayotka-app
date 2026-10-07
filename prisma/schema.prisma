@@ -771,9 +771,11 @@ model AiAnalysis {
   @@map("ai_analyses")
 }
 
-/// Satu baris = satu pesan siswa ke fitur Tanya Tutor AI di halaman pembahasan. TANPA isi pesan: hanya jejak pemakaian
-/// untuk batas harian per siswa (dan gambaran biaya). Dicatat SEBELUM AI dipanggil (reservasi, supaya batas tidak bisa
-/// ditembus dengan permintaan serentak) dan dihapus lagi bila AI gagal menjawab - lihat lib/tutor/penggunaan.ts.
+/// Satu baris = satu giliran (pesan siswa + balasan tutor) pada fitur Tanya Tutor AI di halaman pembahasan. Dipakai untuk
+/// dua hal: (1) batas harian per siswa - dicatat SEBELUM AI dipanggil (reservasi, supaya batas tidak bisa ditembus dengan
+/// permintaan serentak) dan dihapus lagi bila AI gagal menjawab (lib/tutor/penggunaan.ts); (2) riwayat percakapan yang
+/// bisa dilanjutkan siswa. Isi percakapan HANYA disimpan SEMINGGU sejak dikirim (HARI_SIMPAN_RIWAYAT), lalu seluruh baris
+/// dihapus otomatis - lihat lib/tutor/penyimpanan.ts. Foto TIDAK disimpan (hanya penanda adaFoto).
 model TutorAiPesan {
   id         String   @id @default(uuid()) @db.Uuid
   studentId  String   @map("student_id") @db.Uuid
@@ -781,11 +783,18 @@ model TutorAiPesan {
   /// Tanpa kunci asing: soal hanya diarsipkan (soft delete), dan jejak ini tidak boleh menghalangi apa pun.
   questionId String   @map("question_id") @db.Uuid
   createdAt  DateTime @default(now()) @map("created_at")
+  /// Pesan siswa dan balasan tutor. Null = belum dijawab, gagal disimpan, atau baris lama sebelum riwayat ada.
+  pesan      String?
+  balasan    String?
+  /// Pesan ini disertai foto coretan (fotonya sendiri TIDAK disimpan).
+  adaFoto    Boolean  @default(false) @map("ada_foto")
 
   student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
   attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
   @@index([studentId, createdAt])
+  @@index([attemptId, questionId, createdAt])
+  @@index([createdAt])
   @@map("tutor_ai_pesan")
 }
 

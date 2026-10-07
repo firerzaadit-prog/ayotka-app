@@ -46,8 +46,11 @@ type Hasil = {
   /** Opsi menjalankan Learning Analytics susulan (null bila server gagal menghitungnya: kartu tidak ditampilkan). */
   laSusulan?: OpsiLaSusulan | null;
   /** Status Tanya Tutor AI untuk percobaan ini (null bila server gagal menghitungnya: tombol Tutor tidak muncul). */
-  tutorAi?: { aktif: boolean; sisaHariIni: number; batasHarian: number } | null;
+  tutorAi?: TutorInfo | null;
 };
+
+/** Status Tanya Tutor AI dari server (lib/tutor/penyimpanan.ts: infoTutorHalaman). */
+type TutorInfo = { aktif: boolean; sisaHariIni: number; batasHarian: number; soalBerriwayat: string[]; hariSimpan: number };
 
 /**
  * Tiket 5.9: watermark identitas siswa di halaman pembahasan (bank soal
@@ -67,7 +70,7 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
   const router = useRouter();
   const [hasil, setHasil] = useState<Hasil | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tutor, setTutor] = useState<{ aktif: boolean; sisaHariIni: number; batasHarian: number } | null>(null);
+  const [tutor, setTutor] = useState<TutorInfo | null>(null);
   const tutorAktifRef = useRef(false);
   useEffect(() => {
     tutorAktifRef.current = tutor?.aktif ?? false;
@@ -200,6 +203,14 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         onCopy={(e) => e.preventDefault()}
       >
         <h2 className="mb-2 text-lg font-semibold text-slate-900">Rincian Jawaban</h2>
+        {tutor?.aktif && (
+          <p className="mb-3 rounded-lg bg-indigo-50 px-3 py-2 text-xs leading-relaxed text-indigo-900" data-keterangan-tutor>
+            Tiap soal punya tombol <b>Tanya Tutor AI</b>. Percakapanmu dengan Tutor disimpan <b>{tutor.hariSimpan} hari</b> sejak
+            dikirim supaya bisa kamu lanjutkan, lalu dihapus otomatis. Kamu juga bisa menghapusnya kapan saja lewat tombol{" "}
+            <b>Hapus percakapan</b> di dalam chat. Foto yang kamu kirim tidak disimpan, dan admin sekolah tidak dapat
+            membacanya.
+          </p>
+        )}
         <RincianJawaban
           perSoal={hasil.perSoal}
           canShowPembahasan={hasil.canShowPembahasan}
@@ -211,6 +222,8 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
                   aktif: tutor.aktif,
                   sisaHariIni: tutor.sisaHariIni,
                   batasHarian: tutor.batasHarian,
+                  hariSimpan: tutor.hariSimpan,
+                  soalBerriwayat: tutor.soalBerriwayat,
                   onSisaBerubah: (sisa) => setTutor((t) => (t ? { ...t, sisaHariIni: sisa } : t)),
                 }
               : undefined

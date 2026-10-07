@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { processAiQueue } from "@/lib/ai/queue-worker";
 import { tutupPercobaanKedaluwarsa } from "@/lib/exam/tutup-kedaluwarsa";
+import { bersihkanRiwayatKedaluwarsa } from "@/lib/tutor/penyimpanan";
 
 /**
  * Dipanggil cron server (/etc/cron.d/ayotka di VPS, tiap 5 menit) untuk memproses antrean Analisis AI dengan laju
@@ -15,6 +16,9 @@ import { tutupPercobaanKedaluwarsa } from "@/lib/exam/tutup-kedaluwarsa";
  * menutup peramban dan tidak pernah membuka ujiannya lagi - lihat lib/exam/tutup-kedaluwarsa.ts). Dijalankan SEBELUM
  * antrean AI supaya analisis percobaan yang baru ditutup ikut terproses di putaran yang sama. Sengaja tidak dibuat
  * cron tersendiri: satu panggilan cukup untuk keduanya.
+ *
+ * Juga MENGHAPUS riwayat percakapan Tanya Tutor AI yang sudah lewat 7 hari (lib/tutor/penyimpanan.ts): janji kepada siswa
+ * bahwa percakapan "disimpan seminggu lalu dihapus otomatis" ditepati di sini, tanpa perlu cron baru di server.
  *
  * Diverifikasi lewat header Authorization: Bearer CRON_SECRET (format yang sama dengan Vercel Cron)
  * supaya endpoint ini tidak bisa dipicu sembarang orang dari luar - tanpa
@@ -44,6 +48,15 @@ export async function GET(request: Request) {
     tutup = { diperiksa: 0, ditutup: [], gagal: [{ attemptId: "-", galat: err instanceof Error ? err.message : String(err) }] };
   }
 
+  // Kegagalan pembersihan riwayat Tutor juga tidak boleh menghalangi antrean AI (dan sebaliknya).
+  let riwayatTutorDihapus = 0;
+  try {
+    riwayatTutorDihapus = await bersihkanRiwayatKedaluwarsa();
+    if (riwayatTutorDihapus > 0) console.log(`[tutor-riwayat] dihapus ${riwayatTutorDihapus} baris yang lewat 7 hari`);
+  } catch (err) {
+    console.error("[tutor-riwayat] pembersihan gagal:", err);
+  }
+
   const hasil = await processAiQueue();
-  return NextResponse.json({ ...hasil, tutupKedaluwarsa: { diperiksa: tutup.diperiksa, ditutup: tutup.ditutup.length, gagal: tutup.gagal.length } });
+  return NextResponse.json({ ...hasil, riwayatTutorDihapus, tutupKedaluwarsa: { diperiksa: tutup.diperiksa, ditutup: tutup.ditutup.length, gagal: tutup.gagal.length } });
 }

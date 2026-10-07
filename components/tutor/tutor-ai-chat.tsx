@@ -2,11 +2,12 @@
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { Bot, Paperclip, Send, Sparkles, User, X } from "lucide-react";
+import { Bot, Paperclip, Send, Sparkles, Trash2, User, X } from "lucide-react";
 import { RichText } from "@/components/soal/rich-text";
 import { Alert } from "@/components/ui/alert";
 import { GalatFoto, kompresGambar } from "@/components/tutor/kompres-gambar";
 import { MAKS_PANJANG_PESAN, MAKS_PESAN_RIWAYAT } from "@/lib/tutor/konstanta";
+import { formatWIB } from "@/lib/utils/datetime";
 import { potongRiwayat } from "@/lib/tutor/riwayat";
 
 export type SoalChat = {
@@ -24,7 +25,16 @@ export type SoalChat = {
   dipilihIds: string[];
 };
 
-type Pesan = { id: string; role: "user" | "assistant"; content: string; gambar?: string };
+type Pesan = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  gambar?: string;
+  /** Hanya untuk pesan yang dimuat dari riwayat tersimpan: pesan siswa ini dulu disertai foto (fotonya tidak disimpan). */
+  adaFoto?: boolean;
+  /** Hanya untuk pesan dari riwayat tersimpan: kapan dikirim (ISO). */
+  waktu?: string;
+};
 
 let hitungId = 0;
 const idPesan = () => `p${++hitungId}`;
@@ -76,6 +86,10 @@ export function TutorAiChat({
   buka,
   sisaHariIni,
   batasHarian,
+  hariSimpan,
+  adaRiwayat,
+  onAdaPercakapan,
+  onRiwayatDihapus,
   onSisaBerubah,
   onTutup,
 }: {
@@ -85,6 +99,14 @@ export function TutorAiChat({
   buka: boolean;
   sisaHariIni: number;
   batasHarian: number;
+  /** Lama percakapan disimpan (hari), untuk keterangan ke siswa. */
+  hariSimpan: number;
+  /** Soal ini sudah punya percakapan tersimpan: dimuat sekali saat drawer pertama kali dibuka. */
+  adaRiwayat: boolean;
+  /** Dipanggil setelah percakapan di soal ini mulai tersimpan (label tombol menjadi "Lanjutkan chat"). */
+  onAdaPercakapan: (questionId: string) => void;
+  /** Dipanggil setelah siswa menghapus percakapan di soal ini (label tombol kembali menjadi "Tanya Tutor AI"). */
+  onRiwayatDihapus: (questionId: string) => void;
   onSisaBerubah: (sisa: number) => void;
   onTutup: () => void;
 }) {
@@ -97,12 +119,20 @@ export function TutorAiChat({
   const [lihatSoal, setLihatSoal] = useState(false);
   // Layanan Tutor kadang butuh puluhan detik: setelah beberapa saat menunggu, beri tahu bahwa sistem masih bekerja.
   const [menungguLama, setMenungguLama] = useState(false);
+  // Percakapan tersimpan (maks. hariSimpan hari) dimuat SEKALI saat drawer pertama kali dibuka.
+  const [memuatRiwayat, setMemuatRiwayat] = useState(adaRiwayat);
+  // Menghapus percakapan: dua langkah (tombol, lalu konfirmasi di tempat) supaya tidak terhapus karena salah sentuh.
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
+  const [menghapus, setMenghapus] = useState(false);
+  const mulaiMuatRiwayatRef = useRef(false);
   const ujungRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const berkasRef = useRef<HTMLInputElement>(null);
   const idJudul = useId();
 
   const habis = sisaHariIni <= 0;
+  // Selama menunggu balasan atau menghapus, kotak tulis dan tombol kirim dikunci (dua kegiatan itu tidak boleh bertabrakan).
+  const sibuk = memuat || menghapus;
 
   // Esc menutup; halaman di belakang tidak ikut bergulir selama drawer terbuka; fokus ke kotak tulis saat dibuka.
   useEffect(() => {
@@ -119,6 +149,34 @@ export function TutorAiChat({
       document.removeEventListener("keydown", saatTombol);
     };
   }, [buka, onTutup]);
+
+  useEffect(() => {
+    if (!buka || !adaRiwayat || mulaiMuatRiwayatRef.current) return;
+    mulaiMuatRiwayatRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch("/api/siswa/attempts/" + attemptId + "/tutor/riwayat?questionId=" + soal.questionId, { cache: "no-store" });
+        const data = await res.json().catch(() => null);
+        if (res.ok && Array.isArray(data?.pesan)) {
+          const tersimpan: Pesan[] = data.pesan.map((p: { id: string; role: "user" | "assistant"; content: string; adaFoto?: boolean; waktu?: string }) => ({
+            id: "riwayat-" + p.id,
+            role: p.role,
+            content: p.content,
+            adaFoto: p.adaFoto,
+            waktu: p.waktu,
+          }));
+          // Percakapan tersimpan selalu lebih tua daripada yang diketik selama memuat: taruh di depan.
+          setPesan((prev) => [...tersimpan, ...prev]);
+        } else {
+          setGalat("Percakapan sebelumnya belum bisa dimuat. Kamu tetap bisa bertanya.");
+        }
+      } catch {
+        setGalat("Percakapan sebelumnya belum bisa dimuat. Kamu tetap bisa bertanya.");
+      } finally {
+        setMemuatRiwayat(false);
+      }
+    })();
+  }, [buka, adaRiwayat, attemptId, soal.questionId]);
 
   useEffect(() => {
     if (!memuat) return;
@@ -146,8 +204,33 @@ export function TutorAiChat({
     }
   }
 
+  async function hapusPercakapanIni() {
+    if (sibuk || memuatRiwayat) return;
+    setMenghapus(true);
+    setGalat(null);
+    try {
+      const res = await fetch(`/api/siswa/attempts/${attemptId}/tutor/riwayat?questionId=${soal.questionId}`, { method: "DELETE" });
+      if (res.ok) {
+        setPesan([]);
+        setKonfirmasiHapus(false);
+        onRiwayatDihapus(soal.questionId);
+      } else {
+        const data = await res.json().catch(() => null);
+        setGalat(data?.error ?? "Percakapan belum bisa dihapus. Coba lagi sebentar lagi.");
+      }
+    } catch {
+      setGalat("Koneksi bermasalah. Percakapan belum terhapus; periksa internetmu lalu coba lagi.");
+    } finally {
+      setMenghapus(false);
+      // Tombol konfirmasi yang tadi difokuskan sudah hilang (dan kotak tulis sempat dikunci): kembalikan fokus ke kotak tulis.
+      requestAnimationFrame(() => {
+        if (!document.activeElement || document.activeElement === document.body) inputRef.current?.focus();
+      });
+    }
+  }
+
   async function kirim(teksLangsung?: string) {
-    if (memuat || habis || menyiapkanFoto) return;
+    if (sibuk || habis || menyiapkanFoto) return;
     const teks = (teksLangsung ?? input).trim() || (gambar ? "Tolong periksa foto cara pengerjaanku ini." : "");
     if (!teks) return;
 
@@ -186,6 +269,7 @@ export function TutorAiChat({
       if (res.ok && typeof data?.balasan === "string") {
         setPesan((prev) => [...prev, { id: idPesan(), role: "assistant", content: data.balasan }]);
         if (typeof data.sisaHariIni === "number") onSisaBerubah(data.sisaHariIni);
+        onAdaPercakapan(soal.questionId);
       } else {
         if (data?.code === "BATAS_HARIAN") onSisaBerubah(0);
         batalkan(data?.error ?? "Tutor AI belum bisa menjawab. Coba lagi sebentar lagi.");
@@ -278,17 +362,66 @@ export function TutorAiChat({
           )}
         </div>
 
+        <div className="border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-[11px] leading-snug text-indigo-900" data-keterangan-penyimpanan>
+          <p>
+            Percakapan ini disimpan <b>{hariSimpan} hari</b> sejak dikirim agar bisa kamu lanjutkan, lalu dihapus otomatis.
+            Foto yang kamu kirim tidak disimpan. Admin sekolah tidak dapat membacanya.
+          </p>
+          {pesan.length > 0 && !memuatRiwayat && !konfirmasiHapus && (
+            <button
+              type="button"
+              id="tutor-hapus-percakapan"
+              disabled={sibuk}
+              onClick={() => setKonfirmasiHapus(true)}
+              className="mt-1.5 inline-flex items-center gap-1 font-semibold text-indigo-800 underline underline-offset-2 hover:text-indigo-950 disabled:opacity-50"
+            >
+              <Trash2 className="h-3 w-3" aria-hidden="true" />
+              Hapus percakapan
+            </button>
+          )}
+          {konfirmasiHapus && (
+            <div className="mt-1.5 rounded-lg border border-rose-200 bg-white px-3 py-2 text-rose-900" role="group" aria-label="Konfirmasi hapus percakapan">
+              <p>
+                Hapus percakapan di soal ini? Tidak bisa dikembalikan. Sisa pesan hari ini tidak bertambah.
+              </p>
+              <div className="mt-1.5 flex items-center gap-2">
+                <button
+                  type="button"
+                  id="tutor-hapus-ya"
+                  disabled={sibuk}
+                  onClick={() => void hapusPercakapanIni()}
+                  className="rounded-lg bg-rose-600 px-3 py-1 font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                >
+                  {menghapus ? "Menghapus..." : "Ya, hapus"}
+                </button>
+                <button
+                  type="button"
+                  id="tutor-hapus-batal"
+                  disabled={menghapus}
+                  onClick={() => setKonfirmasiHapus(false)}
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50/40 p-4" aria-live="polite">
           <Gelembung peran="assistant">
             <RichText text={sapaan(soal)} />
           </Gelembung>
+          {memuatRiwayat && <p className="text-center text-xs text-slate-500">Memuat percakapan sebelumnya...</p>}
           {pesan.map((m) => (
             <Gelembung key={m.id} peran={m.role}>
               {m.gambar && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={m.gambar} alt="Foto coretan yang kamu kirim" className="mb-2 max-h-48 max-w-full rounded-lg bg-white/10 object-contain" />
               )}
+              {m.adaFoto && <p className="mb-1 text-xs italic opacity-80">Foto dikirim (tidak disimpan)</p>}
               {m.role === "user" ? <p className="whitespace-pre-wrap break-words">{m.content}</p> : <RichText text={m.content} />}
+              {m.waktu && m.role === "user" && <p className="mt-1 text-[10px] opacity-75">Dikirim {formatWIB(m.waktu)}</p>}
             </Gelembung>
           ))}
           {memuat && (
@@ -319,7 +452,7 @@ export function TutorAiChat({
               <button
                 key={s.label}
                 type="button"
-                disabled={memuat || habis}
+                disabled={sibuk || habis}
                 onClick={() => void kirim(s.prompt)}
                 className="whitespace-nowrap rounded-full border border-blue-200 bg-blue-50/60 px-3 py-1 font-medium text-blue-700 transition hover:border-blue-300 hover:bg-blue-100 disabled:opacity-50"
               >
@@ -360,7 +493,7 @@ export function TutorAiChat({
             <button
               type="button"
               onClick={() => berkasRef.current?.click()}
-              disabled={memuat || habis || menyiapkanFoto}
+              disabled={sibuk || habis || menyiapkanFoto}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600 disabled:opacity-40"
               title="Kirim foto coretan caramu"
               aria-label="Kirim foto coretan"
@@ -374,13 +507,13 @@ export function TutorAiChat({
               maxLength={MAKS_PANJANG_PESAN}
               onChange={(e) => setInput(e.target.value)}
               placeholder={habis ? "Batas pesan hari ini tercapai" : gambar ? "Tulis pesan untuk foto ini (atau langsung kirim)" : "Tanyakan ke Tutor AI..."}
-              disabled={memuat || habis}
+              disabled={sibuk || habis}
               aria-label="Pesan untuk Tutor AI"
               className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 transition-all focus:border-blue-500 focus:bg-white focus:outline-none disabled:opacity-60"
             />
             <button
               type="submit"
-              disabled={memuat || habis || menyiapkanFoto || (!input.trim() && !gambar)}
+              disabled={sibuk || habis || menyiapkanFoto || (!input.trim() && !gambar)}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 transition hover:from-blue-700 hover:to-indigo-700 disabled:opacity-40"
               aria-label="Kirim pesan"
             >

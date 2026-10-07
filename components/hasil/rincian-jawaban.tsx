@@ -40,6 +40,10 @@ export type TutorProps = {
   aktif: boolean;
   sisaHariIni: number;
   batasHarian: number;
+  /** Lama percakapan disimpan (hari). */
+  hariSimpan: number;
+  /** Id soal yang sudah punya percakapan tersimpan (tombolnya berlabel "Lanjutkan chat Tutor AI"). */
+  soalBerriwayat: string[];
   onSisaBerubah: (sisa: number) => void;
 };
 
@@ -93,6 +97,12 @@ export function RincianJawaban({
   const [terbuka, setTerbuka] = useState<string | null>(null);
   const [pernahDibuka, setPernahDibuka] = useState<string[]>([]);
   const terbukaRef = useRef<string | null>(null);
+  // Soal yang percakapannya baru dimulai di sesi halaman ini (di luar yang sudah tersimpan dari sebelumnya).
+  const [baruBerpercakapan, setBaruBerpercakapan] = useState<string[]>([]);
+  // Soal yang percakapan tersimpannya sudah dihapus siswa di sesi halaman ini (daftar dari server tidak berubah sampai dimuat ulang).
+  const [sudahDihapus, setSudahDihapus] = useState<string[]>([]);
+  const punyaRiwayat = (id: string) =>
+    (Boolean(tutor?.soalBerriwayat.includes(id)) && !sudahDihapus.includes(id)) || baruBerpercakapan.includes(id);
   useEffect(() => {
     terbukaRef.current = terbuka;
   }, [terbuka]);
@@ -203,7 +213,7 @@ export function RincianJawaban({
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-700 hover:to-indigo-700"
                 >
                   <Bot className="h-4 w-4" aria-hidden="true" />
-                  Tanya Tutor AI
+                  {punyaRiwayat(s.questionId) ? "Lanjutkan chat Tutor AI" : "Tanya Tutor AI"}
                 </button>
               </div>
             )}
@@ -223,6 +233,13 @@ export function RincianJawaban({
               buka={terbuka === id}
               sisaHariIni={tutor.sisaHariIni}
               batasHarian={tutor.batasHarian}
+              hariSimpan={tutor.hariSimpan}
+              adaRiwayat={tutor.soalBerriwayat.includes(id)}
+              onAdaPercakapan={(qid) => setBaruBerpercakapan((prev) => (prev.includes(qid) ? prev : [...prev, qid]))}
+              onRiwayatDihapus={(qid) => {
+                setBaruBerpercakapan((prev) => prev.filter((x) => x !== qid));
+                setSudahDihapus((prev) => (prev.includes(qid) ? prev : [...prev, qid]));
+              }}
               onSisaBerubah={tutor.onSisaBerubah}
               onTutup={tutupTutor}
             />
