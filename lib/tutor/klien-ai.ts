@@ -8,7 +8,13 @@ export function urlTutorAi(): string {
   return process.env.TUTOR_AI_URL?.trim() || "https://ai.ayotka.id/api/ai/tutor/chat";
 }
 
-const BATAS_WAKTU_MS = 60_000;
+/**
+ * Batas tunggu jawaban layanan Tutor. SENGAJA di bawah batas proxy nginx (60 detik): layanan partner kadang lambat
+ * (terukur 10 sampai lebih dari 60 detik, kadang 504 di sisi mereka sendiri). Bila batas kita sama dengan nginx, siswa
+ * menerima halaman HTML 504 dan jatahnya bisa tertahan; dengan batas ini kita selalu sempat menjawab JSON yang rapi
+ * dan melepas reservasi sebelum nginx memutus koneksi.
+ */
+export const BATAS_WAKTU_MS = 50_000;
 
 export type HasilTutor =
   | { ok: true; balasan: string }

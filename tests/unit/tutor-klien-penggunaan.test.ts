@@ -21,7 +21,7 @@ vi.mock("@/lib/db/prisma", () => {
   };
 });
 
-import { tanyaTutorAi, urlTutorAi } from "@/lib/tutor/klien-ai";
+import { BATAS_WAKTU_MS, tanyaTutorAi, urlTutorAi } from "@/lib/tutor/klien-ai";
 import { awalHariWIB, batasHarianTutor, lepasReservasi, reservasiPesan, ringkasanTutor } from "@/lib/tutor/penggunaan";
 
 const KONTEKS = { jenjang: "SMP", mapel: "Matematika", soal_text: "2+3?", mode: "socratic" as const };
@@ -133,6 +133,15 @@ describe("tanyaTutorAi", () => {
     const f = tiru({ json: async () => ({ reply: "ok" }) });
     await tanyaTutorAi({ konteks: KONTEKS, pesan: PESAN });
     expect((f.mock.calls[0] as unknown as [string, RequestInit])[1].signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("batas tunggu kita SELALU di bawah batas proxy nginx (60 detik), agar siswa menerima JSON rapi, bukan halaman 504", async () => {
+    expect(BATAS_WAKTU_MS).toBeLessThan(60_000);
+    expect(BATAS_WAKTU_MS).toBeGreaterThanOrEqual(30_000); // dan tidak terlalu pendek untuk layanan yang kadang butuh 30+ detik
+    const pewaktu = vi.spyOn(AbortSignal, "timeout");
+    tiru({ json: async () => ({ reply: "ok" }) });
+    await tanyaTutorAi({ konteks: KONTEKS, pesan: PESAN });
+    expect(pewaktu).toHaveBeenCalledWith(BATAS_WAKTU_MS);
   });
 });
 

@@ -217,7 +217,18 @@ describe("POST Tanya Tutor AI - berhasil", () => {
 });
 
 describe("POST Tanya Tutor AI - AI gagal: jatah siswa tidak hilang", () => {
-  it.each(["jaringan", "waktu_habis", "http", "isi_tidak_valid"] as const)("alasan %s -> 502, reservasi dilepas", async (alasan) => {
+  it("layanan terlalu lama menjawab -> 504 TUTOR_LAMBAT dengan pesan jelas, reservasi dilepas", async () => {
+    m.tanyaTutorAi.mockResolvedValue({ ok: false, alasan: "waktu_habis" });
+    const res = await POST(req(BODY), params);
+    const body = await res.json();
+    expect(res.status).toBe(504);
+    expect(body.code).toBe("TUTOR_LAMBAT");
+    expect(body.error).toMatch(/terlalu lama/);
+    expect(body.error).toMatch(/tidak terpakai/);
+    expect(m.lepasReservasi).toHaveBeenCalledWith("res-1");
+  });
+
+  it.each(["jaringan", "http", "isi_tidak_valid"] as const)("alasan %s -> 502, reservasi dilepas", async (alasan) => {
     m.tanyaTutorAi.mockResolvedValue({ ok: false, alasan });
     const res = await POST(req(BODY), params);
     const body = await res.json();

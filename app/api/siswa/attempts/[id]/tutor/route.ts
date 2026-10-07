@@ -129,6 +129,15 @@ export async function POST(request: Request, { params }: RouteParams) {
   }
   if (!hasil.ok) {
     await lepasReservasi(reservasi.id).catch((err) => console.error("[tutor] gagal melepas reservasi:", err));
+    if (hasil.alasan === "waktu_habis") {
+      return json(
+        {
+          error: "Tutor AI terlalu lama menjawab. Jatah pesanmu tidak terpakai, coba kirim lagi sebentar lagi.",
+          code: "TUTOR_LAMBAT",
+        },
+        504,
+      );
+    }
     return json(
       {
         error: "Tutor AI sedang sibuk atau tidak bisa dihubungi. Jatah pesanmu tidak terpakai, coba lagi sebentar lagi.",

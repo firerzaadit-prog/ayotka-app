@@ -95,6 +95,8 @@ export function TutorAiChat({
   const [memuat, setMemuat] = useState(false);
   const [galat, setGalat] = useState<string | null>(null);
   const [lihatSoal, setLihatSoal] = useState(false);
+  // Layanan Tutor kadang butuh puluhan detik: setelah beberapa saat menunggu, beri tahu bahwa sistem masih bekerja.
+  const [menungguLama, setMenungguLama] = useState(false);
   const ujungRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const berkasRef = useRef<HTMLInputElement>(null);
@@ -117,6 +119,15 @@ export function TutorAiChat({
       document.removeEventListener("keydown", saatTombol);
     };
   }, [buka, onTutup]);
+
+  useEffect(() => {
+    if (!memuat) return;
+    const timer = setTimeout(() => setMenungguLama(true), 15_000);
+    return () => {
+      clearTimeout(timer);
+      setMenungguLama(false);
+    };
+  }, [memuat]);
 
   useEffect(() => {
     if (buka) ujungRef.current?.scrollIntoView({ block: "end" });
@@ -289,7 +300,9 @@ export function TutorAiChat({
                 <span className="h-2 w-2 animate-bounce rounded-full bg-blue-600" />
                 <span className="h-2 w-2 animate-bounce rounded-full bg-blue-600 [animation-delay:0.2s]" />
                 <span className="h-2 w-2 animate-bounce rounded-full bg-blue-600 [animation-delay:0.4s]" />
-                <span className="ml-2 font-medium text-slate-600">Tutor AI sedang menyiapkan jawaban...</span>
+                <span className="ml-2 font-medium text-slate-600">
+                  {menungguLama ? "Masih menyiapkan jawaban, mohon tunggu sebentar lagi..." : "Tutor AI sedang menyiapkan jawaban..."}
+                </span>
               </div>
             </div>
           )}
