@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { getOwnerScope } from "@/lib/packages/scope";
-import { packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
+import { adaWaktuTidakValid, packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
 import {
   adalahPelanggaranUnik,
   GALAT_URUTAN_BERSAMAAN,
@@ -78,6 +78,9 @@ export async function POST(request: Request) {
 
   const bukaMulaiDate = toNullableDate(bukaMulai);
   const bukaSelesaiDate = toNullableDate(bukaSelesai);
+  if (adaWaktuTidakValid(bukaMulaiDate, bukaSelesaiDate)) {
+    return NextResponse.json({ error: "Format waktu buka/tutup tidak valid." }, { status: 400 });
+  }
   if (bukaMulaiDate && bukaSelesaiDate && bukaSelesaiDate <= bukaMulaiDate) {
     return NextResponse.json({ error: "Waktu selesai harus setelah waktu mulai." }, { status: 400 });
   }

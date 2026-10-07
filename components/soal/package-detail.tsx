@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { IconDocument } from "@/components/ui/empty-state-icons";
-import { formatWIBHariTanggalJam } from "@/lib/utils/datetime";
+import { formatWIBHariTanggalJam, keInputWaktuWIB } from "@/lib/utils/datetime";
 import { ExcelSoalPanel } from "@/components/soal/excel-soal-panel";
 import { UrutanSeriField } from "@/components/soal/urutan-seri-field";
 import { useUrutanSeri } from "@/components/soal/use-urutan-seri";
@@ -96,17 +96,12 @@ const KATEGORI_LABEL: Record<"mandiri" | "nasional", string> = {
 };
 
 /**
- * ISO UTC dari API -> "yyyy-MM-ddTHH:mm" di waktu LOKAL browser, format yang
- * dipahami <input type="datetime-local">. Sengaja pakai getter lokal
- * (getHours, bukan getUTCHours) - kalau di-slice mentah dari string ISO
- * (yang selalu UTC), jamnya akan meleset dari yang dimaksud admin begitu
- * browsernya tidak di UTC+0 (mis. WIB, UTC+7).
+ * ISO UTC dari API -> "yyyy-MM-ddTHH:mm" dalam WIB, format yang dipahami <input type="datetime-local">. Selalu WIB
+ * (bukan zona peramban): server membaca waktu tanpa zona dari form ini sebagai WIB juga (dariInputWaktuWIB), jadi
+ * isi form dan yang tersimpan selalu cocok, di perangkat dan server mana pun.
  */
 function toDatetimeLocalValue(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return keInputWaktuWIB(iso);
 }
 
 const selectClassName =

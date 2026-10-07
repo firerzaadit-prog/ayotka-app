@@ -168,6 +168,28 @@ export async function POST(request: Request) {
     const active = await getActiveAssignmentsFor(student);
     assignment = active.find((a) => a.id === parsed.data.assignmentId) ?? null;
     if (!assignment) {
+      // Bedakan sebabnya supaya siswa tahu harus menunggu atau sudah terlambat (penugasan hanya terlihat oleh
+      // sekolahnya sendiri, jadi ini tidak membuka keberadaan ujian sekolah lain).
+      const ada =
+        student.jalur === "A" && student.schoolId
+          ? await prisma.assignment.findFirst({
+              where: { id: parsed.data.assignmentId, schoolId: student.schoolId, isActive: true },
+              select: { mulai: true, selesai: true },
+            })
+          : null;
+      const sekarang = new Date();
+      if (ada && ada.mulai > sekarang) {
+        return NextResponse.json(
+          { error: `Ujian ini baru dibuka ${formatWIBHariTanggalJam(ada.mulai)}.`, code: "BELUM_DIBUKA" },
+          { status: 403 },
+        );
+      }
+      if (ada && ada.selesai < sekarang) {
+        return NextResponse.json(
+          { error: "Jendela waktu ujian ini sudah ditutup.", code: "TELAH_BERAKHIR" },
+          { status: 403 },
+        );
+      }
       return NextResponse.json(
         { error: "Ujian tidak ditemukan atau jendela waktunya sudah tutup." },
         { status: 404 },

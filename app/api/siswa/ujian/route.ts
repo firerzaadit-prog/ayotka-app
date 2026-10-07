@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
-import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
+import { getActiveAssignmentsFor, getSelfSelectPackagesFor, getUpcomingAssignmentsFor } from "@/lib/exam/visibility";
 import { annotateSeriMandiri } from "@/lib/exam/seri-mandiri";
 import { getActiveEntitlement } from "@/lib/billing/entitlements";
 import { parsePlanFitur } from "@/lib/billing/plan-fitur";
@@ -24,8 +24,9 @@ export async function GET() {
   // Try Out Mandiri & Nasional selain Ujian Terjadwal, sesuai konfirmasi klien.
   const isJalurA = student.jalur === "A";
 
-  const [assignments, packages, attempts, activeEntitlement] = await Promise.all([
+  const [assignments, assignmentsAkanDatang, packages, attempts, activeEntitlement] = await Promise.all([
     isJalurA ? getActiveAssignmentsFor(student) : Promise.resolve([]),
+    isJalurA ? getUpcomingAssignmentsFor(student) : Promise.resolve([]),
     getSelfSelectPackagesFor(student, { includeUpcoming: true }),
     prisma.attempt.findMany({
       where: { studentId: student.id },
@@ -68,7 +69,11 @@ export async function GET() {
     jalur: student.jalur,
     jenjang: student.jenjang,
     activePlan,
+    // Jam server: hitung mundur "akan datang" di klien dihitung terhadap jam ini, bukan jam perangkat siswa
+    // (yang bisa meleset menit bahkan jam).
+    sekarang: new Date().toISOString(),
     assignments,
+    assignmentsAkanDatang,
     // Sertakan field "kategori" di packages supaya UI bisa memisahkan menu
     // "Try Out Nasional" dan "Try Out Mandiri" tanpa re-fetch tambahan.
     packages: packagesBerseri.map((p) => ({

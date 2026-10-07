@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { dariInputWaktuWIB } from "@/lib/utils/datetime";
 
 export const packageCreateSchema = z.object({
   subjectId: z.string().uuid(),
@@ -34,11 +35,21 @@ export const packageCreateSchema = z.object({
 });
 export type PackageCreateInput = z.infer<typeof packageCreateSchema>;
 
-/** "" -> null (selalu terbuka), undefined -> undefined (field tidak dikirim, jangan diubah), string lain -> Date. */
+/**
+ * "" -> null (selalu terbuka), undefined -> undefined (field tidak dikirim, jangan diubah), string lain -> Date.
+ * Waktu tanpa zona dari <input type="datetime-local"> dibaca sebagai WIB (bukan waktu setempat server, yang bisa
+ * UTC dan menggeser jadwal 7 jam) - lihat dariInputWaktuWIB. Teks yang tidak bisa dibaca menghasilkan Invalid Date;
+ * rute pemanggil memeriksanya dengan adaWaktuTidakValid dan menjawab 400.
+ */
 export function toNullableDate(value: string | undefined): Date | null | undefined {
   if (value === undefined) return undefined;
-  if (value === "") return null;
-  return new Date(value);
+  if (value.trim() === "") return null;
+  return dariInputWaktuWIB(value) ?? new Date(Number.NaN);
+}
+
+/** true kalau salah satu nilai adalah Invalid Date (hasil toNullableDate untuk teks yang tidak bisa dibaca). */
+export function adaWaktuTidakValid(...nilai: (Date | null | undefined)[]): boolean {
+  return nilai.some((d) => d instanceof Date && Number.isNaN(d.getTime()));
 }
 
 /** "" -> null (keluar dari seri), undefined -> undefined (field tidak dikirim, jangan diubah), angka -> angka. */

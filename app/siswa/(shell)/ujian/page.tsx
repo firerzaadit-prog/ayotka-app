@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, useMemo } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -10,6 +10,7 @@ import { buttonClassName } from "@/components/ui/button";
 import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 import { IconClipboardCheck, IconCalendar } from "@/components/ui/empty-state-icons";
 import { formatWIBHariTanggal, formatWIBHariTanggalJam } from "@/lib/utils/datetime";
+import { formatHitungMundur } from "@/lib/utils/hitung-mundur";
 import { getMapelIcon } from "@/components/icons/mapel-icons";
 
 type KategoriTO = "nasional" | "mandiri";
@@ -130,39 +131,62 @@ function UjianContent() {
   const [jenjang, setJenjang] = useState<string | null>(null);
   const [activePlan, setActivePlan] = useState<ActivePlanInfo | null>(null);
   const [assignments, setAssignments] = useState<AssignmentItem[] | null>(null);
+  // Ujian terjadwal sekolah yang belum dibuka (hitung mundur). Jam yang dipakai adalah jam SERVER (jamServer),
+  // bukan jam perangkat siswa yang bisa meleset: selisihRef = jam server - jam perangkat saat data dimuat.
+  const [assignmentsAkanDatang, setAssignmentsAkanDatang] = useState<AssignmentItem[]>([]);
+  const [jamServer, setJamServer] = useState(0);
+  const selisihRef = useRef(0);
+  const terakhirMuatRef = useRef(0);
   const [packages, setPackages] = useState<PackageItem[] | null>(null);
   const [attempts, setAttempts] = useState<AttemptSummary[]>([]);
-  // Detak 30 detik: render ulang supaya paket yang jadwal bukanya (06.00 WIB / bukaMulai) tiba saat halaman
-  // sedang terbuka ikut berubah dari terkunci jadi bisa dimulai.
+  // Detak: render ulang supaya paket yang jadwal bukanya (06.00 WIB / bukaMulai) tiba saat halaman sedang terbuka
+  // ikut berubah dari terkunci jadi bisa dimulai, dan hitung mundur ujian terjadwal berjalan. Tiap 30 detik; tiap
+  // detik saat ujian terjadwal terdekat tinggal kurang dari 10 menit.
   const [, setDetak] = useState(0);
+  const msKeMulaiTerdekat = assignmentsAkanDatang.length
+    ? Math.min(...assignmentsAkanDatang.map((a) => Date.parse(a.mulai))) - jamServer
+    : null;
+  const detakCepat = msKeMulaiTerdekat !== null && msKeMulaiTerdekat <= 10 * 60_000;
+  const adaYangSudahDibuka = msKeMulaiTerdekat !== null && msKeMulaiTerdekat <= 0;
   useEffect(() => {
-    const timer = setInterval(() => setDetak((n) => n + 1), 30_000);
+    const timer = setInterval(() => {
+      setDetak((n) => n + 1);
+      setJamServer(Date.now() + selisihRef.current);
+    }, detakCepat ? 1000 : 30_000);
     return () => clearInterval(timer);
-  }, []);
+  }, [detakCepat]);
 
   const handleKategoriChange = (newKategori: KategoriTO) => {
     setSelectedSubject("semua");
     router.replace(`/siswa/ujian?kategori=${newKategori}`);
   };
 
-  useEffect(() => {
-    let ignore = false;
-    (async () => {
-      const res = await fetch("/api/siswa/ujian");
-      const data = await res.json();
-      if (!ignore) {
-        setJalur(data.jalur ?? "B");
-        setJenjang(data.jenjang ?? null);
-        setActivePlan(data.activePlan ?? null);
-        setAssignments(data.assignments ?? []);
-        setPackages(data.packages ?? []);
-        setAttempts(data.attempts ?? []);
-      }
-    })();
-    return () => {
-      ignore = true;
-    };
+  const muat = useCallback(async () => {
+    terakhirMuatRef.current = Date.now();
+    const res = await fetch("/api/siswa/ujian");
+    const data = await res.json();
+    const jamResponsServer = Date.parse(data.sekarang ?? "");
+    selisihRef.current = Number.isNaN(jamResponsServer) ? 0 : jamResponsServer - Date.now();
+    setJamServer(Date.now() + selisihRef.current);
+    setJalur(data.jalur ?? "B");
+    setJenjang(data.jenjang ?? null);
+    setActivePlan(data.activePlan ?? null);
+    setAssignments(data.assignments ?? []);
+    setAssignmentsAkanDatang(data.assignmentsAkanDatang ?? []);
+    setPackages(data.packages ?? []);
+    setAttempts(data.attempts ?? []);
   }, []);
+
+  useEffect(() => {
+    void muat();
+  }, [muat]);
+
+  // Ujian terjadwal yang hitung mundurnya habis: muat ulang supaya pindah dari "akan datang" ke "sedang dibuka"
+  // (keputusan sebenarnya tetap di server). Diulang tiap detak, paling sering sekali per 3 detik, sampai server
+  // juga menganggapnya terbuka (jam server dan perkiraan klien bisa beda sepersekian detik).
+  useEffect(() => {
+    if (adaYangSudahDibuka && Date.now() - terakhirMuatRef.current > 3000) void muat().catch(() => undefined);
+  }, [adaYangSudahDibuka, jamServer, muat]);
 
   function attemptFor(assignmentId: string | null, packageId: string) {
     return attempts.find((a) =>
@@ -222,7 +246,8 @@ function UjianContent() {
   }
 
   // Khusus Jalur A (Sekolah) jika ada tugas sekolah aktif
-  const showAssignments = jalur === "A" && assignments && assignments.length > 0;
+  const jumlahAktif = assignments?.length ?? 0;
+  const showAssignments = jalur === "A" && (jumlahAktif > 0 || assignmentsAkanDatang.length > 0);
 
   const totalNasionalCount = packages?.filter((p) => p.kategori === "nasional").length ?? 0;
   const totalMandiriCount = packages?.filter((p) => p.kategori === "mandiri").length ?? 0;
@@ -255,11 +280,11 @@ function UjianContent() {
               <p className="text-xs text-indigo-700">Wajib dikerjakan sesuai jadwal yang ditentukan oleh guru/sekolahmu.</p>
             </div>
             <span className="rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-              {assignments.length} Ujian
+              {jumlahAktif + assignmentsAkanDatang.length} Ujian
             </span>
           </div>
           <div className="flex flex-col gap-2">
-            {assignments.map((a) => {
+            {(assignments ?? []).map((a) => {
               const attempt = attemptFor(a.id, "");
               const disabled = attempt?.status === "paused";
               return (
@@ -283,6 +308,46 @@ function UjianContent() {
                       {actionLabel(attempt)}
                     </Link>
                   )}
+                </Card>
+              );
+            })}
+            {assignmentsAkanDatang.map((a) => {
+              const sisaMs = Date.parse(a.mulai) - jamServer;
+              return (
+                <Card
+                  key={a.id}
+                  data-penugasan-akan-datang={a.id}
+                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <MapelIconBadge nama={a.package.subject.nama} />
+                    <div>
+                      <p className="font-semibold text-slate-900">{a.package.nama}</p>
+                      <p className="text-xs text-slate-500">
+                        {a.package.subject.nama} · {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        Dibuka <span className="font-medium text-indigo-700">{formatWIBHariTanggalJam(a.mulai)}</span>{" "}
+                        s.d. {formatWIBHariTanggalJam(a.selesai)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-start gap-1.5 sm:items-end">
+                    <span
+                      data-hitung-mundur
+                      className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+                      {sisaMs <= 0 ? "Segera dibuka..." : `Dimulai dalam ${formatHitungMundur(sisaMs)}`}
+                    </span>
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full rounded-xl bg-slate-100 px-4 py-2 text-center text-sm font-semibold text-slate-400 sm:w-auto"
+                    >
+                      Belum Dibuka
+                    </button>
+                  </div>
                 </Card>
               );
             })}

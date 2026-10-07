@@ -10,6 +10,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconUsers } from "@/components/ui/empty-state-icons";
 import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
 import { useToast } from "@/components/ui/toast";
+import { RekapBersama } from "@/components/sekolah/rekap-bersama";
 
 type AttemptRow = {
   id: string;
@@ -39,9 +40,21 @@ function formatSisa(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-/** Tiket 4.9: pantau & pause/resume attempt siswa untuk satu penugasan. */
-export default function PenugasanDetailPage({ params }: { params: Promise<{ id: string }> }) {
+type TabPenugasan = "pantau" | "rekap";
+
+const LABEL_TAB: Record<TabPenugasan, string> = { pantau: "Pantau Sesi", rekap: "Rekap Hasil" };
+
+/** Tiket 4.9: pantau & pause/resume attempt siswa untuk satu penugasan (tab Pantau Sesi), plus rekap hasil bersama (tab Rekap Hasil). */
+export default function PenugasanDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const { id } = use(params);
+  const { tab: tabAwal } = use(searchParams);
+  const [tab, setTab] = useState<TabPenugasan>(tabAwal === "rekap" ? "rekap" : "pantau");
   const toast = useToast();
   const [assignmentNama, setAssignmentNama] = useState("");
   const [attempts, setAttempts] = useState<AttemptRow[] | null>(null);
@@ -87,20 +100,60 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
     else toast.error(data?.error ?? "Gagal melanjutkan sesi.");
   }
 
+  function pilihTab(baru: TabPenugasan) {
+    setTab(baru);
+    // Simpan pilihan di alamat (tanpa menambah riwayat peramban) supaya muat ulang tetap di tab yang sama.
+    const url = new URL(window.location.href);
+    if (baru === "rekap") url.searchParams.set("tab", "rekap");
+    else url.searchParams.delete("tab");
+    window.history.replaceState(null, "", url);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <Link href="/admin-sekolah/ujian" className="text-sm text-slate-500 hover:text-slate-700">
-          &larr; Kembali ke Penugasan Ujian
+          &larr; Kembali ke Try Out Bersama
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-900">
-          {assignmentNama || "Sesi Siswa"}
+          {assignmentNama || "Try Out Bersama"}
         </h1>
         <p className="text-sm text-slate-500">
-          Jeda sesi siswa yang koneksinya terputus, lalu lanjutkan lagi supaya sisa waktunya wajar.
+          {tab === "pantau"
+            ? "Jeda sesi siswa yang koneksinya terputus, lalu lanjutkan lagi supaya sisa waktunya wajar."
+            : "Peringkat, statistik, dan siapa yang belum mengerjakan. Nilai tiap siswa adalah percobaan pertamanya."}
         </p>
       </div>
 
+      <div role="tablist" aria-label="Bagian Try Out Bersama" className="flex gap-1 border-b border-slate-200">
+        {(["pantau", "rekap"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            role="tab"
+            id={`tab-${t}`}
+            aria-selected={tab === t}
+            aria-controls={`panel-${t}`}
+            onClick={() => pilihTab(t)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition-colors ${
+              tab === t
+                ? "border-indigo-600 text-indigo-700"
+                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"
+            }`}
+          >
+            {LABEL_TAB[t]}
+          </button>
+        ))}
+      </div>
+
+      {tab === "rekap" && (
+        <div role="tabpanel" id="panel-rekap" aria-labelledby="tab-rekap">
+          <RekapBersama assignmentId={id} />
+        </div>
+      )}
+
+      {tab === "pantau" && (
+      <div role="tabpanel" id="panel-pantau" aria-labelledby="tab-pantau" className="flex flex-col gap-6">
       {error && <Alert variant="danger">{error}</Alert>}
 
       {attempts === null && !error && <TableSkeleton columns={6} />}
@@ -187,6 +240,8 @@ export default function PenugasanDetailPage({ params }: { params: Promise<{ id: 
             </tbody>
           </Table>
         </TableContainer>
+      )}
+      </div>
       )}
     </div>
   );

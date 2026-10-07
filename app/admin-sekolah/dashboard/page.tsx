@@ -83,7 +83,7 @@ export default async function AdminSekolahDashboardPage() {
           Kelola Siswa
         </Link>
         <Link href="/admin-sekolah/ujian" className={buttonClassName("secondary")}>
-          Penugasan Ujian
+          Try Out Bersama
         </Link>
       </div>
     </div>

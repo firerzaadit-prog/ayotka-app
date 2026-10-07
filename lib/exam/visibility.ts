@@ -120,3 +120,21 @@ export async function getActiveAssignmentsFor(student: Student) {
     },
   });
 }
+
+/**
+ * Penugasan aktif sekolah siswa yang jendelanya BELUM dibuka (mulai di masa depan), terdekat dulu - untuk kartu
+ * "akan datang" dengan hitung mundur di halaman Try Out siswa. Hanya untuk ditampilkan: siswa tetap belum bisa
+ * memulainya (getActiveAssignmentsFor dan gerbang POST /api/siswa/attempts yang memutuskan).
+ */
+export async function getUpcomingAssignmentsFor(student: Student, now: Date = new Date(), batas = 20) {
+  if (student.jalur !== "A" || !student.schoolId) return [];
+
+  return prisma.assignment.findMany({
+    where: { schoolId: student.schoolId, isActive: true, mulai: { gt: now } },
+    orderBy: { mulai: "asc" },
+    take: batas,
+    include: {
+      package: { select: { nama: true, jumlahSoal: true, durasiMenit: true, subject: { select: { id: true, nama: true } } } },
+    },
+  });
+}

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
-import { packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
+import { adaWaktuTidakValid, packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
 import { adalahPelanggaranUnik, GALAT_URUTAN_BERSAMAAN, periksaUrutanSeriPaket } from "@/lib/exam/seri-mandiri";
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -72,6 +72,9 @@ export async function PATCH(request: Request, { params }: RouteParams) {
 
   const bukaMulaiDate = toNullableDate(bukaMulai);
   const bukaSelesaiDate = toNullableDate(bukaSelesai);
+  if (adaWaktuTidakValid(bukaMulaiDate, bukaSelesaiDate)) {
+    return NextResponse.json({ error: "Format waktu buka/tutup tidak valid." }, { status: 400 });
+  }
   // Field yang tidak dikirim (undefined) berarti "tidak diubah" - pakai nilai
   // lama untuk validasi urutan supaya PATCH sebagian (cuma kirim salah satu
   // dari bukaMulai/bukaSelesai) tetap tervalidasi terhadap nilai tersimpan.

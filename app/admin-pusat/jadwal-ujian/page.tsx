@@ -47,7 +47,7 @@ export default function JadwalUjianPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Jadwal Ujian"
-        description="Semua penugasan ujian (jendela waktu, paket, rombel) dari seluruh sekolah, hanya untuk dipantau - buat/ubah penugasan tetap dilakukan admin sekolah masing-masing."
+        description="Semua Try Out Bersama (jendela waktu dan paket) dari seluruh sekolah, hanya untuk dipantau - buat/ubah jadwal tetap dilakukan admin sekolah masing-masing."
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -55,8 +55,8 @@ export default function JadwalUjianPage() {
       {assignments?.length === 0 && (
         <EmptyState
           icon={<IconCalendar />}
-          title="Belum ada penugasan ujian"
-          description="Belum ada sekolah yang membuat penugasan ujian."
+          title="Belum ada Try Out Bersama"
+          description="Belum ada sekolah yang menjadwalkan Try Out Bersama."
         />
       )}
 

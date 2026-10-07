@@ -77,6 +77,45 @@ export function startOfDayWIB(dateStr: string): Date {
   return fromZonedTime(`${dateStr}T00:00:00`, WIB_TIMEZONE);
 }
 
+const POLA_WAKTU_TANPA_ZONA =
+  /^(?<tahun>\d{4})-(?<bulan>\d{2})-(?<hari>\d{2})[T ](?<jam>\d{2}):(?<menit>\d{2})(?::(?<detik>\d{2})(?:\.\d+)?)?$/;
+const POLA_WAKTU_BERZONA = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/i;
+
+/**
+ * Waktu dari form (<input type="datetime-local"> = "yyyy-MM-ddTHH:mm" TANPA zona) menjadi Date. Waktu tanpa zona
+ * SELALU dibaca sebagai WIB, di server maupun peramban mana pun: `new Date("2026-10-08T08:00")` membacanya sebagai
+ * waktu setempat mesin yang menjalankan kode, sehingga di server berzona UTC jadwal yang diketik admin (08.00 WIB)
+ * tersimpan sebagai 08.00 UTC = 15.00 WIB (bergeser 7 jam). Waktu yang sudah membawa zona ("...Z", "...+07:00")
+ * dipakai apa adanya. Mengembalikan null untuk teks kosong, bentuk yang tidak dikenal, atau tanggal/jam yang tidak
+ * ada (mis. 2026-02-31, jam 25).
+ */
+export function dariInputWaktuWIB(nilai: string): Date | null {
+  const teks = nilai.trim();
+  const lokal = POLA_WAKTU_TANPA_ZONA.exec(teks)?.groups;
+  if (lokal) {
+    const { tahun = "", bulan = "", hari = "", jam = "", menit = "", detik = "00" } = lokal;
+    if (!adalahTanggalKalender(`${tahun}-${bulan}-${hari}`)) return null;
+    if (Number(jam) > 23 || Number(menit) > 59 || Number(detik) > 59) return null;
+    const hasil = fromZonedTime(`${tahun}-${bulan}-${hari}T${jam}:${menit}:${detik}`, WIB_TIMEZONE);
+    return Number.isNaN(hasil.getTime()) ? null : hasil;
+  }
+  if (POLA_WAKTU_BERZONA.test(teks)) {
+    // Spasi pemisah dan zona tanpa titik dua ("+0700") dibuat baku dulu supaya dibaca sama di semua mesin.
+    const baku = teks.replace(" ", "T").replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+    const hasil = new Date(baku);
+    return Number.isNaN(hasil.getTime()) ? null : hasil;
+  }
+  return null;
+}
+
+/** Kebalikan dariInputWaktuWIB: Date/ISO -> "yyyy-MM-ddTHH:mm" dalam WIB, untuk mengisi <input type="datetime-local">. "" bila tidak valid. */
+export function keInputWaktuWIB(date: Date | string | null | undefined): string {
+  if (date === null || date === undefined || date === "") return "";
+  const value = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(value.getTime())) return "";
+  return formatInTimeZone(value, WIB_TIMEZONE, "yyyy-MM-dd'T'HH:mm");
+}
+
 /** true kalau `dateStr` berbentuk "yyyy-MM-dd" dan benar-benar ada di kalender (menolak mis. 2026-02-31). */
 export function adalahTanggalKalender(dateStr: string): boolean {
   const cocok = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
