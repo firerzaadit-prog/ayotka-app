@@ -215,7 +215,7 @@ export default function PengaturanSistemPage() {
     if (source === "database") {
       return <Badge variant="success">✓ Aktif di Dashboard</Badge>;
     }
-    return <Badge variant="info">⚡ Aktif via Vercel Env</Badge>;
+    return <Badge variant="info">⚡ Aktif via .env server</Badge>;
   }
 
   if (loading) {
@@ -234,7 +234,7 @@ export default function PengaturanSistemPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Pengaturan API & Sistem"
-        description="Kelola kunci API pihak ketiga (Gemini, Midtrans, Resend, SMTP) dan Mode Maintenance langsung dari dashboard tanpa redeploy Vercel."
+        description="Kelola kunci API pihak ketiga (Gemini, Midtrans, Resend, SMTP) dan Mode Maintenance langsung dari dashboard tanpa perlu deploy ulang."
         action={
           <Button onClick={() => handleSave()} disabled={saving}>
             {saving ? "Menyimpan..." : "Simpan Semua Pengaturan"}
@@ -662,7 +662,7 @@ export default function PengaturanSistemPage() {
             <div>
               <h2 className="text-lg font-bold text-slate-900">Mode Pemeliharaan (Maintenance Mode)</h2>
               <p className="text-sm text-slate-500">
-                Kunci seluruh website AyoTKA ke halaman perbaikan sistem secara langsung (*real-time*) tanpa perlu redeploy Vercel.
+                Kunci seluruh website AyoTKA ke halaman perbaikan sistem secara langsung (*real-time*) tanpa perlu deploy ulang.
               </p>
             </div>
             <div>

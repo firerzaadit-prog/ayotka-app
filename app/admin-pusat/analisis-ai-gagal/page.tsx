@@ -165,12 +165,12 @@ export default function AnalisisAiGagalPage() {
                 {
                   nilai: "langsung",
                   judul: "Langsung (default)",
-                  isi: "Diproses begitu ujian selesai, hasil keluar dalam sekitar satu menit. Cocok untuk trafik normal dan plan Vercel Hobby.",
+                  isi: "Diproses begitu ujian selesai, hasil keluar dalam sekitar satu menit. Cocok untuk trafik normal.",
                 },
                 {
                   nilai: "antrean",
                   judul: "Antrean berlaju terkendali",
-                  isi: "Untuk lonjakan Try Out Nasional: siswa masuk antrean, cron memanggil Gemini beberapa per detik. WAJIB cron per menit (Vercel Pro) dan CRON_SECRET sudah terpasang.",
+                  isi: "Untuk lonjakan Try Out Nasional: siswa masuk antrean, lalu cron di server memanggil Gemini dengan laju terkendali. Cron server saat ini berjalan tiap 5 menit, jadi hasil bisa tertunda beberapa menit. CRON_SECRET harus sudah terpasang.",
                 },
               ] as const
             ).map((opsi) => (
