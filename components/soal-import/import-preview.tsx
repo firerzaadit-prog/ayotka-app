@@ -41,6 +41,8 @@ type PreviewQuestion = {
   elemen: string;
   subElemen: string | null;
   kompetensi: string | null;
+  indikator: string | null;
+  indikatorResmiId: string | null;
   taxonomyMapped: boolean;
   taxonomyKompetensiLabel: string | null;
   levelKognitifSumber: string | null;
@@ -57,6 +59,7 @@ type Preview = {
   questions: PreviewQuestion[];
   readyToImport: boolean;
   previousImports: Array<{ packageId: string; packageNama: string; importedAt: string }>;
+  indikatorRingkas: { masterTersedia: boolean; total: number; cocok: number; tidakCocok: number; tanpa: number };
 };
 
 const selectClassName =
@@ -168,6 +171,8 @@ export function ImportPreview({ paketId }: { paketId: string }) {
         </Alert>
       )}
 
+      <IndikatorRingkasan ringkas={preview.indikatorRingkas} />
+
       {preview.stimulusList.length > 0 && (
         <Card>
           <h2 className="mb-3 text-sm font-semibold text-slate-900">
@@ -267,6 +272,41 @@ const KESULITAN_CONFIG: Record<string, { label: string; className: string }> = {
   sulit: { label: "Sulit", className: "bg-amber-50 text-amber-700 border-amber-200" },
 };
 
+/**
+ * Seberapa banyak soal paket ini yang bisa masuk rapor standar Kemendikdasmen (daya serap per indikator). Tidak
+ * memblokir impor: soal di luar indikator resmi tetap diimpor, hanya tidak ikut hitungan per indikator.
+ */
+function IndikatorRingkasan({ ringkas }: { ringkas: Preview["indikatorRingkas"] }) {
+  if (!ringkas.masterTersedia) {
+    return (
+      <Alert variant="warning">
+        Master indikator resmi Kemendikdasmen belum diunggah, jadi indikator soal belum bisa dicocokkan. Impor tetap
+        bisa dilakukan; soalnya bisa dicocokkan kemudian lewat halaman{" "}
+        <Link href="/admin-pusat/indikator" className="font-medium underline">
+          Indikator Resmi
+        </Link>
+        .
+      </Alert>
+    );
+  }
+  return (
+    <Alert variant={ringkas.cocok === ringkas.total && ringkas.total > 0 ? "success" : "info"}>
+      <strong>{ringkas.cocok}</strong> dari {ringkas.total} soal cocok dengan indikator resmi Kemendikdasmen
+      {ringkas.tidakCocok > 0 && (
+        <>
+          ; <strong>{ringkas.tidakCocok}</strong> punya indikator di luar daftar resmi
+        </>
+      )}
+      {ringkas.tanpa > 0 && (
+        <>
+          ; <strong>{ringkas.tanpa}</strong> tanpa indikator
+        </>
+      )}
+      . Soal di luar indikator resmi tetap diimpor, tetapi tidak ikut hitungan daya serap per indikator di rapor.
+    </Alert>
+  );
+}
+
 function QuestionRow({
   question,
   levelOverride,
@@ -321,6 +361,16 @@ function QuestionRow({
           {question.subElemen && <span className="text-[11px] text-slate-400">{question.subElemen}</span>}
         </div>
       </div>
+
+      {/* Indikator di sumber: resmi (sama persis dengan master Kemendikdasmen) atau di luar daftar resmi */}
+      {question.indikator && (
+        <div className="mt-2.5 flex flex-wrap items-start gap-1.5 text-[11px] leading-snug text-slate-500">
+          <Badge variant={question.indikatorResmiId ? "success" : "neutral"} className="shrink-0 px-2 py-0 text-[11px]">
+            {question.indikatorResmiId ? "Indikator resmi" : "Di luar indikator resmi"}
+          </Badge>
+          <span className="min-w-0 flex-1">{question.indikator}</span>
+        </div>
+      )}
 
       {/* Teks Soal */}
       <div className="mt-3 text-sm text-slate-800 leading-relaxed">

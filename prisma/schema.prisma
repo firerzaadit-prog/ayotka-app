@@ -522,6 +522,11 @@ model Question {
   /// Bacaan/data bersama (mis. teks bacaan Bahasa Indonesia) yang dipakai
   /// beberapa Question sekaligus - null untuk soal yang berdiri sendiri.
   stimulusId       String?          @map("stimulus_id") @db.Uuid
+  /// Indikator resmi Pusmendik Kemendikdasmen (IndikatorResmi) yang cocok PERSIS dengan indikator soal ini di sumbernya
+  /// (soal.ayotka.id). Null = soal buatan sendiri/Excel, atau indikator sumbernya bukan indikator resmi.
+  indikatorId      String?          @map("indikator_id") @db.Uuid
+  /// Teks indikator dari sumber, disalin apa adanya saat impor - termasuk yang tidak cocok dengan indikator resmi.
+  indikatorTeks    String?          @map("indikator_teks")
   createdBy        String           @map("created_by") @db.Uuid
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @default(now()) @updatedAt @map("updated_at")
@@ -529,10 +534,11 @@ model Question {
   /// hanya diarsipkan (soft delete) — riwayat attempt tetap harus bisa dibuka.
   deletedAt        DateTime?        @map("deleted_at")
 
-  package    Package    @relation(fields: [packageId], references: [id], onDelete: Restrict)
-  kompetensi Kompetensi @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
-  creator    User       @relation("QuestionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
-  stimulus   Stimulus?  @relation(fields: [stimulusId], references: [id], onDelete: SetNull)
+  package        Package         @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  kompetensi     Kompetensi      @relation(fields: [kompetensiId], references: [id], onDelete: Restrict)
+  creator        User            @relation("QuestionCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  stimulus       Stimulus?       @relation(fields: [stimulusId], references: [id], onDelete: SetNull)
+  indikatorResmi IndikatorResmi? @relation(fields: [indikatorId], references: [id], onDelete: SetNull)
 
   options        QuestionOption[]
   categories     QuestionCategory[]
@@ -542,6 +548,7 @@ model Question {
   // Soal dimuat per paket tiap siswa membuka ujian.
   @@index([packageId])
   @@index([kompetensiId])
+  @@index([indikatorId])
   @@map("questions")
 }
 
@@ -1231,4 +1238,36 @@ model SoalImportLog {
 
   @@index([sourcePaketId])
   @@map("soal_import_logs")
+}
+
+/// Indikator resmi Pusmendik Kemendikdasmen (portal daya serap TKA) beserta rerata nasionalnya. Sumber: berkas master
+/// kemendikdasmen-official.json milik generator soal.ayotka.id, diunggah admin pusat lewat halaman Indikator Resmi.
+/// Hierarki per mapel: Matematika 4 tingkat (elemen > subelemen > kompetensi > indikator); Bahasa 3 tingkat (kompetensi
+/// = kolom elemen, subkompetensi = kolom subelemen, indikator) - lihat lib/indikator/master.ts. Soal dicocokkan ke sini
+/// HANYA lewat teks indikator yang persis sama (lib/indikator/normalisasi.ts), tidak lewat nomor "(N)": nomor yang sama di
+/// generator dan di master bisa berarti indikator yang sama sekali berbeda.
+model IndikatorResmi {
+  id            String   @id @default(uuid()) @db.Uuid
+  /// "SD", "SMP", atau "SMA" (SMA tersimpan tetapi belum dipakai: ayotka.id belum punya mapel SMA).
+  jenjang       String
+  kdMapel       String   @map("kd_mapel")
+  namaMapel     String   @map("nama_mapel")
+  elemen        String
+  subelemen     String
+  kompetensi    String
+  subkompetensi String?
+  indikator     String
+  /// Kunci pencocokan: indikator dengan spasi dirapikan dan huruf kecil semua.
+  teksKunci     String   @map("teks_kunci")
+  urutan        Int
+  /// Rerata daya serap nasional (persen), dari portal resmi. Null bila belum ada.
+  nilaiNasional Float?   @map("nilai_nasional")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  questions Question[]
+
+  @@unique([jenjang, namaMapel, teksKunci])
+  @@index([jenjang, namaMapel])
+  @@map("indikator_resmi")
 }

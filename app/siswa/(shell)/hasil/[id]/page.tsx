@@ -10,6 +10,8 @@ import { Alert } from "@/components/ui/alert";
 import { buttonClassName } from "@/components/ui/button";
 import { RincianJawaban, type PerSoal } from "@/components/hasil/rincian-jawaban";
 import { PetaKompetensiChart } from "@/components/hasil/peta-kompetensi-chart";
+import { DayaSerapIndikator } from "@/components/hasil/daya-serap-indikator";
+import type { LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
 import { RankingBoardCard } from "@/components/hasil/ranking-board";
 import { RiwayatPercobaanCard } from "@/components/hasil/riwayat-percobaan-card";
 import type { PercobaanItem } from "@/lib/exam/percobaan";
@@ -39,6 +41,8 @@ type Hasil = {
   ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
   elemenScores: { elemenNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
+  /** Daya serap per indikator resmi Kemendikdasmen; null/tidak ada bila tak ada soal berindikator resmi. */
+  indikator?: LaporanIndikatorSiswa | null;
 };
 
 /**
@@ -155,6 +159,13 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-slate-900">Peta Kompetensi</h2>
           <PetaKompetensiChart scores={hasil.elemenScores} />
+        </Card>
+      )}
+
+      {hasil.indikator && (
+        <Card>
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">Daya Serap per Indikator</h2>
+          <DayaSerapIndikator laporan={hasil.indikator} />
         </Card>
       )}
 

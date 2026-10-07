@@ -178,6 +178,10 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
       levelBloom: effectiveLevelBloom.get(q.sourceId)!,
       pembahasan: q.pembahasan,
       stimulusId: q.stimulusId ? (stimulusIdMap.get(q.stimulusId) ?? null) : null,
+      // Indikator DISALIN saat impor (snapshot, tidak dibaca lagi dari soal.* saat runtime): teksnya apa adanya, id-nya
+      // hanya terisi bila persis sama dengan indikator resmi.
+      indikatorId: q.indikatorResmiId,
+      indikatorTeks: q.indikator,
       createdBy: params.importedBy,
       createdAt: new Date(base + i),
     });

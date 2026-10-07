@@ -7,6 +7,7 @@ import { aggregateElemenScores } from "@/lib/exam/elemen-scores";
 import { buildRanking } from "@/lib/exam/ranking";
 import { firstFinishedAttempt, percobaanBerjawabPertama } from "@/lib/exam/seri-mandiri";
 import { bukaPaketBerikutnyaSetelah } from "@/lib/exam/seri-jadwal";
+import { hitungLaporanSiswa } from "@/lib/indikator/daya-serap";
 
 /**
  * Tiket 5.9: ID separuh disamarkan untuk watermark - cukup untuk dilacak
@@ -33,6 +34,7 @@ export async function buildHasil(attempt: Attempt) {
             options: { orderBy: { urutan: "asc" } },
             statements: { orderBy: { urutan: "asc" } },
             categories: { orderBy: { urutan: "asc" } },
+            indikatorResmi: true,
           },
         },
       },
@@ -143,6 +145,30 @@ export async function buildHasil(attempt: Attempt) {
     else if (pertama.id === attempt.id) bukaPaketBerikutnya = bukaPaketBerikutnyaSetelah(pertama.percobaan);
   }
 
+  // Daya serap per indikator resmi Pusmendik (null bila tak ada soal yang tertaut ke indikator resmi: bagian tak ditampilkan).
+  const indikator = hitungLaporanSiswa(
+    answers.map((a) => {
+      const r = a.question.indikatorResmi;
+      return {
+        indikator: r
+          ? {
+              id: r.id,
+              jenjang: r.jenjang,
+              namaMapel: r.namaMapel,
+              elemen: r.elemen,
+              subelemen: r.subelemen,
+              kompetensi: r.kompetensi,
+              indikator: r.indikator,
+              urutan: r.urutan,
+              nilaiNasional: r.nilaiNasional,
+            }
+          : null,
+        skor: a.skor,
+        skorMaks: a.skorMaks,
+      };
+    }),
+  );
+
   return {
     attempt: {
       id: attempt.id,
@@ -164,6 +190,7 @@ export async function buildHasil(attempt: Attempt) {
     paketBerseriBelumTerjawab,
     ranking,
     perSoal,
+    indikator,
     competencyScores: competencyScores.map((c) => ({
       deskripsi: c.kompetensi.deskripsi,
       jmlBenar: c.jmlBenar,

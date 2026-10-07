@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
   // tapi jatuh ke font default tanpa simbol matematika (x², π, ≥, ✓).
   outputFileTracingIncludes: {
     "/api/siswa/attempts/\\[id\\]/rapor": ["./lib/pdf/fonts/**/*"],
+    // Laporan daya serap sekolah (PDF) memakai font yang sama (lib/pdf/pdf-umum.ts).
+    "/api/admin-sekolah/laporan-indikator/pdf": ["./lib/pdf/fonts/**/*"],
   },
   images: {
     remotePatterns: supabaseHostname

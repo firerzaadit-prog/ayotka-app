@@ -10,6 +10,8 @@ import {
 import { translateBentukSoal, translateLevelKognitif, translateTingkatKesulitan } from "./format-translator";
 import { resolveTaxonomyMapping } from "./taxonomy-resolver";
 import { precheckSourceGambar, previewImageSrc } from "./media";
+import { kodeJenjangMaster } from "@/lib/indikator/normalisasi";
+import { buatPencocokIndikator, ringkasIndikatorImpor, type RingkasIndikatorImpor } from "@/lib/indikator/pencocokan";
 import type { LevelKognitif, QuestionFormat, TingkatKesulitan } from "@prisma/client";
 
 export interface PreviewOption {
@@ -43,6 +45,10 @@ export interface PreviewQuestion {
   elemen: string;
   subElemen: string | null;
   kompetensi: string | null;
+  /** Indikator di sumbernya (soal.ayotka.id), apa adanya. null = kosong. */
+  indikator: string | null;
+  /** Id indikator resmi bila indikator di atas PERSIS sama dengan salah satunya; null = di luar indikator resmi. */
+  indikatorResmiId: string | null;
   taxonomyMapped: boolean;
   taxonomyKompetensiId: string | null;
   taxonomyElemenId: string | null;
@@ -72,6 +78,8 @@ export interface ImportPreview {
   questions: PreviewQuestion[];
   readyToImport: boolean;
   previousImports: PreviousImport[];
+  /** Tidak memblokir impor - hanya memberi tahu admin seberapa banyak soal yang bisa masuk rapor standar Kemendikdasmen. */
+  indikatorRingkas: RingkasIndikatorImpor;
 }
 
 function tryTranslate<T>(fn: () => T, blockedReasons: string[], label: string): T | null {
@@ -130,6 +138,17 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
     judul: s.judul,
     konten: s.konten,
   }));
+
+  // Indikator resmi (master yang diunggah admin pusat) untuk jenjang + mapel paket ini. Master belum diunggah = daftar
+  // kosong: impor tetap jalan, soalnya hanya belum bisa dihitung di rapor per indikator (bisa dicocokkan nanti).
+  const jenjangMaster = kodeJenjangMaster(sourcePaket.jenjang);
+  const masterRows = jenjangMaster
+    ? await prisma.indikatorResmi.findMany({
+        where: { jenjang: jenjangMaster, namaMapel: { equals: sourcePaket.mapel.trim(), mode: "insensitive" } },
+        select: { id: true, jenjang: true, namaMapel: true, teksKunci: true },
+      })
+    : [];
+  const cocokkanIndikator = buatPencocokIndikator(masterRows);
 
   // Resolusi taksonomi per soal - findFirst per soal (bukan batch) karena
   // paket standar cuma 30 soal, cukup cepat lewat index yang sudah dibuat.
@@ -203,6 +222,8 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
       elemen: q.elemen,
       subElemen: q.subElemen,
       kompetensi: q.kompetensi,
+      indikator: q.indikator?.trim() || null,
+      indikatorResmiId: cocokkanIndikator({ jenjang: sourcePaket.jenjang, mapel: sourcePaket.mapel, indikator: q.indikator }),
       taxonomyMapped: taxonomy !== null,
       taxonomyKompetensiId: taxonomy?.kompetensiId ?? null,
       taxonomyElemenId: taxonomy ? (kompetensiElemenById.get(taxonomy.kompetensiId) ?? null) : null,
@@ -236,5 +257,6 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
     readyToImport:
       questions.length > 0 && questions.every((q) => q.blockedReasons.length === 0 && q.levelBloom !== null),
     previousImports,
+    indikatorRingkas: ringkasIndikatorImpor(questions, masterRows.length > 0),
   };
 }

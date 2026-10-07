@@ -36,6 +36,12 @@ jobs:
             npm install --prefer-offline
             npx prisma generate
 
+            # Migrasi database (hanya yang belum diterapkan; migrasi di repo ini aditif). Harus SEBELUM build dan reload:
+            # kode baru memilih kolom baru di setiap query, jadi kode baru tidak boleh aktif sebelum skemanya ada. Bila
+            # migrasi gagal, script_stop menghentikan deploy di sini dan kode lama tetap berjalan seperti semula.
+            echo ">>> Terapkan migrasi database..."
+            npx prisma migrate deploy
+
             echo ">>> Build aplikasi Next.js..."
             npm run build
 

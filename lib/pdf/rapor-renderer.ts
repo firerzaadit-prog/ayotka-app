@@ -1,9 +1,10 @@
 import "server-only";
-import fs from "node:fs";
-import path from "node:path";
 import type { buildHasil } from "@/lib/exam/hasil";
 import { latexToPlainText } from "@/lib/pdf/latex-to-text";
 import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color";
+import type { LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
+import { COLOR, setupFonts, type PdfFonts } from "@/lib/pdf/pdf-umum";
+import { X0, buatPenulis, gambarDaftarFokus, gambarKelompok } from "@/lib/pdf/indikator-gambar";
 
 type Hasil = Awaited<ReturnType<typeof buildHasil>>;
 type AiAnalysisDetail = {
@@ -17,78 +18,11 @@ type AiAnalysisDetail = {
   rekomendasi?: string[];
 } | null;
 
-const COLOR = {
-  primaryFrom: "#4f46e5",
-  primaryTo: "#7c3aed",
-  ink: "#0f172a",
-  body: "#334155",
-  muted: "#64748b",
-  faint: "#94a3b8",
-  border: "#e2e8f0",
-  cardBg: "#f8fafc",
-  success: "#059669",
-  successBg: "#ecfdf5",
-  danger: "#dc2626",
-  dangerBg: "#fef2f2",
-  warnText: "#b45309",
-  warnBg: "#fffbeb",
-} as const;
-
 const FORMAT_LABEL: Record<string, string> = {
   pg: "PG",
   pg_kompleks: "PG Kompleks",
   pg_kategori: "PG Kategori",
 };
-
-/**
- * Font PDF. Font standar pdfkit (Helvetica) cuma mendukung WinAnsi, jadi
- * simbol matematika (π ≤ ≥ √ ∠ ✓ ●) dan superskrip/subskrip (x², L₁) tampil
- * sebagai karakter acak (mis. legenda "%Ï Baik ("e70%)"). DejaVu Sans
- * (lib/pdf/fonts, lisensi bebas) mencakup semuanya - dimuat dari disk sekali
- * lalu di-cache. Kalau file font tidak ikut ter-bundle di server (mis.
- * konfigurasi tracing salah), jatuh kembali ke Helvetica + konversi teks
- * mode aman (lihat lib/pdf/latex-to-text.ts) supaya rapor tetap terunduh,
- * bukan gagal total - tapi dicatat di log supaya ketahuan.
- */
-type PdfFonts = {
-  regular: string;
-  bold: string;
-  /** true kalau font Unicode berhasil dimuat. */
-  unicode: boolean;
-  /** Skala ukuran huruf: DejaVu ~7% lebih lebar dari Helvetica di ukuran nominal yang sama. */
-  sz: (n: number) => number;
-};
-
-let fontBuffers: { regular: Buffer; bold: Buffer } | null | undefined;
-
-function loadFontBuffers(): { regular: Buffer; bold: Buffer } | null {
-  if (fontBuffers !== undefined) return fontBuffers;
-  try {
-    const dir = path.join(process.cwd(), "lib", "pdf", "fonts");
-    fontBuffers = {
-      regular: fs.readFileSync(path.join(dir, "DejaVuSans.ttf")),
-      bold: fs.readFileSync(path.join(dir, "DejaVuSans-Bold.ttf")),
-    };
-  } catch (err) {
-    console.warn("[rapor-pdf] font DejaVu tidak ditemukan, memakai Helvetica (simbol matematika akan disederhanakan):", err);
-    fontBuffers = null;
-  }
-  return fontBuffers;
-}
-
-function setupFonts(doc: PDFKit.PDFDocument): PdfFonts {
-  const buffers = loadFontBuffers();
-  if (buffers) {
-    try {
-      doc.registerFont("Body", buffers.regular);
-      doc.registerFont("Body-Bold", buffers.bold);
-      return { regular: "Body", bold: "Body-Bold", unicode: true, sz: (n) => Math.round(n * 0.93 * 10) / 10 };
-    } catch (err) {
-      console.warn("[rapor-pdf] gagal mendaftarkan font DejaVu, memakai Helvetica:", err);
-    }
-  }
-  return { regular: "Helvetica", bold: "Helvetica-Bold", unicode: false, sz: (n) => n };
-}
 
 export async function fetchImageBuffer(url: string): Promise<Buffer | null> {
   try {
@@ -329,6 +263,41 @@ function drawPageNumber(doc: PDFKit.PDFDocument, page: number) {
 }
 
 /**
+ * Bagian "Daya Serap per Indikator" (standar Kemendikdasmen) di rapor siswa. Seluruh penggambaran kelompok dan daftar
+ * dipakai bersama laporan sekolah (lib/pdf/indikator-gambar.ts) yang menjaga aturan gambar PDF AyoTKA.
+ */
+function gambarDayaSerapIndikator(doc: PDFKit.PDFDocument, laporan: LaporanIndikatorSiswa, fonts: PdfFonts, contentWidth: number) {
+  const { toText, tulis, pastikanMuat, dot } = buatPenulis(doc, fonts);
+
+  pastikanMuat(120);
+  tulis("Daya Serap per Indikator", X0, doc.y, contentWidth, 14, COLOR.ink, true);
+  doc.moveDown(0.3);
+  tulis(toText(`${laporan.mapel} ${dot} ${laporan.label.join(" > ")}`), X0, doc.y, contentWidth, 8.5, COLOR.muted);
+  doc.moveDown(0.15);
+  const cakupan =
+    laporan.soalTercakup < laporan.soalTotal
+      ? `${laporan.soalTercakup} dari ${laporan.soalTotal} soal pada percobaan ini memiliki indikator resmi Kemendikdasmen dan dihitung di sini.`
+      : `Seluruh ${laporan.soalTotal} soal dihitung berdasarkan indikator resmi Kemendikdasmen.`;
+  tulis(cakupan, X0, doc.y, contentWidth, 8, COLOR.faint);
+  doc.moveDown(0.15);
+  // Catatan cara membaca ditaruh di PENGANTAR (bukan di akhir): catatan di akhir pernah terlempar sendirian ke halaman baru.
+  tulis(
+    "Daya serap = skor yang diperoleh dibagi skor maksimum pada indikator itu. Rerata nasional dari portal resmi daya serap TKA Kemendikdasmen dipakai sebagai pembanding; vonis hanya diberikan di tingkat kelompok.",
+    X0,
+    doc.y,
+    contentWidth,
+    7.5,
+    COLOR.faint,
+  );
+  doc.moveDown(0.8);
+
+  gambarKelompok(doc, fonts, contentWidth, laporan.label, laporan.kelompok);
+  gambarDaftarFokus(doc, fonts, contentWidth, "Prioritas belajar", "Indikator dengan daya serap terendah: mulai remedial dari sini.", laporan.terlemah, "Semua indikator sudah dikuasai penuh.");
+  gambarDaftarFokus(doc, fonts, contentWidth, "Kekuatan", "Indikator dengan daya serap tertinggi.", laporan.terkuat, "Belum ada indikator yang menonjol.");
+  doc.font(fonts.regular);
+}
+
+/**
  * Render seluruh isi rapor ke PDFDocument yang sudah dibuat pemanggil (route
  * yang menangani auth/DB, atau skrip uji visual dengan data tiruan). Dipisah
  * dari route supaya bisa diuji dengan data mock tanpa perlu DB/sesi asli.
@@ -441,6 +410,11 @@ export async function renderRaporPdf(
     doc.fillColor(COMPETENCY_TIER_HEX.kurang).text(`   ${dot} Perlu latihan (<50%)`, { lineBreak: false });
     doc.y = legendY + 14;
     doc.moveDown(0.6);
+  }
+
+  // --- DAYA SERAP PER INDIKATOR (hanya bila ada soal berindikator resmi) ---
+  if (hasil.indikator) {
+    gambarDayaSerapIndikator(doc, hasil.indikator, fonts, contentWidth);
   }
 
   // --- ANALISIS LEARNING ANALYTICS ---

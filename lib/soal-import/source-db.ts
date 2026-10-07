@@ -31,6 +31,8 @@ export interface SourceQuestion {
   elemen: string;
   subElemen: string | null;
   kompetensi: string | null;
+  /** Rumusan indikator di sumber (kolom soal.questions.indikator); resmi Pusmendik atau bebas - dicocokkan lewat lib/indikator. */
+  indikator: string | null;
   levelKognitif: string | null;
   tingkatKesulitan: string | null;
   bentukSoal: string;
@@ -119,12 +121,24 @@ export async function getQuestionsForPackage(paketId: string): Promise<SourceQue
   return getClient().$queryRaw<SourceQuestion[]>`
     SELECT
       id, code, nomor_urut AS "nomorUrut", jenjang, mapel, elemen,
-      sub_elemen AS "subElemen", kompetensi, level_kognitif AS "levelKognitif",
+      sub_elemen AS "subElemen", kompetensi, indikator, level_kognitif AS "levelKognitif",
       tingkat_kesulitan AS "tingkatKesulitan", bentuk_soal AS "bentukSoal",
       stimulus_id AS "stimulusId", paket_id AS "paketId", payload
     FROM soal.questions
     WHERE paket_id = ${paketId}
     ORDER BY nomor_urut ASC NULLS LAST
+  `;
+}
+
+/**
+ * Teks soal + indikator saja (tanpa payload lengkap, jadi ringan) untuk mencocokkan soal yang SUDAH diimpor dengan
+ * sumbernya - lihat lib/indikator/sinkron-soal.ts. Teks soal = payload.soal_text, sama dengan yang disalin ke Question.teks.
+ */
+export async function getIndikatorPaket(paketId: string): Promise<Array<{ teks: string; indikator: string | null }>> {
+  return getClient().$queryRaw<Array<{ teks: string; indikator: string | null }>>`
+    SELECT payload->>'soal_text' AS teks, indikator
+    FROM soal.questions
+    WHERE paket_id = ${paketId} AND payload->>'soal_text' IS NOT NULL
   `;
 }
 
