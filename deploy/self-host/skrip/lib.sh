@@ -142,3 +142,53 @@ konfirmasi() { # kata_yang_harus_diketik pesan
   read -r jawaban
   [ "$jawaban" = "$1" ] || gagal "Dibatalkan. Tidak ada yang diubah."
 }
+
+# ---------- pemindahan skema soal (data generator soal.ayotka.id): Langkah 10 dan 11 ----------
+TANDA_SOAL_FINAL="$PAKET_DIR/.soal-disalin-final"   # ditulis skrip/10 --final setelah salinan terbukti identik
+TANDA_SOAL_DIALIHKAN="$PAKET_DIR/.soal-dialihkan"   # ditulis skrip/11 setelah pemakai soal beralih ke database lokal
+
+# Sidik-jari isi skema soal: satu baris "tabel|jumlah|md5" per tabel, terurut. md5 dihitung dari SELURUH isi tiap baris
+# (diurutkan dengan collation "C" dan zona waktu UTC supaya hasilnya sama di server berbeda), jadi dua sidik-jari yang
+# sama berarti jumlah baris DAN isinya sama. Argumen: "sumber" (Supabase) atau "lokal".
+sidik_soal() {
+  local sisi="$1" daftar sql="" t
+  if [ "$sisi" = "sumber" ]; then
+    daftar=$(psql_sumber -Atc "select tablename from pg_tables where schemaname='soal' order by 1")
+  else
+    daftar=$(psql_lokal -Atc "select tablename from pg_tables where schemaname='soal' order by 1")
+  fi
+  [ -n "$daftar" ] || return 1
+  for t in $daftar; do
+    sql+="select '$t' as t, count(*)::text as n, md5(coalesce(string_agg(x::text, E'\n' order by x::text collate \"C\"), '')) as h from soal.\"$t\" x union all "
+  done
+  sql="${sql% union all } order by 1"
+  if [ "$sisi" = "sumber" ]; then
+    psql_sumber -q -At -F'|' -c "set timezone='UTC'" -c "$sql"
+  else
+    psql_lokal -q -At -F'|' -c "set timezone='UTC'" -c "$sql"
+  fi
+}
+
+# Alamat database Supabase (role postgres) dari .env LAMA, yang dicatat penunjuknya oleh skrip/05. Bisa ditimpa lewat
+# variabel ENV_LAMA=/jalur/.env. Mengisi SRC_URL (lewat muat_sumber).
+muat_sumber_lama() {
+  local penunjuk="$PAKET_DIR/.env-sebelum-pindah" env_lama="${ENV_LAMA:-}"
+  if [ -z "$env_lama" ] && [ -s "$penunjuk" ]; then env_lama="$(cat "$penunjuk")"; fi
+  [ -n "$env_lama" ] && [ -r "$env_lama" ] || {
+    peringatan "Tidak menemukan .env lama (yang memuat alamat database Supabase dengan role postgres)."
+    peringatan "Cari berkasnya: ls /var/www/ayotka-app/.env.sebelum-pindah-*  lalu jalankan ulang dengan ENV_LAMA=<jalur berkas itu>"
+    return 1
+  }
+  muat_sumber "$env_lama"
+}
+
+# Kata sandi role (dibuat acak sekali, disimpan di .env paket yang hanya bisa dibaca root, dipakai ulang berikutnya).
+sandi_role() { # NAMA_VARIABEL
+  local nilai
+  nilai=$(baca_env "$ENV_PAKET" "$1")
+  if [ -z "$nilai" ]; then
+    nilai=$(openssl rand -hex 24)
+    set_env "$ENV_PAKET" "$1" "$nilai"
+  fi
+  printf '%s' "$nilai"
+}

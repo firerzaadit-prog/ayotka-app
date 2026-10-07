@@ -282,17 +282,63 @@ sebelum diganti. Nilainya tidak pernah dicetak.
 | `curl https://ayotka.id/...` dari SERVER sendiri gagal/time out (padahal dari komputermu bisa) | server tidak bisa memanggil IP publiknya sendiri (hairpin). Solusi: `echo "127.0.0.1 ayotka.id" \| sudo tee -a /etc/hosts` lalu ulangi uji |
 | Disk penuh | `sudo du -sh /var/lib/docker /var/backups/ayotka /opt/ayotka-selfhost/volumes` |
 
-## Setelah pindah: matikan Vercel
+## Langkah 10 dan 11 - pindahkan data generator (skema soal) ke server ini
 
-Vercel masih punya `.env` yang menunjuk ke database Supabase LAMA (data di sana sudah tidak dipakai). Entri `crons`
-di `vercel.json` sudah dihapus (7 Okt 2026; dijaga tes) supaya Vercel tidak memproses antrean atau mengirim email
-pengingat dari data lama. Penjadwalan hanya lewat cron server (`/etc/cron.d/ayotka`, tiap 5 menit). Pastikan di
-dashboard Vercel (Settings > Cron Jobs) daftarnya kosong setelah deploy berikutnya; bila ingin lebih bersih, jeda
-atau hentikan proyek Vercel-nya sama sekali.
+Skema `soal` (data generator soal.ayotka.id: soal, paket, pengguna generator, log; sekitar 12 MB, 13 tabel) sekarang
+kecil karena gambar sudah dipindah ke disk server generator. Setelah dua langkah ini, TIDAK ada lagi data yang bergantung
+pada Supabase Cloud (kecuali 51 berkas Storage - Langkah 8 di atas). Diperlukan KERJA SAMA pemilik generator
+(menghentikan lalu menyalakan lagi generator, dan mengganti satu baris di .env-nya), sekitar 5 menit dari awal sampai akhir.
 
-## Tahap 2 (nanti, bersama dosen): data soal generator
+Pembagian peran database lokal (dibuat otomatis oleh skrip/10):
 
-Memindahkan skema `soal` (572 MB) ke Postgres yang sama berarti `DATABASE_URL` aplikasi generator (soal.ayotka.id) dan
-`SOAL_SOURCE_DATABASE_URL` ayotka.id diubah, role baca-saja `ayotka_app_reader` dibuat ulang, dan generator dijeda saat
-dump terakhir. Sekaligus kesempatan menurunkan beban data: kolom `payload` rata-rata 106 KB per soal karena gambar/SVG
-disimpan di dalam database.
+| Peran | Dipakai oleh | Hak |
+|---|---|---|
+| `ayotka_app_reader` | ayotka.id (impor soal) | HANYA membaca tiga tabel: questions, stimulus, question_packages (sama seperti di Supabase) |
+| `soal_app` | generator soal.ayotka.id | pemilik skema `soal`; tidak punya akses ke data ayotka.id (public/auth) |
+
+Generator memaksa SSL di kodenya (`ssl: { rejectUnauthorized: false }`), sedangkan koneksi lokal lewat loopback tanpa TLS.
+Cukup tambahkan `?sslmode=disable` di alamat database generator (sudah diatur di alamat yang disiapkan skrip/11, dan
+terbukti dengan pustaka `pg` 8.23.0 yang dikunci generator: parameter di alamat mengalahkan opsi di kode). Kode generator
+TIDAK perlu diubah.
+
+**Latihan (kapan saja, tanpa mengganggu siapa pun):**
+
+```bash
+cd /opt/ayotka-selfhost
+sudo bash skrip/10-pindahkan-skema-soal.sh
+```
+
+Menyalin skema soal dari Supabase ke database lokal, membuat kedua peran, lalu membandingkan jumlah baris DAN isi tiap
+tabel dengan Supabase. Selisih kecil wajar karena generator masih berjalan. Aman diulang.
+
+**Hari pengalihan (bersama pemilik generator):**
+
+1. Pemilik generator menghentikan generator: `pm2 stop generator-soal-tka`
+2. Salinan akhir (menolak bila Supabase masih berubah, dan gagal bila ada SATU tabel yang tidak identik):
+   `sudo bash skrip/10-pindahkan-skema-soal.sh --final`
+3. Dalam 30 menit: `sudo bash skrip/11-alihkan-soal.sh`. Skrip ini menguji hak akses tiap peran, menguji alamat baru
+   dengan kode aplikasi ayotka.id dan pustaka pg milik generator, baru mengalihkan ayotka.id dan menyiapkan alamat untuk generator di
+   `/opt/ayotka-selfhost/soal-app-url.txt` (hanya root yang bisa membaca).
+4. Pemilik generator memasang baris dari berkas itu sebagai `DATABASE_URL` di `/var/www/generator-soal-tka/.env`
+   (simpan baris lama sebagai komentar), lalu `pm2 restart generator-soal-tka --update-env`, dan menguji login di
+   soal.ayotka.id.
+5. Cek di ayotka.id: Admin Pusat > Bank Soal > Impor harus menampilkan daftar paket.
+
+**Jalan mundur:** `sudo bash skrip/11-alihkan-soal.sh --batalkan` mengembalikan ayotka.id ke Supabase; kembalikan juga
+`DATABASE_URL` generator ke alamat Supabase lama. Data yang sudah ditulis generator ke database lokal sejak pengalihan
+TIDAK ikut kembali, jadi batalkan secepatnya dan hentikan generator lebih dulu.
+
+Setelah pengalihan, skrip/10 menolak jalan lagi (supaya data baru tidak tertimpa data lama dari Supabase). Cadangan harian
+(`backup-harian.sh`) otomatis ikut mencakup skema soal.
+
+## Setelah semuanya pindah: bersihkan Vercel dan Supabase
+
+**Vercel.** Cron Jobs proyek ayotka-app dimatikan lewat dashboard (Settings > Cron Jobs > Disabled); `crons` di
+`vercel.json` sudah dihapus tetapi baru berlaku bila ada deployment Production baru. Setelah ayotka.id dan generator
+berjalan penuh di server ini: hapus proyek `ayotka-app` di Vercel. Proyek generator hanya boleh dihapus setelah fitur impor
+gambar tertanam Excel/Google Drive di generator (satu-satunya yang masih memakai Vercel Blob, lihat
+`src/lib/storage/soal-image-storage.ts` di repo generator) dialihkan ke disk server dan isi Blob-nya (bila ada) disalin.
+
+**Supabase.** Urutan aman: (1) Langkah 8 selesai (gambar tersalin) dan Langkah 10/11 berjalan beberapa hari tanpa masalah,
+(2) cadangan terbaru sudah disalin ke komputer (`tarik-cadangan.ps1`), (3) baru hapus atau jeda project Supabase. Hapus
+project tidak bisa dibatalkan; menjeda lebih aman untuk beberapa minggu pertama.

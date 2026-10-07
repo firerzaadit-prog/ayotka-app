@@ -1,8 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { previewImageSrc, resolveSourceImage } from "@/lib/soal-import/media";
+import { precheckSourceGambar, previewImageSrc, resolveSourceImage } from "@/lib/soal-import/media";
 
 const PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
@@ -146,6 +149,135 @@ describe("resolveSourceImage", () => {
       deskripsi_alt: "kosong",
     });
     expect(r).toMatchObject({ status: "blocked" });
+  });
+});
+
+describe("ilustrasi_kontekstual dengan url (bentuk baru generator sejak 6 Okt 2026: gambar di disk server)", () => {
+  const URL_GEN = "https://soal.ayotka.id/soal-images/soal-ai-1790585830926-12-jglj.jpg";
+  const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40, 7)]);
+  let dir: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "media-gen-"));
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  const kontekstual = (tambahan: Record<string, string>) =>
+    ({ tipe: "ilustrasi_kontekstual", deskripsi_alt: "x", ...tambahan }) as Parameters<typeof resolveSourceImage>[0];
+
+  it("url generator dibaca dari DISK bila GENERATOR_IMAGES_DIR diatur - tanpa jaringan sama sekali", async () => {
+    fs.writeFileSync(path.join(dir, "soal-ai-1790585830926-12-jglj.jpg"), JPEG);
+    vi.stubEnv("GENERATOR_IMAGES_DIR", dir);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await resolveSourceImage(kontekstual({ url: URL_GEN, svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "ready", mime: "image/jpeg", ext: "jpg" });
+    expect(Buffer.compare((r as { bytes: Buffer }).bytes, JPEG)).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("GENERATOR_IMAGES_DIR belum diatur -> gambar diunduh lewat HTTP (bukan sketsa svg_fallback)", async () => {
+    const fetchMock = vi.fn(async () => new Response(PNG, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await resolveSourceImage(kontekstual({ url: URL_GEN, svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "ready", mime: "image/png", ext: "png" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("berkas tidak ada di disk -> jatuh ke unduhan HTTP", async () => {
+    vi.stubEnv("GENERATOR_IMAGES_DIR", dir);
+    const fetchMock = vi.fn(async () => new Response(PNG, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await resolveSourceImage(kontekstual({ url: URL_GEN }));
+    expect(r).toMatchObject({ status: "ready", ext: "png" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("url ADA tetapi gagal diambil -> DIBLOKIR dengan alasan; TIDAK diam-diam memakai sketsa svg_fallback", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("tidak ada", { status: 404 })));
+    const r = await resolveSourceImage(kontekstual({ url: URL_GEN, svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "blocked" });
+    expect((r as { reason: string }).reason).toMatch(/tidak bisa diambil/);
+    expect((r as { reason: string }).reason).toMatch(/404/);
+  });
+
+  it("jaringan putus saat mengambil url -> diblokir (bukan sketsa)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("ECONNRESET"); }));
+    const r = await resolveSourceImage(kontekstual({ url: URL_GEN, svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "blocked" });
+  });
+
+  it("image_data valid menang atas url (tidak ada panggilan jaringan)", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const dataUri = `data:image/png;base64,${PNG.toString("base64")}`;
+    const r = await resolveSourceImage(kontekstual({ image_data: dataUri, url: URL_GEN, svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "ready", mime: "image/png" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("image_data rusak + url valid -> url dipakai (bukan sketsa)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(PNG, { status: 200 })));
+    const r = await resolveSourceImage(kontekstual({ image_data: "bukan-data-uri", url: URL_GEN, svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "ready", ext: "png" });
+  });
+
+  it("url tidak boleh dipakai (alamat lokal) + ada svg_fallback -> svg_fallback dipakai, tanpa jaringan", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await resolveSourceImage(kontekstual({ url: "http://127.0.0.1/x.jpg", svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "ready", mime: "image/svg+xml" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("url tidak boleh dipakai + tanpa svg_fallback -> diblokir", async () => {
+    vi.stubGlobal("fetch", vi.fn());
+    const r = await resolveSourceImage(kontekstual({ url: "ftp://x/y.jpg" }));
+    expect(r).toMatchObject({ status: "blocked" });
+  });
+
+  it("url kosong/spasi dianggap tidak ada", async () => {
+    const r = await resolveSourceImage(kontekstual({ url: "   ", svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "ready", mime: "image/svg+xml" });
+  });
+
+  it("berkas di disk bukan gambar -> diblokir (tidak mencoba HTTP yang akan menyajikan berkas sama)", async () => {
+    fs.writeFileSync(path.join(dir, "soal-ai-1790585830926-12-jglj.jpg"), "<html>");
+    vi.stubEnv("GENERATOR_IMAGES_DIR", dir);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await resolveSourceImage(kontekstual({ url: URL_GEN, svg_fallback: SVG }));
+    expect(r).toMatchObject({ status: "blocked" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("tipe url yang menunjuk gambar generator juga dibaca dari disk", async () => {
+    fs.writeFileSync(path.join(dir, "soal-ai-1790585830926-12-jglj.jpg"), JPEG);
+    vi.stubEnv("GENERATOR_IMAGES_DIR", dir);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await resolveSourceImage({ tipe: "url", url: URL_GEN, deskripsi_alt: "" });
+    expect(r).toMatchObject({ status: "ready", ext: "jpg" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("pra-periksa (tanpa jaringan): url yang bisa dipakai lolos walau image_data rusak; tanpa apa pun -> pesan", () => {
+    expect(precheckSourceGambar(kontekstual({ url: URL_GEN }))).toBeNull();
+    expect(precheckSourceGambar(kontekstual({ image_data: "rusak", url: URL_GEN }))).toBeNull();
+    expect(precheckSourceGambar(kontekstual({ image_data: "rusak" }))).toMatch(/Format image_data/);
+    expect(precheckSourceGambar(kontekstual({ image_data: "rusak", svg_fallback: SVG }))).toBeNull();
+    expect(precheckSourceGambar(kontekstual({ url: "http://localhost/x.jpg" }))).toMatch(/kosong di sumber/);
+    expect(precheckSourceGambar(kontekstual({}))).toMatch(/kosong di sumber/);
+  });
+
+  it("pratinjau memuat url generator langsung (lebih baik daripada sketsa), dan image_data tetap didahulukan", () => {
+    expect(previewImageSrc(kontekstual({ url: URL_GEN, svg_fallback: SVG }))).toBe(URL_GEN);
+    expect(previewImageSrc(kontekstual({ image_data: "data:image/png;base64,abc", url: URL_GEN }))).toBe("data:image/png;base64,abc");
+    expect(previewImageSrc(kontekstual({ url: "http://127.0.0.1/x.jpg", svg_fallback: SVG }))).toMatch(/^data:image\/svg\+xml;base64,/);
   });
 });
 

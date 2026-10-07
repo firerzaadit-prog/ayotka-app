@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Membangun ulang gambar hasil IMPOR soal.ayotka.id (berkas bernama impor/<sha256>.<ekstensi>) LANGSUNG dari data soal
 // di skema `soal`, TANPA memerlukan Supabase Storage. Logika pembuatan bytes sama persis dengan
-// lib/soal-import/media.ts (SVG = teks SVG di-trim lalu UTF-8; gambar kontekstual = decode data URI, atau svg_fallback),
+// lib/soal-import/media.ts (SVG = teks SVG di-trim lalu UTF-8; gambar kontekstual = decode data URI, ATAU berkas gambar
+// generator di disk server (payload.gambar.url, sejak 6 Okt 2026), atau svg_fallback),
 // dan nama berkas diturunkan dari hash isinya seperti lib/soal-import/execute.ts - jadi nama hasilnya identik dengan
 // yang dulu diunggah ke Storage dan alamat di database langsung cocok.
 //
@@ -62,24 +63,104 @@ function decodeDataUri(raw) {
   return bytes.length === 0 ? null : bytes;
 }
 
-function encodeIlustrasiKontekstual(gambar) {
+// Sama dengan safeExternalUrl di lib/soal-import/media.ts: dipakai hanya untuk menentukan apakah aplikasi akan
+// MENCOBA mengambil sebuah URL (bila ya dan berkasnya tidak ada di disk, gambar tak bisa dibangun - bukan sketsa).
+function safeExternalUrl(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+  const host = u.hostname.toLowerCase();
+  if (host === "localhost" || host === "0.0.0.0" || host === "::1" || host === "127.0.0.1") return null;
+  if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.)/.test(host)) return null;
+  return u;
+}
+
+// Sama dengan lib/soal-import/gambar-generator.ts: sejak 6 Okt 2026 gambar ilustrasi generator ada di disk server
+// (payload.gambar.url -> berkas di GENERATOR_IMAGES_DIR), bukan lagi base64 di payload.
+const NAMA_BERKAS_AMAN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
+
+/** opsi berbentuk env: { GENERATOR_IMAGES_DIR, GENERATOR_IMAGES_URL_PREFIX }. null = pembacaan disk tidak aktif. */
+function konfigGenerator(opsi) {
+  const dir = (opsi?.GENERATOR_IMAGES_DIR ?? "").trim();
+  if (!dir) return null;
+  try {
+    const a = new URL((opsi.GENERATOR_IMAGES_URL_PREFIX ?? "").trim() || "https://soal.ayotka.id/soal-images/");
+    if (a.protocol !== "https:" && a.protocol !== "http:") return null;
+    return { dir: path.resolve(dir), awalan: `${a.origin}${a.pathname.replace(/\/*$/, "/")}` };
+  } catch {
+    return null;
+  }
+}
+
+function pathBerkasGenerator(rawUrl, konfig) {
+  let u;
+  try {
+    u = new URL(String(rawUrl).trim());
+  } catch {
+    return null;
+  }
+  const lengkap = `${u.origin}${u.pathname}`;
+  if (!lengkap.startsWith(konfig.awalan)) return null;
+  const nama = lengkap.slice(konfig.awalan.length);
+  if (!NAMA_BERKAS_AMAN.test(nama)) return null;
+  const tujuan = path.join(konfig.dir, nama);
+  return path.dirname(tujuan) === konfig.dir ? tujuan : null;
+}
+
+/** {bytes, ext} bila berkasnya ada dan gambar sah; null bila tidak ada, tidak terbaca, terlalu besar, atau bukan gambar. */
+function bacaGambarGeneratorLokal(rawUrl, konfig) {
+  if (!konfig) return null;
+  const berkas = pathBerkasGenerator(rawUrl, konfig);
+  if (!berkas) return null;
+  try {
+    const nyata = fs.realpathSync(berkas);
+    if (path.dirname(nyata) !== fs.realpathSync(konfig.dir)) return null;
+    const stat = fs.statSync(nyata);
+    if (!stat.isFile() || stat.size > MAKS_BYTE) return null;
+    const bytes = fs.readFileSync(nyata);
+    const info = sniffGambar(bytes);
+    return info ? { bytes, ext: info.ext } : null;
+  } catch {
+    return null;
+  }
+}
+
+function urlBisaDipakai(raw, konfig) {
+  const url = typeof raw === "string" ? raw.trim() : "";
+  if (!url) return false;
+  if (konfig && pathBerkasGenerator(url, konfig)) return true;
+  return safeExternalUrl(url) !== null;
+}
+
+// Urutan sumber sama dengan resolveIlustrasiKontekstual di lib/soal-import/media.ts: image_data -> url -> svg_fallback.
+// Bila url ADA (bisa dipakai) tetapi berkasnya tak bisa dibaca dari disk, aplikasi akan memblokir (bukan memakai sketsa),
+// jadi di sini hasilnya null - bukan svg_fallback.
+function encodeIlustrasiKontekstual(gambar, konfig) {
   if (gambar.image_data) {
     const bytes = decodeDataUri(gambar.image_data);
-    if (bytes) {
-      if (bytes.length > MAKS_BYTE) return gambar.svg_fallback ? encodeSvg(gambar.svg_fallback) : null;
+    if (bytes && bytes.length <= MAKS_BYTE) {
       const info = sniffGambar(bytes);
       if (info) return { bytes, ext: info.ext };
     }
-    return gambar.svg_fallback ? encodeSvg(gambar.svg_fallback) : null;
   }
+  if (urlBisaDipakai(gambar.url, konfig)) return bacaGambarGeneratorLokal(gambar.url.trim(), konfig);
   return gambar.svg_fallback ? encodeSvg(gambar.svg_fallback) : null;
 }
 
-/** null = tidak bisa dibangun dari data (mis. tipe url yang harus diunduh dari luar, atau data rusak). */
-export function bangunGambarSumber(gambar) {
+/**
+ * null = tidak bisa dibangun dari data (mis. url yang harus diunduh dari luar, atau data rusak).
+ * `opsi` berbentuk env (GENERATOR_IMAGES_DIR, GENERATOR_IMAGES_URL_PREFIX); tanpa itu gambar generator di disk diabaikan.
+ */
+export function bangunGambarSumber(gambar, opsi = {}) {
   if (!gambar) return null;
+  const konfig = konfigGenerator(opsi);
   if (gambar.tipe === "svg") return encodeSvg(gambar.svg_content);
-  if (gambar.tipe === "ilustrasi_kontekstual") return encodeIlustrasiKontekstual(gambar);
+  if (gambar.tipe === "ilustrasi_kontekstual") return encodeIlustrasiKontekstual(gambar, konfig);
+  if (gambar.tipe === "url" && gambar.url) return bacaGambarGeneratorLokal(gambar.url, konfig);
   return null;
 }
 export const namaImpor = (bytes, ext) => `impor/${crypto.createHash("sha256").update(bytes).digest("hex")}.${ext}`;
@@ -112,7 +193,13 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     console.error("--tulis butuh STORAGE_DRIVER=local, MEDIA_DIR, dan MEDIA_PUBLIC_BASE_URL di .env aplikasi (jalankan setelah Langkah 5).");
     process.exit(2);
   }
+  // Gambar ilustrasi generator (sejak 6 Okt 2026 di disk server generator, bukan di payload). Bawaan = lokasi di VPS ini.
+  const opsiGenerator = {
+    GENERATOR_IMAGES_DIR: env.GENERATOR_IMAGES_DIR || "/var/www/generator-soal-tka/public/soal-images",
+    GENERATOR_IMAGES_URL_PREFIX: env.GENERATOR_IMAGES_URL_PREFIX,
+  };
   console.log(`Mode: ${TULIS ? "TULIS (membuat berkas + mengganti alamat)" : "PERIKSA saja (tidak menulis apa pun)"}`);
+  console.log(`Folder gambar generator: ${opsiGenerator.GENERATOR_IMAGES_DIR} (${fs.existsSync(opsiGenerator.GENERATOR_IMAGES_DIR) ? "ada" : "TIDAK ADA - ilustrasi kontekstual tak bisa dibangun"})`);
 
   let kode = 0;
   try {
@@ -123,7 +210,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(im
     const bisa = new Map(); // nama -> {ext, bytes}
     let tidakBisa = 0;
     for (const s of sumber) {
-      const g = bangunGambarSumber(s.gambar);
+      const g = bangunGambarSumber(s.gambar, opsiGenerator);
       if (!g) { tidakBisa++; continue; }
       bisa.set(namaImpor(g.bytes, g.ext), g);
     }

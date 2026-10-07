@@ -1,5 +1,6 @@
 import "server-only";
 import { sniffGambar } from "@/lib/soal/gambar-format";
+import { bacaGambarGeneratorLokal, bacaKonfigGambarGenerator, pathBerkasGenerator } from "./gambar-generator";
 import type { SoalPayload } from "./source-db";
 
 /**
@@ -92,6 +93,26 @@ async function downloadImage(rawUrl: string): Promise<ResolvedSourceImage> {
 }
 
 /**
+ * Ambil gambar dari sebuah URL. URL gambar generator (soal.ayotka.id/soal-images/...) dibaca langsung dari disk bila
+ * GENERATOR_IMAGES_DIR diatur (lihat gambar-generator.ts) - tidak bergantung pada server yang bisa memanggil alamat
+ * publiknya sendiri; selain itu, atau bila berkasnya tidak ada, diunduh lewat HTTP.
+ */
+async function ambilGambarDariUrl(rawUrl: string): Promise<ResolvedSourceImage> {
+  const lokal = await bacaGambarGeneratorLokal(rawUrl, MAKS_BYTE_GAMBAR_SUMBER);
+  if (lokal) return lokal;
+  return downloadImage(rawUrl);
+}
+
+/** Apakah URL ini bisa dipakai sebagai sumber gambar: berkas generator di disk, atau alamat http(s) publik. */
+function urlBisaDipakai(raw: string | undefined): raw is string {
+  const url = raw?.trim();
+  if (!url) return false;
+  const konfig = bacaKonfigGambarGenerator();
+  if (konfig && pathBerkasGenerator(url, konfig)) return true;
+  return safeExternalUrl(url) !== null;
+}
+
+/**
  * Bukan parser XML lengkap (sengaja, tanpa dependensi baru) - tapi cukup untuk menangkap
  * kesalahan nyata yang ditemukan di data produksi soal.ayotka.id: SVG dengan atribut yang
  * ditulis dua kali di tag yang sama, mis. <line x=".." y=".." x=".." y=".."/> (seharusnya
@@ -153,28 +174,43 @@ function decodeDataUri(raw: string | undefined): { bytes: Buffer; mime: string }
   }
 }
 
-/** ilustrasi_kontekstual dari Nano Banana Pro di soal.ayotka.id: membawa image_data (base64) dan opsional svg_fallback. */
-function encodeIlustrasiKontekstual(gambar: SourceGambar): ResolvedSourceImage {
+/**
+ * ilustrasi_kontekstual dari Nano Banana Pro di soal.ayotka.id. Urutan sumber:
+ *  1. image_data (base64) bila ada dan valid - bentuk lama;
+ *  2. url - bentuk baru sejak 6 Okt 2026 (gambar dipindah ke disk server generator, payload hanya menyimpan alamatnya);
+ *  3. svg_fallback - sketsa SVG cadangan.
+ * Bila url ADA tetapi gagal diambil, impor DIBLOKIR dengan alasannya, tidak diam-diam diganti sketsa: soal yang sudah
+ * diimpor tidak bisa diperbaiki otomatis, dan ilustrasi utama jauh lebih tepat daripada sketsanya.
+ */
+async function resolveIlustrasiKontekstual(gambar: SourceGambar): Promise<ResolvedSourceImage> {
+  let masalahImageData: string | null = null;
   if (gambar.image_data) {
     const decoded = decodeDataUri(gambar.image_data);
     if (decoded) {
       if (decoded.bytes.length > MAKS_BYTE_GAMBAR_SUMBER) {
-        if (gambar.svg_fallback) return encodeSvg(gambar.svg_fallback);
-        return { status: "blocked", reason: "Ukuran gambar ilustrasi kontekstual melebihi 5 MB." };
-      }
-      const info = sniffGambar(decoded.bytes);
-      if (info) {
-        return { status: "ready", bytes: decoded.bytes, mime: info.mime, ext: info.ext };
+        masalahImageData = "Ukuran gambar ilustrasi kontekstual melebihi 5 MB.";
+      } else {
+        const info = sniffGambar(decoded.bytes);
+        if (info) return { status: "ready", bytes: decoded.bytes, mime: info.mime, ext: info.ext };
       }
     }
-    // Jika image_data gagal di-decode/sniff tapi ada svg_fallback, gunakan fallback
-    if (gambar.svg_fallback) return encodeSvg(gambar.svg_fallback);
-    return { status: "blocked", reason: "Isi data gambar ilustrasi kontekstual bukan gambar PNG/JPEG/WEBP/GIF yang valid." };
+    masalahImageData ??= "Isi data gambar ilustrasi kontekstual bukan gambar PNG/JPEG/WEBP/GIF yang valid.";
   }
-  if (gambar.svg_fallback) {
-    return encodeSvg(gambar.svg_fallback);
+
+  if (urlBisaDipakai(gambar.url)) {
+    const hasil = await ambilGambarDariUrl(gambar.url.trim());
+    if (hasil.status === "blocked") {
+      return { status: "blocked", reason: `Gambar ilustrasi kontekstual tidak bisa diambil dari soal.ayotka.id: ${hasil.reason}` };
+    }
+    return hasil;
   }
-  return { status: "blocked", reason: 'Gambar bertipe "ilustrasi_kontekstual" tetapi data gambar dan SVG fallback kosong di sumber.' };
+
+  // Jika image_data gagal di-decode/sniff tapi ada svg_fallback, gunakan fallback
+  if (gambar.svg_fallback) return encodeSvg(gambar.svg_fallback);
+  return {
+    status: "blocked",
+    reason: masalahImageData ?? 'Gambar bertipe "ilustrasi_kontekstual" tetapi data gambar dan SVG fallback kosong di sumber.',
+  };
 }
 
 /**
@@ -191,12 +227,12 @@ export async function resolveSourceImage(gambar: SourceGambar | null | undefined
         reason: "Gambar untuk soal ini belum dibuat ilustrator di soal.ayotka.id (status: perlu ilustrasi).",
       };
     case "ilustrasi_kontekstual":
-      return encodeIlustrasiKontekstual(gambar);
+      return resolveIlustrasiKontekstual(gambar);
     case "svg":
       return encodeSvg(gambar.svg_content);
     case "url":
       if (!gambar.url) return { status: "blocked", reason: "Tipe gambar url tapi url kosong di sumber." };
-      return downloadImage(gambar.url);
+      return ambilGambarDariUrl(gambar.url);
     default:
       return { status: "blocked", reason: `Tipe gambar tidak dikenal dari soal.ayotka.id: "${String((gambar as { tipe: unknown }).tipe)}".` };
   }
@@ -216,37 +252,25 @@ export function precheckSourceGambar(gambar: SourceGambar | null | undefined): s
     return hasil.status === "blocked" ? hasil.reason : null;
   }
   if (gambar.tipe === "ilustrasi_kontekstual") {
+    // Urutan sumber sama dengan resolveIlustrasiKontekstual: image_data, lalu url, lalu svg_fallback.
+    let masalahImageData: string | null = null;
     if (gambar.image_data) {
       const decoded = decodeDataUri(gambar.image_data);
-      if (!decoded) {
-        if (gambar.svg_fallback) {
-          const fallbackCheck = encodeSvg(gambar.svg_fallback);
-          return fallbackCheck.status === "blocked" ? fallbackCheck.reason : null;
-        }
-        return "Format image_data pada gambar ilustrasi kontekstual tidak valid.";
+      if (!decoded) masalahImageData = "Format image_data pada gambar ilustrasi kontekstual tidak valid.";
+      else if (decoded.bytes.length > MAKS_BYTE_GAMBAR_SUMBER) masalahImageData = "Ukuran gambar ilustrasi kontekstual melebihi 5 MB.";
+      else if (!sniffGambar(decoded.bytes)) {
+        masalahImageData = "Isi image_data pada gambar ilustrasi kontekstual bukan gambar PNG/JPEG/WEBP/GIF yang valid.";
+      } else {
+        return null;
       }
-      if (decoded.bytes.length > MAKS_BYTE_GAMBAR_SUMBER) {
-        if (gambar.svg_fallback) {
-          const fallbackCheck = encodeSvg(gambar.svg_fallback);
-          return fallbackCheck.status === "blocked" ? fallbackCheck.reason : null;
-        }
-        return "Ukuran gambar ilustrasi kontekstual melebihi 5 MB.";
-      }
-      const info = sniffGambar(decoded.bytes);
-      if (!info) {
-        if (gambar.svg_fallback) {
-          const fallbackCheck = encodeSvg(gambar.svg_fallback);
-          return fallbackCheck.status === "blocked" ? fallbackCheck.reason : null;
-        }
-        return "Isi image_data pada gambar ilustrasi kontekstual bukan gambar PNG/JPEG/WEBP/GIF yang valid.";
-      }
-      return null;
     }
+    // Berkas/URL gambar generator baru diambil saat eksekusi impor (bukan saat pratinjau, tanpa jaringan di sini).
+    if (urlBisaDipakai(gambar.url)) return null;
     if (gambar.svg_fallback) {
       const fallbackCheck = encodeSvg(gambar.svg_fallback);
       return fallbackCheck.status === "blocked" ? fallbackCheck.reason : null;
     }
-    return 'Gambar bertipe "ilustrasi_kontekstual" tetapi data gambar kosong di sumber.';
+    return masalahImageData ?? 'Gambar bertipe "ilustrasi_kontekstual" tetapi data gambar kosong di sumber.';
   }
   if (gambar.tipe === "url") {
     if (!gambar.url) return "Tipe gambar url tapi url kosong di sumber.";
@@ -273,6 +297,8 @@ export function previewImageSrc(gambar: SourceGambar | null | undefined): string
   }
   if (gambar.tipe === "ilustrasi_kontekstual") {
     if (gambar.image_data) return gambar.image_data;
+    // Gambar utama dimuat langsung oleh browser admin dari server generator, sama seperti tipe "url".
+    if (urlBisaDipakai(gambar.url)) return gambar.url.trim();
     if (gambar.svg_fallback) {
       if (encodeSvg(gambar.svg_fallback).status === "blocked") return null;
       return `data:image/svg+xml;base64,${Buffer.from(gambar.svg_fallback, "utf-8").toString("base64")}`;
