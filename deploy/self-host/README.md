@@ -257,6 +257,10 @@ sebelum diganti. Nilainya tidak pernah dicetak.
   tetapi dimiliki `firerza`, jadi tanpa `sudo`. Berkas cadangan lama (milik root) baru bisa disalin setelah skrip
   terbaru dipasang dan dijalankan sekali: `sudo cp -r /var/www/ayotka-app/deploy/self-host/. /opt/ayotka-selfhost/`
   lalu `sudo bash /opt/ayotka-selfhost/skrip/backup-harian.sh`.
+- **Salinan di PC dibersihkan otomatis:** setelah berhasil menyalin, `tarik-cadangan.ps1` menghapus dump di PC yang lebih
+  tua dari 14 hari (sama dengan lama simpan di server dan di Kebijakan Privasi), tetapi SELALU menyisakan 3 dump terbaru.
+  Umur dibaca dari tanggal pada nama berkas. Lihat dulu tanpa menghapus: `.\deploy\self-host\tarik-cadangan.ps1
+  -HanyaBersihkan -Simulasi`. Kalau menyalin dengan `scp` manual, bersihkan sendiri salinan lamanya.
 - **Status:** `cd /opt/ayotka-selfhost && sudo docker compose ps`; log: `sudo docker compose logs --tail 100 auth`
 - **Mulai ulang:** `sudo docker compose restart` (container otomatis hidup lagi setelah server restart).
 - **Pembaruan image:** versi dikunci di `docker-compose.yml`. Perbarui sengaja, bukan otomatis: ubah versi, lalu
