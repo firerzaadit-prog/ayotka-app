@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { jalurKembaliHasil } from "@/lib/utils/kembali-hasil";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -49,6 +51,8 @@ export default function WalletPage() {
   const [data, setData] = useState<SaldoData | null>(null);
   const [submitting, setSubmitting] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Halaman hasil ujian yang mengirim siswa ke sini untuk mengisi saldo (?kembali=...), supaya mudah kembali.
+  const [kembali, setKembali] = useState<string | null>(null);
 
   useEffect(() => {
     let ignore = false;
@@ -56,6 +60,9 @@ export default function WalletPage() {
       const res = await fetch("/api/siswa/saldo");
       const json = await res.json().catch(() => null);
       if (!ignore && res.ok) setData(json);
+      // Hanya jalur internal ke halaman hasil ujian yang diterima (bukan alamat sembarang) - mencegah pengalihan terbuka.
+      const tujuan = jalurKembaliHasil(new URLSearchParams(window.location.search).get("kembali"));
+      if (!ignore && tujuan) setKembali(tujuan);
     })();
     return () => {
       ignore = true;
@@ -87,6 +94,15 @@ export default function WalletPage() {
         title="Wallet"
         description="Saldo kredit untuk membeli Learning Analytics (hasil analisis AI) — untuk pengguna paket gratis, atau saat jatah dari langganan kamu habis."
       />
+
+      {kembali && (
+        <Alert variant="info" className="flex flex-wrap items-center justify-between gap-3">
+          <span>Setelah saldo masuk, kembali ke hasil ujianmu untuk menjalankan Learning Analytics.</span>
+          <Link href={kembali} className={buttonClassName("secondary")}>
+            Kembali ke hasil ujian
+          </Link>
+        </Alert>
+      )}
 
       {error && <Alert variant="danger">{error}</Alert>}
 

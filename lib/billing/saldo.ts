@@ -25,6 +25,11 @@ export async function debitSaldoUntukAnalisis(params: {
   harga: number;
 }): Promise<boolean> {
   return prisma.$transaction(async (tx) => {
+    // Kunci per siswa sampai transaksi selesai: tanpa ini, dua debit yang hampir bersamaan (mis. dua percobaan
+    // dianalisis sekaligus lewat tombol Learning Analytics susulan) sama-sama membaca saldo yang sama sebelum salah
+    // satunya menulis, lalu keduanya lolos dan saldo jadi minus. Kunci tingkat-transaksi (xact) otomatis dilepas saat
+    // commit/rollback dan aman dipakai lewat PgBouncer mode transaksi.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${params.studentId}))`;
     const result = await tx.saldoTransaction.aggregate({
       where: { studentId: params.studentId, status: "berhasil" },
       _sum: { jumlah: true },

@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota, normalisasiModeAnalisis } from "@/lib/ai/auto-trigger-quota";
+import { tentukanPendanaanAttempt } from "@/lib/billing/pendanaan-la";
 import { tryStartProcessing, finishProcessing } from "@/lib/ai/analysis-guard";
 import { prosesSatuAnalisis } from "@/lib/ai/queue-worker";
 import type { Attempt } from "@prisma/client";
@@ -57,7 +58,7 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
 
     const pkg = await prisma.package.findUnique({
       where: { id: attempt.packageId },
-      select: { subjectId: true },
+      select: { subjectId: true, kategori: true },
     });
     if (!pkg) return;
 
@@ -84,7 +85,11 @@ export async function triggerAutoAnalysis(attempt: Attempt): Promise<void> {
       },
     });
     if (hasReachedAutoAnalysisQuota(usedCount, settings.aiAutoAnalysisMaxPerSubject)) {
-      return;
+      // Batas ini hanya untuk analisis yang dibiayai jatah gratis (keputusan user, 7 Okt 2026): siswa yang membayar
+      // dari saldo tidak dibatasi. Pemeriksaan sumber dana hanya dilakukan saat batas tercapai, jadi jalur normal
+      // tidak menambah query. Keputusan akhir tetap di lib/ai/queue-worker.ts.
+      const dana = await tentukanPendanaanAttempt(attempt, pkg);
+      if (dana.pendanaan !== "saldo") return;
     }
 
     // Mode "langsung" (DEFAULT, atur admin pusat di halaman Analisis AI Gagal):

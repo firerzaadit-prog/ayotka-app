@@ -2,8 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
-import { AnalisisAiTeaser } from "@/components/ai/analisis-teaser";
+import { LearningAnalyticsSiswa } from "@/components/ai/learning-analytics-siswa";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -12,6 +11,7 @@ import { RincianJawaban, type PerSoal } from "@/components/hasil/rincian-jawaban
 import { PetaKompetensiChart } from "@/components/hasil/peta-kompetensi-chart";
 import { DayaSerapIndikator } from "@/components/hasil/daya-serap-indikator";
 import type { LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
+import type { OpsiLaSusulan } from "@/lib/billing/learning-analytics";
 import { RankingBoardCard } from "@/components/hasil/ranking-board";
 import { RiwayatPercobaanCard } from "@/components/hasil/riwayat-percobaan-card";
 import type { PercobaanItem } from "@/lib/exam/percobaan";
@@ -43,6 +43,8 @@ type Hasil = {
   elemenScores: { elemenNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
   /** Daya serap per indikator resmi Kemendikdasmen; null/tidak ada bila tak ada soal berindikator resmi. */
   indikator?: LaporanIndikatorSiswa | null;
+  /** Opsi menjalankan Learning Analytics susulan (null bila server gagal menghitungnya: kartu tidak ditampilkan). */
+  laSusulan?: OpsiLaSusulan | null;
 };
 
 /**
@@ -169,11 +171,7 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         </Card>
       )}
 
-      {hasil.isFreeTrial && !hasil.analisisAiDiminta ? (
-        <AnalisisAiTeaser />
-      ) : (
-        <AnalisisAiPanel attemptId={id} canTrigger={false} />
-      )}
+      <LearningAnalyticsSiswa attemptId={id} laSusulan={hasil.laSusulan ?? null} />
 
       <div
         className="select-none"

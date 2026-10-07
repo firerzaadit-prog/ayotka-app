@@ -65,8 +65,25 @@ const FORMAT_TANGGAL = new Intl.DateTimeFormat("id-ID", {
  * analisis cuma dipicu manual jadi jarang ada banyak proses bersamaan
  * untuk satu attempt.
  */
-export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; canTrigger: boolean }) {
+export function AnalisisAiPanel({
+  attemptId,
+  canTrigger,
+  onStatus,
+  pesanErrorSiswa,
+}: {
+  attemptId: string;
+  canTrigger: boolean;
+  /** Dipanggil tiap kali status dari server diterima (dipakai halaman hasil siswa untuk kembali ke kartu bila analisis tidak jadi). */
+  onStatus?: (status: StatusResponse["status"]) => void;
+  /** Pengganti pesan galat untuk siswa (bawaan: minta siswa menghubungi admin pusat). */
+  pesanErrorSiswa?: string;
+}) {
   const [data, setData] = useState<StatusResponse | null>(null);
+  // Ref supaya callback yang berubah tiap render tidak memicu pengambilan ulang status.
+  const onStatusRef = useRef(onStatus);
+  useEffect(() => {
+    onStatusRef.current = onStatus;
+  }, [onStatus]);
   const [pollTick, setPollTick] = useState(0);
   const pollStartedAtRef = useRef<number | null>(null);
   const [messageIndex, setMessageIndex] = useState(0);
@@ -82,6 +99,7 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
         return;
       }
       setData(json);
+      onStatusRef.current?.(json.status);
     })();
     return () => {
       ignore = true;
@@ -205,7 +223,8 @@ export function AnalisisAiPanel({ attemptId, canTrigger }: { attemptId: string; 
         <Alert variant="danger">
           {canTrigger
             ? data.error
-            : "Analisis Learning Analytics belum berhasil diproses. Silakan hubungi admin pusat untuk memprosesnya kembali."}
+            : (pesanErrorSiswa ??
+              "Analisis Learning Analytics belum berhasil diproses. Silakan hubungi admin pusat untuk memprosesnya kembali.")}
         </Alert>
       )}
       {data.status === "ready" && (

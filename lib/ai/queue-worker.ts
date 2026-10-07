@@ -4,9 +4,8 @@ import { runAnalisisAi } from "@/lib/ai/analyze";
 import { tryStartProcessing, finishProcessing, setLastError, STALE_MS } from "@/lib/ai/analysis-guard";
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota } from "@/lib/ai/auto-trigger-quota";
-import { getAiKuotaRemaining } from "@/lib/billing/plan-fitur";
 import { debitSaldoUntukAnalisis, getHargaLearningAnalytics, kembalikanSaldoAnalisis } from "@/lib/billing/saldo";
-import { wasAttemptFreeTrial } from "@/lib/billing/entitlements";
+import { tentukanPendanaanAttempt } from "@/lib/billing/pendanaan-la";
 import { runWithRateLimit } from "@/lib/utils/rate-limited-dispatch";
 import type { AnalisisSumber } from "@prisma/client";
 
@@ -49,17 +48,28 @@ export async function prosesSatuAnalisis(attemptId: string): Promise<HasilProses
     });
     if (!pkg) return "dilewati";
 
-    const settings = await getAiAutoAnalysisSettings();
-    const freshCount = await prisma.attempt.count({
-      where: {
-        studentId: attempt.studentId,
-        aiAutoAnalysisAt: { not: null },
-        package: { subjectId: pkg.subjectId },
-      },
-    });
-    if (hasReachedAutoAnalysisQuota(freshCount, settings.aiAutoAnalysisMaxPerSubject)) {
-      console.log(`[queue-worker] jatah terlampaui saat diproses, skip attempt ${attemptId}`);
-      return "dilewati";
+    // Sumber dana ditentukan SEBELUM batas jatah dicek, karena batas itu hanya berlaku untuk yang dibiayai jatah
+    // gratis (lihat bawah). Aturannya (Try Out Nasional dibundel; percobaan gratis tidak punya jatah paket dan selalu
+    // dibayar saldo; selain itu jatah paket dulu, saldo sesudahnya) ada di satu tempat bersama pemicu otomatis dan
+    // tombol Learning Analytics susulan: lib/billing/pendanaan-la.ts.
+    const dana = await tentukanPendanaanAttempt(attempt, { subjectId: pkg.subjectId, kategori: pkg.kategori });
+
+    // Batas "maksimal N analisis OTOMATIS per siswa per mapel" hanya untuk yang dibiayai jatah gratis (keputusan user,
+    // 7 Okt 2026): siswa yang membayar dari saldo tidak dibatasi karena biaya Gemini sudah tertutup harga LA. Dulu
+    // batas ini juga menahan LA berbayar, jadi analisis yang sudah dipesan bisa terlewat diam-diam.
+    if (dana.pendanaan !== "saldo") {
+      const settings = await getAiAutoAnalysisSettings();
+      const freshCount = await prisma.attempt.count({
+        where: {
+          studentId: attempt.studentId,
+          aiAutoAnalysisAt: { not: null },
+          package: { subjectId: pkg.subjectId },
+        },
+      });
+      if (hasReachedAutoAnalysisQuota(freshCount, settings.aiAutoAnalysisMaxPerSubject)) {
+        console.log(`[queue-worker] jatah terlampaui saat diproses, skip attempt ${attemptId}`);
+        return "dilewati";
+      }
     }
 
     // Try Out Nasional selalu dibundel (sumber "kuota", tidak pernah didebit)
@@ -68,31 +78,20 @@ export async function prosesSatuAnalisis(attemptId: string): Promise<HasilProses
     // Harga yang didebit di panggilan INI (null = tidak ada debit) - dipakai
     // untuk mengembalikan saldo kalau analisisnya gagal di bawah.
     let hargaDidebit: number | null = null;
-    if (pkg.kategori !== "nasional") {
-      // Percobaan gratis (free trial) tidak punya jatah LA dari paket sama
-      // sekali - LA-nya selalu dibayar saldo (sudah dipastikan cukup saat
-      // ujian dimulai, lihat app/api/siswa/attempts). Dicek lewat
-      // wasAttemptFreeTrial (bukan entitlement SEKARANG) karena entitlement
-      // bisa saja sudah berakhir/berganti sejak attempt dimulai.
-      const freeTrial = await wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt);
-      const kuota = freeTrial ? null : await getAiKuotaRemaining(attempt.studentId, pkg.subjectId);
-      if (kuota && kuota.sisa > 0) {
-        sumber = "kuota";
-      } else {
-        const harga = await getHargaLearningAnalytics();
-        const debited = await debitSaldoUntukAnalisis({
-          studentId: attempt.studentId,
-          attemptId: attempt.id,
-          subjectNama: pkg.subject.nama,
-          harga,
-        });
-        if (!debited) {
-          console.warn(`[queue-worker] saldo tidak cukup saat diproses untuk attempt ${attemptId}, LA dilewati`);
-          return "dilewati";
-        }
-        sumber = "saldo";
-        hargaDidebit = harga;
+    if (dana.pendanaan === "saldo") {
+      const harga = await getHargaLearningAnalytics();
+      const debited = await debitSaldoUntukAnalisis({
+        studentId: attempt.studentId,
+        attemptId: attempt.id,
+        subjectNama: pkg.subject.nama,
+        harga,
+      });
+      if (!debited) {
+        console.warn(`[queue-worker] saldo tidak cukup saat diproses untuk attempt ${attemptId}, LA dilewati`);
+        return "dilewati";
       }
+      sumber = "saldo";
+      hargaDidebit = harga;
     }
 
     try {
