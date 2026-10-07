@@ -6,7 +6,7 @@
  * Aturan:
  * - Nilai RESMI seorang siswa = percobaan PERTAMA-nya pada penugasan ini (urut mulaiAt), sama dengan aturan rapor
  *   attempt pertama. Percobaan berikutnya (kalau paketnya mengizinkan mengulang) tidak mengubah nilai maupun
- *   peringkat; hanya dihitung di `jumlahPercobaan`.
+ *   peringkat, tetapi TIDAK disembunyikan: semuanya tercantum di `percobaan` (riwayat lengkap) dan `jumlahPercobaan`.
  * - Peringkat memakai gaya olahraga: nilai kembar berbagi peringkat dan peringkat berikutnya melompat (1, 2, 2, 4).
  * - Statistik (rata-rata, tertinggi, terendah, median, sebaran) hanya dari siswa yang percobaan resminya sudah
  *   berakhir (selesai atau waktu habis) dan punya nilai. Yang masih mengerjakan atau belum mulai tidak dihitung.
@@ -41,6 +41,22 @@ export const LABEL_STATUS_PESERTA: Record<StatusPeserta, string> = {
   belum: "Belum mengerjakan",
 };
 
+/** Satu percobaan siswa pada penugasan ini (SEMUA percobaan ditampilkan; hanya yang pertama yang menjadi nilai resmi). */
+export type RincianPercobaan = {
+  attemptId: string;
+  /** Percobaan ke-N menurut waktu mulai (mulai dari 1). */
+  nomor: number;
+  /** Percobaan pertama = nilai resmi untuk rekap dan peringkat. */
+  resmi: boolean;
+  status: Exclude<StatusPeserta, "belum">;
+  /** Hanya bila percobaan sudah berakhir (selesai atau waktu habis). */
+  skor: number | null;
+  durasiMenit: number | null;
+  mulaiAt: Date | string;
+  selesaiAt: Date | string | null;
+  tabSwitchCount: number;
+};
+
 export type BarisRekap = PesertaRekap & {
   status: StatusPeserta;
   /** Percobaan resmi (yang pertama); null bila belum pernah mulai. */
@@ -52,6 +68,8 @@ export type BarisRekap = PesertaRekap & {
   tabSwitchCount: number;
   /** Jumlah semua percobaan siswa ini pada penugasan (resmi + pengulangan). */
   jumlahPercobaan: number;
+  /** SEMUA percobaan siswa ini, dari yang pertama; kosong bila belum pernah mulai. */
+  percobaan: RincianPercobaan[];
 };
 
 export type SebaranNilai = { label: string; dari: number; sampai: number; jumlah: number };
@@ -110,23 +128,35 @@ export function susunRekapBersama(peserta: PesertaRekap[], attempts: AttemptReka
 
   const baris: BarisRekap[] = peserta.map((p) => {
     const semua = [...(perSiswa.get(p.studentId) ?? [])].sort((x, y) => waktu(x.mulaiAt) - waktu(y.mulaiAt));
-    const resmi = semua[0];
+    const percobaan = semua.map((a, i): RincianPercobaan => {
+      const status = statusDariAttempt(a) as RincianPercobaan["status"];
+      const berakhir = status === "selesai" || status === "waktu_habis";
+      return {
+        attemptId: a.id,
+        nomor: i + 1,
+        resmi: i === 0,
+        status,
+        skor: berakhir && a.skorAkhir != null ? a.skorAkhir : null,
+        durasiMenit: berakhir && a.selesaiAt ? Math.max(0, Math.round((waktu(a.selesaiAt) - waktu(a.mulaiAt)) / 60_000)) : null,
+        mulaiAt: a.mulaiAt,
+        selesaiAt: a.selesaiAt,
+        tabSwitchCount: a.tabSwitchCount,
+      };
+    });
+    const resmi = percobaan[0];
     if (!resmi) {
-      return { ...p, status: "belum", attemptId: null, skor: null, peringkat: null, durasiMenit: null, tabSwitchCount: 0, jumlahPercobaan: 0 };
+      return { ...p, status: "belum", attemptId: null, skor: null, peringkat: null, durasiMenit: null, tabSwitchCount: 0, jumlahPercobaan: 0, percobaan: [] };
     }
-    const status = statusDariAttempt(resmi);
-    const berakhir = status === "selesai" || status === "waktu_habis";
-    const durasi =
-      berakhir && resmi.selesaiAt ? Math.max(0, Math.round((waktu(resmi.selesaiAt) - waktu(resmi.mulaiAt)) / 60_000)) : null;
     return {
       ...p,
-      status,
-      attemptId: resmi.id,
-      skor: berakhir && resmi.skorAkhir != null ? resmi.skorAkhir : null,
+      status: resmi.status,
+      attemptId: resmi.attemptId,
+      skor: resmi.skor,
       peringkat: null,
-      durasiMenit: durasi,
+      durasiMenit: resmi.durasiMenit,
       tabSwitchCount: resmi.tabSwitchCount,
-      jumlahPercobaan: semua.length,
+      jumlahPercobaan: percobaan.length,
+      percobaan,
     };
   });
 

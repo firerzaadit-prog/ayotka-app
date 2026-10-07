@@ -6,7 +6,6 @@ import { RichText } from "@/components/soal/rich-text";
 import { TutorAiChat, type SoalChat } from "@/components/tutor/tutor-ai-chat";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -80,16 +79,14 @@ function keSoalChat(s: PerSoal, nomor: number): SoalChat {
  * Diekstrak dari app/siswa/hasil/[id]/page.tsx (Tiket 4.10) supaya bisa
  * dipakai juga di halaman detail siswa admin pusat - satu tempat untuk
  * aturan render per format soal (pg/pg_kompleks/pg_kategori), bukan
- * disalin dua kali. canShowPembahasan datang apa adanya dari buildHasil()
- * (sama persis dipakai PDF rapor) - bukan gerbang izin per-viewer.
+ * disalin dua kali. Kunci jawaban dan pembahasan SELALU ditampilkan (keputusan user 25 Sep 2026, ditegaskan 8 Okt
+ * 2026): tidak ada lagi gerbang "menunggu jendela ujian ditutup" - lihat lib/exam/hasil.ts.
  */
 export function RincianJawaban({
   perSoal,
-  canShowPembahasan,
   tutor,
 }: {
   perSoal: PerSoal[];
-  canShowPembahasan: boolean;
   tutor?: TutorProps;
 }) {
   // Drawer Tutor yang pernah dibuka tetap terpasang (tidak digambar saat tertutup) supaya percakapan dan permintaan
@@ -124,11 +121,6 @@ export function RincianJawaban({
 
   return (
     <div>
-      {!canShowPembahasan && (
-        <Alert variant="warning" className="mb-3">
-          Pembahasan lengkap akan tersedia setelah jendela ujian kelasnya ditutup.
-        </Alert>
-      )}
       <div className="flex flex-col gap-3">
         {pageSoal.map((s, i) => (
           <Card key={s.questionId}>
@@ -143,7 +135,7 @@ export function RincianJawaban({
             <div className="mb-2 text-sm">
               <RichText text={s.teks} />
             </div>
-            {canShowPembahasan && s.options && s.options.length > 0 && (() => {
+            {s.options && s.options.length > 0 && (() => {
               const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
               const selectedId = jawaban?.option_id;
               const selectedIds = new Set(jawaban?.option_ids ?? []);
@@ -176,7 +168,7 @@ export function RincianJawaban({
                 </ul>
               );
             })()}
-            {canShowPembahasan && s.statements && s.statements.length > 0 && (() => {
+            {s.statements && s.statements.length > 0 && (() => {
               const jawaban = s.jawabanJson as Record<string, string> | null;
               return (
                 <ul className="mb-2 flex flex-col gap-1 text-sm">
@@ -198,13 +190,13 @@ export function RincianJawaban({
                 </ul>
               );
             })()}
-            {canShowPembahasan && s.pembahasan && (
+            {s.pembahasan && (
               <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
                 <span className="font-medium">Pembahasan: </span>
                 <RichText text={s.pembahasan} />
               </div>
             )}
-            {canShowPembahasan && tutor?.aktif && (
+            {tutor?.aktif && (
               <div className="mt-3 flex justify-end">
                 <button
                   type="button"

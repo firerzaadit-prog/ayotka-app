@@ -10,6 +10,7 @@ const m = vi.hoisted(() => ({
   schoolFindUnique: vi.fn(),
   packageFindFirst: vi.fn(),
   packageFindMany: vi.fn(),
+  packageFindUnique: vi.fn(),
   assignmentCreate: vi.fn(),
   assignmentFindMany: vi.fn(),
   assignmentFindUnique: vi.fn(),
@@ -28,7 +29,7 @@ vi.mock("@/lib/students/create", () => ({ hitungKursiTerpakai: m.hitungKursiTerp
 vi.mock("@/lib/db/prisma", () => ({
   prisma: {
     school: { findUnique: m.schoolFindUnique },
-    package: { findFirst: m.packageFindFirst, findMany: m.packageFindMany },
+    package: { findFirst: m.packageFindFirst, findMany: m.packageFindMany, findUnique: m.packageFindUnique },
     assignment: { create: m.assignmentCreate, findMany: m.assignmentFindMany, findUnique: m.assignmentFindUnique, update: m.assignmentUpdate },
     attempt: { findMany: m.attemptFindMany },
     periodeLangganan: { findMany: m.periodeFindMany },
@@ -39,7 +40,7 @@ vi.mock("@/lib/db/prisma", () => ({
 import { GET, POST } from "@/app/api/admin-sekolah/assignments/route";
 import { DELETE, PATCH } from "@/app/api/admin-sekolah/assignments/[id]/route";
 import { GET as GET_PAKET } from "@/app/api/admin-sekolah/paket-tersedia/route";
-import { wherePaketTersedia } from "@/lib/exam/paket-tersedia";
+import { PESAN_NASIONAL_ADMIN_PUSAT, wherePaketTersedia } from "@/lib/exam/paket-tersedia";
 
 const SEKARANG = new Date("2026-10-08T00:00:00.000Z");
 const SEKOLAH = "sekolah-1";
@@ -107,8 +108,31 @@ describe("POST /api/admin-sekolah/assignments - membuat Try Out Bersama", () => 
     m.packageFindFirst.mockResolvedValue(null);
     const res = await POST(req("/x", "POST", body));
     expect(res.status).toBe(404);
-    expect(m.packageFindFirst).toHaveBeenCalledWith({ where: { id: PAKET, ...wherePaketTersedia(SEKOLAH) } });
+    expect(m.packageFindFirst).toHaveBeenCalledWith({ where: { id: PAKET, ...wherePaketTersedia(SEKOLAH, { termasukNasional: true }) } });
     expect(m.assignmentCreate).not.toHaveBeenCalled();
+  });
+
+  it("Try Out Nasional: admin SEKOLAH ditolak 403 NASIONAL_ADMIN_PUSAT dan tidak ada yang dibuat", async () => {
+    m.packageFindFirst.mockResolvedValue({ id: PAKET, jenjang: "SMP", kategori: "nasional" });
+    const res = await POST(req("/x", "POST", body));
+    expect(res.status).toBe(403);
+    const json = await res.json();
+    expect(json.code).toBe("NASIONAL_ADMIN_PUSAT");
+    expect(json.error).toBe(PESAN_NASIONAL_ADMIN_PUSAT);
+    expect(m.assignmentCreate).not.toHaveBeenCalled();
+  });
+
+  it("Try Out Nasional: admin PUSAT (mengelola sekolah) boleh menjadwalkannya", async () => {
+    m.requireRole.mockResolvedValue({ id: "pusat-1", role: "admin_pusat" });
+    m.packageFindFirst.mockResolvedValue({ id: PAKET, jenjang: "SMP", kategori: "nasional" });
+    const res = await POST(req("/x", "POST", body));
+    expect(res.status).toBe(201);
+    expect(m.assignmentCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("paket mandiri tetap boleh dijadwalkan admin sekolah (aturan Nasional tidak mengganggu)", async () => {
+    m.packageFindFirst.mockResolvedValue({ id: PAKET, jenjang: "SMP", kategori: "mandiri" });
+    expect((await POST(req("/x", "POST", body))).status).toBe(201);
   });
 
   it("paket jenjang lain -> 400 JENJANG_BEDA dengan pesan yang menyebut kedua jenjang", async () => {
@@ -220,6 +244,15 @@ describe("GET /api/admin-sekolah/paket-tersedia", () => {
     expect(json.packages[0]).not.toHaveProperty("ownerType");
   });
 
+  it("admin sekolah TIDAK melihat paket nasional; admin pusat (mengelola sekolah) melihatnya", async () => {
+    m.packageFindMany.mockResolvedValue([]);
+    await GET_PAKET();
+    expect(m.packageFindMany.mock.calls[0]![0].where).toMatchObject({ kategori: "mandiri" });
+    m.requireRole.mockResolvedValue({ id: "pusat-1", role: "admin_pusat" });
+    await GET_PAKET();
+    expect(m.packageFindMany.mock.calls[1]![0].where).not.toHaveProperty("kategori");
+  });
+
   it("sekolah tidak ditemukan -> 404; bukan admin -> 403", async () => {
     m.schoolFindUnique.mockResolvedValue(null);
     expect((await GET_PAKET()).status).toBe(404);
@@ -242,6 +275,25 @@ describe("PATCH /api/admin-sekolah/assignments/[id] - ubah jadwal / aktifkan", (
   beforeEach(() => {
     m.assignmentFindUnique.mockResolvedValue(sebelum);
     m.assignmentUpdate.mockImplementation(async ({ data }: { data: object }) => ({ ...sebelum, ...data }));
+    m.packageFindUnique.mockResolvedValue({ kategori: "mandiri" });
+  });
+
+  it("penugasan Try Out Nasional: admin SEKOLAH tidak boleh mengubah jadwalnya (403), admin pusat boleh", async () => {
+    m.packageFindUnique.mockResolvedValue({ kategori: "nasional" });
+    const ditolak = await ubah({ selesai: "2026-10-09T12:00" });
+    expect(ditolak.status).toBe(403);
+    expect((await ditolak.json()).code).toBe("NASIONAL_ADMIN_PUSAT");
+    expect(m.assignmentUpdate).not.toHaveBeenCalled();
+
+    m.requireRole.mockResolvedValue({ id: "pusat-1", role: "admin_pusat" });
+    expect((await ubah({ selesai: "2026-10-09T12:00" })).status).toBe(200);
+    expect(m.assignmentUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("penugasan nasional lama: admin sekolah tetap boleh menonaktifkannya (tanpa memeriksa paket)", async () => {
+    m.packageFindUnique.mockResolvedValue({ kategori: "nasional" });
+    expect((await ubah({ isActive: false })).status).toBe(200);
+    expect(m.packageFindUnique).not.toHaveBeenCalled();
   });
 
   it("penugasan sekolah lain atau tidak ada -> 404 dan tidak diubah", async () => {

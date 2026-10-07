@@ -8,6 +8,7 @@ import { wherePaketTersedia } from "@/lib/exam/paket-tersedia";
 import { periksaJadwalPenugasan } from "@/lib/exam/jadwal-penugasan";
 import { ambilPeriodeSekolah } from "@/lib/billing/periode-sekolah";
 import { hitungKursiTerpakai } from "@/lib/students/create";
+import { PESAN_NASIONAL_ADMIN_PUSAT } from "@/lib/exam/paket-tersedia";
 
 /** Tiket 4.2: Try Out Bersama (penugasan ujian) oleh admin sekolah - pilih paket, jendela waktu, target seluruh sekolah. */
 export async function GET() {
@@ -89,9 +90,16 @@ export async function POST(request: Request) {
 
     // Aturan "paket mana yang boleh" sama persis dengan daftar pilihan (lib/exam/paket-tersedia.ts); jenjang
     // diperiksa terpisah supaya paket jenjang lain mendapat pesan yang jelas, bukan "tidak ditemukan".
-    const pkg = await prisma.package.findFirst({ where: { id: parsed.data.packageId, ...wherePaketTersedia(schoolId) } });
+    // termasukNasional: paket nasional dicari juga supaya admin sekolah mendapat penjelasan yang jelas (403), bukan
+    // "tidak ditemukan"; hanya admin pusat yang boleh menjalankannya.
+    const pkg = await prisma.package.findFirst({
+        where: { id: parsed.data.packageId, ...wherePaketTersedia(schoolId, { termasukNasional: true }) },
+    });
     if (!pkg) {
         return NextResponse.json({ error: "Paket soal tidak ditemukan atau tidak tersedia." }, { status: 404 });
+    }
+    if (pkg.kategori === "nasional" && user.role !== "admin_pusat") {
+        return NextResponse.json({ error: PESAN_NASIONAL_ADMIN_PUSAT, code: "NASIONAL_ADMIN_PUSAT" }, { status: 403 });
     }
     if (pkg.jenjang !== school.jenjang) {
         return NextResponse.json(

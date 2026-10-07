@@ -313,6 +313,9 @@ export default function UjianPage() {
                 Belum ada paket terbit yang tersedia untuk sekolahmu (hanya paket jenjang {jenjangSekolah ?? "sekolah"} yang ditampilkan).
               </p>
             )}
+            <p className="mt-1 text-xs text-slate-500" data-catatan-nasional>
+              Try Out Nasional dijalankan oleh admin pusat dan tidak tersedia di sini.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

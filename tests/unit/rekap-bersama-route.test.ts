@@ -172,7 +172,7 @@ describe("GET /api/admin-sekolah/assignments/[id]/rekap/export", () => {
 
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load((await res.arrayBuffer()) as ArrayBuffer);
-    expect(wb.worksheets.map((w) => w.name)).toEqual(["Ringkasan", "Hasil Siswa", "Belum Mengerjakan"]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Ringkasan", "Hasil Siswa", "Semua Percobaan", "Belum Mengerjakan"]);
     const hasil = wb.getWorksheet("Hasil Siswa")!;
     expect((hasil.getRow(2).values as unknown[]).slice(1, 3)).toEqual([1, "Dina"]);
     const belum = wb.getWorksheet("Belum Mengerjakan")!;

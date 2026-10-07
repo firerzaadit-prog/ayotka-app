@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { getOwnerScope } from "@/lib/packages/scope";
+import { PESAN_NASIONAL_ADMIN_PUSAT } from "@/lib/exam/paket-tersedia";
 import { adaWaktuTidakValid, packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
 import {
   adalahPelanggaranUnik,
@@ -75,6 +76,12 @@ export async function POST(request: Request) {
 
   const { blueprintId, visibilityMode, visibilitySchoolIds, bukaMulai, bukaSelesai, urutanSeri, ...rest } =
     parsed.data;
+
+  // Try Out Nasional hanya dibuat dan dijalankan admin pusat (menu Bank Soal sekolah tidak menawarkannya, dan ini
+  // menutup jalur lewat permintaan langsung ke API).
+  if (rest.kategori === "nasional" && user.role !== "admin_pusat") {
+    return NextResponse.json({ error: PESAN_NASIONAL_ADMIN_PUSAT, code: "NASIONAL_ADMIN_PUSAT" }, { status: 403 });
+  }
 
   const bukaMulaiDate = toNullableDate(bukaMulai);
   const bukaSelesaiDate = toNullableDate(bukaSelesai);

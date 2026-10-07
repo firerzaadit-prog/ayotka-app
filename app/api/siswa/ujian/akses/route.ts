@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { getActiveAssignmentsFor, getSelfSelectPackagesFor } from "@/lib/exam/visibility";
 import { statusSeriMandiri } from "@/lib/exam/seri-mandiri";
 import { getRingkasanAksesUjian } from "@/lib/billing/akses-ujian";
+import { nomorPercobaanById } from "@/lib/exam/percobaan";
 
 /**
  * Semua yang dibutuhkan halaman instruksi (app/siswa/(shell)/ujian/mulai) untuk SATU
@@ -86,6 +87,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Ujian tidak ditemukan." }, { status: 404 });
   }
 
+  // SEMUA percobaan siswa ini pada ujian/paket yang sama (satu kelompok, seperti riwayat di halaman hasil): halaman
+  // petunjuk menampilkannya supaya siswa melihat percobaan sebelumnya sebelum mengerjakan lagi.
+  const percobaan = await prisma.attempt.findMany({
+    where: assignmentId
+      ? { studentId: student.id, assignmentId }
+      : { studentId: student.id, packageId: packageId!, assignmentId: null },
+    orderBy: { mulaiAt: "asc" },
+    select: { id: true, packageId: true, assignmentId: true, status: true, skorAkhir: true, mulaiAt: true, selesaiAt: true },
+  });
+  const nomor = nomorPercobaanById(percobaan.map((a) => ({ ...a, studentId: student.id })));
+  const riwayat = percobaan.map((a) => ({
+    id: a.id,
+    percobaanKe: nomor.get(a.id) ?? 1,
+    status: a.status,
+    skorAkhir: a.skorAkhir,
+    mulaiAt: a.mulaiAt,
+  }));
+
   const ringkasan = await getRingkasanAksesUjian(student, subject);
-  return NextResponse.json({ ...ringkasan, info }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ ...ringkasan, info, riwayat }, { headers: { "Cache-Control": "no-store" } });
 }

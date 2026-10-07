@@ -11,6 +11,7 @@ import { ListSkeleton, PageSkeleton } from "@/components/ui/skeleton";
 import { IconClipboardCheck, IconCalendar } from "@/components/ui/empty-state-icons";
 import { formatWIBHariTanggal, formatWIBHariTanggalJam } from "@/lib/utils/datetime";
 import { formatHitungMundur } from "@/lib/utils/hitung-mundur";
+import { RiwayatPercobaanKartu, type ItemRiwayatKartu } from "@/components/siswa/riwayat-percobaan-kartu";
 import { getMapelIcon } from "@/components/icons/mapel-icons";
 
 type KategoriTO = "nasional" | "mandiri";
@@ -55,6 +56,8 @@ type AttemptSummary = {
   status: "berjalan" | "selesai" | "kedaluwarsa" | "paused";
   skorAkhir: number | null;
   mulaiAt: string;
+  /** Percobaan ke-N pada ujian/paket yang sama; dihitung server dari seluruh riwayat siswa. */
+  percobaanKe: number;
 };
 
 type ActivePlanInfo = {
@@ -188,6 +191,11 @@ function UjianContent() {
     if (adaYangSudahDibuka && Date.now() - terakhirMuatRef.current > 3000) void muat().catch(() => undefined);
   }, [adaYangSudahDibuka, jamServer, muat]);
 
+  // SEMUA percobaan siswa pada satu ujian terjadwal (assignmentId) atau paket mandiri/nasional (packageId, tanpa penugasan).
+  function riwayatUntuk(assignmentId: string | null, packageId: string): ItemRiwayatKartu[] {
+    return attempts.filter((a) => (assignmentId ? a.assignmentId === assignmentId : a.packageId === packageId && !a.assignmentId));
+  }
+
   function attemptFor(assignmentId: string | null, packageId: string) {
     return attempts.find((a) =>
       assignmentId ? a.assignmentId === assignmentId : a.packageId === packageId && !a.assignmentId,
@@ -288,26 +296,29 @@ function UjianContent() {
               const attempt = attemptFor(a.id, "");
               const disabled = attempt?.status === "paused";
               return (
-                <Card key={a.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <MapelIconBadge nama={a.package.subject.nama} />
-                    <div>
-                      <p className="font-semibold text-slate-900">{a.package.nama}</p>
-                      <p className="text-xs text-slate-500">
-                        {a.package.subject.nama} · {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit ·{" "}
-                        <span className="font-medium text-indigo-700">Buka s.d. {formatWIBHariTanggalJam(a.selesai)}</span>
-                      </p>
+                <Card key={a.id} className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <MapelIconBadge nama={a.package.subject.nama} />
+                      <div>
+                        <p className="font-semibold text-slate-900">{a.package.nama}</p>
+                        <p className="text-xs text-slate-500">
+                          {a.package.subject.nama} · {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit ·{" "}
+                          <span className="font-medium text-indigo-700">Buka s.d. {formatWIBHariTanggalJam(a.selesai)}</span>
+                        </p>
+                      </div>
                     </div>
+                    {disabled ? (
+                      <span className="rounded-xl bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-800">
+                        {actionLabel(attempt)}
+                      </span>
+                    ) : (
+                      <Link href={actionHref(attempt, a.id, "")} className={buttonClassName("primary")}>
+                        {actionLabel(attempt)}
+                      </Link>
+                    )}
                   </div>
-                  {disabled ? (
-                    <span className="rounded-xl bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-800">
-                      {actionLabel(attempt)}
-                    </span>
-                  ) : (
-                    <Link href={actionHref(attempt, a.id, "")} className={buttonClassName("primary")}>
-                      {actionLabel(attempt)}
-                    </Link>
-                  )}
+                  <RiwayatPercobaanKartu items={riwayatUntuk(a.id, "")} />
                 </Card>
               );
             })}
@@ -613,7 +624,7 @@ function UjianContent() {
               return (
                 <Card
                   key={p.id}
-                  className="flex flex-col gap-4 p-4 transition-all hover:border-slate-300 hover:shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
+                  className="flex flex-col gap-4 p-4 transition-all hover:border-slate-300 hover:shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:p-5"
                 >
                   <div className="flex items-start gap-3.5">
                     <MapelIconBadge nama={p.subject.nama} />
@@ -703,6 +714,8 @@ function UjianContent() {
                       </Link>
                     )}
                   </div>
+                  {/* Riwayat SEMUA percobaan paket ini: mengerjakan ulang tidak menyembunyikan percobaan sebelumnya. */}
+                  <RiwayatPercobaanKartu items={riwayatUntuk(null, p.id)} className="w-full sm:basis-full" />
                 </Card>
               );
             })}

@@ -119,8 +119,9 @@ export function PembahasanEditor({ packageId, basePath }: { packageId: string; b
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-900">Pembahasan: {data.package.nama}</h1>
         <p className="text-sm text-slate-500">
-          Isi pembahasan tiap soal di bawah lalu klik <strong>Simpan</strong>. Pembahasan tampil ke siswa
-          langsung setelah mereka submit ujian, dan ikut tercetak di PDF rapor.
+          Isi pembahasan tiap soal di bawah lalu klik <strong>Simpan</strong>. Pembahasan dan kunci jawaban tampil
+          langsung ke SEMUA siswa begitu mereka selesai mengerjakan (Try Out Mandiri, Try Out Nasional, dan Try Out
+          Bersama sekolah), tanpa menunggu jendela ujian ditutup, dan ikut tercetak di PDF rapor.
         </p>
       </div>
 

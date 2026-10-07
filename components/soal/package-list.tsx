@@ -296,7 +296,8 @@ export function PackageList({ basePath }: { basePath: string }) {
               </select>
               <p className="mt-1 text-xs text-slate-500">
                 Try Out Nasional otomatis menyertakan Analisis Learning Analytics dan dihitung ke jatah Try Out
-                Nasional langganan siswa - pastikan isi jendela &quot;Buka mulai/selesai&quot; di bawah.
+                Nasional langganan siswa - pastikan isi jendela &quot;Buka mulai/selesai&quot; di bawah. Try Out Nasional
+                hanya dapat dibuat dan dijalankan oleh admin pusat; sekolah tidak bisa menjadwalkannya sendiri.
               </p>
             </div>
             <label className="flex items-center gap-2 text-sm text-slate-700">

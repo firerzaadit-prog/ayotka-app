@@ -57,13 +57,11 @@ export async function buildHasil(attempt: Attempt) {
     wasAttemptFreeTrial(attempt.studentId, attempt.mulaiAt),
   ]);
 
-  // Keputusan user (25 Sep 2026): pembahasan sekarang SELALU tampil langsung
-  // begitu attempt selesai/kedaluwarsa - dulu digerbang assignment.selesai
-  // (siswa sekolah baru lihat setelah jendela ujian ditutup), disederhanakan
-  // untuk meminimalkan risiko bug dari gerbang jadwal itu. buildHasil cuma
-  // dipanggil untuk attempt yang sudah difinalisasi (lihat pemanggilnya),
-  // jadi selalu true di sini.
-  const canShowPembahasan = true;
+  // Keputusan user (25 Sep 2026, ditegaskan 8 Okt 2026): pembahasan dan kunci jawaban SELALU tampil langsung begitu
+  // percobaan selesai/kedaluwarsa, untuk SEMUA siswa dan semua jenis ujian (Try Out Mandiri, Try Out Nasional, dan
+  // Try Out Bersama sekolah) - tidak menunggu jendela ujian ditutup. Dulu digerbang assignment.selesai; gerbang itu
+  // sudah dihapus seluruhnya (tidak ada lagi cabang "pembahasan disembunyikan"). buildHasil cuma dipanggil untuk
+  // percobaan yang sudah difinalisasi (lihat pemanggilnya).
 
   // Urutan+label opsi & baris di sini HARUS sama persis dengan yang dilihat
   // siswa saat mengerjakan (lihat app/api/siswa/attempts/[id]/route.ts,
@@ -85,23 +83,19 @@ export async function buildHasil(attempt: Attempt) {
       jawabanJson: a.jawabanJson,
       skor: a.skor,
       skorMaks: a.skorMaks,
-      ...(canShowPembahasan
-        ? {
-          pembahasan: q.pembahasan,
-          categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
-          options: orderedOptions.map((o, idx) => ({
-            id: o.id,
-            label: String.fromCharCode(65 + idx),
-            teks: o.teks,
-            isCorrect: o.isCorrect,
-          })),
-          statements: orderedStatements.map((s) => ({
-            id: s.id,
-            teks: s.teks,
-            correctLabel: q.categories.find((c) => c.id === s.correctCategoryId)?.label ?? "-",
-          })),
-        }
-        : {}),
+      pembahasan: q.pembahasan,
+      categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
+      options: orderedOptions.map((o, idx) => ({
+        id: o.id,
+        label: String.fromCharCode(65 + idx),
+        teks: o.teks,
+        isCorrect: o.isCorrect,
+      })),
+      statements: orderedStatements.map((s) => ({
+        id: s.id,
+        teks: s.teks,
+        correctLabel: q.categories.find((c) => c.id === s.correctCategoryId)?.label ?? "-",
+      })),
     };
   });
 
@@ -180,7 +174,9 @@ export async function buildHasil(attempt: Attempt) {
     },
     package: { nama: pkg.nama },
     siswa: { nama: student.nama, idSamar: maskIdentifier(student.nisn, attempt.id) },
-    canShowPembahasan,
+    // Selalu true. Tetap dikirim hanya demi halaman lama yang masih terbuka di peramban siswa saat versi baru
+    // dipasang (yang membaca bidang ini); kode baru tidak lagi memakainya.
+    canShowPembahasan: true as const,
     isFreeTrial,
     // Siswa gratis yang MENYALAKAN Learning Analytics (dibayar saldo) tetap berhak
     // melihat hasil analisisnya - teaser blur hanya untuk yang tidak memintanya.

@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 const m = vi.hoisted(() => ({
   requireRole: vi.fn(),
   studentFindFirst: vi.fn(),
+  attemptFindMany: vi.fn(),
   getSelfSelectPackagesFor: vi.fn(),
   getActiveAssignmentsFor: vi.fn(),
   statusSeriMandiri: vi.fn(),
@@ -12,7 +13,9 @@ const m = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth/session", () => ({ requireRole: m.requireRole }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { student: { findFirst: m.studentFindFirst } } }));
+vi.mock("@/lib/db/prisma", () => ({
+  prisma: { student: { findFirst: m.studentFindFirst }, attempt: { findMany: m.attemptFindMany } },
+}));
 vi.mock("@/lib/exam/visibility", () => ({
   getSelfSelectPackagesFor: m.getSelfSelectPackagesFor,
   getActiveAssignmentsFor: m.getActiveAssignmentsFor,
@@ -56,6 +59,55 @@ beforeEach(() => {
   m.getActiveAssignmentsFor.mockResolvedValue([]);
   m.statusSeriMandiri.mockResolvedValue({ terkunci: false });
   m.getRingkasanAksesUjian.mockResolvedValue(RINGKASAN);
+  m.attemptFindMany.mockResolvedValue([]);
+});
+
+describe("GET /api/siswa/ujian/akses - riwayat SEMUA percobaan di halaman petunjuk", () => {
+  const percobaan = (id: string, jam: number, status: string, skorAkhir: number | null, assignmentId: string | null = null) => ({
+    id,
+    packageId: "paket-a",
+    assignmentId,
+    status,
+    skorAkhir,
+    mulaiAt: new Date(Date.UTC(2026, 9, 8, jam)),
+    selesaiAt: new Date(Date.UTC(2026, 9, 8, jam, 30)),
+  });
+
+  it("paket: memuat semua percobaan siswa itu pada paket itu (tanpa penugasan), urut dari yang pertama, dengan nomor percobaan", async () => {
+    m.attemptFindMany.mockResolvedValue([percobaan("a1", 1, "selesai", 60), percobaan("a2", 3, "kedaluwarsa", 80), percobaan("a3", 5, "berjalan", null)]);
+    const body = await (await GET(req("packageId=paket-a"))).json();
+    expect(body.riwayat.map((r: { id: string; percobaanKe: number; status: string; skorAkhir: number | null }) => [r.id, r.percobaanKe, r.status, r.skorAkhir])).toEqual([
+      ["a1", 1, "selesai", 60],
+      ["a2", 2, "kedaluwarsa", 80],
+      ["a3", 3, "berjalan", null],
+    ]);
+    expect(m.attemptFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { studentId: "siswa-1", packageId: "paket-a", assignmentId: null },
+        orderBy: { mulaiAt: "asc" },
+      }),
+    );
+  });
+
+  it("belum pernah mengerjakan: riwayat kosong", async () => {
+    const body = await (await GET(req("packageId=paket-a"))).json();
+    expect(body.riwayat).toEqual([]);
+  });
+
+  it("penugasan sekolah: hanya percobaan siswa itu pada penugasan itu", async () => {
+    m.getActiveAssignmentsFor.mockResolvedValue([
+      { id: "pen-1", packageId: "paket-a", selesai: new Date("2026-10-09T00:00:00Z"), package: { nama: "Uji", jumlahSoal: 10, durasiMenit: 30, subject: MTK } },
+    ]);
+    m.attemptFindMany.mockResolvedValue([percobaan("b1", 1, "selesai", 70, "pen-1")]);
+    const body = await (await GET(req("assignmentId=pen-1"))).json();
+    expect(body.riwayat).toHaveLength(1);
+    expect(m.attemptFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { studentId: "siswa-1", assignmentId: "pen-1" } }));
+  });
+
+  it("ujian yang tidak tersedia (404) tidak membaca riwayat sama sekali", async () => {
+    expect((await GET(req("packageId=tidak-ada"))).status).toBe(404);
+    expect(m.attemptFindMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET /api/siswa/ujian/akses - data ujian + akses dalam satu permintaan", () => {

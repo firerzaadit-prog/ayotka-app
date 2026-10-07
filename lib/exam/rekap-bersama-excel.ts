@@ -13,7 +13,7 @@ export type InfoRekapExcel = {
 
 /**
  * Berkas Excel rekap Try Out Bersama: lembar "Ringkasan" (info, statistik, sebaran), "Hasil Siswa" (peringkat dan
- * nilai) dan "Belum Mengerjakan". Semua teks ditulis sebagai TEKS (bukan rumus), jadi nama yang diawali "=" tidak
+ * nilai resmi), "Semua Percobaan" (riwayat lengkap tiap siswa) dan "Belum Mengerjakan". Semua teks ditulis sebagai TEKS (bukan rumus), jadi nama yang diawali "=" tidak
  * dijalankan Excel; NISN juga teks agar angka 0 di depan tidak hilang.
  */
 export async function buatRekapExcel(info: InfoRekapExcel, baris: BarisRekap[], statistik: StatistikRekap): Promise<Uint8Array> {
@@ -75,6 +75,39 @@ export async function buatRekapExcel(info: InfoRekapExcel, baris: BarisRekap[], 
   }
   hasil.getRow(1).font = { bold: true };
   hasil.getColumn("nisn").numFmt = "@";
+
+  // Riwayat LENGKAP: setiap percobaan setiap siswa (tidak ada yang disembunyikan); hanya yang pertama berstatus resmi.
+  const semua = workbook.addWorksheet("Semua Percobaan");
+  semua.columns = [
+    { header: "Nama", key: "nama", width: 32 },
+    { header: "NISN", key: "nisn", width: 16 },
+    { header: "Percobaan ke", key: "nomor", width: 14 },
+    { header: "Nilai resmi?", key: "resmi", width: 14 },
+    { header: "Status", key: "status", width: 22 },
+    { header: "Nilai", key: "nilai", width: 10 },
+    { header: "Durasi (menit)", key: "durasi", width: 15 },
+    { header: "Mulai", key: "mulai", width: 28 },
+    { header: "Selesai", key: "selesai", width: 28 },
+    { header: "Pindah tab", key: "tab", width: 12 },
+  ];
+  for (const b of baris) {
+    for (const p of b.percobaan) {
+      semua.addRow({
+        nama: b.nama,
+        nisn: b.nisn ?? "-",
+        nomor: p.nomor,
+        resmi: p.resmi ? "Ya" : "Tidak",
+        status: LABEL_STATUS_PESERTA[p.status],
+        nilai: p.skor === null ? "-" : Number(p.skor.toFixed(1)),
+        durasi: p.durasiMenit ?? "-",
+        mulai: formatWIB(p.mulaiAt),
+        selesai: p.selesaiAt ? formatWIB(p.selesaiAt) : "-",
+        tab: p.tabSwitchCount,
+      });
+    }
+  }
+  semua.getRow(1).font = { bold: true };
+  semua.getColumn("nisn").numFmt = "@";
 
   const belum = workbook.addWorksheet("Belum Mengerjakan");
   belum.columns = [

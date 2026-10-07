@@ -28,7 +28,6 @@ type Hasil = {
   };
   package: { nama: string };
   siswa: { nama: string; idSamar: string };
-  canShowPembahasan: boolean;
   isFreeTrial: boolean;
   analisisAiDiminta: boolean;
   /** Percobaan selesai pada paket yang sama, urut dari yang pertama (lib/exam/percobaan.ts). */
@@ -64,7 +63,7 @@ function watermarkBackground(nama: string, idSamar: string): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
-/** Tiket 4.10: halaman hasil - nilai, rincian benar/salah, pembahasan (kalau sudah boleh tampil). */
+/** Tiket 4.10: halaman hasil - nilai, rincian benar/salah, dan pembahasan (selalu langsung tampil begitu selesai, untuk semua siswa). */
 export default function HasilPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
@@ -213,7 +212,6 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         )}
         <RincianJawaban
           perSoal={hasil.perSoal}
-          canShowPembahasan={hasil.canShowPembahasan}
           tutor={
             tutor
               ? {

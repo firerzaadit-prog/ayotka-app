@@ -157,7 +157,7 @@ export function RiwayatSiswaView({
                           Rincian Jawaban ({h.perSoal.length} soal)
                         </summary>
                         <div className="mt-3">
-                          <RincianJawaban perSoal={h.perSoal} canShowPembahasan={h.canShowPembahasan} />
+                          <RincianJawaban perSoal={h.perSoal} />
                         </div>
                       </details>
                     );

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { assertOwnsPackage } from "@/lib/packages/scope";
+import { PESAN_NASIONAL_ADMIN_PUSAT } from "@/lib/exam/paket-tersedia";
 import { adaWaktuTidakValid, packageCreateSchema, toNullableDate, toNullableInt } from "@/lib/validations/question";
 import { adalahPelanggaranUnik, GALAT_URUTAN_BERSAMAAN, periksaUrutanSeriPaket } from "@/lib/exam/seri-mandiri";
 
@@ -69,6 +70,11 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     urutanSeri,
     ...rest
   } = parsed.data;
+
+  // Try Out Nasional hanya dibuat dan dijalankan admin pusat: admin sekolah tidak boleh mengubah paket menjadi nasional.
+  if (rest.kategori === "nasional" && user.role !== "admin_pusat") {
+    return NextResponse.json({ error: PESAN_NASIONAL_ADMIN_PUSAT, code: "NASIONAL_ADMIN_PUSAT" }, { status: 403 });
+  }
 
   const bukaMulaiDate = toNullableDate(bukaMulai);
   const bukaSelesaiDate = toNullableDate(bukaSelesai);

@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { formatWIBHariTanggalJam } from "@/lib/utils/datetime";
+import { RiwayatPercobaanKartu, type ItemRiwayatKartu } from "@/components/siswa/riwayat-percobaan-kartu";
 
 type Info = {
   nama: string;
@@ -37,6 +38,8 @@ type Info = {
  */
 type Akses = {
   info: NonNullable<Info>;
+  /** SEMUA percobaan siswa pada ujian/paket ini, urut dari yang pertama (kosong bila belum pernah mengerjakan). */
+  riwayat?: ItemRiwayatKartu[];
   tipe: "gratis" | "langganan" | "sekolah";
   mapel: string;
   jatahGratis: { terpakai: boolean } | null;
@@ -267,6 +270,9 @@ function InstruksiContent() {
           </div>
         )}
       </Card>
+
+      {/* Riwayat SEMUA percobaan sebelumnya pada ujian ini - tidak ada yang disembunyikan saat mengerjakan lagi. */}
+      {akses?.riwayat && akses.riwayat.length > 0 && <RiwayatPercobaanKartu items={akses.riwayat} />}
 
       {/* Keterangan Paket Gratis + jatah ujiannya (permintaan user, 30 Sep 2026) */}
       {akses?.tipe === "gratis" && (

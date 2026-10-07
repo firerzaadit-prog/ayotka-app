@@ -9,7 +9,7 @@ import { wherePaketTersedia } from "@/lib/exam/paket-tersedia";
  * DAN paket pusat yang didistribusikan ke sekolah ini (package_visibility, Tiket 2.8), keduanya harus terbit dan
  * ditujukan untuk siswa sekolah. Hanya paket jenjang SEKOLAH ini (siswa Jalur A selalu berjenjang sama dengan
  * sekolahnya, jadi paket jenjang lain pasti salah sasaran). Aturan yang sama ditegakkan lagi saat penugasan dibuat
- * (lib/exam/paket-tersedia.ts). Beda dari GET /api/packages yang cuma mengembalikan paket milik sendiri (dipakai
+ * (lib/exam/paket-tersedia.ts). Try Out Nasional tidak termasuk: hanya admin pusat yang menjalankannya. Beda dari GET /api/packages yang cuma mengembalikan paket milik sendiri (dipakai
  * halaman Bank Soal untuk kelola/edit, bukan untuk menugaskan).
  */
 export async function GET() {
@@ -31,7 +31,7 @@ export async function GET() {
   }
 
   const packages = await prisma.package.findMany({
-    where: wherePaketTersedia(schoolId, { jenjang: school.jenjang }),
+    where: wherePaketTersedia(schoolId, { jenjang: school.jenjang, termasukNasional: user.role === "admin_pusat" }),
     orderBy: { nama: "asc" },
     select: {
       id: true,

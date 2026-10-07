@@ -5,6 +5,7 @@ import { getActiveAssignmentsFor, getSelfSelectPackagesFor, getUpcomingAssignmen
 import { annotateSeriMandiri } from "@/lib/exam/seri-mandiri";
 import { getActiveEntitlement } from "@/lib/billing/entitlements";
 import { parsePlanFitur } from "@/lib/billing/plan-fitur";
+import { nomorPercobaanById } from "@/lib/exam/percobaan";
 
 /** Tiket 4.4 (Bagian 3.2 brief): daftar ujian terjadwal (Mode A) + paket latihan mandiri (Mode B). */
 export async function GET() {
@@ -37,11 +38,14 @@ export async function GET() {
         status: true,
         skorAkhir: true,
         mulaiAt: true,
+        selesaiAt: true,
       },
       orderBy: { mulaiAt: "desc" },
     }),
     getActiveEntitlement(student.id),
   ]);
+
+  const nomorPercobaan = nomorPercobaanById(attempts.map((a) => ({ ...a, studentId: student.id })));
 
   // Anotasi status buka seri Try Out Mandiri (paket baru terbuka per siswa, pukul
   // 06.00 WIB pertama setelah urutan sebelumnya selesai) - lihat lib/exam/seri-jadwal.ts.
@@ -90,6 +94,8 @@ export async function GET() {
       urutanSeri: p.urutanSeri,
       statusSeri: p.statusSeri,
     })),
+    // SEMUA percobaan siswa (tidak ada yang disembunyikan) - halaman memakainya untuk riwayat percobaan per ujian/paket.
+    // percobaanKe dihitung dari seluruh riwayat siswa per paket+jalur (lib/exam/percobaan.ts), sama dengan halaman Riwayat.
     attempts: attempts.map((a) => ({
       id: a.id,
       assignmentId: a.assignmentId,
@@ -97,6 +103,8 @@ export async function GET() {
       status: a.status,
       skorAkhir: a.skorAkhir,
       mulaiAt: a.mulaiAt,
+      selesaiAt: a.selesaiAt,
+      percobaanKe: nomorPercobaan.get(a.id) ?? 1,
     })),
   });
 }

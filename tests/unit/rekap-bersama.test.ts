@@ -79,6 +79,36 @@ describe("susunRekapBersama - percobaan resmi = yang pertama", () => {
     expect(statistik.rataRata).toBe(40);
   });
 
+  it("SEMUA percobaan tercatat di `percobaan` (tidak ada yang disembunyikan): nomor, penanda resmi, nilai, durasi, dan urutan waktu", () => {
+    const p = [peserta("s1", "Dina")];
+    const ketiga = attempt("s1", "selesai", 70, 20, "2026-10-08T05:00:00.000Z", 1);
+    const pertama = attempt("s1", "kedaluwarsa", 40, 60, "2026-10-08T01:00:00.000Z");
+    const kedua = attempt("s1", "selesai", 95, 30, "2026-10-08T03:00:00.000Z", 2);
+    const { baris } = susunRekapBersama(p, [ketiga, pertama, kedua]); // urutan masukan acak sengaja
+    const b = baris[0]!;
+    expect(b.jumlahPercobaan).toBe(3);
+    expect(b.percobaan.map((x) => [x.nomor, x.resmi, x.status, x.skor, x.durasiMenit, x.tabSwitchCount])).toEqual([
+      [1, true, "waktu_habis", 40, 60, 0],
+      [2, false, "selesai", 95, 30, 2],
+      [3, false, "selesai", 70, 20, 1],
+    ]);
+    expect(b.percobaan.map((x) => x.attemptId)).toEqual([pertama.id, kedua.id, ketiga.id]);
+    // Nilai resmi dan peringkat tetap dari percobaan PERTAMA walau percobaan lain lebih tinggi.
+    expect([b.skor, b.peringkat, b.attemptId]).toEqual([40, 1, pertama.id]);
+  });
+
+  it("percobaan yang masih berjalan ikut tercatat tanpa nilai/durasi; siswa yang belum mulai punya daftar kosong", () => {
+    const p = [peserta("s1", "Dina"), peserta("s2", "Eko")];
+    const selesai = attempt("s1", "selesai", 80, 30, "2026-10-08T01:00:00.000Z");
+    const berjalan = attempt("s1", "berjalan", 55, 30, "2026-10-08T03:00:00.000Z");
+    const { baris } = susunRekapBersama(p, [selesai, berjalan]);
+    expect(baris.find((x) => x.nama === "Dina")!.percobaan.map((x) => [x.nomor, x.status, x.skor, x.durasiMenit])).toEqual([
+      [1, "selesai", 80, 30],
+      [2, "mengerjakan", null, null],
+    ]);
+    expect(baris.find((x) => x.nama === "Eko")!.percobaan).toEqual([]);
+  });
+
   it("percobaan pertama yang masih berjalan = belum bernilai, walau ada percobaan lain", () => {
     const p = [peserta("s1", "Dina")];
     const a = [attempt("s1", "berjalan", null, 30, "2026-10-08T01:00:00.000Z"), attempt("s1", "selesai", 90, 30, "2026-10-08T05:00:00.000Z")];

@@ -54,6 +54,9 @@ export async function getSelfSelectPackagesFor(
         // karena enum cuma punya dua nilai itu - jadi flag ini tidak pernah berlaku.)
         OR: [{ bolehDipilihSiswa: true }, { ownerType: "pusat" }],
       },
+      // Try Out Nasional hanya dijalankan admin pusat (keputusan user, 8 Okt 2026): paket nasional milik sekolah tidak
+      // pernah tampil di daftar siswa, apa pun isian lamanya. Paket mandiri sekolah tidak terpengaruh.
+      { OR: [{ ownerType: "pusat" }, { kategori: "mandiri" }] },
     ],
   };
 

@@ -19,7 +19,7 @@ export async function GET() {
     take: 300,
     include: {
       school: { select: { nama: true } },
-      package: { select: { nama: true, jumlahSoal: true, durasiMenit: true } },
+      package: { select: { nama: true, jumlahSoal: true, durasiMenit: true, kategori: true } },
       _count: { select: { attempts: true } },
     },
   });
@@ -29,6 +29,7 @@ export async function GET() {
       id: a.id,
       sekolahNama: a.school?.nama ?? "-",
       paketNama: a.package.nama,
+      kategori: a.package.kategori,
       mulai: a.mulai,
       selesai: a.selesai,
       isActive: a.isActive,

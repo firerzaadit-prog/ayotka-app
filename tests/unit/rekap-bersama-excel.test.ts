@@ -10,6 +10,7 @@ const peserta: PesertaRekap[] = [
   { studentId: "s4", nama: "Indra", nisn: "0011112222", claimStatus: "sudah_klaim" },
 ];
 const attempts: AttemptRekap[] = [
+  { id: "a3", studentId: "s1", status: "selesai", skorAkhir: 95, mulaiAt: new Date("2026-10-08T02:00:00Z"), selesaiAt: new Date("2026-10-08T02:20:00Z"), tabSwitchCount: 0 },
   { id: "a1", studentId: "s1", status: "selesai", skorAkhir: 88.46, mulaiAt: new Date("2026-10-08T01:00:00Z"), selesaiAt: new Date("2026-10-08T01:35:00Z"), tabSwitchCount: 2 },
   { id: "a2", studentId: "s2", status: "kedaluwarsa", skorAkhir: 40, mulaiAt: new Date("2026-10-08T01:00:00Z"), selesaiAt: new Date("2026-10-08T01:30:00Z"), tabSwitchCount: 0 },
 ];
@@ -31,9 +32,23 @@ async function bukaBerkas() {
 }
 
 describe("buatRekapExcel", () => {
-  it("memuat tiga lembar: Ringkasan, Hasil Siswa, Belum Mengerjakan", async () => {
+  it("memuat empat lembar: Ringkasan, Hasil Siswa, Semua Percobaan, Belum Mengerjakan", async () => {
     const wb = await bukaBerkas();
-    expect(wb.worksheets.map((w) => w.name)).toEqual(["Ringkasan", "Hasil Siswa", "Belum Mengerjakan"]);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Ringkasan", "Hasil Siswa", "Semua Percobaan", "Belum Mengerjakan"]);
+  });
+
+  it("Semua Percobaan: SETIAP percobaan tercantum (tidak ada yang hilang), hanya yang pertama bertanda nilai resmi", async () => {
+    const ws = (await bukaBerkas()).getWorksheet("Semua Percobaan")!;
+    const header = (ws.getRow(1).values as unknown[]).slice(1);
+    expect(header).toEqual(["Nama", "NISN", "Percobaan ke", "Nilai resmi?", "Status", "Nilai", "Durasi (menit)", "Mulai", "Selesai", "Pindah tab"]);
+    // 3 percobaan: Dina 2 (88.5 resmi, 95), siswa kedua 1 (waktu habis); yang belum mulai tidak punya baris.
+    expect(ws.rowCount).toBe(4);
+    const baris = [2, 3, 4].map((n) => (ws.getRow(n).values as unknown[]).slice(1));
+    expect(baris[0]!.slice(0, 7)).toEqual(["Dina Putri", "0012345678", 1, "Ya", "Selesai", 88.5, 35]);
+    expect(baris[1]!.slice(0, 7)).toEqual(["Dina Putri", "0012345678", 2, "Tidak", "Selesai", 95, 20]);
+    expect(String(baris[0]![7])).toContain("8 Oktober 2026 08:00 WIB");
+    expect(baris[2]![3]).toBe("Ya");
+    expect(baris[2]![4]).toBe("Waktu habis");
   });
 
   it("Hasil Siswa: hanya yang sudah mulai, urut peringkat, dengan nilai dan durasi", async () => {
@@ -42,7 +57,7 @@ describe("buatRekapExcel", () => {
     expect(header).toEqual(["Peringkat", "Nama", "NISN", "Status", "Nilai", "Durasi (menit)", "Pindah tab", "Jumlah percobaan"]);
     expect(ws.rowCount).toBe(3);
     const baris1 = (ws.getRow(2).values as unknown[]).slice(1);
-    expect(baris1).toEqual([1, "Dina Putri", "0012345678", "Selesai", 88.5, 35, 2, 1]);
+    expect(baris1).toEqual([1, "Dina Putri", "0012345678", "Selesai", 88.5, 35, 2, 2]);
     const baris2 = (ws.getRow(3).values as unknown[]).slice(1);
     expect(baris2[0]).toBe(2);
     expect(baris2[3]).toBe("Waktu habis");

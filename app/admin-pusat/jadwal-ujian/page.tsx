@@ -16,6 +16,7 @@ type AssignmentRow = {
   id: string;
   sekolahNama: string;
   paketNama: string;
+  kategori: "mandiri" | "nasional";
   mulai: string;
   selesai: string;
   isActive: boolean;
@@ -49,6 +50,13 @@ export default function JadwalUjianPage() {
         title="Jadwal Ujian"
         description="Semua Try Out Bersama (jendela waktu dan paket) dari seluruh sekolah, hanya untuk dipantau - buat/ubah jadwal tetap dilakukan admin sekolah masing-masing."
       />
+
+      <Alert variant="info">
+        <strong>Try Out Nasional hanya dijalankan oleh admin pusat</strong> (lewat Bank Soal, kategori Nasional, dengan jendela
+        buka mulai/selesai). Sekolah tidak bisa menjadwalkan atau membuatnya di Try Out Bersama. Jika ada baris bertanda
+        &quot;Nasional&quot; di bawah, itu dibuat sebelum aturan ini; sekolah hanya bisa menonaktifkan atau menghapusnya.
+        Pembahasan dan kunci jawaban tampil langsung begitu siswa selesai, untuk semua siswa dan semua jenis ujian.
+      </Alert>
 
       {error && <Alert variant="danger">{error}</Alert>}
       {assignments === null && !error && <TableSkeleton columns={6} />}
@@ -84,6 +92,11 @@ export default function JadwalUjianPage() {
                         <Link href={`/admin-pusat/jadwal-ujian/${a.id}`} className="text-slate-900 hover:underline">
                           {a.paketNama}
                         </Link>
+                        {a.kategori === "nasional" && (
+                          <Badge variant="warning" className="ml-2">
+                            Nasional
+                          </Badge>
+                        )}
                       </Td>
                       <Td className="text-xs">
                         {formatWIB(a.mulai)} — {formatWIB(a.selesai)}

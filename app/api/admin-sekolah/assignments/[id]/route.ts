@@ -5,6 +5,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { assignmentUpdateSchema } from "@/lib/validations/assignment";
 import { periksaJadwalPenugasan } from "@/lib/exam/jadwal-penugasan";
+import { PESAN_NASIONAL_ADMIN_PUSAT } from "@/lib/exam/paket-tersedia";
 import { statusPenugasan } from "@/lib/exam/status-penugasan";
 import { ambilPeriodeSekolah } from "@/lib/billing/periode-sekolah";
 
@@ -56,6 +57,14 @@ export async function PATCH(request: Request, { params }: RouteParams) {
   // Jadwal yang DITULIS (bukan sekadar mengaktifkan/menonaktifkan) harus di masa depan dan di dalam masa langganan
   // sekolah, sama dengan saat membuat. Memperpanjang jendela yang sudah tutup juga lewat sini ("buka lagi").
   if (parsed.data.mulai !== undefined || parsed.data.selesai !== undefined) {
+    // Try Out Nasional hanya dijalankan admin pusat: admin sekolah tidak boleh mengubah jadwal penugasan nasional
+    // (menonaktifkan atau menghapusnya tetap boleh, supaya sekolah bisa membereskan penugasan lama).
+    if (user.role !== "admin_pusat") {
+      const paket = await prisma.package.findUnique({ where: { id: before.packageId }, select: { kategori: true } });
+      if (paket?.kategori === "nasional") {
+        return NextResponse.json({ error: PESAN_NASIONAL_ADMIN_PUSAT, code: "NASIONAL_ADMIN_PUSAT" }, { status: 403 });
+      }
+    }
     const jadwal = periksaJadwalPenugasan({
       mulai,
       selesai,

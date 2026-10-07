@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,8 @@ export function RekapBersama({ assignmentId }: { assignmentId: string }) {
   const [galat, setGalat] = useState<string | null>(null);
   const [memuat, setMemuat] = useState(true);
   const [kunci, setKunci] = useState(0);
+  // Siswa yang daftar "semua percobaan"-nya sedang dibuka.
+  const [semuaTerbuka, setSemuaTerbuka] = useState<string[]>([]);
 
   useEffect(() => {
     let ignore = false;
@@ -146,33 +148,72 @@ export function RekapBersama({ assignmentId }: { assignmentId: string }) {
               </Tr>
             </Thead>
             <tbody>
-              {sudahMulai.map((b) => (
-                <Tr key={b.studentId}>
-                  <Td className="font-semibold text-slate-900">{b.peringkat ?? "-"}</Td>
-                  <Td className="font-medium text-slate-900">
-                    {b.nama}
-                    {b.nisn && <span className="ml-2 font-mono text-xs font-normal text-slate-500">{b.nisn}</span>}
-                    {b.jumlahPercobaan > 1 && (
-                      <span className="ml-2 text-xs font-normal text-slate-500">({b.jumlahPercobaan} percobaan)</span>
+              {sudahMulai.map((b) => {
+                const terbuka = semuaTerbuka.includes(b.studentId);
+                return (
+                  <Fragment key={b.studentId}>
+                    <Tr>
+                      <Td className="font-semibold text-slate-900">{b.peringkat ?? "-"}</Td>
+                      <Td className="font-medium text-slate-900">
+                        {b.nama}
+                        {b.nisn && <span className="ml-2 font-mono text-xs font-normal text-slate-500">{b.nisn}</span>}
+                        {b.jumlahPercobaan > 1 && (
+                          <button
+                            type="button"
+                            aria-expanded={terbuka}
+                            data-semua-percobaan={b.studentId}
+                            onClick={() =>
+                              setSemuaTerbuka((prev) => (prev.includes(b.studentId) ? prev.filter((x) => x !== b.studentId) : [...prev, b.studentId]))
+                            }
+                            className="ml-2 text-xs font-medium text-indigo-600 hover:text-indigo-800 hover:underline"
+                          >
+                            {terbuka ? "Sembunyikan" : "Semua percobaan"} ({b.jumlahPercobaan})
+                          </button>
+                        )}
+                      </Td>
+                      <Td>
+                        <Badge variant={VARIAN_STATUS[b.status]}>{LABEL_STATUS_PESERTA[b.status]}</Badge>
+                      </Td>
+                      <Td className="font-semibold">{angka(b.skor, 0)}</Td>
+                      <Td className="text-xs">{b.durasiMenit === null ? "-" : `${b.durasiMenit} menit`}</Td>
+                      <Td>
+                        {b.tabSwitchCount > 0 ? <Badge variant="danger">{b.tabSwitchCount}x</Badge> : <span className="text-slate-400">-</span>}
+                      </Td>
+                      <Td className="text-right">
+                        {b.attemptId && (b.status === "selesai" || b.status === "waktu_habis") && (
+                          <a href={`/api/siswa/attempts/${b.attemptId}/rapor`} className="text-sm font-medium text-slate-600 hover:underline">
+                            Rapor (PDF)
+                          </a>
+                        )}
+                      </Td>
+                    </Tr>
+                    {terbuka && (
+                      <Tr className="bg-slate-50">
+                        <Td colSpan={7} className="py-3">
+                          <ul className="flex flex-col gap-1.5 text-xs text-slate-700" data-daftar-percobaan={b.studentId}>
+                            {b.percobaan.map((p) => (
+                              <li key={p.attemptId} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                <span className="font-semibold text-slate-900">Percobaan ke-{p.nomor}</span>
+                                {p.resmi && <Badge variant="info">Nilai resmi</Badge>}
+                                <Badge variant={VARIAN_STATUS[p.status]}>{LABEL_STATUS_PESERTA[p.status]}</Badge>
+                                <span>Nilai {angka(p.skor, 0)}</span>
+                                <span>{p.durasiMenit === null ? "-" : `${p.durasiMenit} menit`}</span>
+                                <span className="text-slate-500">{formatWIB(p.mulaiAt)}</span>
+                                {p.tabSwitchCount > 0 && <Badge variant="danger">Pindah tab {p.tabSwitchCount}x</Badge>}
+                                {(p.status === "selesai" || p.status === "waktu_habis") && (
+                                  <a href={`/api/siswa/attempts/${p.attemptId}/rapor`} className="font-medium text-slate-600 hover:underline">
+                                    Rapor (PDF)
+                                  </a>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </Td>
+                      </Tr>
                     )}
-                  </Td>
-                  <Td>
-                    <Badge variant={VARIAN_STATUS[b.status]}>{LABEL_STATUS_PESERTA[b.status]}</Badge>
-                  </Td>
-                  <Td className="font-semibold">{angka(b.skor, 0)}</Td>
-                  <Td className="text-xs">{b.durasiMenit === null ? "-" : `${b.durasiMenit} menit`}</Td>
-                  <Td>
-                    {b.tabSwitchCount > 0 ? <Badge variant="danger">{b.tabSwitchCount}x</Badge> : <span className="text-slate-400">-</span>}
-                  </Td>
-                  <Td className="text-right">
-                    {b.attemptId && (b.status === "selesai" || b.status === "waktu_habis") && (
-                      <a href={`/api/siswa/attempts/${b.attemptId}/rapor`} className="text-sm font-medium text-slate-600 hover:underline">
-                        Rapor (PDF)
-                      </a>
-                    )}
-                  </Td>
-                </Tr>
-              ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </Table>
         </TableContainer>

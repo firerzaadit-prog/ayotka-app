@@ -43,8 +43,7 @@ const tutor = (o: Partial<TutorProps> = {}): TutorProps => ({
   onSisaBerubah: () => {},
   ...o,
 });
-const render = (t?: TutorProps, canShowPembahasan = true) =>
-  renderToStaticMarkup(createElement(RincianJawaban, { perSoal, canShowPembahasan, tutor: t }));
+const render = (t?: TutorProps) => renderToStaticMarkup(createElement(RincianJawaban, { perSoal, tutor: t }));
 
 const hitung = (html: string, kata: string) => html.split(kata).length - 1;
 
@@ -67,8 +66,12 @@ describe("RincianJawaban - tombol Tanya Tutor AI", () => {
     expect(html).toContain("Pembahasan satu");
   });
 
-  it("pembahasan belum boleh tampil: tombol Tutor juga tidak tampil", () => {
-    expect(render(tutor(), false)).not.toContain("Tanya Tutor AI");
+  it("pembahasan dan kunci SELALU tampil langsung (tidak ada gerbang 'menunggu jendela ujian ditutup'), bersama tombol Tutor", () => {
+    const html = render(tutor());
+    expect(html).toContain("Pembahasan satu");
+    expect(html).toContain("✓ Kunci");
+    expect(html).not.toMatch(/jendela ujian kelasnya ditutup|akan tersedia setelah/);
+    expect(hitung(html, "Tanya Tutor AI")).toBe(2);
   });
 
   it("soal yang punya percakapan tersimpan: tombolnya berlabel 'Lanjutkan chat Tutor AI', soal lain tetap 'Tanya Tutor AI'", () => {

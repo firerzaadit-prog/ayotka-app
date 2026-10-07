@@ -70,6 +70,15 @@ describe("getSelfSelectPackagesFor - tingkat dihapus, cuma jenjang (1 Okt 2026)"
     }
   });
 
+  it.each([
+    ["Jalur B", STUDENT_B],
+    ["Jalur A", STUDENT_A],
+  ])("%s: Try Out Nasional hanya dari admin pusat - paket nasional milik sekolah tidak pernah tampil (8 Okt 2026)", async (_nama, siswa) => {
+    await getSelfSelectPackagesFor(siswa);
+    const and = packageModel.findMany.mock.calls[0]![0].where.AND as unknown[];
+    expect(and).toContainEqual({ OR: [{ ownerType: "pusat" }, { kategori: "mandiri" }] });
+  });
+
   it("orderBy mengurutkan berdasarkan urutanSeri (nulls last) lalu nama", async () => {
     await getSelfSelectPackagesFor(STUDENT_B);
     const call = packageModel.findMany.mock.calls[0]![0];
