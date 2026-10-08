@@ -179,14 +179,20 @@ export async function buildAnalitikSekolah(
  * terakhir/rata-rata - siswa yang sudah 3x try out dinilai dari usaha
  * terbaiknya). Kategori & angka batas: lihat lib/exam/scoring.ts.
  */
-export async function buildKesiapanSekolah(schoolId: string, rentang?: RentangWaktu | null) {
+export async function buildKesiapanSekolah(
+  schoolId: string,
+  filter?: RentangWaktu & { kategoriUjian?: FilterKategoriUjian | null } | null,
+) {
   const attempts = await prisma.attempt.findMany({
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
       student: { schoolId, jalur: "A", deletedAt: null },
-      package: { subject: { nama: { in: [...KESIAPAN_SUBJECTS] } } },
-      ...filterMulai(rentang),
+      package: { 
+        subject: { nama: { in: [...KESIAPAN_SUBJECTS] } },
+        ...filterKategoriUjianToWhere(filter?.kategoriUjian)
+      },
+      ...filterMulai(filter),
     },
     select: {
       studentId: true,
@@ -224,14 +230,17 @@ export type SiswaKesiapan = {
  */
 export async function buildDaftarSiswaKesiapanSekolah(
   schoolId: string,
-  filter: { subjectNama: string; kategori?: KategoriKesiapan | null } & RentangWaktu,
+  filter: { subjectNama: string; kategori?: KategoriKesiapan | null; kategoriUjian?: FilterKategoriUjian | null } & RentangWaktu,
 ): Promise<SiswaKesiapan[]> {
   const attempts = await prisma.attempt.findMany({
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
       student: { schoolId, jalur: "A", deletedAt: null },
-      package: { subject: { nama: filter.subjectNama } },
+      package: { 
+        subject: { nama: filter.subjectNama },
+        ...filterKategoriUjianToWhere(filter.kategoriUjian)
+      },
       ...filterMulai(filter),
     },
     select: {

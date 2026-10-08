@@ -87,7 +87,9 @@ export function KesiapanSiswaList({
       if (periodeId) qs.set("periodeId", periodeId);
       if (dari) qs.set("dari", dari);
       if (sampai) qs.set("sampai", sampai);
-      const res = await fetch(`${endpoint}?${qs.toString()}`);
+      const url = new URL(endpoint, window.location.origin);
+      qs.forEach((value, key) => url.searchParams.append(key, value));
+      const res = await fetch(url.toString());
       const data = await res.json().catch(() => null);
       if (ignore) return;
       if (res.ok) {

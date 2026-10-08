@@ -248,7 +248,7 @@ export default function AnalitikPage() {
         <div>
           <h2 className="mb-2 text-lg font-semibold text-slate-900">Kesiapan TKA</h2>
           <p className="mb-1 text-sm text-slate-500">
-            Berdasarkan skor terbaik tiap siswa dari <strong>seluruh jenis ujian (Try Out Sekolah, Try Out Nasional, maupun Try Out Mandiri)</strong>. Kategori capaian mengacu pada standar resmi Kemendikdasmen (Kurang/Memadai/Baik/Istimewa).
+            Berdasarkan skor terbaik tiap siswa dari <strong>{kategoriUjian === "semua" ? "seluruh jenis ujian (Try Out Sekolah, Try Out Nasional, maupun Try Out Mandiri)" : `jenis ujian terpilih`}</strong>. Kategori capaian mengacu pada standar resmi Kemendikdasmen (Kurang/Memadai/Baik/Istimewa).
           </p>
           <p className="mb-3 text-xs text-slate-400">
             Catatan: Angka SD memakai standar SMP karena Kemendikdasmen belum merilis rentang nilai resmi khusus SD. IPA &amp; Bahasa Inggris (SMP) memakai standar kategori Bahasa Indonesia SMP karena kedua mapel ini di luar cakupan resmi TKA, yang hanya menguji Matematika &amp; Bahasa Indonesia.
@@ -261,7 +261,7 @@ export default function AnalitikPage() {
           </div>
           <div className="mt-6">
             <KesiapanSiswaList
-              endpoint="/api/admin-sekolah/kesiapan/siswa"
+              endpoint={`/api/admin-sekolah/kesiapan/siswa${qsString}`}
               studentDetailHrefBase="/admin-sekolah/siswa"
               periodeId={periodeId || null}
             />

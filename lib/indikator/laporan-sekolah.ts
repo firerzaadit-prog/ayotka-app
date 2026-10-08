@@ -48,11 +48,12 @@ export interface MapelLaporan {
 const statusSelesai = ["selesai", "kedaluwarsa"] as const;
 
 /** Mata pelajaran yang sudah punya percobaan selesai di sekolah ini (pada rentang yang dipilih), untuk pilihan di halaman laporan. */
-export async function daftarMapelLaporan(db: PrismaClient, schoolId: string, rentang?: RentangWaktu | null): Promise<MapelLaporan[]> {
+export async function daftarMapelLaporan(db: PrismaClient, schoolId: string, rentang?: RentangWaktu | null, kategoriUjian?: FilterKategoriUjian | null): Promise<MapelLaporan[]> {
   const baris = await db.attempt.findMany({
     where: {
       status: { in: [...statusSelesai] },
       student: { schoolId, jalur: "A", deletedAt: null },
+      package: filterKategoriUjianToWhere(kategoriUjian),
       ...filterMulai(rentang),
     },
     select: {

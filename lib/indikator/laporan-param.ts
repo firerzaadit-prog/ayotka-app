@@ -2,7 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { bacaRentangPeriode } from "@/lib/analytics/rentang";
-import type { RentangWaktu } from "@/lib/analytics/sekolah";
+import type { RentangWaktu, FilterKategoriUjian } from "@/lib/analytics/sekolah";
 import { bacaPermintaanFilterWilayah, gabungkanFilterWilayah, type FilterWilayah } from "@/lib/wilayah/cakupan";
 import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
@@ -20,7 +20,7 @@ export type HasilParamLaporan =
       periodeLabel: string;
       /** Cakupan pembanding pengguna AyoTKA dari ?provinsi=, ?kabupatenKota=, ?statusSekolah= (tanpa parameter = nasional). */
       pembanding: FilterWilayah;
-      kategoriUjian?: any;
+      kategoriUjian?: FilterKategoriUjian;
     };
 
 /**

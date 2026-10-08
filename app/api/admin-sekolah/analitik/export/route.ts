@@ -24,6 +24,7 @@ export async function GET(request: Request) {
   if ("galat" in hasilRentang) return hasilRentang.galat;
   const { ranking, kompetensi } = await buildAnalitikSekolah(schoolId, {
     subjectId: url.searchParams.get("subjectId"),
+    kategoriUjian: url.searchParams.get("kategoriUjian") as any,
     ...hasilRentang.rentang,
   });
 

@@ -25,6 +25,9 @@ export async function GET(request: Request) {
   const hasilRentang = await bacaRentangPeriode(new URL(request.url), schoolId);
   if ("galat" in hasilRentang) return hasilRentang.galat;
 
-  const kesiapan = await buildKesiapanSekolah(schoolId, hasilRentang.rentang);
+  const kesiapan = await buildKesiapanSekolah(schoolId, {
+    ...hasilRentang.rentang,
+    kategoriUjian: new URL(request.url).searchParams.get("kategoriUjian") as any,
+  });
   return NextResponse.json({ kesiapan });
 }

@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const param = await bacaParamLaporan(request);
   if ("galat" in param) return param.galat;
 
-  const mapel = await daftarMapelLaporan(prisma, param.schoolId, param.rentang);
+  const mapel = await daftarMapelLaporan(prisma, param.schoolId, param.rentang, param.kategoriUjian as any);
   if (!param.subjectId) {
     return NextResponse.json({ mapel, periodeLabel: param.periodeLabel, data: null });
   }

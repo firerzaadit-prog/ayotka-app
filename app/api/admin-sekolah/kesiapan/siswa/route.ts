@@ -44,6 +44,7 @@ export async function GET(request: Request) {
   const siswa = await buildDaftarSiswaKesiapanSekolah(schoolId, {
     subjectNama: mapel,
     kategori: kategoriParam as KategoriKesiapan | null,
+    kategoriUjian: url.searchParams.get("kategoriUjian") as any,
     ...hasilRentang.rentang,
   });
 
