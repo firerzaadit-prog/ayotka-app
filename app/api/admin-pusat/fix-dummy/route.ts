@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 
 export async function GET() {
-  const user = await requireRole("admin_pusat");
+  const user = await requireRole("admin_pusat", "admin_sekolah");
 
   const school = await prisma.school.findFirst({
     where: { nama: { contains: "Sekolah Test Kuota" } },
