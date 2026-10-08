@@ -195,7 +195,7 @@ export default function SekolahDetailPage({
     setRefreshKey((k) => k + 1);
   }
 
-  async function handleManageSchool() {
+  async function handleManageSchool(targetPath = "/admin-sekolah/dashboard") {
     setActingError(null);
     setActing(true);
     const res = await fetch("/api/admin-pusat/act-as-school", {
@@ -209,7 +209,7 @@ export default function SekolahDetailPage({
       setActingError(data?.error ?? "Gagal masuk mode kelola sekolah.");
       return;
     }
-    router.push("/admin-sekolah/dashboard");
+    router.push(targetPath);
   }
 
   async function handleDeleteSchool() {
@@ -283,8 +283,11 @@ export default function SekolahDetailPage({
         )}
 
         <div className="mt-2 flex flex-wrap gap-2">
-          <Button onClick={handleManageSchool} disabled={acting}>
+          <Button onClick={() => handleManageSchool()} disabled={acting}>
             {acting ? "Membuka..." : "Kelola sekolah ini"}
+          </Button>
+          <Button variant="outline" onClick={() => handleManageSchool("/admin-sekolah/laporan-indikator")} disabled={acting}>
+            Lihat Laporan Daya Serap
           </Button>
           {school.status !== "aktif" ? (
             <Button variant="secondary" onClick={() => handleChangeStatus("aktif")}>
