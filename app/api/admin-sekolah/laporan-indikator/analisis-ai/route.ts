@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       status: "ready",
       analysis: hasil,
     });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Gagal membuat analisis AI." }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Gagal membuat analisis AI." }, { status: 500 });
   }
 }
