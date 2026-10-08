@@ -86,6 +86,7 @@ export async function GET() {
       jumlahSoal: p.jumlahSoal,
       durasiMenit: p.durasiMenit,
       kategori: p.kategori,
+      ownerType: p.ownerType,
       bukaSelesai: p.bukaSelesai,
       bukaMulai: p.bukaMulai,
       publishedAt: p.publishedAt,

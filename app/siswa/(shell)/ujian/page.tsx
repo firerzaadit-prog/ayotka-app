@@ -40,6 +40,7 @@ type PackageItem = {
   subject: SubjectInfo;
   urutanSeri: number | null;
   statusSeri: StatusSeri;
+  ownerType: "pusat" | "sekolah";
 };
 
 type AssignmentItem = {
@@ -222,9 +223,15 @@ function UjianContent() {
   const filteredPackages = useMemo(() => {
     if (!packages) return [];
     return packages.filter((p) => {
-      const matchKategori = p.kategori === kategori;
+      // Jika kategori == sekolah, tampilkan paket buatan sekolah itu (walau tanpa jadwal)
+      if (kategori === "sekolah" && p.ownerType !== "sekolah") return false;
+      // Jika kategori == nasional, tampilkan paket nasional
+      if (kategori === "nasional" && p.kategori !== "nasional") return false;
+      // Jika kategori == mandiri, tampilkan paket mandiri (sembunyikan paket sekolah agar tidak double)
+      if (kategori === "mandiri" && (p.kategori !== "mandiri" || p.ownerType === "sekolah")) return false;
+
       const matchSubject = selectedSubject === "semua" || p.subject.nama === selectedSubject;
-      return matchKategori && matchSubject;
+      return matchSubject;
     });
   }, [packages, kategori, selectedSubject]);
 
@@ -243,7 +250,11 @@ function UjianContent() {
 
     // Tambahkan juga mapel nyata yang ada dari data packages
     packages?.forEach((p) => {
-      if (p.kategori === kategori) subjectsMap.set(p.subject.nama, p.subject.nama);
+      let isMatch = false;
+      if (kategori === "sekolah" && p.ownerType === "sekolah") isMatch = true;
+      if (kategori === "nasional" && p.kategori === "nasional") isMatch = true;
+      if (kategori === "mandiri" && p.kategori === "mandiri" && p.ownerType !== "sekolah") isMatch = true;
+      if (isMatch) subjectsMap.set(p.subject.nama, p.subject.nama);
     });
 
     return Array.from(subjectsMap.values());
@@ -510,8 +521,6 @@ function UjianContent() {
       )}
 
       {/* Konten Paket Reguler (Nasional / Mandiri) */}
-      {!isSekolah && (
-        <>
           {/* Info Banner Khusus Try Out Nasional */}
       {isNasional && (
         <div className="flex flex-col gap-3 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50/80 via-white to-indigo-50/80 p-4 sm:p-5">
@@ -625,16 +634,16 @@ function UjianContent() {
       {packages === null && <ListSkeleton items={4} />}
 
       {/* State Kosong */}
-      {packages !== null && filteredPackages.length === 0 && (
+      {packages !== null && filteredPackages.length === 0 && kategori !== "sekolah" && (
           <EmptyState
             icon={<IconClipboardCheck />}
             title={
-              isNasional
+              kategori === "nasional"
                 ? "Belum ada Try Out Nasional aktif"
                 : "Belum ada paket latihan mandiri"
             }
             description={
-              isNasional
+              kategori === "nasional"
                 ? selectedSubject === "semua"
                   ? "Jadwal Try Out Nasional berikutnya akan diumumkan oleh AyoTKA. Pantau halaman ini untuk melihat jadwal rilis terbaru."
                   : `Belum ada jadwal Try Out Nasional untuk mapel ${selectedSubject}. Coba pilih "Semua Mapel".`
@@ -650,7 +659,7 @@ function UjianContent() {
         <div className="flex flex-col gap-3">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-700">
-              {isNasional ? "Paket Soal Nasional" : "Paket Try Out Mandiri"}
+              {kategori === "sekolah" ? "Paket Latihan Sekolah (Tanpa Jadwal)" : kategori === "nasional" ? "Paket Soal Nasional" : "Paket Try Out Mandiri"}
             </h2>
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
               {filteredPackages.length}
