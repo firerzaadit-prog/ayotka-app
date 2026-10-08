@@ -73,7 +73,7 @@ export async function bacaParamLaporan(request: Request): Promise<HasilParamLapo
     rentang: hasilRentang.rentang,
     periodeLabel,
     pembanding: hasilPembanding.filter,
-    kategoriUjian: url.searchParams.get("kategoriUjian") || undefined,
+    kategoriUjian: (url.searchParams.get("kategoriUjian") as FilterKategoriUjian) || undefined,
   };
 }
 
