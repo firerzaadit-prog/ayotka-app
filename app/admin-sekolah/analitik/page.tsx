@@ -132,7 +132,12 @@ export default function AnalitikPage() {
   // Saring per periode langganan ("" = semua waktu). Alumni tetap terhitung; hanya siswa yang dihapus yang keluar.
   const [periodeList, setPeriodeList] = useState<PeriodeOpsi[]>([]);
   const [periodeId, setPeriodeId] = useState("");
-  const qsPeriode = periodeId ? `?periodeId=${periodeId}` : "";
+  const [kategoriUjian, setKategoriUjian] = useState<"semua" | "sekolah" | "nasional" | "mandiri">("semua");
+
+  const qsParams = new URLSearchParams();
+  if (periodeId) qsParams.set("periodeId", periodeId);
+  if (kategoriUjian !== "semua") qsParams.set("kategoriUjian", kategoriUjian);
+  const qsString = qsParams.toString() ? `?${qsParams.toString()}` : "";
 
   useEffect(() => {
     let ignore = false;
@@ -151,19 +156,19 @@ export default function AnalitikPage() {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/admin-sekolah/kesiapan${qsPeriode}`);
+      const res = await fetch(`/api/admin-sekolah/kesiapan${qsString}`);
       const data = await res.json().catch(() => null);
       if (!ignore && res.ok) setKesiapan(data.kesiapan ?? null);
     })();
     return () => {
       ignore = true;
     };
-  }, [qsPeriode]);
+  }, [qsString]);
 
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const res = await fetch(`/api/admin-sekolah/analitik${qsPeriode}`);
+      const res = await fetch(`/api/admin-sekolah/analitik${qsString}`);
       const data = await res.json().catch(() => null);
       if (!ignore) {
         if (res.ok) {
@@ -180,7 +185,7 @@ export default function AnalitikPage() {
     return () => {
       ignore = true;
     };
-  }, [qsPeriode]);
+  }, [qsString]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -189,36 +194,55 @@ export default function AnalitikPage() {
         description="Kompetensi terlemah & ranking siswa berdasarkan hasil ujian yang sudah selesai."
         action={
           jumlahAttempt > 0 && (
-            <a href={`/api/admin-sekolah/analitik/export${qsPeriode}`} className={buttonClassName("secondary")}>
+            <a href={`/api/admin-sekolah/analitik/export${qsString}`} className={buttonClassName("secondary")}>
               Unduh Rekap (Excel)
             </a>
           )
         }
       />
 
-      {periodeList.length > 0 && (
-        <div className="w-full max-w-md">
-          <label htmlFor="pilihPeriode" className="mb-1 block text-xs font-medium text-slate-500">
-            Periode
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        {periodeList.length > 0 && (
+          <div className="w-full max-w-xs">
+            <label htmlFor="pilihPeriode" className="mb-1 block text-xs font-medium text-slate-500">
+              Periode
+            </label>
+            <select
+              id="pilihPeriode"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              value={periodeId}
+              onChange={(e) => setPeriodeId(e.target.value)}
+            >
+              <option value="">Semua waktu</option>
+              {periodeList.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nama ?? "Periode langganan"} ({formatWIBDate(p.mulai)} - {formatWIBDate(p.berakhir)})
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[10px] text-slate-500 leading-tight">
+              Siswa yang sudah lulus (alumni) tetap terhitung, jadi angkatan lalu bisa dibandingkan.
+            </p>
+          </div>
+        )}
+        
+        <div className="w-full max-w-xs">
+          <label htmlFor="pilihKategoriUjian" className="mb-1 block text-xs font-medium text-slate-500">
+            Kategori Ujian (Sumber Data)
           </label>
           <select
-            id="pilihPeriode"
+            id="pilihKategoriUjian"
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-            value={periodeId}
-            onChange={(e) => setPeriodeId(e.target.value)}
+            value={kategoriUjian}
+            onChange={(e) => setKategoriUjian(e.target.value as any)}
           >
-            <option value="">Semua waktu</option>
-            {periodeList.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.nama ?? "Periode langganan"} ({formatWIBDate(p.mulai)} - {formatWIBDate(p.berakhir)})
-              </option>
-            ))}
+            <option value="semua">Semua (Gabungan)</option>
+            <option value="sekolah">Try Out Sekolah</option>
+            <option value="nasional">Try Out Nasional</option>
+            <option value="mandiri">Try Out Mandiri</option>
           </select>
-          <p className="mt-1 text-xs text-slate-500">
-            Siswa yang sudah lulus (alumni) tetap terhitung, jadi angkatan lalu bisa dibandingkan.
-          </p>
         </div>
-      )}
+      </div>
 
       {kesiapan && (
         <div>

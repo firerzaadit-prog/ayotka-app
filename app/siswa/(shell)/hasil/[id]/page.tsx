@@ -204,8 +204,8 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
         <h2 className="mb-2 text-lg font-semibold text-slate-900">Rincian Jawaban</h2>
         {tutor?.aktif && (
           <p className="mb-3 rounded-lg bg-indigo-50 px-3 py-2 text-xs leading-relaxed text-indigo-900" data-keterangan-tutor>
-            Tiap soal punya tombol <b>Tanya Tutor AI</b>. Percakapanmu dengan Tutor disimpan <b>{tutor.hariSimpan} hari</b> sejak
-            dikirim supaya bisa kamu lanjutkan, lalu dihapus otomatis. Kamu juga bisa menghapusnya kapan saja lewat tombol{" "}
+            Tiap soal punya tombol <b>Tanya Tutor AI</b>. Percakapanmu dengan Tutor <b>disimpan terus</b> lengkap dengan riwayat waktu dan jam, jadi bisa kamu lanjutkan kapan saja.
+            Kamu juga bisa menghapusnya secara mandiri lewat tombol{" "}
             <b>Hapus percakapan</b> di dalam chat. Foto yang kamu kirim tidak disimpan, dan admin sekolah tidak dapat
             membacanya.
           </p>

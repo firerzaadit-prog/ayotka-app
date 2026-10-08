@@ -49,8 +49,8 @@ export default function KebijakanPrivasiPage() {
             </>,
             <>
               <strong>Percakapan Tanya Tutor AI:</strong> pesan yang siswa kirim ke Tutor AI di halaman pembahasan beserta
-              balasannya. Isi percakapan hanya disimpan 7 hari sejak dikirim agar siswa bisa melanjutkannya, lalu dihapus
-              otomatis. Siswa juga dapat menghapusnya sendiri kapan saja lewat tombol Hapus percakapan. Foto coretan yang
+              balasannya. Isi percakapan disimpan seterusnya agar siswa bisa melanjutkannya.
+              Siswa juga dapat menghapusnya sendiri kapan saja lewat tombol Hapus percakapan. Foto coretan yang
               dilampirkan tidak disimpan; kami hanya mencatat bahwa ada foto. Jumlah pesan per hari juga dicatat untuk
               membatasi pemakaian, dan jumlah itu tidak berkurang saat percakapan dihapus.
             </>,
@@ -145,8 +145,7 @@ export default function KebijakanPrivasiPage() {
         />
         <p>
           Kami menyimpan data selama akun aktif atau selama dibutuhkan untuk menyediakan layanan dan memenuhi kewajiban
-          kami, kecuali hukum mengharuskan lebih lama. Pengecualiannya isi percakapan Tanya Tutor AI: hanya disimpan 7
-          hari sejak dikirim, lalu dihapus otomatis. Tidak ada sistem yang sepenuhnya kebal, jadi bila Anda menduga
+          kami, kecuali hukum mengharuskan lebih lama. Tidak ada sistem yang sepenuhnya kebal, jadi bila Anda menduga
           akun disalahgunakan, segera hubungi kami.
         </p>
       </Bagian>

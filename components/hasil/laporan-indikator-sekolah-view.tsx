@@ -112,6 +112,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
   const [periodeId, setPeriodeId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [filterWilayah, setFilterWilayah] = useState<NilaiFilterWilayah>(FILTER_WILAYAH_AWAL);
+  const [kategoriUjian, setKategoriUjian] = useState<"semua" | "sekolah" | "nasional" | "mandiri">("semua");
   const [respons, setRespons] = useState<Respons | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -129,7 +130,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
     };
   }, [schoolId]);
 
-  const kunci = `${periodeId}|${subjectId}|${filterWilayah.provinsi}|${filterWilayah.kabupatenKota}|${filterWilayah.statusSekolah}`;
+  const kunci = `${periodeId}|${subjectId}|${filterWilayah.provinsi}|${filterWilayah.kabupatenKota}|${filterWilayah.statusSekolah}|${kategoriUjian}`;
   useEffect(() => {
     let ignore = false;
     (async () => {
@@ -137,6 +138,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
       if (schoolId) qs.set("schoolId", schoolId);
       if (periodeId) qs.set("periodeId", periodeId);
       if (subjectId) qs.set("subjectId", subjectId);
+      if (kategoriUjian !== "semua") qs.set("kategoriUjian", kategoriUjian);
       tambahkanParamWilayah(qs, filterWilayah);
       const res = await fetch(`/api/admin-sekolah/laporan-indikator?${qs.toString()}`);
       const data = await res.json().catch(() => null);
@@ -154,7 +156,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
     return () => {
       ignore = true;
     };
-  }, [periodeId, subjectId, filterWilayah, kunci]);
+  }, [periodeId, subjectId, filterWilayah, kategoriUjian, kunci]);
 
   if (error) return <Alert variant="danger">{error}</Alert>;
   if (!respons) return <PageSkeleton />;
@@ -164,6 +166,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
   if (schoolId) qs.set("schoolId", schoolId);
   if (periodeId) qs.set("periodeId", periodeId);
   if (subjectId) qs.set("subjectId", subjectId);
+  if (kategoriUjian !== "semua") qs.set("kategoriUjian", kategoriUjian);
   tambahkanParamWilayah(qs, filterWilayah);
   const adaLaporan = Boolean(respons.data?.laporan) && !memuat;
   const lap = !memuat ? respons.data?.laporan ?? null : null;
@@ -201,7 +204,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
         <div>
           <label htmlFor="pilihMapel" className="mb-1 block text-xs font-medium text-slate-500">
             Mata pelajaran
@@ -230,6 +233,22 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
             </select>
           </div>
         )}
+        <div>
+          <label htmlFor="pilihKategoriUjian" className="mb-1 block text-xs font-medium text-slate-500">
+            Sumber Data (Kategori)
+          </label>
+          <select
+            id="pilihKategoriUjian"
+            className={selectClass}
+            value={kategoriUjian}
+            onChange={(e) => setKategoriUjian(e.target.value as any)}
+          >
+            <option value="semua">Semua Try Out</option>
+            <option value="sekolah">Try Out Sekolah</option>
+            <option value="nasional">Try Out Nasional</option>
+            <option value="mandiri">Try Out Mandiri</option>
+          </select>
+        </div>
       </div>
 
       <Card>

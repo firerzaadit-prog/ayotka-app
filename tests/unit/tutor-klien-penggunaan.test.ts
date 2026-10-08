@@ -23,6 +23,7 @@ vi.mock("@/lib/db/prisma", () => {
 
 import { BATAS_WAKTU_MS, tanyaTutorAi, urlTutorAi } from "@/lib/tutor/klien-ai";
 import { awalHariWIB, batasHarianTutor, lepasReservasi, reservasiPesan, ringkasanTutor } from "@/lib/tutor/penggunaan";
+import { BATAS_HARIAN_BAWAAN } from "@/lib/tutor/konstanta";
 
 const KONTEKS = { jenjang: "SMP", mapel: "Matematika", soal_text: "2+3?", mode: "socratic" as const };
 const PESAN = [{ role: "user" as const, content: "Halo" }];
@@ -150,13 +151,13 @@ describe("batasHarianTutor / awalHariWIB", () => {
     delete process.env.TUTOR_AI_BATAS_HARIAN;
   });
 
-  it("bawaan 20; env bilangan bulat >= 1 dipakai; nilai aneh jatuh ke bawaan", () => {
-    expect(batasHarianTutor()).toBe(20);
+  it(`bawaan ${BATAS_HARIAN_BAWAAN}; env bilangan bulat >= 1 dipakai; nilai aneh jatuh ke bawaan`, () => {
+    expect(batasHarianTutor()).toBe(BATAS_HARIAN_BAWAAN);
     process.env.TUTOR_AI_BATAS_HARIAN = "35";
     expect(batasHarianTutor()).toBe(35);
     for (const v of ["0", "-3", "abc", "", " "]) {
       process.env.TUTOR_AI_BATAS_HARIAN = v;
-      expect(batasHarianTutor(), v).toBe(20);
+      expect(batasHarianTutor(), v).toBe(BATAS_HARIAN_BAWAAN);
     }
   });
 
@@ -189,9 +190,9 @@ describe("ringkasanTutor", () => {
   it("sisa = batas - pesan hari ini (tidak pernah negatif), dihitung sejak awal hari WIB untuk siswa itu", async () => {
     m.count.mockResolvedValue(7);
     const sekarang = new Date("2026-10-07T03:00:00Z");
-    expect(await ringkasanTutor({ id: "a1", studentId: "s1" }, sekarang)).toEqual({ aktif: false, sisaHariIni: 13, batasHarian: 20 });
+    expect(await ringkasanTutor({ id: "a1", studentId: "s1" }, sekarang)).toEqual({ aktif: false, sisaHariIni: BATAS_HARIAN_BAWAAN - 7, batasHarian: BATAS_HARIAN_BAWAAN });
     expect(m.count).toHaveBeenCalledWith({ where: { studentId: "s1", createdAt: { gte: awalHariWIB(sekarang) } } });
-    m.count.mockResolvedValue(99);
+    m.count.mockResolvedValue(BATAS_HARIAN_BAWAAN + 99);
     expect((await ringkasanTutor({ id: "a1", studentId: "s1" })).sisaHariIni).toBe(0);
   });
 });

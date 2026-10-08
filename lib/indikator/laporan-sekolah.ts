@@ -1,6 +1,6 @@
 import "server-only";
 import type { PrismaClient } from "@prisma/client";
-import { filterMulai, type RentangWaktu } from "@/lib/analytics/sekolah";
+import { filterMulai, type RentangWaktu, type FilterKategoriUjian, filterKategoriUjianToWhere } from "@/lib/analytics/sekolah";
 import { periodeBulanWIB } from "@/lib/utils/datetime";
 import type { FilterWilayah } from "@/lib/wilayah/cakupan";
 import {
@@ -100,6 +100,7 @@ export interface DataLaporanSekolah {
 export interface OpsiLaporanIndikatorSekolah {
   /** Cakupan pembanding pengguna AyoTKA (nasional bila semuanya null); tanpa ini pembanding tidak dihitung. */
   pembanding?: FilterWilayah | null;
+  kategoriUjian?: FilterKategoriUjian | null;
 }
 
 /** Bangun laporan satu sekolah + satu mapel. null bila sekolah tidak ada. */
@@ -123,7 +124,10 @@ export async function bangunLaporanIndikatorSekolah(
     where: {
       status: { in: [...statusSelesai] },
       student: { schoolId, jalur: "A", deletedAt: null },
-      package: { subjectId },
+      package: { 
+        subjectId,
+        ...filterKategoriUjianToWhere(opsi?.kategoriUjian),
+      },
       ...filterMulai(rentang),
     },
     select: { id: true, studentId: true, packageId: true, mulaiAt: true, student: { select: { nama: true, nisn: true } } },

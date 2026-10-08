@@ -14,17 +14,11 @@ const teks = html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
 describe("Kebijakan Privasi - Tanya Tutor AI", () => {
   it("menyebut percakapan sebagai data yang dikumpulkan dengan lama simpan yang sama dengan kode", () => {
     expect(teks).toContain("Percakapan Tanya Tutor AI");
-    expect(teks).toContain(`${HARI_SIMPAN_RIWAYAT} hari sejak dikirim`);
+    expect(teks).toContain("disimpan seterusnya");
   });
 
-  it("lama simpan disebut di DUA tempat (data yang dikumpulkan dan lama penyimpanan) dan keduanya sama dengan kode", () => {
-    const angka = [...teks.matchAll(/(\d+) hari sejak dikirim/g)].map((m) => m[1]);
-    expect(angka).toEqual([String(HARI_SIMPAN_RIWAYAT), String(HARI_SIMPAN_RIWAYAT)]);
-  });
-
-  it("menyatakan foto tidak disimpan dan penghapusan dilakukan otomatis", () => {
+  it("menyatakan foto tidak disimpan", () => {
     expect(teks).toMatch(/Foto coretan yang dilampirkan tidak disimpan/);
-    expect(teks).toMatch(/dihapus otomatis/);
   });
 
   it("menyebut layanan Tutor AI sebagai pihak yang menerima data, dengan data yang TIDAK dikirim", () => {
@@ -36,9 +30,7 @@ describe("Kebijakan Privasi - Tanya Tutor AI", () => {
     expect(teks).toMatch(/Admin Sekolah dan Dinas Pendidikan tidak memiliki tampilan untuk membacanya/);
   });
 
-  it("lama penyimpanan umum memuat pengecualian percakapan Tutor", () => {
-    expect(teks).toMatch(/Pengecualiannya isi percakapan Tanya Tutor AI/);
-  });
+
 
   it("tanggal pembaruan memuat tanggal perubahan ini", () => {
     expect(teks).toContain("7 Oktober 2026");

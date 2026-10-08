@@ -37,7 +37,10 @@ export async function POST(request: Request) {
   if (!kunci || !param.subjectId) return NextResponse.json({ error: "Parameter kunci/subjectId tidak lengkap." }, { status: 400 });
 
   try {
-    const data = await bangunLaporanIndikatorSekolah(prisma, param.schoolId, param.subjectId, param.rentang, { pembanding: param.pembanding });
+    const data = await bangunLaporanIndikatorSekolah(prisma, param.schoolId, param.subjectId, param.rentang, { 
+      pembanding: param.pembanding,
+      kategoriUjian: param.kategoriUjian as any
+    });
     if (!data) return NextResponse.json({ error: "Gagal menyusun laporan indikator." }, { status: 404 });
 
     const namaMapelResponse = await prisma.subject.findUnique({

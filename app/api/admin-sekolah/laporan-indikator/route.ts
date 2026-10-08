@@ -16,7 +16,10 @@ export async function GET(request: Request) {
   if (!param.subjectId) {
     return NextResponse.json({ mapel, periodeLabel: param.periodeLabel, data: null });
   }
-  const data = await bangunLaporanIndikatorSekolah(prisma, param.schoolId, param.subjectId, param.rentang, { pembanding: param.pembanding });
+  const data = await bangunLaporanIndikatorSekolah(prisma, param.schoolId, param.subjectId, param.rentang, { 
+    pembanding: param.pembanding,
+    kategoriUjian: param.kategoriUjian as any
+  });
   if (!data) return NextResponse.json({ error: "Mata pelajaran atau sekolah tidak ditemukan." }, { status: 404 });
   return NextResponse.json({ mapel, periodeLabel: param.periodeLabel, data });
 }

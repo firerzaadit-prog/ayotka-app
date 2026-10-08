@@ -37,14 +37,13 @@ beforeEach(() => {
   vi.resetAllMocks();
 });
 
-describe("aturan 7 hari", () => {
-  it("lama simpan yang dijanjikan ke siswa adalah 7 hari", () => {
-    expect(HARI_SIMPAN_RIWAYAT).toBe(7);
+describe("aturan lama simpan", () => {
+  it("lama simpan yang dijanjikan ke siswa adalah 36500 hari (selamanya)", () => {
+    expect(HARI_SIMPAN_RIWAYAT).toBe(36500);
   });
 
-  it("batasSimpan = tepat 7 x 24 jam sebelum sekarang", () => {
-    expect(batasSimpan(SEKARANG).toISOString()).toBe("2026-10-07T05:00:00.000Z");
-    expect(SEKARANG.getTime() - batasSimpan(SEKARANG).getTime()).toBe(7 * HARI);
+  it("batasSimpan = tepat 36500 x 24 jam sebelum sekarang", () => {
+    expect(SEKARANG.getTime() - batasSimpan(SEKARANG).getTime()).toBe(36500 * HARI);
   });
 });
 
@@ -66,7 +65,7 @@ describe("muatRiwayat", () => {
     createdAt: new Date(SEKARANG.getTime() - jam * 3600_000),
   });
 
-  it("hanya membaca milik siswa itu, percobaan itu, soal itu, yang belum lewat 7 hari dan sudah berbalasan", async () => {
+  it("hanya membaca milik siswa itu, percobaan itu, soal itu, yang belum lewat batas simpan dan sudah berbalasan", async () => {
     m.findMany.mockResolvedValue([]);
     await muatRiwayat(params, SEKARANG);
     expect(m.findMany).toHaveBeenCalledWith({
@@ -74,7 +73,7 @@ describe("muatRiwayat", () => {
         attemptId: "a1",
         studentId: "s1",
         questionId: "q1",
-        createdAt: { gte: new Date("2026-10-07T05:00:00.000Z") },
+        createdAt: { gte: batasSimpan(SEKARANG) },
         pesan: { not: null },
         balasan: { not: null },
       },
@@ -108,7 +107,7 @@ describe("muatRiwayat", () => {
 });
 
 describe("soalDenganRiwayat / infoTutorHalaman", () => {
-  it("mengelompokkan per soal dengan batas 7 hari dan hanya yang berbalasan, untuk siswa dan percobaan itu", async () => {
+  it("mengelompokkan per soal dengan batas lama simpan dan hanya yang berbalasan, untuk siswa dan percobaan itu", async () => {
     m.groupBy.mockResolvedValue([{ questionId: "q1" }, { questionId: "q3" }]);
     expect(await soalDenganRiwayat("a1", "s1", SEKARANG)).toEqual(["q1", "q3"]);
     expect(m.groupBy).toHaveBeenCalledWith({
@@ -116,7 +115,7 @@ describe("soalDenganRiwayat / infoTutorHalaman", () => {
       where: {
         attemptId: "a1",
         studentId: "s1",
-        createdAt: { gte: new Date("2026-10-07T05:00:00.000Z") },
+        createdAt: { gte: batasSimpan(SEKARANG) },
         pesan: { not: null },
         balasan: { not: null },
       },
@@ -131,7 +130,7 @@ describe("soalDenganRiwayat / infoTutorHalaman", () => {
       sisaHariIni: 12,
       batasHarian: 20,
       soalBerriwayat: ["q9"],
-      hariSimpan: 7,
+      hariSimpan: HARI_SIMPAN_RIWAYAT,
     });
   });
 });
@@ -170,18 +169,18 @@ describe("hapusPercakapan (siswa menghapus percakapan satu soal)", () => {
 });
 
 describe("pembersihan", () => {
-  it("menghapus semua baris yang lebih tua dari 7 hari (semua siswa) dan melaporkan jumlahnya", async () => {
+  it("menghapus semua baris yang lebih tua dari batas simpan (semua siswa) dan melaporkan jumlahnya", async () => {
     m.deleteMany.mockResolvedValue({ count: 5 });
     expect(await bersihkanRiwayatKedaluwarsa(SEKARANG)).toBe(5);
-    expect(m.deleteMany).toHaveBeenCalledWith({ where: { createdAt: { lt: new Date("2026-10-07T05:00:00.000Z") } } });
+    expect(m.deleteMany).toHaveBeenCalledWith({ where: { createdAt: { lt: batasSimpan(SEKARANG) } } });
   });
 
-  it("batas penghapusan tepat: baris persis 7 hari tidak dihapus (lt), lebih tua sedikit dihapus", async () => {
+  it("batas penghapusan tepat: baris persis batas simpan tidak dihapus (lt), lebih tua sedikit dihapus", async () => {
     m.deleteMany.mockResolvedValue({ count: 0 });
     await bersihkanRiwayatKedaluwarsa(SEKARANG);
     const where = m.deleteMany.mock.calls[0]![0].where.createdAt;
     expect(Object.keys(where)).toEqual(["lt"]);
-    expect(where.lt.getTime()).toBe(SEKARANG.getTime() - 7 * HARI);
+    expect(where.lt.getTime()).toBe(SEKARANG.getTime() - HARI_SIMPAN_RIWAYAT * HARI);
   });
 
   it("pembacaan dan penghapusan memakai batas yang SAMA (tidak ada celah: yang tak tampil pasti terhapus)", async () => {

@@ -4,16 +4,16 @@
  */
 
 /** Batas pesan per siswa per hari (hari WIB); server membacanya dari env TUTOR_AI_BATAS_HARIAN bila diatur. */
-export const BATAS_HARIAN_BAWAAN = 20;
+export const BATAS_HARIAN_BAWAAN = 999999;
 
 /** Panjang maksimum satu pesan siswa. */
-export const MAKS_PANJANG_PESAN = 1000;
+export const MAKS_PANJANG_PESAN = 100000;
 
 /** Jumlah pesan (siswa + tutor) yang dikirim per permintaan sebagai riwayat percakapan. */
-export const MAKS_PESAN_RIWAYAT = 20;
+export const MAKS_PESAN_RIWAYAT = 1000;
 
 /** Jumlah karakter seluruh pesan dalam satu permintaan. */
-export const MAKS_TOTAL_KARAKTER = 8000;
+export const MAKS_TOTAL_KARAKTER = 1000000;
 
 /**
  * Panjang maksimum foto (data URI base64) per permintaan. Sengaja kecil (< 1 MB): nginx bawaan menolak badan permintaan
@@ -28,18 +28,18 @@ export const TARGET_GAMBAR_KARAKTER = 560_000;
 export const MAKS_BERKAS_FOTO_BYTE = 15 * 1024 * 1024;
 
 /** Batas panjang teks yang dikirim ke AI dari data soal (menjaga biaya dan ukuran permintaan). */
-export const MAKS_TEKS_SOAL = 6000;
-export const MAKS_TEKS_STIMULUS = 8000;
-export const MAKS_TEKS_OPSI = 1000;
+export const MAKS_TEKS_SOAL = 1000000;
+export const MAKS_TEKS_STIMULUS = 1000000;
+export const MAKS_TEKS_OPSI = 1000000;
 
 /** Balasan tutor dipotong sampai sepanjang ini sebelum dikirim ke siswa. */
-export const MAKS_PANJANG_BALASAN = 6000;
+export const MAKS_PANJANG_BALASAN = 100000;
 
 /**
  * Lama isi percakapan Tanya Tutor AI disimpan, dihitung sejak tiap pesan dikirim. Sesudah itu isinya tidak ditampilkan
  * lagi dan barisnya dihapus otomatis (lib/tutor/penyimpanan.ts). Angka ini juga dipakai untuk keterangan ke siswa.
  */
-export const HARI_SIMPAN_RIWAYAT = 7;
+export const HARI_SIMPAN_RIWAYAT = 36500;
 
 /** Paling banyak giliran yang dimuat saat siswa membuka kembali percakapan satu soal (batas harian x hari simpan jauh di bawahnya). */
-export const MAKS_GILIRAN_DIMUAT = 200;
+export const MAKS_GILIRAN_DIMUAT = 10000;

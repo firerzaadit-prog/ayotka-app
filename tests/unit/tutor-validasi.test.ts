@@ -65,7 +65,8 @@ describe("tutorBodySchema", () => {
 
   it("total karakter seluruh pesan dibatasi", () => {
     const panjang = "a".repeat(MAKS_PANJANG_PESAN);
-    const banyak = Array.from({ length: 9 }, (_, i) => ({ role: i % 2 === 0 ? "user" : "assistant", content: panjang }));
+    // 11 pesan × 100.000 karakter = 1.100.000 > MAKS_TOTAL_KARAKTER (1.000.000)
+    const banyak = Array.from({ length: 11 }, (_, i) => ({ role: i % 2 === 0 ? "user" : "assistant", content: panjang }));
     expect(banyak.length * MAKS_PANJANG_PESAN).toBeGreaterThan(MAKS_TOTAL_KARAKTER);
     expect(pesanError({ messages: banyak })).toMatch(/terlalu panjang/);
   });

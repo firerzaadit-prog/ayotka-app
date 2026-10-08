@@ -80,15 +80,30 @@ function toRankingList(map: Map<string, StudentAgg>) {
     .sort((a, b) => b.rataRata - a.rataRata);
 }
 
+import type { Prisma } from "@prisma/client";
+
+export type FilterKategoriUjian = "semua" | "sekolah" | "nasional" | "mandiri";
+
+export function filterKategoriUjianToWhere(kat?: FilterKategoriUjian | null): Prisma.PackageWhereInput {
+  if (!kat || kat === "semua") return {};
+  if (kat === "sekolah") return { ownerType: "sekolah" };
+  if (kat === "nasional") return { ownerType: "pusat", kategori: "nasional" };
+  if (kat === "mandiri") return { ownerType: "pusat", kategori: "mandiri" };
+  return {};
+}
+
 export async function buildAnalitikSekolah(
   schoolId: string,
-  filter: { subjectId?: string | null } & RentangWaktu,
+  filter: { subjectId?: string | null; kategoriUjian?: FilterKategoriUjian | null } & RentangWaktu,
 ) {
   const attempts = await prisma.attempt.findMany({
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       student: { schoolId, jalur: "A", deletedAt: null },
-      ...(filter.subjectId ? { package: { subjectId: filter.subjectId } } : {}),
+      package: {
+        ...(filter.subjectId ? { subjectId: filter.subjectId } : {}),
+        ...filterKategoriUjianToWhere(filter.kategoriUjian),
+      },
       ...filterMulai(filter),
     },
     select: {
