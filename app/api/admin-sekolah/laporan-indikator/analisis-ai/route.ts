@@ -39,7 +39,7 @@ export async function POST(request: Request) {
   try {
     const data = await bangunLaporanIndikatorSekolah(prisma, param.schoolId, param.subjectId, param.rentang, { 
       pembanding: param.pembanding,
-      kategoriUjian: param.kategoriUjian as any
+      kategoriUjian: param.kategoriUjian
     });
     if (!data) return NextResponse.json({ error: "Gagal menyusun laporan indikator." }, { status: 404 });
 
