@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AnalisisAiPanel } from "@/components/ai/analisis-panel";
+
 import { RincianJawaban } from "@/components/hasil/rincian-jawaban";
 import { KesiapanSiswaSummary } from "@/components/analytics/kesiapan-siswa-summary";
 import { klasifikasiKesiapan } from "@/lib/exam/scoring";
@@ -142,12 +142,6 @@ export function RiwayatSiswaView({
                       <span className="text-xs text-slate-400">Rapor PDF hanya untuk percobaan pertama paket ini</span>
                     )}
                   </div>
-
-                  {a.status === "selesai" && (
-                    <div className="border-t border-slate-100 pt-4">
-                      <AnalisisAiPanel attemptId={a.id} canTrigger={canTrigger} />
-                    </div>
-                  )}
 
                   {a.status === "selesai" && hasilByAttempt.get(a.id) && (() => {
                     const h = hasilByAttempt.get(a.id)!;
