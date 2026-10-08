@@ -34,7 +34,8 @@ export async function bacaParamLaporan(request: Request): Promise<HasilParamLapo
   } catch {
     return { galat: NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 }) };
   }
-  const schoolId = await resolveSchoolId(user, null);
+  const url = new URL(request.url);
+  const schoolId = await resolveSchoolId(user, url.searchParams.get("schoolId"));
   if (!schoolId) {
     return { galat: NextResponse.json({ error: "Akun belum terhubung ke sekolah." }, { status: 403 }) };
   }
@@ -42,7 +43,6 @@ export async function bacaParamLaporan(request: Request): Promise<HasilParamLapo
     return { galat: NextResponse.json({ error: "Terlalu banyak permintaan, coba lagi sebentar lagi." }, { status: 429 }) };
   }
 
-  const url = new URL(request.url);
   const subjectRaw = url.searchParams.get("subjectId");
   if (subjectRaw && !z.string().uuid().safeParse(subjectRaw).success) {
     return { galat: NextResponse.json({ error: "Mata pelajaran tidak valid." }, { status: 400 }) };

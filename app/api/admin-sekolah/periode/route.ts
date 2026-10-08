@@ -8,14 +8,15 @@ import { akhirEfektif, ambilPeriodeSekolah, statusPeriode } from "@/lib/billing/
  * Daftar periode langganan sekolah (terbaru di atas, tanpa yang dicabut) - read-only. Dipakai pemilih periode di
  * halaman Analitik. Pengelolaan periode hanya lewat admin pusat (/api/admin-pusat/schools/[id]/periode).
  */
-export async function GET() {
+export async function GET(request: Request) {
   let user;
   try {
     user = await requireRole("admin_sekolah", "admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
-  const schoolId = await resolveSchoolId(user, null);
+  const url = new URL(request.url);
+  const schoolId = await resolveSchoolId(user, url.searchParams.get("schoolId"));
   if (!schoolId) {
     return NextResponse.json({ error: "Akun belum terhubung ke sekolah." }, { status: 403 });
   }

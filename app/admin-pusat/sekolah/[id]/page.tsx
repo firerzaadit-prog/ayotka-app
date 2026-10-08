@@ -286,7 +286,7 @@ export default function SekolahDetailPage({
           <Button onClick={() => handleManageSchool()} disabled={acting}>
             {acting ? "Membuka..." : "Kelola sekolah ini"}
           </Button>
-          <Button variant="outline" onClick={() => handleManageSchool("/admin-sekolah/laporan-indikator")} disabled={acting}>
+          <Button variant="outline" onClick={() => router.push(`/admin-pusat/sekolah/${id}/laporan-indikator`)}>
             Lihat Laporan Daya Serap
           </Button>
           {school.status !== "aktif" ? (
