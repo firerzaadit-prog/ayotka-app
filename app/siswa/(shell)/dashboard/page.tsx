@@ -120,7 +120,7 @@ export default async function SiswaDashboardPage() {
       <PageHeader title="Dashboard Siswa" description="Selamat datang kembali di AyoTKA." />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {QUICK_LINKS.map((item) => (
+        {QUICK_LINKS.filter((item) => student?.jalur === "A" || item.id !== "link-tryout-sekolah").map((item) => (
           <Link key={item.href} href={item.href} id={item.id} className="group">
             <Card className="relative h-full transition-all group-hover:border-indigo-200 group-hover:shadow-md">
               <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-lg ${item.iconColor}`}>
