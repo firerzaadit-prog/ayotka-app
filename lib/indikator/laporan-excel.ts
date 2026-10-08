@@ -1,7 +1,10 @@
 import "server-only";
 import ExcelJS from "exceljs";
+import { labelPeriodeBulan } from "@/lib/utils/datetime";
 import { LABEL_VONIS, type BarisIndikator, type BarisIndikatorSekolah } from "./daya-serap";
 import type { DataLaporanSekolah } from "./laporan-sekolah";
+import { MIN_SEKOLAH_PEMBANDING } from "./pembanding";
+import { NAMA_LEVEL } from "./wawasan";
 
 /**
  * Excel laporan daya serap per indikator sekolah. Angka disimpan sebagai ANGKA (bukan teks) supaya bisa diurutkan dan
@@ -28,6 +31,8 @@ function selisihNasional(b: BarisIndikator): number | null {
   return b.nasional === null ? null : bulat1(b.dayaSerap - b.nasional);
 }
 
+const LABEL_JENIS_WAWASAN = { perhatian: "Perhatian", info: "Info", positif: "Baik" } as const;
+
 export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, periodeLabel: string): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "AyoTKA";
@@ -48,6 +53,17 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
   tambah("Siswa yang mengerjakan", data.jumlahSiswaMengerjakan);
   tambah("Percobaan pertama yang dihitung", data.jumlahPercobaan);
   tambah("Jumlah paket", data.jumlahPaket);
+  const pb = data.pembanding;
+  if (pb) {
+    tambah("Pembanding pengguna AyoTKA", pb.label);
+    tambah("Sekolah pembanding / siswa", `${pb.jumlahSekolah} / ${pb.jumlahSiswa}`);
+    if (pb.cukup && pb.rerata !== null) {
+      tambah("Rerata pembanding (%)", bulat1(pb.rerata));
+      if (pb.posisi) tambah("Posisi sekolah", `Peringkat ${pb.posisi.peringkat} dari ${pb.posisi.dari} sekolah (lebih tinggi dari ${Math.round(pb.posisi.persentil)}% sekolah lain)`);
+    } else {
+      tambah("Catatan pembanding", `Belum cukup: baru ${pb.jumlahSekolah} sekolah yang punya data (minimal ${MIN_SEKOLAH_PEMBANDING}).`);
+    }
+  }
   if (lap) {
     const skor = lap.kelompok.reduce((a, k) => a + k.skor, 0);
     const maks = lap.kelompok.reduce((a, k) => a + k.skorMaks, 0);
@@ -66,7 +82,23 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
   );
   ringkasan.getColumn(2).alignment = { wrapText: true, vertical: "top" };
 
+  // Kolom pembanding wilayah hanya ada bila laporan memuatnya (pembanding diminta dan cukup).
+  const adaWilayah = Boolean(lap?.kelompok.some((k) => k.wilayah !== undefined));
+  const labelKolomWilayah = pb ? `Rerata AyoTKA ${pb.label} (%)` : "Rerata wilayah (%)";
+
   if (lap) {
+    // ---- Wawasan Learning Analytics ----
+    if ((data.wawasan ?? []).length > 0) {
+      const w = wb.addWorksheet("Wawasan");
+      w.columns = [
+        { header: "Jenis", key: "jenis", width: 12 },
+        { header: "Wawasan", key: "teks", width: 140 },
+      ];
+      gayaKepala(w);
+      for (const x of data.wawasan ?? []) w.addRow({ jenis: LABEL_JENIS_WAWASAN[x.jenis], teks: x.teks });
+      w.getColumn("teks").alignment = { wrapText: true, vertical: "top" };
+    }
+
     // ---- Per kelompok ----
     const kel = wb.addWorksheet("Per Kelompok");
     kel.columns = [
@@ -78,6 +110,12 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
       { header: "Rerata nasional (%)", key: "nas", width: 19 },
       { header: "Selisih (poin)", key: "sel", width: 15 },
       { header: "Vonis", key: "vonis", width: 28 },
+      ...(adaWilayah
+        ? [
+            { header: labelKolomWilayah, key: "wil", width: 30 },
+            { header: "Selisih wilayah (poin)", key: "selwil", width: 21 },
+          ]
+        : []),
     ];
     gayaKepala(kel);
     for (const k of lap.kelompok) {
@@ -90,11 +128,16 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
         nas: k.nasional === null ? null : bulat1(k.nasional),
         sel: k.selisih === null ? null : bulat1(k.selisih),
         vonis: LABEL_VONIS[k.vonis],
+        ...(adaWilayah ? { wil: typeof k.wilayah === "number" ? bulat1(k.wilayah) : null, selwil: typeof k.selisihWilayah === "number" ? bulat1(k.selisihWilayah) : null } : {}),
       });
     }
     kel.getColumn("daya").numFmt = FORMAT_PERSEN;
     kel.getColumn("nas").numFmt = FORMAT_PERSEN;
     kel.getColumn("sel").numFmt = FORMAT_SELISIH;
+    if (adaWilayah) {
+      kel.getColumn("wil").numFmt = FORMAT_PERSEN;
+      kel.getColumn("selwil").numFmt = FORMAT_SELISIH;
+    }
 
     // ---- Per indikator ----
     const ind = wb.addWorksheet("Per Indikator");
@@ -111,6 +154,9 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
       { header: "Rerata nasional (%)", key: "nas", width: 19 },
       { header: "Selisih (poin)", key: "sel", width: 15 },
     );
+    if (adaWilayah) {
+      kolom.push({ header: labelKolomWilayah, key: "wil", width: 30 }, { header: "Selisih wilayah (poin)", key: "selwil", width: 21 });
+    }
     ind.columns = kolom;
     gayaKepala(ind);
     for (const k of lap.kelompok) {
@@ -125,6 +171,9 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
           daya: bulat1(b.dayaSerap),
           nas: b.nasional === null ? null : bulat1(b.nasional),
           sel: selisihNasional(b),
+          ...(adaWilayah
+            ? { wil: typeof b.wilayah === "number" ? bulat1(b.wilayah) : null, selwil: typeof b.wilayah === "number" ? bulat1(b.dayaSerap - b.wilayah) : null }
+            : {}),
         });
       }
     }
@@ -132,6 +181,10 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
     ind.getColumn("daya").numFmt = FORMAT_PERSEN;
     ind.getColumn("nas").numFmt = FORMAT_PERSEN;
     ind.getColumn("sel").numFmt = FORMAT_SELISIH;
+    if (adaWilayah) {
+      ind.getColumn("wil").numFmt = FORMAT_PERSEN;
+      ind.getColumn("selwil").numFmt = FORMAT_SELISIH;
+    }
 
     // ---- Learning Analytics otomatis: remedial dan di bawah nasional ----
     const daftar = (nama: string, baris: BarisIndikatorSekolah[]) => {
@@ -157,6 +210,22 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
     };
     daftar("Prioritas Remedial", lap.prioritasRemedial);
     daftar("Di Bawah Nasional", lap.diBawahNasional);
+
+    // ---- Tren bulanan dan level kognitif ----
+    if (lap.tren.length > 0 || lap.perLevel.length > 0) {
+      const tl = wb.addWorksheet("Tren dan Level");
+      tl.columns = [
+        { header: "Kategori", key: "kat", width: 20 },
+        { header: "Nama", key: "nama", width: 44 },
+        { header: "Jawaban", key: "jml", width: 11 },
+        { header: "Siswa", key: "siswa", width: 9 },
+        { header: "Daya serap (%)", key: "daya", width: 15 },
+      ];
+      gayaKepala(tl);
+      for (const t of lap.tren) tl.addRow({ kat: "Tren bulanan", nama: labelPeriodeBulan(t.periode), jml: t.jmlSoal, siswa: t.jmlSiswa, daya: bulat1(t.dayaSerap) });
+      for (const l of lap.perLevel) tl.addRow({ kat: "Level kognitif", nama: NAMA_LEVEL[l.level] ?? l.level, jml: l.jmlSoal, siswa: null, daya: bulat1(l.dayaSerap) });
+      tl.getColumn("daya").numFmt = FORMAT_PERSEN;
+    }
 
     // ---- Siswa perlu perhatian ----
     const sw = wb.addWorksheet("Siswa Perlu Perhatian");

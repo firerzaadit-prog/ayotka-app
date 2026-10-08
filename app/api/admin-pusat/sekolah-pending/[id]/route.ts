@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { schoolPendingActionSchema } from "@/lib/validations/school";
+import { statusSekolahUntukSimpan, wilayahSetelahPerubahan } from "@/lib/wilayah";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -51,12 +52,24 @@ export async function POST(request: Request, { params }: RouteParams) {
   const ip = getClientIp(request);
 
   if (data.action === "approve") {
+    // Wilayah/status yang dikosongkan di formulir persetujuan TIDAK menghapus isian yang sudah dicatat siswa saat
+    // mendaftar (lihat registrasi mandiri); isian yang dikirim menimpanya.
+    const wilayah = wilayahSetelahPerubahan(
+      { provinsi: data.provinsi || undefined, kabupatenKota: data.kabupatenKota || undefined },
+      { provinsi: school.provinsi, kabupatenKota: school.kabupatenKota },
+    );
+    if (!wilayah.ok) {
+      return NextResponse.json({ error: wilayah.pesan }, { status: 400 });
+    }
     const updated = await prisma.school.update({
       where: { id },
       data: {
         nama: data.nama,
         npsn: data.npsn && data.npsn.length > 0 ? data.npsn : null,
         alamat: data.alamat && data.alamat.length > 0 ? data.alamat : null,
+        provinsi: wilayah.nilai.provinsi,
+        kabupatenKota: wilayah.nilai.kabupatenKota,
+        ...(data.statusSekolah ? { statusSekolah: statusSekolahUntukSimpan(data.statusSekolah) } : {}),
         status: "aktif",
       },
     });

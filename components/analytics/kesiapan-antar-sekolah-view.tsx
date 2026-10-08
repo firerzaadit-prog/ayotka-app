@@ -15,6 +15,12 @@ import { FilterTanggal } from "@/components/analytics/filter-tanggal";
 import { rentangTanggalValid } from "@/lib/analytics/preset-tanggal";
 import type { KesiapanPerSekolah } from "@/lib/analytics/global";
 import { KESIAPAN_SUBJECTS } from "@/lib/analytics/kesiapan";
+import {
+  FilterWilayah,
+  nilaiAwalFilterWilayah,
+  tambahkanParamWilayah,
+} from "@/components/wilayah/pilih-wilayah";
+import type { CakupanWilayah } from "@/lib/wilayah/cakupan";
 
 const selectClassName =
   "rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
@@ -40,10 +46,14 @@ function PersentaseBadge({ pct, total }: { pct: number; total: number }) {
  */
 export function KesiapanAntarSekolahView({
   studentDetailHrefBase,
+  cakupan,
 }: {
   /** Kalau diisi, nama siswa di "Daftar Siswa per Kategori Kesiapan" jadi tautan ke halaman detail riwayatnya. */
   studentDetailHrefBase?: string;
+  /** Wilayah cakupan akun dinas: provinsi/kota-kabupaten yang terkunci di filter. Kosong untuk admin pusat. */
+  cakupan?: CakupanWilayah | null;
 } = {}) {
+  const [filterWilayah, setFilterWilayah] = useState(() => nilaiAwalFilterWilayah(cakupan));
   const [jenjang, setJenjang] = useState("");
   const [wilayah, setWilayah] = useState("");
   const [dari, setDari] = useState("");
@@ -63,6 +73,7 @@ export function KesiapanAntarSekolahView({
       const qs = new URLSearchParams();
       if (jenjang) qs.set("jenjang", jenjang);
       if (wilayah) qs.set("wilayah", wilayah);
+      tambahkanParamWilayah(qs, filterWilayah);
       if (dari) qs.set("dari", dari);
       if (sampai) qs.set("sampai", sampai);
       const res = await fetch(`/api/dinas-pendidikan/kesiapan?${qs.toString()}`);
@@ -81,7 +92,7 @@ export function KesiapanAntarSekolahView({
       ignore = true;
       clearTimeout(timeout);
     };
-  }, [jenjang, wilayah, dari, sampai, rentangValid]);
+  }, [jenjang, wilayah, filterWilayah, dari, sampai, rentangValid]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -96,6 +107,8 @@ export function KesiapanAntarSekolahView({
         Bahasa Inggris (SMP) memakai standar kategori Bahasa Indonesia SMP - kedua mapel ini di
         luar cakupan resmi TKA, yang hanya menguji Matematika &amp; Bahasa Indonesia.
       </Alert>
+
+      <FilterWilayah idAwalan="kesiapanWilayah" nilai={filterWilayah} onChange={setFilterWilayah} cakupan={cakupan} />
 
       <div className="flex flex-wrap gap-4">
         <div>
@@ -198,6 +211,7 @@ export function KesiapanAntarSekolahView({
         endpoint="/api/dinas-pendidikan/kesiapan/siswa"
         jenjang={jenjang}
         wilayah={wilayah}
+        wilayahFilter={filterWilayah}
         dari={rentangValid ? dari : ""}
         sampai={rentangValid ? sampai : ""}
         showSekolahColumn

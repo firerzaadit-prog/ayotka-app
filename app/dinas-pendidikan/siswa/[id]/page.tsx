@@ -8,7 +8,7 @@ import { getDinasWilayah, siswaDalamWilayahDinas } from "@/lib/dinas/wilayah";
 
 /**
  * Detail riwayat siswa untuk dinas pendidikan - akses baca saja lintas
- * sekolah DALAM WILAYAHNYA (kota/kabupaten yang ditetapkan admin pusat; sama
+ * sekolah DALAM WILAYAHNYA (provinsi atau kota/kabupaten yang ditetapkan admin pusat; sama
  * seperti daftar dan analitik dinas), canTrigger=false supaya tombol
  * "Analisis ulang" AI (aksi tulis) tidak muncul di role ini. Siswa di luar
  * wilayah, siswa mandiri (Jalur B), dan siswa yang sudah dihapus tampil

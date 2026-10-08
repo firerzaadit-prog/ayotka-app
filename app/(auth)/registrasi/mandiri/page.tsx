@@ -8,8 +8,16 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { KirimUlangKonfirmasi } from "@/components/auth/kirim-ulang-konfirmasi";
 import { bentukKodeValid, normalizeKodeReferral } from "@/lib/registrasi/referral-format";
+import { PilihStatusSekolah, PilihWilayah } from "@/components/wilayah/pilih-wilayah";
+import { labelStatusSekolah } from "@/lib/wilayah";
 
-type SchoolOption = { id: string; nama: string; npsn: string | null };
+type SchoolOption = {
+  id: string;
+  nama: string;
+  npsn: string | null;
+  kabupatenKota?: string | null;
+  statusSekolah?: "negeri" | "swasta" | null;
+};
 
 function RegistrasiMandiriForm() {
   const searchParams = useSearchParams();
@@ -34,6 +42,9 @@ function RegistrasiMandiriForm() {
   const [selectedSekolah, setSelectedSekolah] = useState<SchoolOption | null>(null);
   const [tidakAdaDiDaftar, setTidakAdaDiDaftar] = useState(false);
   const [asalSekolahManual, setAsalSekolahManual] = useState("");
+  const [asalProvinsi, setAsalProvinsi] = useState("");
+  const [asalKabupatenKota, setAsalKabupatenKota] = useState("");
+  const [asalStatus, setAsalStatus] = useState("");
   const [sudahMencari, setSudahMencari] = useState(false);
 
   function handleGantiJenjang(nilai: "SD" | "SMP") {
@@ -110,6 +121,9 @@ function RegistrasiMandiriForm() {
         jenjang,
         asalSekolahId: !tidakAdaDiDaftar ? selectedSekolah?.id : "",
         asalSekolahManual: tidakAdaDiDaftar ? asalSekolahManual : "",
+        asalSekolahProvinsi: tidakAdaDiDaftar ? asalProvinsi : "",
+        asalSekolahKabupatenKota: tidakAdaDiDaftar ? asalKabupatenKota : "",
+        asalSekolahStatus: tidakAdaDiDaftar ? asalStatus : "",
         kodeReferral,
       }),
     });
@@ -207,6 +221,11 @@ function RegistrasiMandiriForm() {
                   className="px-3 py-2 text-left text-sm hover:bg-slate-50"
                 >
                   {s.nama}
+                  {(s.kabupatenKota || s.statusSekolah) && (
+                    <span className="block text-xs text-slate-500">
+                      {[s.kabupatenKota, s.statusSekolah ? labelStatusSekolah(s.statusSekolah) : null].filter(Boolean).join(" · ")}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -236,6 +255,26 @@ function RegistrasiMandiriForm() {
             Ketik nama lengkap sekolahmu, mis. &quot;{jenjang === "SD" ? "SD Negeri 1 Kediri" : "SMP Negeri 1 Kediri"}&quot;.
             Langsung bisa dipakai, tanpa menunggu verifikasi admin.
           </p>
+          <div className="mt-3 flex flex-col gap-3">
+            <PilihWilayah
+              idAwalan="asalSekolah"
+              provinsi={asalProvinsi}
+              kabupatenKota={asalKabupatenKota}
+              onChange={(w) => {
+                setAsalProvinsi(w.provinsi);
+                setAsalKabupatenKota(w.kabupatenKota);
+              }}
+              wajib
+              labelProvinsi="Provinsi sekolahmu"
+              labelKabupatenKota="Kota/Kabupaten sekolahmu"
+              kosongProvinsi="Pilih provinsi"
+              kosongKabupatenKota="Pilih kota/kabupaten"
+            />
+            <PilihStatusSekolah id="asalSekolahStatus" value={asalStatus} onChange={setAsalStatus} wajib label="Sekolahmu negeri atau swasta?" />
+            <p className="text-xs text-slate-500">
+              Dipakai untuk memetakan nilai per wilayah dan jenis sekolah, seperti di portal hasil TKA.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setTidakAdaDiDaftar(false)}

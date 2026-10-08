@@ -23,5 +23,10 @@
  * ketiga bagian terakhir WAJIB menyebut nama materi/sub-materi spesifik (bukan
  * generik) dan dibatasi ketat ke materi yang benar-benar ada di matriks asesmen
  * paket ini (tidak boleh menyinggung topik di luar itu).
+ * 2026-10-v8 (permintaan user 8 Okt): analisis AI disesuaikan dengan kerangka asesmen dan taksonomi resmi yang berlaku:
+ * prompt menyertakan STANDAR INDIKATOR RESMI Kemendikdasmen (hierarki Elemen > Subelemen > Kompetensi > Indikator, atau
+ * Kompetensi > Subkompetensi > Indikator untuk Bahasa, lengkap dengan daya serap dan rerata nasional hasil hitungan kode,
+ * sama dengan rapor siswa) dan nama elemen mengikuti Kerangka Asesmen (SD Matematika: "Data"). AI diminta memakai
+ * penamaan resmi persis, mengaitkan rekomendasi ke indikator resmi yang lemah, dan tidak menyimpulkan nasional per indikator.
  */
-export const PROMPT_VERSION = "2026-09-v7";
+export const PROMPT_VERSION = "2026-10-v8";

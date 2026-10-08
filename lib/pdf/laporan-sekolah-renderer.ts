@@ -2,12 +2,22 @@ import "server-only";
 import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color";
 import type { BarisIndikatorSekolah } from "@/lib/indikator/daya-serap";
 import type { DataLaporanSekolah } from "@/lib/indikator/laporan-sekolah";
-import { formatPersen, formatSelisih } from "@/lib/indikator/tampilan";
+import { MIN_SEKOLAH_PEMBANDING } from "@/lib/indikator/pembanding";
+import { WARNA_VONIS, formatPersen, formatSelisih } from "@/lib/indikator/tampilan";
+import { NAMA_LEVEL, type JenisWawasan } from "@/lib/indikator/wawasan";
+import { labelPeriodeBulan } from "@/lib/utils/datetime";
 import { X0, buatPenulis, gambarDaftarFokus, gambarKelompok } from "@/lib/pdf/indikator-gambar";
 import { COLOR, setupFonts, type PdfFonts } from "@/lib/pdf/pdf-umum";
 
 /** Daftar siswa perlu perhatian dibatasi di PDF supaya tetap ringkas; daftar lengkap ada di Excel. */
 const MAKS_SISWA_DI_PDF = 40;
+
+const LABEL_WAWASAN: Record<JenisWawasan, string> = { perhatian: "PERHATIAN", info: "INFO", positif: "BAIK" };
+const WARNA_WAWASAN: Record<JenisWawasan, string> = {
+  perhatian: WARNA_VONIS.perlu_penguatan,
+  info: WARNA_VONIS.setara,
+  positif: WARNA_VONIS.di_atas,
+};
 
 function nomorHalaman(doc: PDFKit.PDFDocument, fonts: PdfFonts, halaman: number, total: number) {
   // Teks di zona margin bawah: margin bawah dinolkan sementara supaya pdfkit tidak menambah halaman kosong.
@@ -80,6 +90,20 @@ export async function renderLaporanSekolahPdf(
   });
   doc.y = yKartu + 56 + 12;
 
+  // ---- Pembanding pengguna AyoTKA (wilayah dan status sekolah yang dipilih) ----
+  const pb = data.pembanding;
+  if (pb) {
+    const teksPb = toText(
+      pb.cukup && pb.rerata !== null
+        ? `Pembanding pengguna AyoTKA (${pb.label}): rerata daya serap ${formatPersen(pb.rerata, 1)} dari ${pb.jumlahSekolah} sekolah dan ${pb.jumlahSiswa} siswa.`
+        : `Pembanding pengguna AyoTKA (${pb.label}) belum cukup: baru ${pb.jumlahSekolah} sekolah yang punya data pada mapel ini (minimal ${MIN_SEKOLAH_PEMBANDING}).`,
+    );
+    const hPb = tinggi(teksPb, 8.5, contentWidth);
+    pastikanMuat(hPb + 12);
+    tulis(teksPb, X0, doc.y, contentWidth, 8.5, COLOR.body);
+    doc.y += hPb + 12;
+  }
+
   if (!lap) {
     pastikanMuat(60);
     const pesan =
@@ -95,6 +119,24 @@ export async function renderLaporanSekolahPdf(
       "Daya serap = skor yang diperoleh dibagi skor maksimum pada indikator, dari percobaan PERTAMA tiap siswa pada tiap paket. Rerata nasional dari portal resmi daya serap TKA Kemendikdasmen adalah rujukan; vonis hanya diberikan di tingkat kelompok. Alumni tetap dihitung.";
     tulis(catatan, X0, doc.y, contentWidth, 7.5, COLOR.faint);
     doc.y += tinggi(catatan, 7.5, contentWidth) + 12;
+
+    // ---- Wawasan Learning Analytics (disusun otomatis dari angka laporan) ----
+    const wawasan = data.wawasan ?? [];
+    if (wawasan.length > 0) {
+      pastikanMuat(80);
+      tulis("Wawasan Learning Analytics", X0, doc.y, contentWidth, 12, COLOR.ink, true);
+      doc.y += 20;
+      for (const w of wawasan) {
+        const teks = toText(w.teks);
+        const h = tinggi(teks, 8.5, contentWidth - 62);
+        pastikanMuat(h + 8);
+        const yw = doc.y;
+        tulis(LABEL_WAWASAN[w.jenis], X0, yw + 1, 56, 7.5, WARNA_WAWASAN[w.jenis], true);
+        tulis(teks, X0 + 62, yw, contentWidth - 62, 8.5, COLOR.body);
+        doc.y = yw + h + 6;
+      }
+      doc.y += 8;
+    }
 
     // ---- Sebaran siswa ----
     const total = lap.sebaran.baik + lap.sebaran.cukup + lap.sebaran.kurang;
@@ -117,13 +159,44 @@ export async function renderLaporanSekolahPdf(
     }
     doc.y += 8;
 
+    // ---- Tren bulanan dan level kognitif ----
+    if (lap.tren.length > 1 || lap.perLevel.length > 0) {
+      const baris: string[] = [];
+      if (lap.tren.length > 1) {
+        baris.push(`Tren bulanan: ${lap.tren.map((t) => `${labelPeriodeBulan(t.periode)} ${formatPersen(t.dayaSerap, 0)} (${t.jmlSoal} jawaban)`).join(` ${dot} `)}`);
+      }
+      if (lap.perLevel.length > 0) {
+        baris.push(`Per level kognitif: ${lap.perLevel.map((l) => `${NAMA_LEVEL[l.level] ?? l.level} ${formatPersen(l.dayaSerap, 0)} (${l.jmlSoal} jawaban)`).join(` ${dot} `)}`);
+      }
+      pastikanMuat(70);
+      tulis("Tren dan Level Kognitif", X0, doc.y, contentWidth, 12, COLOR.ink, true);
+      doc.y += 20;
+      for (const b of baris) {
+        const t = toText(b);
+        const h = tinggi(t, 8.5, contentWidth);
+        pastikanMuat(h + 8);
+        tulis(t, X0, doc.y, contentWidth, 8.5, COLOR.body);
+        doc.y += h + 8;
+      }
+      doc.y += 6;
+    }
+
     // ---- Per kelompok dan indikator ----
     pastikanMuat(120);
     tulis(`Daya Serap per ${lap.label[0]}`, X0, doc.y, contentWidth, 14, COLOR.ink, true);
     doc.y += 20;
     tulis(toText(lap.label.join(" > ")), X0, doc.y, contentWidth, 8.5, COLOR.muted);
     doc.y += 18;
-    gambarKelompok(doc, fonts, contentWidth, lap.label, lap.kelompok, (b: BarisIndikatorSekolah) => `${b.jmlSiswa} siswa ${dot} ${b.jmlSoal} jawaban`);
+    gambarKelompok(
+      doc,
+      fonts,
+      contentWidth,
+      lap.label,
+      lap.kelompok,
+      (b: BarisIndikatorSekolah) =>
+        `${b.jmlSiswa} siswa ${dot} ${b.jmlSoal} jawaban${typeof b.wilayah === "number" ? ` ${dot} AyoTKA ${formatPersen(b.wilayah, 0)}` : ""}`,
+      { labelWilayah: pb?.cukup ? `AyoTKA ${pb.label}` : undefined },
+    );
 
     // ---- Learning Analytics otomatis ----
     pastikanMuat(150);

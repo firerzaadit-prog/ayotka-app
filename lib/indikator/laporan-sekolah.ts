@@ -1,6 +1,8 @@
 import "server-only";
 import type { PrismaClient } from "@prisma/client";
 import { filterMulai, type RentangWaktu } from "@/lib/analytics/sekolah";
+import { periodeBulanWIB } from "@/lib/utils/datetime";
+import type { FilterWilayah } from "@/lib/wilayah/cakupan";
 import {
   hitungLaporanSekolah,
   type InfoIndikator,
@@ -8,6 +10,9 @@ import {
   type LaporanIndikatorSekolah,
   type SiswaMeta,
 } from "./daya-serap";
+import type { PembandingWilayah } from "./pembanding";
+import { ambilPembandingWilayah } from "./pembanding-wilayah";
+import { susunWawasan, type Wawasan } from "./wawasan";
 
 /**
  * Laporan daya serap per indikator untuk SATU sekolah dan SATU mata pelajaran, dari percobaan PERTAMA tiap siswa pada
@@ -70,7 +75,14 @@ export async function daftarMapelLaporan(db: PrismaClient, schoolId: string, ren
 }
 
 export interface DataLaporanSekolah {
-  sekolah: { id: string; nama: string };
+  /** Wilayah dan status sekolah ikut dikirim supaya halaman bisa menawarkan pembanding "kota/kabupaten saya" dan "provinsi saya". */
+  sekolah: {
+    id: string;
+    nama: string;
+    provinsi?: string | null;
+    kabupatenKota?: string | null;
+    statusSekolah?: "negeri" | "swasta" | null;
+  };
   mapel: { subjectId: string; nama: string; jenjang: string };
   /** Siswa berbeda yang mengerjakan mapel ini (termasuk yang soalnya tidak berindikator resmi). */
   jumlahSiswaMengerjakan: number;
@@ -79,6 +91,15 @@ export interface DataLaporanSekolah {
   jumlahPaket: number;
   /** Null bila tak ada soal berindikator resmi pada percobaan-percobaan itu. */
   laporan: LaporanIndikatorSekolah | null;
+  /** Pembanding pengguna AyoTKA pada wilayah/status yang diminta; null bila tidak diminta atau gagal dihitung. */
+  pembanding?: PembandingWilayah | null;
+  /** Wawasan Learning Analytics otomatis (lihat lib/indikator/wawasan.ts); kosong bila tidak ada laporan. */
+  wawasan?: Wawasan[];
+}
+
+export interface OpsiLaporanIndikatorSekolah {
+  /** Cakupan pembanding pengguna AyoTKA (nasional bila semuanya null); tanpa ini pembanding tidak dihitung. */
+  pembanding?: FilterWilayah | null;
 }
 
 /** Bangun laporan satu sekolah + satu mapel. null bila sekolah tidak ada. */
@@ -87,9 +108,13 @@ export async function bangunLaporanIndikatorSekolah(
   schoolId: string,
   subjectId: string,
   rentang?: RentangWaktu | null,
+  opsi?: OpsiLaporanIndikatorSekolah,
 ): Promise<DataLaporanSekolah | null> {
   const [sekolah, subject] = await Promise.all([
-    db.school.findUnique({ where: { id: schoolId }, select: { id: true, nama: true } }),
+    db.school.findUnique({
+      where: { id: schoolId },
+      select: { id: true, nama: true, provinsi: true, kabupatenKota: true, statusSekolah: true },
+    }),
     db.subject.findUnique({ where: { id: subjectId }, select: { id: true, nama: true, jenjang: true } }),
   ]);
   if (!sekolah || !subject) return null;
@@ -106,13 +131,19 @@ export async function bangunLaporanIndikatorSekolah(
   const pertama = pilihPercobaanPertama(percobaan);
 
   const dasar: Omit<DataLaporanSekolah, "laporan"> = {
-    sekolah: { id: sekolah.id, nama: sekolah.nama },
+    sekolah: {
+      id: sekolah.id,
+      nama: sekolah.nama,
+      provinsi: sekolah.provinsi,
+      kabupatenKota: sekolah.kabupatenKota,
+      statusSekolah: sekolah.statusSekolah,
+    },
     mapel: { subjectId: subject.id, nama: subject.nama, jenjang: subject.jenjang },
     jumlahSiswaMengerjakan: new Set(pertama.map((p) => p.studentId)).size,
     jumlahPercobaan: pertama.length,
     jumlahPaket: new Set(pertama.map((p) => p.packageId)).size,
   };
-  if (pertama.length === 0) return { ...dasar, laporan: null };
+  if (pertama.length === 0) return { ...dasar, laporan: null, pembanding: null, wawasan: [] };
 
   // jawaban semua percobaan terpilih (dalam keping supaya daftar IN tidak membengkak)
   const penanda = new Map(pertama.map((p) => [p.id, p]));
@@ -129,9 +160,17 @@ export async function bangunLaporanIndikatorSekolah(
   // soal -> indikator resmi (hanya soal yang tertaut)
   const idSoal = [...new Set(jawaban.map((j) => j.questionId))];
   const soalIndikator = new Map<string, string>();
+  const soalLevel = new Map<string, string>();
   for (const k of keping(idSoal)) {
-    const baris = await db.question.findMany({ where: { id: { in: k }, indikatorId: { not: null } }, select: { id: true, indikatorId: true } });
-    for (const b of baris) if (b.indikatorId) soalIndikator.set(b.id, b.indikatorId);
+    const baris = await db.question.findMany({
+      where: { id: { in: k }, indikatorId: { not: null } },
+      select: { id: true, indikatorId: true, levelBloom: true },
+    });
+    for (const b of baris) {
+      if (!b.indikatorId) continue;
+      soalIndikator.set(b.id, b.indikatorId);
+      soalLevel.set(b.id, b.levelBloom);
+    }
   }
   const idIndikator = [...new Set(soalIndikator.values())];
   const infoIndikator = new Map<string, InfoIndikator>();
@@ -145,15 +184,32 @@ export async function bangunLaporanIndikatorSekolah(
 
   const baris: JawabanSiswa[] = jawaban.map((j) => {
     const idInd = soalIndikator.get(j.questionId);
+    const p = penanda.get(j.attemptId)!;
     return {
-      studentId: penanda.get(j.attemptId)!.studentId,
+      studentId: p.studentId,
       indikator: idInd ? (infoIndikator.get(idInd) ?? null) : null,
       skor: j.skor,
       skorMaks: j.skorMaks,
+      bulan: periodeBulanWIB(p.mulaiAt),
+      level: soalLevel.get(j.questionId),
     };
   });
   const meta: SiswaMeta[] = [...new Map(pertama.map((p) => [p.studentId, { studentId: p.studentId, nama: p.student.nama, nisn: p.student.nisn }])).values()];
 
-  return { ...dasar, laporan: hitungLaporanSekolah(baris, meta) };
+  // Pembanding pengguna AyoTKA: hanya pelengkap. Bila gagal dihitung, laporan sekolah tetap tampil tanpa pembanding.
+  let pembanding: PembandingWilayah | null = null;
+  if (opsi?.pembanding) {
+    try {
+      pembanding = await ambilPembandingWilayah(db, { schoolIdSendiri: schoolId, subjectId, filter: opsi.pembanding, rentang });
+    } catch (error) {
+      console.error("Gagal menghitung pembanding wilayah laporan sekolah", error);
+    }
+  }
+  const petaWilayah = pembanding?.cukup
+    ? new Map(Object.entries(pembanding.perIndikator).map(([id, p]) => [id, p.dayaSerap] as const))
+    : undefined;
+
+  const laporan = hitungLaporanSekolah(baris, meta, { pembandingWilayah: petaWilayah });
+  return { ...dasar, laporan, pembanding, wawasan: laporan ? susunWawasan(laporan, pembanding) : [] };
 }
 

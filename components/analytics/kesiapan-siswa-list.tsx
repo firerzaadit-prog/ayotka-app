@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { IconChart } from "@/components/ui/empty-state-icons";
 import { KESIAPAN_SUBJECTS, KATEGORI_LABEL, KATEGORI_BADGE_VARIANT } from "@/lib/analytics/kesiapan";
 import type { KategoriKesiapan } from "@/lib/exam/scoring";
+import { tambahkanParamWilayah, type NilaiFilterWilayah } from "@/components/wilayah/pilih-wilayah";
 
 type SiswaKesiapanRow = {
   studentId: string;
@@ -36,6 +37,7 @@ export function KesiapanSiswaList({
   endpoint,
   jenjang,
   wilayah,
+  wilayahFilter,
   schoolId,
   dari,
   sampai,
@@ -46,6 +48,8 @@ export function KesiapanSiswaList({
   endpoint: string;
   jenjang?: string;
   wilayah?: string;
+  /** Provinsi / kota-kabupaten / status sekolah dari filter halaman induk (analitik lintas sekolah). */
+  wilayahFilter?: NilaiFilterWilayah;
   schoolId?: string;
   /** Saring ke rentang tanggal (yyyy-MM-dd, tanggal WIB) untuk analitik lintas sekolah; kosong = semua waktu. */
   dari?: string;
@@ -62,6 +66,9 @@ export function KesiapanSiswaList({
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const provinsi = wilayahFilter?.provinsi ?? "";
+  const kabupatenKota = wilayahFilter?.kabupatenKota ?? "";
+  const statusSekolah = wilayahFilter?.statusSekolah ?? "";
 
   useEffect(() => {
     let ignore = false;
@@ -75,6 +82,7 @@ export function KesiapanSiswaList({
       if (kategori) qs.set("kategori", kategori);
       if (jenjang) qs.set("jenjang", jenjang);
       if (wilayah) qs.set("wilayah", wilayah);
+      tambahkanParamWilayah(qs, { provinsi, kabupatenKota, statusSekolah });
       if (schoolId) qs.set("schoolId", schoolId);
       if (periodeId) qs.set("periodeId", periodeId);
       if (dari) qs.set("dari", dari);
@@ -92,7 +100,7 @@ export function KesiapanSiswaList({
       ignore = true;
       clearTimeout(timeout);
     };
-  }, [endpoint, mapel, kategori, jenjang, wilayah, schoolId, periodeId, dari, sampai]);
+  }, [endpoint, mapel, kategori, jenjang, wilayah, provinsi, kabupatenKota, statusSekolah, schoolId, periodeId, dari, sampai]);
 
   return (
     <div>

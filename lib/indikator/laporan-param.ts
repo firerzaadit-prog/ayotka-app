@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { bacaRentangPeriode } from "@/lib/analytics/rentang";
 import type { RentangWaktu } from "@/lib/analytics/sekolah";
+import { bacaPermintaanFilterWilayah, gabungkanFilterWilayah, type FilterWilayah } from "@/lib/wilayah/cakupan";
 import { requireRole } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -11,7 +12,15 @@ import { formatWIBDate } from "@/lib/utils/datetime";
 
 export type HasilParamLaporan =
   | { galat: NextResponse }
-  | { userId: string; schoolId: string; subjectId: string | null; rentang: RentangWaktu | null; periodeLabel: string };
+  | {
+      userId: string;
+      schoolId: string;
+      subjectId: string | null;
+      rentang: RentangWaktu | null;
+      periodeLabel: string;
+      /** Cakupan pembanding pengguna AyoTKA dari ?provinsi=, ?kabupatenKota=, ?statusSekolah= (tanpa parameter = nasional). */
+      pembanding: FilterWilayah;
+    };
 
 /**
  * Otorisasi + parameter bersama ketiga rute laporan indikator sekolah (JSON, PDF, Excel): hanya admin sekolah (atau admin pusat
@@ -39,6 +48,13 @@ export async function bacaParamLaporan(request: Request): Promise<HasilParamLapo
     return { galat: NextResponse.json({ error: "Mata pelajaran tidak valid." }, { status: 400 }) };
   }
 
+  // Pembanding boleh dipilih bebas (nasional, provinsi, atau kota/kabupaten mana pun): yang keluar hanya angka gabungan
+  // yang sudah lolos ambang jumlah sekolah (lib/indikator/pembanding.ts), tanpa identitas sekolah lain.
+  const hasilPembanding = gabungkanFilterWilayah({ provinsi: null, kabupatenKota: null }, bacaPermintaanFilterWilayah(url.searchParams));
+  if (!hasilPembanding.ok) {
+    return { galat: NextResponse.json({ error: hasilPembanding.pesan }, { status: hasilPembanding.status }) };
+  }
+
   const hasilRentang = await bacaRentangPeriode(url, schoolId);
   if ("galat" in hasilRentang) return { galat: hasilRentang.galat };
 
@@ -49,7 +65,14 @@ export async function bacaParamLaporan(request: Request): Promise<HasilParamLapo
     if (periode) periodeLabel = `${periode.nama ?? "Periode langganan"} (${formatWIBDate(periode.mulai)} - ${formatWIBDate(periode.berakhir)})`;
   }
 
-  return { userId: user.id, schoolId, subjectId: subjectRaw || null, rentang: hasilRentang.rentang, periodeLabel };
+  return {
+    userId: user.id,
+    schoolId,
+    subjectId: subjectRaw || null,
+    rentang: hasilRentang.rentang,
+    periodeLabel,
+    pembanding: hasilPembanding.filter,
+  };
 }
 
 /** Potongan nama berkas yang aman: huruf kecil, angka, dan strip. */

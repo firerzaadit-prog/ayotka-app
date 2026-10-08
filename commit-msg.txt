@@ -1,0 +1,8 @@
+feat: add wilayah, status sekolah, and learning analytics to school reports
+
+- Adds province, city/regency, and school status (public/private) to school data and admin profiles.
+- Enhances school analytics (global and per-school) to filter by region and school status.
+- Aligns AI analytics prompts with official Kemendikdasmen taxonomy and frameworks (e.g., uses "Data" instead of "Data dan Ketidakpastian" for SD Math).
+- Adds AI-powered learning analytics and benchmark comparisons (national/regional) to school reports.
+
+Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>

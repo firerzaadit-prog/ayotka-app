@@ -11,7 +11,8 @@ import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table"
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconLink } from "@/components/ui/empty-state-icons";
-import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
+import { PilihWilayah } from "@/components/wilayah/pilih-wilayah";
+import { provinsiDariKabupatenKota } from "@/lib/wilayah";
 import { useResetPassword } from "@/components/admin/use-reset-password";
 
 type DinasAdmin = {
@@ -20,19 +21,21 @@ type DinasAdmin = {
   status: "aktif" | "nonaktif";
   nama: string | null;
   instansi: string | null;
+  provinsi: string | null;
   kabupatenKota: string | null;
 };
 
-type FormState = { email: string; nama: string; instansi: string; kabupatenKota: string };
-const emptyForm: FormState = { email: "", nama: "", instansi: "", kabupatenKota: "" };
+type FormState = { email: string; nama: string; instansi: string; provinsi: string; kabupatenKota: string };
+const emptyForm: FormState = { email: "", nama: "", instansi: "", provinsi: "", kabupatenKota: "" };
 
-type EditForm = { nama: string; instansi: string; kabupatenKota: string };
+type EditForm = { nama: string; instansi: string; provinsi: string; kabupatenKota: string };
 
 /**
  * Admin pusat mengelola akun dinas pendidikan - akses read-only lintas
- * sekolah, dibatasi ke satu kota/kabupaten Jawa Timur per akun. Boleh lebih
- * dari satu akun dinas (mis. beda instansi/penanggung jawab), dan boleh untuk
- * kota/kabupaten yang sama - tidak dibatasi satu akun per wilayah.
+ * sekolah, dibatasi ke satu wilayah se-Indonesia per akun: satu kota/kabupaten
+ * (Dinas Kota/Kabupaten) atau satu provinsi (Dinas Provinsi, semua kota/kabupaten
+ * di dalamnya). Boleh lebih dari satu akun dinas (mis. beda instansi/penanggung
+ * jawab), dan boleh untuk wilayah yang sama - tidak dibatasi satu akun per wilayah.
  */
 export default function DinasPendidikanPage() {
   const resetPassword = useResetPassword();
@@ -47,7 +50,7 @@ export default function DinasPendidikanPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ nama: "", instansi: "", kabupatenKota: "" });
+  const [editForm, setEditForm] = useState<EditForm>({ nama: "", instansi: "", provinsi: "", kabupatenKota: "" });
   const [editError, setEditError] = useState<string | null>(null);
   const [editSubmitting, setEditSubmitting] = useState(false);
 
@@ -93,6 +96,7 @@ export default function DinasPendidikanPage() {
     setEditForm({
       nama: d.nama ?? "",
       instansi: d.instansi ?? "",
+      provinsi: d.provinsi ?? provinsiDariKabupatenKota(d.kabupatenKota) ?? "",
       kabupatenKota: d.kabupatenKota ?? "",
     });
   }
@@ -133,7 +137,7 @@ export default function DinasPendidikanPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Dinas Pendidikan"
-        description="Kelola akun dinas pendidikan - akses baca saja untuk lihat kesiapan TKA sekolah-sekolah di wilayahnya. Setiap akun dibatasi ke satu kota/kabupaten Jawa Timur."
+        description="Kelola akun dinas pendidikan - akses baca saja untuk lihat kesiapan TKA sekolah-sekolah di wilayahnya. Setiap akun dibatasi ke satu provinsi (Dinas Provinsi) atau satu kota/kabupaten (Dinas Kota/Kabupaten) di Indonesia."
         action={
           <Button onClick={() => setShowForm((v) => !v)}>
             {showForm ? "Batal" : "Tambah akun dinas"}
@@ -179,26 +183,22 @@ export default function DinasPendidikanPage() {
           </div>
 
           <div>
-            <Label htmlFor="kabupatenKota">Wilayah cakupan (kota/kabupaten)</Label>
-            <select
-              id="kabupatenKota"
-              required
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              value={form.kabupatenKota}
-              onChange={(e) => setForm({ ...form, kabupatenKota: e.target.value })}
-            >
-              <option value="" disabled>
-                Pilih kota/kabupaten
-              </option>
-              {KABUPATEN_KOTA_JATIM.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
+            <PilihWilayah
+              idAwalan="dinasBaru"
+              provinsi={form.provinsi}
+              kabupatenKota={form.kabupatenKota}
+              onChange={(w) => setForm({ ...form, provinsi: w.provinsi, kabupatenKota: w.kabupatenKota })}
+              wajib
+              wajibKabupatenKota={false}
+              labelProvinsi="Provinsi wilayah cakupan"
+              labelKabupatenKota="Kota/kabupaten (kosongkan untuk Dinas Provinsi)"
+              kosongProvinsi="Pilih provinsi"
+              kosongKabupatenKota="Semua kota/kabupaten di provinsi ini"
+            />
             <p className="mt-1 text-xs text-slate-500">
-              Akun ini hanya bisa melihat sekolah dan hasil siswa di wilayah yang dipilih. Sekolah
-              perlu diberi kota/kabupaten yang sama lewat halaman Sekolah supaya ikut terlihat.
+              Akun ini hanya bisa melihat sekolah dan hasil siswa di wilayah yang dipilih: satu kota/kabupaten bila
+              kota/kabupaten dipilih, atau SEMUA kota/kabupaten di provinsi itu bila dikosongkan (Dinas Provinsi).
+              Sekolah perlu diberi provinsi dan kota/kabupaten yang sama lewat halaman Sekolah supaya ikut terlihat.
             </p>
           </div>
 
@@ -255,7 +255,15 @@ export default function DinasPendidikanPage() {
                           {d.nama && <p className="text-xs font-normal text-slate-500">{d.nama}</p>}
                         </Td>
                         <Td>
-                          {d.kabupatenKota ?? (
+                          {d.kabupatenKota || d.provinsi ? (
+                            <div className="flex flex-col">
+                              <span>{d.kabupatenKota ?? `Semua kota/kabupaten`}</span>
+                              <span className="text-xs text-slate-500">
+                                {d.kabupatenKota ? (d.provinsi ?? provinsiDariKabupatenKota(d.kabupatenKota)) : d.provinsi} ·{" "}
+                                {d.kabupatenKota ? "Dinas Kota/Kabupaten" : "Dinas Provinsi"}
+                              </span>
+                            </div>
+                          ) : (
                             <span className="text-amber-600">Belum dipilih</span>
                           )}
                         </Td>
@@ -299,7 +307,7 @@ export default function DinasPendidikanPage() {
                           <td colSpan={5} className="border-b border-slate-100 bg-slate-50 px-4 py-4">
                             <form onSubmit={handleEditSubmit} className="flex flex-col gap-3">
                               {editError && <Alert variant="danger">{editError}</Alert>}
-                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <div>
                                   <Label htmlFor={`edit-nama-${d.id}`}>Nama penanggung jawab</Label>
                                   <Input
@@ -318,28 +326,19 @@ export default function DinasPendidikanPage() {
                                     onChange={(e) => setEditForm({ ...editForm, instansi: e.target.value })}
                                   />
                                 </div>
-                                <div>
-                                  <Label htmlFor={`edit-wilayah-${d.id}`}>Wilayah cakupan</Label>
-                                  <select
-                                    id={`edit-wilayah-${d.id}`}
-                                    required
-                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                                    value={editForm.kabupatenKota}
-                                    onChange={(e) =>
-                                      setEditForm({ ...editForm, kabupatenKota: e.target.value })
-                                    }
-                                  >
-                                    <option value="" disabled>
-                                      Pilih kota/kabupaten
-                                    </option>
-                                    {KABUPATEN_KOTA_JATIM.map((k) => (
-                                      <option key={k} value={k}>
-                                        {k}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
                               </div>
+                              <PilihWilayah
+                                idAwalan={`edit-wilayah-${d.id}`}
+                                provinsi={editForm.provinsi}
+                                kabupatenKota={editForm.kabupatenKota}
+                                onChange={(w) => setEditForm({ ...editForm, provinsi: w.provinsi, kabupatenKota: w.kabupatenKota })}
+                                wajib
+                                wajibKabupatenKota={false}
+                                labelProvinsi="Provinsi wilayah cakupan"
+                                labelKabupatenKota="Kota/kabupaten (kosongkan untuk Dinas Provinsi)"
+                                kosongProvinsi="Pilih provinsi"
+                                kosongKabupatenKota="Semua kota/kabupaten di provinsi ini"
+                              />
                               <div className="flex gap-2">
                                 <Button type="submit" disabled={editSubmitting}>
                                   {editSubmitting ? "Menyimpan..." : "Simpan perubahan"}

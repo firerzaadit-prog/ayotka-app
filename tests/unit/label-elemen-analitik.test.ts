@@ -132,6 +132,60 @@ describe("Learning Analytics - prompt AI memakai nama elemen Kerangka Asesmen", 
     expect(prompt).not.toContain("Ketidakpastian");
   });
 
+  const indikatorSd = (n: number) => ({
+    id: `ind-${n}`,
+    jenjang: "SD",
+    namaMapel: "Matematika",
+    elemen: "Data dan Ketidakpastian",
+    subelemen: "Penyajian dan Penggunaan Data",
+    kompetensi: "Kemampuan menyajikan data",
+    indikator: `Menyajikan data dalam diagram batang (${n})`,
+    urutan: n,
+    nilaiNasional: 40,
+  });
+  const soalBerindikator = (skor: number, n = 1) => ({ ...soal("Data dan Ketidakpastian"), skor, question: { ...soal("Data dan Ketidakpastian").question, indikatorResmi: indikatorSd(n) } });
+
+  it("mengambil indikator resmi tiap soal dari database untuk prompt (select memuat indikatorResmi)", async () => {
+    m.paket.mockResolvedValue({ nama: "Paket SD", jenjang: "SD", subject: { nama: "Matematika" } });
+    m.skor.mockResolvedValue([]);
+    m.jawaban.mockResolvedValue([]);
+    await runAnalisisAi(attempt);
+    const select = (m.jawaban.mock.calls[0]![0] as { select: { question: { select: Record<string, unknown> } } }).select.question.select;
+    expect(select.indikatorResmi).toEqual({
+      select: { id: true, jenjang: true, namaMapel: true, elemen: true, subelemen: true, kompetensi: true, indikator: true, urutan: true, nilaiNasional: true },
+    });
+  });
+
+  it("soal tertaut indikator resmi: prompt memuat STANDAR INDIKATOR RESMI dengan hierarki dan angka rapor; elemen SD memakai nama kerangka ('Data')", async () => {
+    m.paket.mockResolvedValue({ nama: "Paket SD", jenjang: "SD", subject: { nama: "Matematika" } });
+    m.skor.mockResolvedValue([]);
+    m.jawaban.mockResolvedValue([soalBerindikator(1), soalBerindikator(0), soalBerindikator(1), soalBerindikator(0, 2)]);
+    await runAnalisisAi(attempt);
+    const prompt: string = m.generate.mock.calls[0]![0];
+    expect(prompt).toContain("STANDAR INDIKATOR RESMI KEMENDIKDASMEN (Matematika SD; hierarki resmi: Elemen > Subelemen > Kompetensi > Indikator). 4 dari 4 soal");
+    expect(prompt).toContain("Elemen: Data - daya serap 50% (4 soal)");
+    expect(prompt).toContain('[Penyajian dan Penggunaan Data > Kemampuan menyajikan data] "Menyajikan data dalam diagram batang (1)": 3 soal, daya serap 67%, rerata nasional 40,0%');
+    expect(prompt).toContain("Ada STANDAR INDIKATOR RESMI Kemendikdasmen di bawah");
+    expect(prompt).not.toContain("Ketidakpastian");
+  });
+
+  it("tak ada soal yang tertaut indikator resmi: prompt tanpa blok itu (analisis tetap jalan seperti sebelumnya)", async () => {
+    m.paket.mockResolvedValue({ nama: "Paket SD", jenjang: "SD", subject: { nama: "Matematika" } });
+    m.skor.mockResolvedValue([]);
+    m.jawaban.mockResolvedValue([soal("Data dan Ketidakpastian"), { ...soal("Data dan Ketidakpastian"), question: { ...soal("Data dan Ketidakpastian").question, indikatorResmi: null } }]);
+    await runAnalisisAi(attempt);
+    expect(m.generate.mock.calls[0]![0]).not.toContain("STANDAR INDIKATOR RESMI KEMENDIKDASMEN");
+    expect(m.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it("analisis tersimpan membawa versi prompt terbaru", async () => {
+    m.paket.mockResolvedValue({ nama: "Paket SD", jenjang: "SD", subject: { nama: "Matematika" } });
+    m.skor.mockResolvedValue([]);
+    m.jawaban.mockResolvedValue([]);
+    await runAnalisisAi(attempt);
+    expect(m.upsert.mock.calls[0]![0].create.versiPrompt).toBe("2026-10-v8");
+  });
+
   it("SMP Matematika: nama elemen tak berubah", async () => {
     m.paket.mockResolvedValue({ nama: "Paket SMP", jenjang: "SMP", subject: { nama: "Matematika" } });
     m.skor.mockResolvedValue([

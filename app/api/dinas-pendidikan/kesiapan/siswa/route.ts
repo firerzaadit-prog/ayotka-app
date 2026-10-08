@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth/session";
 import { buildDaftarSiswaKesiapanAntarSekolah } from "@/lib/analytics/global";
 import { bacaRentangTanggal } from "@/lib/analytics/rentang";
 import { KESIAPAN_SUBJECTS } from "@/lib/analytics/kesiapan";
-import { bacaCakupanDinas } from "@/lib/dinas/wilayah";
+import { bacaCakupanDinas, bacaFilterWilayahDinas } from "@/lib/dinas/wilayah";
 import type { KategoriKesiapan } from "@/lib/exam/scoring";
 
 const KATEGORI_VALID: readonly string[] = ["kurang", "memadai", "baik", "istimewa"];
@@ -15,7 +15,8 @@ const KATEGORI_VALID: readonly string[] = ["kurang", "memadai", "baik", "istimew
  * admin_pusat juga diizinkan, sama seperti /api/dinas-pendidikan/kesiapan.
  *
  * Jika user adalah dinas_pendidikan, data otomatis difilter berdasarkan
- * kabupatenKota yang ditetapkan admin pusat.
+ * wilayah (provinsi atau kota/kabupaten) yang ditetapkan admin pusat; filter provinsi/kabupatenKota/statusSekolah sama
+ * seperti /api/dinas-pendidikan/kesiapan.
  */
 export async function GET(request: Request) {
   let user;
@@ -28,9 +29,9 @@ export async function GET(request: Request) {
   // Wilayah cakupan dinas pendidikan (gagal tertutup: akun dinas tanpa wilayah ditolak, bukan melihat semua wilayah)
   const cakupan = await bacaCakupanDinas(user);
   if ("galat" in cakupan) return cakupan.galat;
-  const kabupatenKota = cakupan.kabupatenKota;
-
   const url = new URL(request.url);
+  const wilayahFilter = bacaFilterWilayahDinas(cakupan, url);
+  if ("galat" in wilayahFilter) return wilayahFilter.galat;
   const mapel = url.searchParams.get("mapel");
   const kesiapanSubjectNames: readonly string[] = KESIAPAN_SUBJECTS;
   if (!mapel || !kesiapanSubjectNames.includes(mapel)) {
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
     jenjang: jenjang === "SD" || jenjang === "SMP" ? jenjang : null,
     wilayah: url.searchParams.get("wilayah"),
     schoolId: url.searchParams.get("schoolId"),
-    kabupatenKota,
+    ...wilayahFilter,
     ...waktu.rentang,
   });
 

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { DaftarFokus, KelompokDetail } from "@/components/hasil/daya-serap-indikator";
 import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { AnalisisAiSekolahPanel } from "@/components/ai/analisis-sekolah-panel";
 import { buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -11,20 +13,32 @@ import { IconChart } from "@/components/ui/empty-state-icons";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/ui/stat-card";
+import { TrendChart } from "@/components/ui/trend-chart";
+import { FILTER_WILAYAH_AWAL, FilterWilayah, tambahkanParamWilayah, type NilaiFilterWilayah } from "@/components/wilayah/pilih-wilayah";
 import { competencyTier, COMPETENCY_TIER_CLASS } from "@/lib/exam/competency-color";
 import type { BarisIndikatorSekolah, LaporanIndikatorSekolah } from "@/lib/indikator/daya-serap";
+import { MIN_SEKOLAH_PEMBANDING, type PembandingWilayah } from "@/lib/indikator/pembanding";
 import { formatPersen, formatSelisih } from "@/lib/indikator/tampilan";
-import { formatWIBDate } from "@/lib/utils/datetime";
+import { NAMA_LEVEL, type JenisWawasan, type Wawasan } from "@/lib/indikator/wawasan";
+import { formatWIBDate, labelPeriodeBulan } from "@/lib/utils/datetime";
 
 type PeriodeOpsi = { id: string; nama: string | null; mulai: string; berakhir: string };
 type MapelOpsi = { subjectId: string; nama: string; jenjang: string; jumlahPercobaan: number };
 type DataLaporan = {
-  sekolah: { id: string; nama: string };
+  sekolah: {
+    id: string;
+    nama: string;
+    provinsi?: string | null;
+    kabupatenKota?: string | null;
+    statusSekolah?: "negeri" | "swasta" | null;
+  };
   mapel: { subjectId: string; nama: string; jenjang: string };
   jumlahSiswaMengerjakan: number;
   jumlahPercobaan: number;
   jumlahPaket: number;
   laporan: LaporanIndikatorSekolah | null;
+  pembanding?: PembandingWilayah | null;
+  wawasan?: Wawasan[];
 };
 type Respons = { kunci: string; mapel: MapelOpsi[]; periodeLabel: string; data: DataLaporan | null };
 
@@ -32,6 +46,30 @@ const selectClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
 
 const tambahanSiswa = (b: BarisIndikatorSekolah) => `${b.jmlSiswa} siswa · ${b.jmlSoal} jawaban`;
+const VARIAN_WAWASAN: Record<JenisWawasan, { varian: "warning" | "info" | "success"; label: string }> = {
+  perhatian: { varian: "warning", label: "Perhatian" },
+  info: { varian: "info", label: "Info" },
+  positif: { varian: "success", label: "Baik" },
+};
+
+/** Satu baris bilah daya serap (tier warna sama dengan sebaran siswa). */
+function BilahDaya({ nama, dayaSerap, keterangan }: { nama: string; dayaSerap: number; keterangan: string }) {
+  const cls = COMPETENCY_TIER_CLASS[competencyTier(dayaSerap)];
+  return (
+    <div>
+      <div className="mb-1 flex items-baseline justify-between gap-2 text-sm">
+        <span className="font-medium text-slate-900">{nama}</span>
+        <span className={`font-mono text-xs font-semibold ${cls.text}`}>
+          {formatPersen(dayaSerap, 0)} <span className="font-sans font-normal text-slate-500">· {keterangan}</span>
+        </span>
+      </div>
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-full rounded-full ${cls.bar}`} style={{ width: `${Math.max(3, Math.min(100, dayaSerap))}%` }} />
+      </div>
+    </div>
+  );
+}
+
 const tambahanNasional = (b: BarisIndikatorSekolah) => (b.nasional === null ? null : `nasional ${formatPersen(b.nasional, 1)} (${formatSelisih(b.dayaSerap - b.nasional)})`);
 
 function Sebaran({ sebaran }: { sebaran: LaporanIndikatorSekolah["sebaran"] }) {
@@ -73,6 +111,7 @@ export default function LaporanIndikatorPage() {
   const [periodeList, setPeriodeList] = useState<PeriodeOpsi[]>([]);
   const [periodeId, setPeriodeId] = useState("");
   const [subjectId, setSubjectId] = useState("");
+  const [filterWilayah, setFilterWilayah] = useState<NilaiFilterWilayah>(FILTER_WILAYAH_AWAL);
   const [respons, setRespons] = useState<Respons | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,13 +127,14 @@ export default function LaporanIndikatorPage() {
     };
   }, []);
 
-  const kunci = `${periodeId}|${subjectId}`;
+  const kunci = `${periodeId}|${subjectId}|${filterWilayah.provinsi}|${filterWilayah.kabupatenKota}|${filterWilayah.statusSekolah}`;
   useEffect(() => {
     let ignore = false;
     (async () => {
       const qs = new URLSearchParams();
       if (periodeId) qs.set("periodeId", periodeId);
       if (subjectId) qs.set("subjectId", subjectId);
+      tambahkanParamWilayah(qs, filterWilayah);
       const res = await fetch(`/api/admin-sekolah/laporan-indikator?${qs.toString()}`);
       const data = await res.json().catch(() => null);
       if (ignore) return;
@@ -111,7 +151,7 @@ export default function LaporanIndikatorPage() {
     return () => {
       ignore = true;
     };
-  }, [periodeId, subjectId, kunci]);
+  }, [periodeId, subjectId, filterWilayah, kunci]);
 
   if (error) return <Alert variant="danger">{error}</Alert>;
   if (!respons) return <PageSkeleton />;
@@ -120,16 +160,29 @@ export default function LaporanIndikatorPage() {
   const qs = new URLSearchParams();
   if (periodeId) qs.set("periodeId", periodeId);
   if (subjectId) qs.set("subjectId", subjectId);
+  tambahkanParamWilayah(qs, filterWilayah);
   const adaLaporan = Boolean(respons.data?.laporan) && !memuat;
   const lap = !memuat ? respons.data?.laporan ?? null : null;
   const skorTotal = lap ? lap.kelompok.reduce((a, k) => a + k.skor, 0) : 0;
   const maksTotal = lap ? lap.kelompok.reduce((a, k) => a + k.skorMaks, 0) : 0;
+  const sekolah = respons.data?.sekolah;
+  const pembanding = !memuat ? respons.data?.pembanding ?? null : null;
+  const labelWilayah = pembanding ? `AyoTKA ${pembanding.label}` : undefined;
+  // Pintasan cakupan pembanding dari data sekolah sendiri; hanya yang datanya terisi.
+  const pintasan: Array<{ nama: string; nilai: NilaiFilterWilayah }> = [
+    { nama: "Nasional", nilai: { ...filterWilayah, provinsi: "", kabupatenKota: "" } },
+    ...(sekolah?.provinsi ? [{ nama: `Provinsi ${sekolah.provinsi}`, nilai: { ...filterWilayah, provinsi: sekolah.provinsi, kabupatenKota: "" } }] : []),
+    ...(sekolah?.kabupatenKota && sekolah.provinsi
+      ? [{ nama: sekolah.kabupatenKota, nilai: { ...filterWilayah, provinsi: sekolah.provinsi, kabupatenKota: sekolah.kabupatenKota } }]
+      : []),
+  ];
+  const sama = (a: NilaiFilterWilayah, b: NilaiFilterWilayah) => a.provinsi === b.provinsi && a.kabupatenKota === b.kabupatenKota;
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Laporan Daya Serap"
-        description="Daya serap per indikator sesuai standar Kemendikdasmen, dibandingkan dengan rerata nasional, lengkap dengan analitik otomatis untuk remedial."
+        description="Daya serap per indikator sesuai standar Kemendikdasmen, dibandingkan dengan rerata nasional resmi dan pengguna AyoTKA di wilayahmu, lengkap dengan Learning Analytics otomatis untuk remedial."
         action={
           adaLaporan && (
             <>
@@ -175,6 +228,58 @@ export default function LaporanIndikatorPage() {
         )}
       </div>
 
+      <Card>
+        <h2 className="mb-1 text-lg font-semibold text-slate-900">Bandingkan dengan Pengguna AyoTKA</h2>
+        <p className="mb-3 text-sm text-slate-500">
+          Pilih wilayah dan status sekolah seperti di portal hasil TKA. Pembanding berupa rerata daya serap sekolah-sekolah pengguna AyoTKA
+          (tanpa menyebut sekolah lain) dan baru tampil bila minimal {MIN_SEKOLAH_PEMBANDING} sekolah punya data.
+        </p>
+        <FilterWilayah idAwalan="pembandingWilayah" nilai={filterWilayah} onChange={setFilterWilayah} />
+        <div className="mt-3 flex flex-wrap items-center gap-2" role="group" aria-label="Pintasan cakupan pembanding">
+          {pintasan.map((p) => (
+            <button
+              key={p.nama}
+              type="button"
+              onClick={() => setFilterWilayah(p.nilai)}
+              aria-pressed={sama(filterWilayah, p.nilai)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                sama(filterWilayah, p.nilai)
+                  ? "border-indigo-600 bg-indigo-600 text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400 hover:text-indigo-700"
+              }`}
+            >
+              {p.nama}
+            </button>
+          ))}
+        </div>
+        {!memuat && respons.mapel.length > 0 && (
+          <p className="mt-3 text-sm text-slate-600" data-status-pembanding>
+            {pembanding?.cukup && pembanding.rerata !== null ? (
+              <>
+                Pembanding <strong>{pembanding.label}</strong>: rerata daya serap {formatPersen(pembanding.rerata, 1)} dari {pembanding.jumlahSekolah} sekolah dan{" "}
+                {pembanding.jumlahSiswa} siswa.
+              </>
+            ) : pembanding ? (
+              <>
+                Pembanding <strong>{pembanding.label}</strong> belum cukup: baru {pembanding.jumlahSekolah} sekolah pengguna AyoTKA yang punya data pada mapel
+                ini (minimal {MIN_SEKOLAH_PEMBANDING}). Coba cakupan yang lebih luas.
+              </>
+            ) : (
+              <>Pembanding pengguna AyoTKA belum bisa dimuat. Laporan di bawah tetap memakai rerata nasional resmi.</>
+            )}
+          </p>
+        )}
+        {(!sekolah?.provinsi || !sekolah.kabupatenKota || !sekolah.statusSekolah) && (
+          <p className="mt-2 text-xs text-amber-700">
+            Wilayah atau status sekolahmu belum lengkap, jadi pintasan wilayah terbatas.{" "}
+            <Link href="/admin-sekolah/profil" className="font-semibold underline">
+              Lengkapi di Profil Sekolah
+            </Link>
+            .
+          </p>
+        )}
+      </Card>
+
       {memuat && <PageSkeleton />}
 
       {!memuat && respons.mapel.length === 0 && (
@@ -219,15 +324,63 @@ export default function LaporanIndikatorPage() {
             </p>
             <div className="flex flex-col gap-3">
               {lap.kelompok.map((k) => (
-                <KelompokDetail key={k.nama} label0={lap.label[0]!} k={k} tambahan={tambahanSiswa} terbuka={false} />
+                <KelompokDetail key={k.nama} label0={lap.label[0]!} k={k} tambahan={tambahanSiswa} terbuka={false} labelWilayah={labelWilayah} />
               ))}
             </div>
           </Card>
 
+          <Card>
+            <h2 className="mb-1 text-lg font-semibold text-slate-900">Wawasan Learning Analytics</h2>
+            <p className="mb-4 text-sm text-slate-500">
+              Ringkasan yang disusun otomatis dari angka laporan ini (tanpa AI), supaya langsung terlihat apa yang perlu ditindaklanjuti.
+            </p>
+            {(respons.data.wawasan ?? []).length === 0 ? (
+              <p className="text-sm text-slate-500">Belum cukup data untuk menyusun wawasan.</p>
+            ) : (
+              <ul className="flex flex-col gap-2.5">
+                {(respons.data.wawasan ?? []).map((w, i) => (
+                  <li key={i} data-wawasan={w.jenis} className="flex items-start gap-2.5 text-sm leading-snug text-slate-800">
+                    <Badge variant={VARIAN_WAWASAN[w.jenis].varian}>{VARIAN_WAWASAN[w.jenis].label}</Badge>
+                    <span>{w.teks}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <AnalisisAiSekolahPanel kunci={kunci} queryString={qs.toString()} />
+
+          {(lap.tren.length > 1 || lap.perLevel.length > 0) && (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {lap.tren.length > 1 && (
+                <Card>
+                  <h2 className="mb-1 text-lg font-semibold text-slate-900">Tren Daya Serap</h2>
+                  <p className="mb-3 text-sm text-slate-500">Daya serap per bulan (WIB), dari ujian yang dimulai pada bulan itu.</p>
+                  <TrendChart
+                    data={lap.tren.map((t) => ({ label: labelPeriodeBulan(t.periode), value: t.dayaSerap }))}
+                    variant="area"
+                    valueFormatter={(v) => `${v.toFixed(0)}%`}
+                  />
+                </Card>
+              )}
+              {lap.perLevel.length > 0 && (
+                <Card>
+                  <h2 className="mb-1 text-lg font-semibold text-slate-900">Per Level Kognitif</h2>
+                  <p className="mb-4 text-sm text-slate-500">Daya serap menurut tingkat berpikir yang dituntut soal.</p>
+                  <div className="flex flex-col gap-3">
+                    {lap.perLevel.map((l) => (
+                      <BilahDaya key={l.level} nama={NAMA_LEVEL[l.level] ?? l.level} dayaSerap={l.dayaSerap} keterangan={`${l.jmlSoal} jawaban`} />
+                    ))}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )}
+
           <div>
-            <h2 className="mb-1 text-lg font-semibold text-slate-900">Learning Analytics Otomatis</h2>
+            <h2 className="mb-1 text-lg font-semibold text-slate-900">Fokus Remedial</h2>
             <p className="mb-3 text-sm text-slate-500">
-              Dihitung otomatis dari hasil siswa, tanpa analisis AI tambahan. Analisis AI per siswa ada di halaman detail siswa.
+              Dihitung otomatis dari hasil siswa. Analisis AI per siswa ada di halaman detail siswa.
             </p>
             <div className="grid gap-3 lg:grid-cols-2">
               <DaftarFokus

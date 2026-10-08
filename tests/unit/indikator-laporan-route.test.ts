@@ -1,3 +1,4 @@
+import ExcelJS from "exceljs";
 import { NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,6 +26,8 @@ import { GET as getPdf } from "@/app/api/admin-sekolah/laporan-indikator/pdf/rou
 import { GET as getExcel } from "@/app/api/admin-sekolah/laporan-indikator/excel/route";
 import { slugBerkas } from "@/lib/indikator/laporan-param";
 import { hitungLaporanSekolah, type InfoIndikator, type JawabanSiswa } from "@/lib/indikator/daya-serap";
+import { susunPembanding } from "@/lib/indikator/pembanding";
+import { susunWawasan } from "@/lib/indikator/wawasan";
 
 const SUBJECT = "11111111-1111-4111-8111-111111111111";
 const PERIODE = "22222222-2222-4222-8222-222222222222";
@@ -134,7 +137,14 @@ describe("GET /api/admin-sekolah/laporan-indikator (JSON)", () => {
     const isi = await res.json();
     expect(isi.data.laporan.label).toEqual(["Elemen", "Subelemen", "Kompetensi", "Indikator"]);
     expect(isi.data.jumlahSiswaMengerjakan).toBe(8);
-    expect(m.bangun).toHaveBeenCalledWith({ periodeLangganan: expect.anything(), penanda: "prisma-tiruan" }, "sek-1", SUBJECT, null);
+    expect(m.bangun).toHaveBeenCalledWith(
+      { periodeLangganan: expect.anything(), penanda: "prisma-tiruan" },
+      "sek-1",
+      SUBJECT,
+      null,
+      // tanpa parameter wilayah = pembanding nasional (semua pengguna AyoTKA, negeri + swasta)
+      { pembanding: { provinsi: null, kabupatenKota: null, statusSekolah: null } },
+    );
   });
 
   it("periode dipilih: rentang diteruskan dan labelnya memuat nama dan tanggal periode", async () => {
@@ -153,6 +163,94 @@ describe("GET /api/admin-sekolah/laporan-indikator (JSON)", () => {
     m.periodeFind.mockResolvedValue({ nama: null, mulai: new Date("2026-07-01T00:00:00Z"), berakhir: new Date("2026-12-31T00:00:00Z") });
     const isi = await (await getJson(req(`?subjectId=${SUBJECT}&periodeId=${PERIODE}`))).json();
     expect(isi.periodeLabel).toContain("Periode langganan");
+  });
+});
+
+describe.each([
+  ["JSON", getJson],
+  ["PDF", getPdf],
+  ["Excel", getExcel],
+] as const)("pembanding pengguna AyoTKA (?provinsi=, ?kabupatenKota=, ?statusSekolah=) - rute %s", (_nama, GET) => {
+  const pembandingDiteruskan = () => (m.bangun.mock.calls[0]![4] as { pembanding: unknown }).pembanding;
+
+  it("provinsi + kota/kabupaten + status diteruskan ke penyusun laporan", async () => {
+    const res = await GET(req(`?subjectId=${SUBJECT}&provinsi=Jawa%20Timur&kabupatenKota=Kota%20Malang&statusSekolah=negeri`));
+    expect(res.status).toBe(200);
+    expect(pembandingDiteruskan()).toEqual({ provinsi: "Jawa Timur", kabupatenKota: "Kota Malang", statusSekolah: "negeri" });
+  });
+
+  it("hanya kota/kabupaten: provinsi dilengkapi", async () => {
+    await GET(req(`?subjectId=${SUBJECT}&kabupatenKota=Kota%20Bandung`));
+    expect(pembandingDiteruskan()).toEqual({ provinsi: "Jawa Barat", kabupatenKota: "Kota Bandung", statusSekolah: null });
+  });
+
+  it("wilayah di LUAR wilayah sekolah sendiri boleh dipilih (hanya angka gabungan yang keluar)", async () => {
+    await GET(req(`?subjectId=${SUBJECT}&provinsi=Bali`));
+    expect(pembandingDiteruskan()).toEqual({ provinsi: "Bali", kabupatenKota: null, statusSekolah: null });
+  });
+
+  it.each([
+    ["pasangan tidak cocok", "provinsi=Bali&kabupatenKota=Kota%20Malang"],
+    ["provinsi tidak dikenal", "provinsi=Atlantis"],
+    ["status tidak valid", "statusSekolah=yayasan"],
+  ])("%s: 400 dan laporan tidak dihitung", async (_n, qs) => {
+    const res = await GET(req(`?subjectId=${SUBJECT}&${qs}`));
+    expect(res.status).toBe(400);
+    expect(m.bangun).not.toHaveBeenCalled();
+    expect(m.daftarMapel).not.toHaveBeenCalled();
+  });
+});
+
+describe("laporan dengan pembanding dan wawasan - JSON, PDF, Excel", () => {
+  const pembandingCukup = () =>
+    susunPembanding({
+      filter: { provinsi: "Jawa Timur", kabupatenKota: null, statusSekolah: "negeri" },
+      indikator: [1, 2, 3].map((n) => ({ indikatorId: `m${n}`, skor: 55, skorMaks: 100, jmlSoal: 100, jmlSekolah: 6 })),
+      sekolah: [60, 50, 70, 40].map((s, i) => ({ schoolId: i === 0 ? "sek-1" : `lain-${i}`, skor: s, skorMaks: 100, jmlSiswa: 20 })),
+      schoolIdSendiri: "sek-1",
+    });
+  const dataLengkap = () => {
+    const pb = pembandingCukup();
+    const jawaban: JawabanSiswa[] = [];
+    for (let s = 0; s < 8; s++) for (let n = 1; n <= 3; n++) jawaban.push({ studentId: `s${s}`, indikator: ind(n), skor: (s + n) % 3 === 0 ? 1 : 0, skorMaks: 1, bulan: s < 4 ? "2026-09" : "2026-10", level: n === 1 ? "L1" : "L3" });
+    const siswa = Array.from({ length: 8 }, (_, s) => ({ studentId: `s${s}`, nama: `Siswa ${s}`, nisn: `N${s}` }));
+    const peta = new Map(Object.entries(pb.perIndikator).map(([id, p]) => [id, p.dayaSerap] as const));
+    const laporan = hitungLaporanSekolah(jawaban, siswa, { pembandingWilayah: peta })!;
+    return {
+      ...dataContoh(),
+      sekolah: { id: "sek-1", nama: "SMP Negeri 1 Contoh", provinsi: "Jawa Timur", kabupatenKota: "Kota Malang", statusSekolah: "negeri" as const },
+      laporan,
+      pembanding: pb,
+      wawasan: susunWawasan(laporan, pb),
+    };
+  };
+
+  it("JSON: pembanding, wawasan, tren, dan level ikut dikirim; sekolah membawa wilayah dan statusnya", async () => {
+    m.bangun.mockResolvedValue(dataLengkap());
+    const isi = await (await getJson(req(`?subjectId=${SUBJECT}&provinsi=Jawa%20Timur&statusSekolah=negeri`))).json();
+    expect(isi.data.pembanding).toMatchObject({ cukup: true, label: "Provinsi Jawa Timur · Negeri", jumlahSekolah: 4 });
+    expect(isi.data.sekolah).toMatchObject({ provinsi: "Jawa Timur", kabupatenKota: "Kota Malang", statusSekolah: "negeri" });
+    expect(isi.data.wawasan.length).toBeGreaterThan(0);
+    expect(isi.data.laporan.tren.map((t: { periode: string }) => t.periode)).toEqual(["2026-09", "2026-10"]);
+    expect(isi.data.laporan.perLevel.map((l: { level: string }) => l.level)).toEqual(["L1", "L3"]);
+    expect(isi.data.laporan.kelompok[0]).toHaveProperty("wilayah");
+  });
+
+  it("PDF dengan pembanding dan wawasan: berkas sah, memuat blok wawasan, pembanding, tren, dan rerata wilayah", async () => {
+    m.bangun.mockResolvedValue(dataLengkap());
+    const res = await getPdf(req(`?subjectId=${SUBJECT}`));
+    expect(res.status).toBe(200);
+    expect(Buffer.from(await res.arrayBuffer()).subarray(0, 5).toString()).toBe("%PDF-");
+  });
+
+  it("Excel dengan pembanding dan wawasan: lembar Wawasan, kolom wilayah, dan lembar Tren dan Level", async () => {
+    m.bangun.mockResolvedValue(dataLengkap());
+    const res = await getExcel(req(`?subjectId=${SUBJECT}`));
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load((await res.arrayBuffer()) as never);
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Ringkasan", "Wawasan", "Per Kelompok", "Per Indikator", "Prioritas Remedial", "Di Bawah Nasional", "Tren dan Level", "Siswa Perlu Perhatian"]);
+    const kepalaInd = (wb.getWorksheet("Per Indikator")!.getRow(1).values as unknown[]).slice(1);
+    expect(kepalaInd).toEqual(expect.arrayContaining(["Rerata AyoTKA Provinsi Jawa Timur · Negeri (%)", "Selisih wilayah (poin)"]));
   });
 });
 

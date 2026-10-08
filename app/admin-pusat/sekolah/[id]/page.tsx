@@ -15,7 +15,8 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import { IconUsers } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
 import { useResetPassword } from "@/components/admin/use-reset-password";
-import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
+import { PilihStatusSekolah, PilihWilayah } from "@/components/wilayah/pilih-wilayah";
+import { labelStatusSekolah } from "@/lib/wilayah";
 
 type SchoolAdmin = {
   userId: string;
@@ -31,7 +32,9 @@ type SchoolDetail = {
   jenjang: "SD" | "SMP";
   npsn: string | null;
   alamat: string | null;
+  provinsi: string | null;
   kabupatenKota: string | null;
+  statusSekolah: "negeri" | "swasta" | null;
   status: SchoolStatus;
   schoolUsers: SchoolAdmin[];
 };
@@ -41,7 +44,9 @@ type EditForm = {
   jenjang: "SD" | "SMP";
   npsn: string;
   alamat: string;
+  provinsi: string;
   kabupatenKota: string;
+  statusSekolah: string;
 };
 
 function toEditForm(school: SchoolDetail): EditForm {
@@ -50,7 +55,9 @@ function toEditForm(school: SchoolDetail): EditForm {
     jenjang: school.jenjang,
     npsn: school.npsn ?? "",
     alamat: school.alamat ?? "",
+    provinsi: school.provinsi ?? "",
     kabupatenKota: school.kabupatenKota ?? "",
+    statusSekolah: school.statusSekolah ?? "",
   };
 }
 
@@ -172,7 +179,9 @@ export default function SekolahDetailPage({
         jenjang: editForm.jenjang,
         npsn: editForm.npsn,
         alamat: editForm.alamat,
+        provinsi: editForm.provinsi,
         kabupatenKota: editForm.kabupatenKota,
+        statusSekolah: editForm.statusSekolah,
       }),
     });
     const data = await res.json().catch(() => null);
@@ -240,11 +249,19 @@ export default function SekolahDetailPage({
         </div>
         <p className="text-sm text-slate-500">
           Kode Sekolah <span className="font-mono">{school.kodeSekolah}</span> · {school.jenjang}
+          {school.statusSekolah ? ` · ${labelStatusSekolah(school.statusSekolah)}` : ""}
           {school.kabupatenKota ? ` · ${school.kabupatenKota}` : ""}
+          {school.provinsi ? ` · ${school.provinsi}` : ""}
         </p>
-        {!school.kabupatenKota && (
+        {(!school.kabupatenKota || !school.provinsi) && (
           <p className="mt-1 text-sm text-amber-700">
-            Kota/kabupaten belum diisi — sekolah ini belum muncul di dashboard dinas pendidikan manapun.
+            Provinsi dan kota/kabupaten belum lengkap — sekolah ini belum muncul di dashboard dinas pendidikan wilayahnya
+            dan nilainya belum bisa dipetakan per wilayah.
+          </p>
+        )}
+        {!school.statusSekolah && (
+          <p className="mt-1 text-sm text-amber-700">
+            Status sekolah (negeri/swasta) belum diisi — nilainya belum bisa dipetakan per jenis sekolah.
           </p>
         )}
         {!isSchoolActive(school) && (
@@ -340,23 +357,23 @@ export default function SekolahDetailPage({
               />
             </div>
             <div>
-              <Label htmlFor="editKabupatenKota">Kota/Kabupaten</Label>
-              <select
-                id="editKabupatenKota"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                value={editForm.kabupatenKota}
-                onChange={(e) => setEditForm({ ...editForm, kabupatenKota: e.target.value })}
-              >
-                <option value="">Belum dipilih</option>
-                {KABUPATEN_KOTA_JATIM.map((k) => (
-                  <option key={k} value={k}>
-                    {k}
-                  </option>
-                ))}
-              </select>
+              <PilihWilayah
+                idAwalan="editSekolah"
+                provinsi={editForm.provinsi}
+                kabupatenKota={editForm.kabupatenKota}
+                onChange={(w) => setEditForm({ ...editForm, provinsi: w.provinsi, kabupatenKota: w.kabupatenKota })}
+              />
               <p className="mt-1 text-xs text-slate-500">
-                Wajib diisi supaya sekolah ini muncul di dashboard dinas pendidikan wilayahnya.
+                Wajib diisi supaya sekolah ini muncul di dashboard dinas pendidikan wilayahnya dan nilainya bisa
+                dipetakan per provinsi / kota / kabupaten.
               </p>
+            </div>
+            <div className="sm:max-w-xs">
+              <PilihStatusSekolah
+                id="editStatusSekolah"
+                value={editForm.statusSekolah}
+                onChange={(v) => setEditForm({ ...editForm, statusSekolah: v })}
+              />
             </div>
             <div className="flex gap-2">
               <Button type="submit" disabled={editSubmitting}>

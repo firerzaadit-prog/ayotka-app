@@ -55,3 +55,32 @@ export const geminiResponseSchema: Schema = {
   },
   required: ["ringkasan", "kelebihanSiswa", "kekuranganSiswa", "rekomendasi"],
 };
+
+export const analisisSekolahSchema = z.object({
+  ringkasan: z.string().min(1),
+  kelebihanSekolah: z.string().min(1),
+  kekuranganSekolah: z.string().min(1),
+  rekomendasi: z.array(z.string().min(1)).min(1).max(5),
+});
+export type AnalisisAiSekolah = z.infer<typeof analisisSekolahSchema>;
+
+export const geminiSekolahResponseSchema: Schema = {
+  type: Type.OBJECT,
+  properties: {
+    ringkasan: { type: Type.STRING, description: "Ringkasan performa dan daya serap sekolah secara umum (2-3 kalimat)" },
+    kelebihanSekolah: {
+      type: Type.STRING,
+      description: "Kelebihan sekolah, WAJIB menyebut nama indikator atau materi yang paling dikuasai siswa.",
+    },
+    kekuranganSekolah: {
+      type: Type.STRING,
+      description: "Kekurangan sekolah, WAJIB menyebut indikator yang masih lemah dan prioritas remedial.",
+    },
+    rekomendasi: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+      description: "3-5 rekomendasi tindak lanjut bagi guru, spesifik menyasar indikator yang lemah",
+    },
+  },
+  required: ["ringkasan", "kelebihanSekolah", "kekuranganSekolah", "rekomendasi"],
+};

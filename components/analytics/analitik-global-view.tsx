@@ -13,8 +13,22 @@ import { IconChart } from "@/components/ui/empty-state-icons";
 import { FilterTanggal } from "@/components/analytics/filter-tanggal";
 import { rentangTanggalValid } from "@/lib/analytics/preset-tanggal";
 import { labelPeriodeBulan } from "@/lib/utils/datetime";
+import {
+  FilterWilayah,
+  nilaiAwalFilterWilayah,
+  tambahkanParamWilayah,
+} from "@/components/wilayah/pilih-wilayah";
+import { adalahStatusSekolah } from "@/lib/wilayah";
+import { sekolahCocok, type CakupanWilayah } from "@/lib/wilayah/cakupan";
 
-type SchoolOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
+type SchoolOption = {
+  id: string;
+  nama: string;
+  jenjang: "SD" | "SMP";
+  provinsi?: string | null;
+  kabupatenKota?: string | null;
+  statusSekolah?: "negeri" | "swasta" | null;
+};
 type SubjectOption = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type PerSekolah = {
   schoolId: string;
@@ -53,14 +67,18 @@ export function AnalitikGlobalView({
   analitikEndpoint,
   schoolsEndpoint,
   subjectsEndpoint,
+  cakupan,
 }: {
   analitikEndpoint: string;
   schoolsEndpoint: string;
   subjectsEndpoint: string;
+  /** Wilayah cakupan akun dinas: provinsi/kota-kabupaten yang terkunci di filter. Kosong untuk admin pusat. */
+  cakupan?: CakupanWilayah | null;
 }) {
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
   const [schoolId, setSchoolId] = useState("");
+  const [filterWilayah, setFilterWilayah] = useState(() => nilaiAwalFilterWilayah(cakupan));
   const [jenjang, setJenjang] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [wilayah, setWilayah] = useState("");
@@ -109,6 +127,7 @@ export function AnalitikGlobalView({
       if (jenjang) qs.set("jenjang", jenjang);
       if (subjectId) qs.set("subjectId", subjectId);
       if (wilayah) qs.set("wilayah", wilayah);
+      tambahkanParamWilayah(qs, filterWilayah);
       if (dari) qs.set("dari", dari);
       if (sampai) qs.set("sampai", sampai);
       const res = await fetch(`${analitikEndpoint}?${qs.toString()}`);
@@ -132,13 +151,32 @@ export function AnalitikGlobalView({
       ignore = true;
       clearTimeout(timeout);
     };
-  }, [schoolId, jenjang, subjectId, wilayah, dari, sampai, analitikEndpoint]);
+  }, [schoolId, jenjang, subjectId, wilayah, filterWilayah, dari, sampai, analitikEndpoint]);
+
+  // Pilihan sekolah mengikuti filter wilayah/status di atasnya, supaya tidak memilih sekolah di luar saringan.
+  const sekolahTampil = schools.filter((s) =>
+    sekolahCocok(s, {
+      provinsi: filterWilayah.provinsi || null,
+      kabupatenKota: filterWilayah.kabupatenKota || null,
+      statusSekolah: adalahStatusSekolah(filterWilayah.statusSekolah) ? filterWilayah.statusSekolah : null,
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Analitik Global"
         description="Perbandingan antar sekolah & tren waktu, dari seluruh siswa Jalur A (sekolah aktif berlangganan)."
+      />
+
+      <FilterWilayah
+        idAwalan="analitikWilayah"
+        nilai={filterWilayah}
+        onChange={(n) => {
+          setFilterWilayah(n);
+          setSchoolId("");
+        }}
+        cakupan={cakupan}
       />
 
       <div className="flex flex-wrap gap-4">
@@ -151,7 +189,7 @@ export function AnalitikGlobalView({
             onChange={(e) => setSchoolId(e.target.value)}
           >
             <option value="">Semua sekolah</option>
-            {schools.map((s) => (
+            {sekolahTampil.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.nama}
               </option>

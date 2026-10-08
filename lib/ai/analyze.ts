@@ -5,6 +5,7 @@ import { buildAnalisisPrompt } from "@/lib/ai/prompt";
 import { PROMPT_VERSION } from "@/lib/ai/version";
 import { mataPelajaranFromSubjectNama, renderKerangkaAsesmenRingkas } from "@/lib/content/kerangka-asesmen";
 import { labelElemenTampil } from "@/lib/content/label-elemen";
+import { hitungLaporanSiswa } from "@/lib/indikator/daya-serap";
 import type { Attempt } from "@prisma/client";
 
 const TIDAK_DIJAWAB = "(tidak dijawab)";
@@ -117,6 +118,20 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
                 elemen: { select: { nama: true } },
               },
             },
+            // Taksonomi resmi per indikator (null bila soal belum tertaut ke master indikator resmi).
+            indikatorResmi: {
+              select: {
+                id: true,
+                jenjang: true,
+                namaMapel: true,
+                elemen: true,
+                subelemen: true,
+                kompetensi: true,
+                indikator: true,
+                urutan: true,
+                nilaiNasional: true,
+              },
+            },
             options: { select: { id: true, teks: true, isCorrect: true } },
             statements: { select: { id: true, teks: true, correctCategoryId: true } },
             categories: { select: { id: true, label: true } },
@@ -148,11 +163,17 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
   // supaya analisis AI tidak memakai istilah lain.
   const konteksElemen = { jenjang: pkg.jenjang, namaMapel: pkg.subject.nama };
 
+  // Daya serap per indikator resmi, dihitung dengan kode yang sama dengan rapor siswa (angka di prompt = angka di rapor).
+  const indikatorResmi = hitungLaporanSiswa(
+    answers.map((a) => ({ indikator: a.question.indikatorResmi ?? null, skor: a.skor, skorMaks: a.skorMaks })),
+  );
+
   const prompt = buildAnalisisPrompt({
     namaSiswa: student.nama,
     paketNama: pkg.nama,
     skorAkhir: attempt.skorAkhir ?? 0,
     kerangkaAsesmen,
+    indikatorResmi,
     kompetensi: competencyScores.map((c) => ({
       deskripsi: c.kompetensi.deskripsi,
       elemenNama: labelElemenTampil(konteksElemen, c.kompetensi.elemen.nama),

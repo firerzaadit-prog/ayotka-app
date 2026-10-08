@@ -11,6 +11,8 @@ import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
 import { hitungPersentil, hitungRerata, hitungStandarDeviasi } from "@/lib/analytics/statistik";
 import { filterMulai, type RentangWaktu } from "@/lib/analytics/sekolah";
 import { namaElemenTampil } from "@/lib/content/label-elemen";
+import { whereSekolahWilayah } from "@/lib/wilayah/cakupan";
+import type { StatusSekolah } from "@/lib/wilayah";
 
 export type AnalitikGlobalFilter = {
   schoolId?: string | null;
@@ -26,6 +28,8 @@ export type AnalitikGlobalFilter = {
   /** Filter kota/kabupaten terstruktur (dropdown Jawa Timur) - dipakai
    * akun dinas pendidikan untuk membatasi data ke wilayah cakupannya. */
   kabupatenKota?: string | null;
+  provinsi?: string | null;
+  statusSekolah?: StatusSekolah | null;
 } & RentangWaktu;
 
 /**
@@ -51,7 +55,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
       ...(filter.wilayah
         ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
         : {}),
-      ...(filter.kabupatenKota ? { kabupatenKota: filter.kabupatenKota } : {}),
+      ...whereSekolahWilayah(filter),
     },
     select: { id: true, nama: true, jenjang: true },
   });
@@ -231,7 +235,7 @@ export async function buildStatistikMataPelajaran(
         ...(filter.wilayah
           ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
           : {}),
-        ...(filter.kabupatenKota ? { kabupatenKota: filter.kabupatenKota } : {}),
+        ...whereSekolahWilayah(filter),
       },
       select: { id: true },
     }),
@@ -327,6 +331,8 @@ export type KesiapanAntarSekolahFilter = {
   jenjang?: "SD" | "SMP" | null;
   wilayah?: string | null;
   kabupatenKota?: string | null;
+  provinsi?: string | null;
+  statusSekolah?: StatusSekolah | null;
 } & RentangWaktu;
 
 export type KesiapanPerSekolah = {
@@ -351,7 +357,7 @@ export async function buildKesiapanAntarSekolah(
       ...(filter.wilayah
         ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
         : {}),
-      ...(filter.kabupatenKota ? { kabupatenKota: filter.kabupatenKota } : {}),
+      ...whereSekolahWilayah(filter),
     },
     select: { id: true, nama: true, jenjang: true },
   });
@@ -426,6 +432,8 @@ export async function buildDaftarSiswaKesiapanAntarSekolah(filter: {
   wilayah?: string | null;
   schoolId?: string | null;
   kabupatenKota?: string | null;
+  provinsi?: string | null;
+  statusSekolah?: StatusSekolah | null;
 } & RentangWaktu): Promise<SiswaKesiapanAntarSekolah[]> {
   const schools = await prisma.school.findMany({
     where: {
@@ -435,7 +443,7 @@ export async function buildDaftarSiswaKesiapanAntarSekolah(filter: {
       ...(filter.wilayah
         ? { alamat: { contains: filter.wilayah, mode: "insensitive" as const } }
         : {}),
-      ...(filter.kabupatenKota ? { kabupatenKota: filter.kabupatenKota } : {}),
+      ...whereSekolahWilayah(filter),
     },
     select: { id: true, nama: true },
   });

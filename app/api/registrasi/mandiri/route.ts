@@ -8,6 +8,7 @@ import { generateUniqueStudentReferralCode } from "@/lib/students/create";
 import { resolveKodeReferral } from "@/lib/registrasi/referral";
 import { activateVoucher, VoucherSudahDipakaiError } from "@/lib/billing/vouchers";
 import { daftarMandiriSchema } from "@/lib/validations/registrasi";
+import { periksaPasanganWilayah, statusSekolahUntukSimpan } from "@/lib/wilayah";
 import { kirimEmailKonfirmasi, pesanEmailBelumTerkirim } from "@/lib/email/konfirmasi";
 
 /**
@@ -74,12 +75,37 @@ export async function POST(request: Request) {
     // menumpuk duplikat, nama yang sama (tanpa peduli huruf besar/kecil & spasi
     // ganda) di jenjang yang sama memakai baris sekolah yang sudah ada.
     const namaManual = data.asalSekolahManual!.replace(/\s+/g, " ").trim();
-    const existingSchool = await prisma.school.findFirst({
-      where: { nama: { equals: namaManual, mode: "insensitive" }, jenjang: data.jenjang },
-      select: { id: true },
-    });
+    // Provinsi dilengkapi dari kota/kabupaten dan pasangannya sudah diperiksa skema; di sini cuma diambil nilainya.
+    const wilayah = periksaPasanganWilayah({ provinsi: data.asalSekolahProvinsi, kabupatenKota: data.asalSekolahKabupatenKota });
+    const wilayahSekolah = wilayah.ok ? wilayah.nilai : { provinsi: null, kabupatenKota: null };
+    const statusSekolah = statusSekolahUntukSimpan(data.asalSekolahStatus);
+    // Nama sekolah tidak unik secara nasional ("SD Negeri 1" ada di mana-mana): bila siswa menyebut kota/kabupatennya,
+    // yang dipakai adalah sekolah bernama sama di kota/kabupaten itu, lalu sekolah bernama sama yang wilayahnya belum
+    // tercatat (data lama). Sekolah bernama sama di kota/kabupaten LAIN tidak dipakai - dibuatkan entri baru.
+    const cocokNama = { nama: { equals: namaManual, mode: "insensitive" as const }, jenjang: data.jenjang };
+    const pilihSekolah = { id: true, provinsi: true, kabupatenKota: true, statusSekolah: true } as const;
+    const existingSchool = wilayahSekolah.kabupatenKota
+      ? ((await prisma.school.findFirst({
+          where: { ...cocokNama, kabupatenKota: wilayahSekolah.kabupatenKota },
+          select: pilihSekolah,
+        })) ??
+        (await prisma.school.findFirst({ where: { ...cocokNama, kabupatenKota: null }, select: pilihSekolah })))
+      : await prisma.school.findFirst({ where: cocokNama, select: pilihSekolah });
     if (existingSchool) {
       schoolId = existingSchool.id;
+      // Data sekolah yang sudah tercatat TIDAK ditimpa isian siswa (bisa saja sudah diperiksa admin); hanya bagian yang
+      // masih kosong dilengkapi. Kota/kabupaten dan provinsi dilengkapi bersama supaya selalu cocok.
+      const lengkapiWilayah = !existingSchool.kabupatenKota && !existingSchool.provinsi && (wilayahSekolah.provinsi || wilayahSekolah.kabupatenKota);
+      const lengkapiStatus = !existingSchool.statusSekolah && statusSekolah;
+      if (lengkapiWilayah || lengkapiStatus) {
+        await prisma.school.update({
+          where: { id: existingSchool.id },
+          data: {
+            ...(lengkapiWilayah ? { provinsi: wilayahSekolah.provinsi, kabupatenKota: wilayahSekolah.kabupatenKota } : {}),
+            ...(lengkapiStatus ? { statusSekolah } : {}),
+          },
+        });
+      }
     } else {
       const newSchool = await prisma.school.create({
         data: {
@@ -87,6 +113,9 @@ export async function POST(request: Request) {
           jenjang: data.jenjang,
           kodeSekolah: generateReadableCode(8),
           status: "pending_verifikasi",
+          provinsi: wilayahSekolah.provinsi,
+          kabupatenKota: wilayahSekolah.kabupatenKota,
+          statusSekolah,
         },
       });
       schoolId = newSchool.id;

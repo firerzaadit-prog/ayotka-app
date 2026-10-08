@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { generateTempPassword } from "@/lib/utils/generate-code";
 import { dinasAdminCreateSchema } from "@/lib/validations/dinas-pendidikan";
+import { periksaPasanganWilayah } from "@/lib/wilayah";
 
 export async function GET() {
   try {
@@ -28,6 +29,7 @@ export async function GET() {
     status: u.status,
     nama: u.dinasProfile?.nama ?? null,
     instansi: u.dinasProfile?.instansi ?? null,
+    provinsi: u.dinasProfile?.provinsi ?? null,
     kabupatenKota: u.dinasProfile?.kabupatenKota ?? null,
   }));
 
@@ -36,11 +38,12 @@ export async function GET() {
 
 /**
  * Admin pusat membuat akun dinas pendidikan (read-only, akses kesiapan TKA
- * lintas sekolah), diikat ke SATU kota/kabupaten wilayah cakupannya - semua
- * endpoint /api/dinas-pendidikan/* otomatis memfilter berdasarkan wilayah ini
- * (lihat lib/dinas/wilayah.ts). Boleh ada lebih dari satu akun dinas untuk
- * kota/kabupaten yang sama maupun berbeda - tidak ada batasan satu akun per
- * wilayah, supaya bisa dibuatkan akun cadangan atau beberapa penanggung jawab.
+ * lintas sekolah), diikat ke wilayah cakupannya se-Indonesia: SATU kota/kabupaten
+ * (Dinas Kota/Kabupaten) atau SATU provinsi (Dinas Provinsi: semua kota/kabupaten
+ * di provinsi itu) - semua endpoint /api/dinas-pendidikan/* otomatis memfilter
+ * berdasarkan wilayah ini (lihat lib/dinas/wilayah.ts). Boleh ada lebih dari satu
+ * akun dinas untuk wilayah yang sama maupun berbeda - tidak ada batasan satu akun
+ * per wilayah, supaya bisa dibuatkan akun cadangan atau beberapa penanggung jawab.
  *
  * Pola sama persis dengan pembuatan akun admin sekolah
  * (app/api/admin-pusat/school-admins), cuma baris profilnya masuk tabel
@@ -65,7 +68,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const { email, nama, instansi, kabupatenKota } = parsed.data;
+  const { email, nama, instansi } = parsed.data;
+  // Provinsi dilengkapi dari kota/kabupaten (formulir lama hanya mengirim kota/kabupaten); skema sudah memastikan
+  // minimal salah satunya ada dan pasangannya cocok.
+  const wilayahDinas = periksaPasanganWilayah({ provinsi: parsed.data.provinsi, kabupatenKota: parsed.data.kabupatenKota });
+  if (!wilayahDinas.ok) {
+    return NextResponse.json({ error: wilayahDinas.pesan }, { status: 400 });
+  }
+  const { provinsi, kabupatenKota } = wilayahDinas.nilai;
 
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
@@ -96,7 +106,7 @@ export async function POST(request: Request) {
         data: { id: data.user.id, email, role: "dinas_pendidikan", status: "aktif" },
       });
       await tx.dinasAdmin.create({
-        data: { userId: data.user.id, nama, instansi, kabupatenKota },
+        data: { userId: data.user.id, nama, instansi, provinsi, kabupatenKota },
       });
     });
   } catch (err) {
@@ -116,7 +126,7 @@ export async function POST(request: Request) {
     aksi: "create",
     entitas: "users",
     entitasId: data.user.id,
-    after: { userId: data.user.id, email, role: "dinas_pendidikan", nama, instansi, kabupatenKota },
+    after: { userId: data.user.id, email, role: "dinas_pendidikan", nama, instansi, provinsi, kabupatenKota },
     ip: getClientIp(request),
   });
 

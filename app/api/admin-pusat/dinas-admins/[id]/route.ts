@@ -3,11 +3,12 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { dinasAdminUpdateSchema } from "@/lib/validations/dinas-pendidikan";
+import { wilayahSetelahPerubahan } from "@/lib/wilayah";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
 /**
- * Ubah profil (nama/instansi/wilayah) atau nonaktifkan/aktifkan akun dinas
+ * Ubah profil (nama/instansi/wilayah provinsi atau kota/kabupaten) atau nonaktifkan/aktifkan akun dinas
  * pendidikan - dipakai saat wilayah cakupannya perlu dikoreksi, atau kalau
  * akun perlu dinonaktifkan tanpa dihapus (pola sama seperti admin sekolah,
  * lihat app/api/admin-pusat/school-admins/[id]).
@@ -35,11 +36,28 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Akun tidak ditemukan." }, { status: 404 });
   }
 
-  const { status, nama, instansi, kabupatenKota } = parsed.data;
+  const { status, nama, instansi, provinsi, kabupatenKota } = parsed.data;
+
+  // Wilayah dihitung dari isian + wilayah sebelumnya (provinsi diturunkan dari kota/kabupaten bila hanya itu yang
+  // dikirim; mengganti provinsi tanpa memilih ulang kota/kabupaten ditolak bila kota/kabupaten lama bukan bagiannya).
+  // Akun dinas tidak boleh berakhir tanpa wilayah sama sekali: akunnya akan ditolak di semua halaman dinas.
+  const wilayahBerubah = provinsi !== undefined || kabupatenKota !== undefined;
+  const sebelumnya = {
+    provinsi: beforeUser.dinasProfile?.provinsi ?? null,
+    kabupatenKota: beforeUser.dinasProfile?.kabupatenKota ?? null,
+  };
+  const wilayah = wilayahSetelahPerubahan({ provinsi, kabupatenKota }, sebelumnya);
+  if (!wilayah.ok) {
+    return NextResponse.json({ error: wilayah.pesan }, { status: 400 });
+  }
+  if (wilayahBerubah && !wilayah.nilai.provinsi && !wilayah.nilai.kabupatenKota) {
+    return NextResponse.json({ error: "Pilih provinsi wilayah cakupan; akun dinas tidak boleh tanpa wilayah." }, { status: 400 });
+  }
+
   const profileData = {
     ...(nama !== undefined ? { nama } : {}),
     ...(instansi !== undefined ? { instansi } : {}),
-    ...(kabupatenKota !== undefined ? { kabupatenKota } : {}),
+    ...(wilayahBerubah ? { provinsi: wilayah.nilai.provinsi, kabupatenKota: wilayah.nilai.kabupatenKota } : {}),
   };
 
   const [user] = await prisma.$transaction([
@@ -58,7 +76,8 @@ export async function PATCH(request: Request, { params }: RouteParams) {
               userId: id,
               nama: nama ?? beforeUser.dinasProfile?.nama ?? "",
               instansi: instansi ?? beforeUser.dinasProfile?.instansi ?? "",
-              kabupatenKota: kabupatenKota ?? beforeUser.dinasProfile?.kabupatenKota ?? "",
+              provinsi: wilayah.nilai.provinsi,
+              kabupatenKota: wilayah.nilai.kabupatenKota,
             },
           }),
         ]

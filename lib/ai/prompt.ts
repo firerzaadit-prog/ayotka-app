@@ -1,9 +1,24 @@
+import { LABEL_VONIS, type LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
+import { formatPersen } from "@/lib/indikator/tampilan";
+
+/**
+ * Daya serap per indikator resmi Kemendikdasmen untuk percobaan ini (sama persis dengan bagian "Daya Serap per Indikator"
+ * di rapor siswa; dihitung kode program dari soal yang tertaut ke master indikator resmi). Null bila tidak ada soal yang
+ * tertaut - analisis lalu memakai peta kompetensi dan kerangka asesmen saja seperti sebelumnya.
+ */
+export type IndikatorResmiPrompt = Pick<
+  LaporanIndikatorSiswa,
+  "label" | "mapel" | "jenjang" | "soalTercakup" | "soalTotal" | "kelompok"
+>;
+
 export type PromptInput = {
   namaSiswa: string;
   paketNama: string;
   skorAkhir: number;
   /** Bagian 8.2 brief: ringkasan kerangka asesmen resmi (kalau tersedia untuk mapel ini) - lihat lib/content/kerangka-asesmen.ts. */
   kerangkaAsesmen?: string | null;
+  /** Taksonomi resmi per indikator (hierarki + daya serap + rujukan nasional); lihat lib/indikator/daya-serap.ts. */
+  indikatorResmi?: IndikatorResmiPrompt | null;
   kompetensi: {
     deskripsi: string;
     elemenNama: string;
@@ -28,6 +43,35 @@ export type PromptInput = {
 };
 
 /**
+ * Blok "STANDAR INDIKATOR RESMI": hierarki resmi (Elemen > Subelemen > Kompetensi > Indikator untuk Matematika, Kompetensi >
+ * Subkompetensi > Indikator untuk Bahasa) dengan angka final tiap kelompok dan indikator. Angka sudah dihitung kode program.
+ */
+export function renderIndikatorResmi(i: IndikatorResmiPrompt): string {
+  const [tingkat1] = i.label;
+  const kelompok = i.kelompok
+    .map((k) => {
+      const nasional = k.nasional !== null && k.vonis !== "data_kurang" ? `; rerata nasional ${formatPersen(k.nasional, 1)}` : "";
+      const kepala = `${tingkat1}: ${k.nama} - daya serap ${formatPersen(k.dayaSerap, 0)} (${k.jmlSoal} soal)${nasional}; ${LABEL_VONIS[k.vonis]}`;
+      const baris = k.baris.map((b) => {
+        const jalur = b.level3 ? `${b.level2} > ${b.level3}` : b.level2;
+        const rujukan = b.nasional !== null ? `, rerata nasional ${formatPersen(b.nasional, 1)}` : "";
+        return `  - [${jalur}] "${b.indikator.replace(/\s+/g, " ")}": ${b.jmlSoal} soal, daya serap ${formatPersen(b.dayaSerap, 0)}${rujukan}`;
+      });
+      return [kepala, ...baris].join("\n");
+    })
+    .join("\n");
+  return `STANDAR INDIKATOR RESMI KEMENDIKDASMEN (${i.mapel} ${i.jenjang}; hierarki resmi: ${i.label.join(" > ")}). ${i.soalTercakup} dari ${i.soalTotal} soal pada ujian ini memiliki indikator resmi:\n${kelompok}`;
+}
+
+/** Aturan tambahan bila ada STANDAR INDIKATOR RESMI: penamaan resmi, kaitan rekomendasi, dan cara memakai rerata nasional. */
+function aturanIndikatorResmi(i: IndikatorResmiPrompt): string {
+  const [t1, t2] = i.label;
+  return `
+- Ada STANDAR INDIKATOR RESMI Kemendikdasmen di bawah (taksonomi yang dipakai laporan resmi TKA). Saat menyebut materi, pakai penamaan ${t1}${t2 ? ` dan ${t2}` : ""} serta teks indikator PERSIS seperti di sana (jangan menamai ulang atau memparafrasekan nama resminya), dan kaitkan kekurangan serta rekomendasi ke indikator resmi yang daya serapnya paling rendah.${i.label.includes("Elemen") ? "" : ' Untuk mata pelajaran ini sebut tingkat pertama "Kompetensi" dan tingkat kedua "Subkompetensi"; JANGAN memakai kata "Elemen" atau "Subelemen".'}
+- Rerata nasional hanya RUJUKAN. Boleh disebut apa adanya (angkanya harus persis), tetapi jangan menyimpulkan siswa "di bawah" atau "di atas" nasional pada satu indikator karena soal per indikator sedikit; kesimpulan perbandingan hanya pada tingkat ${t1}, sesuai keterangan yang diberikan.`;
+}
+
+/**
  * Tiket 5.4 (Brief Bagian 8.1): fungsi murni (tanpa I/O) supaya gampang
  * dites - semua angka di sini SUDAH final hasil hitungan kode program
  * (skoring biner + agregasi kompetensi), prompt cuma minta AI menarasikan,
@@ -50,6 +94,8 @@ export function buildAnalisisPrompt(input: PromptInput): string {
   const kerangkaBlock = input.kerangkaAsesmen
     ? `\nSTANDAR KOMPETENSI RESMI (Kerangka Asesmen TKA - Kemendikdasmen, untuk konteks BACAAN saja, BUKAN sumber angka):\n${input.kerangkaAsesmen}\n`
     : "";
+  const indikatorAturan = input.indikatorResmi ? aturanIndikatorResmi(input.indikatorResmi) : "";
+  const indikatorBlock = input.indikatorResmi ? `\n${renderIndikatorResmi(input.indikatorResmi)}\n` : "";
   const kerangkaAturan = input.kerangkaAsesmen
     ? "\n- Gunakan STANDAR KOMPETENSI RESMI di bawah sebagai acuan pembanding saat menarasikan tiap kompetensi (mis. kompetensi APA dari standar itu yang belum dikuasai berdasarkan persentase yang diberikan) - jangan mengarang cakupan standar yang tidak disebutkan di sana."
     : "";
@@ -64,9 +110,9 @@ ATURAN WAJIB:
 - Tugasmu HANYA menerjemahkan angka-angka ini menjadi narasi edukatif. Kalau kamu menyebut angka atau persentase, angka itu HARUS persis sama dengan yang diberikan di bawah.
 - Jangan menyinggung ranking/peringkat terhadap siswa lain - data itu sengaja tidak diberikan ke kamu dan tidak relevan untuk evaluasi personal siswa ini.
 - Nada: suportif, memotivasi, dan membangun, bukan menghakimi. Ini adalah panduan belajar, bukan vonis.
-- Untuk kelebihan, kekurangan, dan rekomendasi: HANYA bahas materi/sub-materi/kompetensi yang tercantum di PETA KOMPETENSI dan RINCIAN SEMUA SOAL di bawah. Jangan menyebut atau menyarankan topik lain di luar itu, walau topik itu lazim ada di mata pelajaran ini - kamu tidak tahu apakah topik itu diujikan di paket ini atau tidak. Ini adalah matriks asesmen resminya, jangan keluar dari konteks itu.
-- Keluarkan HANYA JSON sesuai skema yang diminta, tanpa teks lain di luar JSON.${kerangkaAturan}
-${kerangkaBlock}
+- Untuk kelebihan, kekurangan, dan rekomendasi: HANYA bahas materi/sub-materi/kompetensi yang tercantum di PETA KOMPETENSI, RINCIAN SEMUA SOAL, dan STANDAR INDIKATOR RESMI (bila ada) di bawah. Jangan menyebut atau menyarankan topik lain di luar itu, walau topik itu lazim ada di mata pelajaran ini - kamu tidak tahu apakah topik itu diujikan di paket ini atau tidak. Ini adalah matriks asesmen resminya, jangan keluar dari konteks itu.
+- Keluarkan HANYA JSON sesuai skema yang diminta, tanpa teks lain di luar JSON.${kerangkaAturan}${indikatorAturan}
+${kerangkaBlock}${indikatorBlock}
 DATA SISWA:
 Nama: ${input.namaSiswa}
 Paket ujian: ${input.paketNama}

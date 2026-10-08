@@ -57,6 +57,16 @@ export default async function AdminSekolahDashboardPage() {
         <StatCard label="Paket soal" value={paketSoal} />
       </div>
 
+      {school && (!school.provinsi || !school.kabupatenKota || !school.statusSekolah) && (
+        <Alert variant="warning">
+          Data sekolah belum lengkap (provinsi, kota/kabupaten, atau status negeri/swasta).{" "}
+          <Link href="/admin-sekolah/profil" className="font-semibold underline">
+            Lengkapi di Profil Sekolah
+          </Link>{" "}
+          supaya nilai sekolahmu bisa dipetakan per wilayah dan jenis sekolah.
+        </Alert>
+      )}
+
       {school && <KodeSekolahCard kodeSekolah={school.kodeSekolah} />}
 
       <KuotaSummary />

@@ -13,7 +13,8 @@ import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconSchool } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
-import { KABUPATEN_KOTA_JATIM } from "@/lib/constants/wilayah";
+import { PilihStatusSekolah, PilihWilayah } from "@/components/wilayah/pilih-wilayah";
+import { labelStatusSekolah } from "@/lib/wilayah";
 import { formatWIBDate } from "@/lib/utils/datetime";
 
 type SchoolStatus = "pending_verifikasi" | "aktif" | "suspend";
@@ -30,7 +31,9 @@ type SchoolListItem = {
   sisaHari?: number | null;
   segeraBerakhir?: boolean;
   adaPermintaan?: boolean;
+  provinsi?: string | null;
   kabupatenKota?: string | null;
+  statusSekolah?: "negeri" | "swasta" | null;
   _count: { schoolUsers: number; students: number };
 };
 
@@ -84,7 +87,9 @@ type SchoolFormState = {
   npsn: string;
   jenjang: "SD" | "SMP";
   alamat: string;
+  provinsi: string;
   kabupatenKota: string;
+  statusSekolah: string;
   seatQuota: string;
   validUntil: string;
   adminEmail: string;
@@ -96,7 +101,9 @@ const emptyForm: SchoolFormState = {
   npsn: "",
   jenjang: "SD",
   alamat: "",
+  provinsi: "",
   kabupatenKota: "",
+  statusSekolah: "",
   seatQuota: "",
   validUntil: "",
   adminEmail: "",
@@ -145,7 +152,9 @@ export default function SekolahPage() {
       npsn: form.npsn || undefined,
       jenjang: form.jenjang,
       alamat: form.alamat || undefined,
+      provinsi: form.provinsi || undefined,
       kabupatenKota: form.kabupatenKota || undefined,
+      statusSekolah: form.statusSekolah || undefined,
       seatQuota: form.seatQuota ? Number(form.seatQuota) : undefined,
       validUntil: form.validUntil || undefined,
       adminEmail: form.adminEmail || undefined,
@@ -292,23 +301,28 @@ export default function SekolahPage() {
           </div>
 
           <div>
-            <Label htmlFor="kabupatenKota">Kota/Kabupaten (opsional)</Label>
-            <select
-              id="kabupatenKota"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-              value={form.kabupatenKota}
-              onChange={(e) => setForm({ ...form, kabupatenKota: e.target.value })}
-            >
-              <option value="">Belum dipilih</option>
-              {KABUPATEN_KOTA_JATIM.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                </option>
-              ))}
-            </select>
+            <PilihWilayah
+              idAwalan="sekolahBaru"
+              provinsi={form.provinsi}
+              kabupatenKota={form.kabupatenKota}
+              onChange={(w) => setForm({ ...form, provinsi: w.provinsi, kabupatenKota: w.kabupatenKota })}
+              labelProvinsi="Provinsi (opsional)"
+              labelKabupatenKota="Kota/Kabupaten (opsional)"
+            />
             <p className="mt-1 text-xs text-slate-500">
-              Wajib diisi supaya sekolah ini muncul di dashboard dinas pendidikan wilayahnya.
+              Wajib diisi supaya sekolah ini muncul di dashboard dinas pendidikan wilayahnya dan nilainya bisa dipetakan
+              per provinsi / kota / kabupaten.
             </p>
+          </div>
+
+          <div className="sm:max-w-xs">
+            <PilihStatusSekolah
+              id="statusSekolahBaru"
+              value={form.statusSekolah}
+              onChange={(v) => setForm({ ...form, statusSekolah: v })}
+              label="Status sekolah (opsional)"
+            />
+            <p className="mt-1 text-xs text-slate-500">Negeri atau swasta, untuk memetakan nilai per jenis sekolah.</p>
           </div>
 
           <div className="border-t border-slate-100 pt-3">
@@ -381,7 +395,7 @@ export default function SekolahPage() {
         </form>
       )}
 
-      {schools === null && <TableSkeleton columns={9} />}
+      {schools === null && <TableSkeleton columns={10} />}
 
       {schools?.length === 0 && (
         <EmptyState
@@ -433,6 +447,7 @@ export default function SekolahPage() {
                     <Th>Jenjang</Th>
                     <Th>Kode Sekolah</Th>
                     <Th>Wilayah</Th>
+                    <Th>Negeri/Swasta</Th>
                     <Th>Status</Th>
                     <Th>Langganan</Th>
                     <Th>Admin</Th>
@@ -453,7 +468,19 @@ export default function SekolahPage() {
                       </Td>
                       <Td>{school.jenjang}</Td>
                       <Td className="font-mono text-xs font-medium text-slate-600">{school.kodeSekolah}</Td>
-                      <Td className="text-slate-600">{school.kabupatenKota ?? <span className="text-slate-400">—</span>}</Td>
+                      <Td className="text-slate-600">
+                        {school.kabupatenKota || school.provinsi ? (
+                          <div className="flex flex-col">
+                            <span>{school.kabupatenKota ?? school.provinsi}</span>
+                            {school.kabupatenKota && school.provinsi && <span className="text-xs text-slate-400">{school.provinsi}</span>}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </Td>
+                      <Td className="text-slate-600">
+                        {school.statusSekolah ? labelStatusSekolah(school.statusSekolah) : <span className="text-slate-400">—</span>}
+                      </Td>
                       <Td>
                         <Badge variant={STATUS_BADGE_VARIANT[school.status]}>
                           {STATUS_LABEL[school.status]}

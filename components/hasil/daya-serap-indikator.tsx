@@ -15,7 +15,8 @@ export function Batang({ persen }: { persen: number }) {
   );
 }
 
-export function BarisUraian<B extends BarisIndikator>({ b, tambahan }: { b: B; tambahan?: Tambahan<B> }) {
+/** Nama pembanding wilayah yang dipakai di keterangan (laporan sekolah): mis. "pengguna AyoTKA · Provinsi Jawa Timur". */
+export function BarisUraian<B extends BarisIndikator>({ b, tambahan, labelWilayah }: { b: B; tambahan?: Tambahan<B>; labelWilayah?: string }) {
   const cls = COMPETENCY_TIER_CLASS[competencyTier(b.dayaSerap)];
   const ket = tambahan?.(b);
   return (
@@ -33,6 +34,12 @@ export function BarisUraian<B extends BarisIndikator>({ b, tambahan }: { b: B; t
         <span className="shrink-0 text-[11px] text-slate-500">
           {ket ?? `${b.jmlSoal} soal`}
           {b.nasional !== null && <> · nasional {formatPersen(b.nasional, 1)}</>}
+          {typeof b.wilayah === "number" && (
+            <>
+              {" "}
+              · {labelWilayah ?? "wilayah"} {formatPersen(b.wilayah, 1)} ({formatSelisih(b.dayaSerap - b.wilayah)})
+            </>
+          )}
         </span>
       </div>
     </li>
@@ -45,11 +52,14 @@ export function KelompokDetail<B extends BarisIndikator>({
   k,
   tambahan,
   terbuka = true,
+  labelWilayah,
 }: {
   label0: string;
   k: KelompokIndikator<B>;
   tambahan?: Tambahan<B>;
   terbuka?: boolean;
+  /** Nama pembanding wilayah (laporan sekolah); dipakai bila kelompok punya rerata wilayah. */
+  labelWilayah?: string;
 }) {
   const cls = COMPETENCY_TIER_CLASS[competencyTier(k.dayaSerap)];
   return (
@@ -74,11 +84,17 @@ export function KelompokDetail<B extends BarisIndikator>({
             </span>
           )}
           {k.vonis === "data_kurang" && <span>Baru {k.jmlSoal} soal; butuh minimal 3 soal untuk dibandingkan.</span>}
+          {typeof k.wilayah === "number" && (
+            <span data-pembanding-wilayah>
+              Rerata {labelWilayah ?? "wilayah"} {formatPersen(k.wilayah, 1)}
+              {typeof k.selisihWilayah === "number" && <> ({formatSelisih(k.selisihWilayah)})</>}
+            </span>
+          )}
         </div>
       </summary>
       <ul className="flex flex-col gap-2 px-4 pb-4">
         {k.baris.map((b) => (
-          <BarisUraian key={b.indikatorId} b={b} tambahan={tambahan} />
+          <BarisUraian key={b.indikatorId} b={b} tambahan={tambahan} labelWilayah={labelWilayah} />
         ))}
       </ul>
     </details>

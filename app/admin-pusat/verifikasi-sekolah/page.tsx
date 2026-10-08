@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { IconCheckCircle } from "@/components/ui/empty-state-icons";
+import { PilihStatusSekolah, PilihWilayah } from "@/components/wilayah/pilih-wilayah";
+import { labelStatusSekolah } from "@/lib/wilayah";
 
 type PendingStudent = { id: string; nama: string; jenjang: "SD" | "SMP" };
 type PendingSchool = {
@@ -16,9 +18,18 @@ type PendingSchool = {
   jenjang: "SD" | "SMP";
   npsn: string | null;
   alamat: string | null;
+  provinsi: string | null;
+  kabupatenKota: string | null;
+  statusSekolah: "negeri" | "swasta" | null;
   students: PendingStudent[];
 };
-type SchoolOption = { id: string; nama: string; jenjang: "SD" | "SMP"; status: string };
+type SchoolOption = {
+  id: string;
+  nama: string;
+  jenjang: "SD" | "SMP";
+  status: string;
+  kabupatenKota?: string | null;
+};
 
 type Mode = null | "approve" | "reject" | "merge";
 
@@ -31,7 +42,7 @@ export default function VerifikasiSekolahPage() {
   const [schoolOptions, setSchoolOptions] = useState<SchoolOption[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
-  const [approveForm, setApproveForm] = useState({ nama: "", npsn: "", alamat: "" });
+  const [approveForm, setApproveForm] = useState({ nama: "", npsn: "", alamat: "", provinsi: "", kabupatenKota: "", statusSekolah: "" });
   const [mergeTargetId, setMergeTargetId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -64,6 +75,10 @@ export default function VerifikasiSekolahPage() {
       nama: school.nama,
       npsn: school.npsn ?? "",
       alamat: school.alamat ?? "",
+      // Wilayah/status yang diisi siswa saat mendaftar jadi isian awal; admin pusat tinggal memeriksa dan mengoreksi.
+      provinsi: school.provinsi ?? "",
+      kabupatenKota: school.kabupatenKota ?? "",
+      statusSekolah: school.statusSekolah ?? "",
     });
     setMergeTargetId("");
   }
@@ -117,6 +132,10 @@ export default function VerifikasiSekolahPage() {
               <p className="text-sm text-slate-500">
                 {school.jenjang} · {school.students.length} siswa mengaitkan diri ke sini:{" "}
                 {school.students.map((s) => s.nama).join(", ") || "-"}
+              </p>
+              <p className="text-sm text-slate-500">
+                Menurut pendaftar: {school.kabupatenKota ?? "kota/kabupaten belum diisi"}
+                {school.provinsi ? `, ${school.provinsi}` : ""} · {school.statusSekolah ? labelStatusSekolah(school.statusSekolah) : "negeri/swasta belum diisi"}
               </p>
             </div>
             {openId !== school.id && (
@@ -172,6 +191,22 @@ export default function VerifikasiSekolahPage() {
                       />
                     </div>
                   </div>
+                  <PilihWilayah
+                    idAwalan="apWilayah"
+                    provinsi={approveForm.provinsi}
+                    kabupatenKota={approveForm.kabupatenKota}
+                    onChange={(w) => setApproveForm({ ...approveForm, provinsi: w.provinsi, kabupatenKota: w.kabupatenKota })}
+                    labelProvinsi="Provinsi (opsional)"
+                    labelKabupatenKota="Kota/Kabupaten (opsional)"
+                  />
+                  <div className="sm:max-w-xs">
+                    <PilihStatusSekolah
+                      id="apStatus"
+                      value={approveForm.statusSekolah}
+                      onChange={(v) => setApproveForm({ ...approveForm, statusSekolah: v })}
+                      label="Status sekolah (opsional)"
+                    />
+                  </div>
                   <div className="flex gap-2">
                     <Button
                       disabled={submitting}
@@ -205,7 +240,7 @@ export default function VerifikasiSekolahPage() {
                       <option value="">Pilih sekolah tujuan</option>
                       {mergeOptions.map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.nama} ({s.jenjang})
+                          {s.nama} ({s.jenjang}{s.kabupatenKota ? `, ${s.kabupatenKota}` : ""})
                         </option>
                       ))}
                     </select>

@@ -73,6 +73,11 @@ export interface BarisIndikator {
   dayaSerap: number;
   /** Rerata nasional indikator ini (rujukan), null bila belum ada. */
   nasional: number | null;
+  /**
+   * Hanya laporan sekolah: rerata daya serap seluruh sekolah AyoTKA pada wilayah/status yang dipilih (lib/indikator/
+   * pembanding.ts); null = belum cukup sekolah/jawaban. Tidak ada (undefined) bila pembanding wilayah tidak diminta.
+   */
+  wilayah?: number | null;
 }
 
 export interface KelompokIndikator<B extends BarisIndikator = BarisIndikator> {
@@ -87,6 +92,10 @@ export interface KelompokIndikator<B extends BarisIndikator = BarisIndikator> {
   selisih: number | null;
   vonis: Vonis;
   baris: B[];
+  /** Rerata pembanding wilayah AyoTKA untuk kelompok ini (tertimbang skor maksimum); hanya bila pembanding wilayah diminta. */
+  wilayah?: number | null;
+  /** Daya serap dikurangi rerata wilayah pada indikator yang punya pembanding wilayah, dalam poin persen. */
+  selisihWilayah?: number | null;
 }
 
 const persen = (skor: number, maks: number) => (maks > 0 ? (skor / maks) * 100 : 0);
@@ -102,8 +111,11 @@ function levelDari(info: InfoIndikator): { level1: string; level2: string; level
   return { level1: h.nilai[0]!, level2: h.nilai[1]!, level3: h.nilai.length === 4 ? h.nilai[2]! : null };
 }
 
-/** Jumlahkan jawaban per indikator. Jawaban tanpa indikator atau dengan skor maksimum <= 0 diabaikan. */
-export function bangunBaris(jawaban: JawabanBerindikator[]): BarisIndikator[] {
+/**
+ * Jumlahkan jawaban per indikator. Jawaban tanpa indikator atau dengan skor maksimum <= 0 diabaikan. `pembandingWilayah`
+ * (id indikator -> daya serap wilayah, hanya yang lolos ambang) mengisi `wilayah` tiap baris; tanpa itu bidang tidak ada.
+ */
+export function bangunBaris(jawaban: JawabanBerindikator[], pembandingWilayah?: ReadonlyMap<string, number>): BarisIndikator[] {
   const peta = new Map<string, BarisIndikator>();
   for (const j of jawaban) {
     if (!j.indikator || !(j.skorMaks > 0)) continue;
@@ -126,7 +138,10 @@ export function bangunBaris(jawaban: JawabanBerindikator[]): BarisIndikator[] {
     peta.set(j.indikator.id, e);
   }
   const baris = [...peta.values()];
-  for (const b of baris) b.dayaSerap = persen(b.skor, b.skorMaks);
+  for (const b of baris) {
+    b.dayaSerap = persen(b.skor, b.skorMaks);
+    if (pembandingWilayah) b.wilayah = pembandingWilayah.get(b.indikatorId) ?? null;
+  }
   return baris;
 }
 
@@ -154,6 +169,19 @@ export function kelompokkan<B extends BarisIndikator>(baris: B[]): KelompokIndik
     );
     const selisih = nasional === null ? null : dayaSerapPembanding - nasional;
 
+    // Pembanding wilayah AyoTKA: rumus yang sama dengan rujukan nasional di atas, hanya pada indikator yang punya angka wilayah.
+    const wilayahDiminta = urut.some((b) => b.wilayah !== undefined);
+    const pembandingWil = urut.filter((b) => typeof b.wilayah === "number");
+    const bobotWil = pembandingWil.reduce((a, b) => a + b.skorMaks, 0);
+    const wilayah = bobotWil > 0 ? pembandingWil.reduce((a, b) => a + (b.wilayah as number) * b.skorMaks, 0) / bobotWil : null;
+    const selisihWilayah =
+      wilayah === null
+        ? null
+        : persen(
+            pembandingWil.reduce((a, b) => a + b.skor, 0),
+            bobotWil,
+          ) - wilayah;
+
     hasil.push({
       nama,
       jmlSoal,
@@ -164,6 +192,7 @@ export function kelompokkan<B extends BarisIndikator>(baris: B[]): KelompokIndik
       selisih,
       vonis: vonisBanding(dayaSerapPembanding, nasional, pembanding.reduce((a, b) => a + b.jmlSoal, 0)),
       baris: urut,
+      ...(wilayahDiminta ? { wilayah, selisihWilayah } : {}),
     });
   }
   return hasil.sort((a, b) => a.baris[0]!.urutan - b.baris[0]!.urutan || a.nama.localeCompare(b.nama));
@@ -255,6 +284,10 @@ export function hitungLaporanSiswa(jawaban: JawabanBerindikator[]): LaporanIndik
 
 export interface JawabanSiswa extends JawabanBerindikator {
   studentId: string;
+  /** Bulan percobaan dimulai (WIB, "yyyy-MM"), untuk tren bulanan; tanpa ini jawaban tidak masuk tren. */
+  bulan?: string;
+  /** Level kognitif soal (L1/L2/L3), untuk rincian per level; tanpa ini jawaban tidak masuk rincian level. */
+  level?: string;
 }
 export interface SiswaMeta {
   studentId: string;
@@ -274,6 +307,24 @@ export interface SiswaPerhatian {
   /** Dua indikator terlemah siswa ini (bahan remedial perorangan). */
   terlemah: BarisIndikator[];
 }
+/** Daya serap sekolah pada satu bulan (WIB), dari jawaban berindikator percobaan yang dimulai bulan itu. */
+export interface TrenSekolah {
+  /** "yyyy-MM". */
+  periode: string;
+  jmlSoal: number;
+  jmlSiswa: number;
+  dayaSerap: number;
+}
+
+/** Daya serap sekolah per level kognitif soal (L1 Pengetahuan & Pemahaman, L2 Aplikasi, L3 Penalaran). */
+export interface LevelSekolah {
+  level: string;
+  jmlSoal: number;
+  skor: number;
+  skorMaks: number;
+  dayaSerap: number;
+}
+
 export interface LaporanIndikatorSekolah {
   jumlahTingkat: 3 | 4;
   label: string[];
@@ -291,6 +342,10 @@ export interface LaporanIndikatorSekolah {
   sebaran: { baik: number; cukup: number; kurang: number };
   /** Siswa pada tingkat "perlu latihan", terendah lebih dulu. */
   siswaPerhatian: SiswaPerhatian[];
+  /** Daya serap keseluruhan per bulan (urut waktu); kosong bila tidak ada informasi bulan. */
+  tren: TrenSekolah[];
+  /** Daya serap per level kognitif (urut L1, L2, L3); kosong bila tidak ada informasi level. */
+  perLevel: LevelSekolah[];
 }
 
 /** Indikator baru dianggap cukup bukti untuk dilaporkan di sekolah bila dijawab sebanyak ini (dari semua siswa). */
@@ -300,14 +355,58 @@ export const MAKS_DI_BAWAH_NASIONAL = 10;
 export const AMBANG_REMEDIAL = 70;
 export const JUMLAH_TERLEMAH_PER_SISWA = 2;
 
+const URUTAN_LEVEL = ["L1", "L2", "L3"];
+
+/** Daya serap per bulan dari jawaban berindikator yang membawa informasi bulan; urut waktu. */
+function hitungTren(jawaban: JawabanSiswa[]): TrenSekolah[] {
+  const peta = new Map<string, { skor: number; skorMaks: number; jmlSoal: number; siswa: Set<string> }>();
+  for (const j of jawaban) {
+    if (!j.indikator || !(j.skorMaks > 0) || !j.bulan) continue;
+    const e = peta.get(j.bulan) ?? { skor: 0, skorMaks: 0, jmlSoal: 0, siswa: new Set<string>() };
+    e.skor += skorBersih(j);
+    e.skorMaks += j.skorMaks;
+    e.jmlSoal += 1;
+    e.siswa.add(j.studentId);
+    peta.set(j.bulan, e);
+  }
+  return [...peta.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([periode, e]) => ({ periode, jmlSoal: e.jmlSoal, jmlSiswa: e.siswa.size, dayaSerap: persen(e.skor, e.skorMaks) }));
+}
+
+/** Daya serap per level kognitif soal dari jawaban berindikator yang membawa informasi level; L1, L2, L3, lalu lainnya. */
+function hitungPerLevel(jawaban: JawabanSiswa[]): LevelSekolah[] {
+  const peta = new Map<string, { skor: number; skorMaks: number; jmlSoal: number }>();
+  for (const j of jawaban) {
+    if (!j.indikator || !(j.skorMaks > 0) || !j.level) continue;
+    const e = peta.get(j.level) ?? { skor: 0, skorMaks: 0, jmlSoal: 0 };
+    e.skor += skorBersih(j);
+    e.skorMaks += j.skorMaks;
+    e.jmlSoal += 1;
+    peta.set(j.level, e);
+  }
+  const urutan = (level: string) => {
+    const i = URUTAN_LEVEL.indexOf(level);
+    return i === -1 ? URUTAN_LEVEL.length : i;
+  };
+  return [...peta.entries()]
+    .sort(([a], [b]) => urutan(a) - urutan(b) || a.localeCompare(b))
+    .map(([level, e]) => ({ level, jmlSoal: e.jmlSoal, skor: e.skor, skorMaks: e.skorMaks, dayaSerap: persen(e.skor, e.skorMaks) }));
+}
+
+export interface OpsiLaporanSekolah {
+  /** Id indikator -> daya serap wilayah AyoTKA (hanya yang lolos ambang); mengisi pembanding wilayah di baris dan kelompok. */
+  pembandingWilayah?: ReadonlyMap<string, number>;
+}
+
 /** Laporan per indikator sebuah sekolah untuk satu mapel dari jawaban SELURUH siswa (masing-masing percobaan pertamanya). null bila kosong. */
-export function hitungLaporanSekolah(jawaban: JawabanSiswa[], siswa: SiswaMeta[]): LaporanIndikatorSekolah | null {
+export function hitungLaporanSekolah(jawaban: JawabanSiswa[], siswa: SiswaMeta[], opsi?: OpsiLaporanSekolah): LaporanIndikatorSekolah | null {
   const konteks = pilihKonteks(jawaban);
   if (!konteks) return null;
   const dalam = jawaban.filter((j) => j.indikator && j.indikator.jenjang === konteks.jenjang && j.indikator.namaMapel === konteks.namaMapel);
 
   // per indikator, seluruh siswa
-  const dasar = bangunBaris(dalam);
+  const dasar = bangunBaris(dalam, opsi?.pembandingWilayah);
   const siswaPerIndikator = new Map<string, Set<string>>();
   for (const j of dalam) {
     if (!j.indikator || !(j.skorMaks > 0)) continue;
@@ -373,5 +472,7 @@ export function hitungLaporanSekolah(jawaban: JawabanSiswa[], siswa: SiswaMeta[]
     diBawahNasional,
     sebaran,
     siswaPerhatian,
+    tren: hitungTren(dalam),
+    perLevel: hitungPerLevel(dalam),
   };
 }

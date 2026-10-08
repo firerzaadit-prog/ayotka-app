@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { wilayahSekolahFields } from "@/lib/validations/school";
+import { periksaPasanganWilayah } from "@/lib/wilayah";
 
 export const cekKodeSekolahSchema = z.object({
   kodeSekolah: z.string().trim().min(1, "Kode sekolah wajib diisi"),
@@ -37,13 +39,26 @@ export const daftarMandiriSchema = z
       .max(120, "Nama sekolah maksimal 120 karakter")
       .optional()
       .or(z.literal("")),
+    /**
+     * Wilayah + status sekolah yang diketik manual (sekolah belum ada di daftar). Formulir mewajibkannya supaya nilai
+     * siswa bisa dipetakan per wilayah dan jenis sekolah; server tetap menerima pendaftaran tanpa ini (formulir lama
+     * yang masih terbuka saat deploy) dan hanya memeriksa kebenaran isian yang ada. Dipakai hanya bila sekolah
+     * diketik manual - saat memilih dari daftar, data sekolahnya sudah tercatat.
+     */
+    asalSekolahProvinsi: wilayahSekolahFields.provinsi,
+    asalSekolahKabupatenKota: wilayahSekolahFields.kabupatenKota,
+    asalSekolahStatus: wilayahSekolahFields.statusSekolah,
     /** Opsional - kode referral siswa lain, mengisi Student.referredByStudentId (Bagian 6.4). */
     kodeReferral: z.string().trim().optional().or(z.literal("")),
   })
   .refine(
     (data) => (data.asalSekolahId && data.asalSekolahId.length > 0) || (data.asalSekolahManual && data.asalSekolahManual.length > 0),
     { message: "Pilih asal sekolah dari daftar atau ketik manual.", path: ["asalSekolahManual"] },
-  );
+  )
+  .superRefine((data, ctx) => {
+    const hasil = periksaPasanganWilayah({ provinsi: data.asalSekolahProvinsi, kabupatenKota: data.asalSekolahKabupatenKota });
+    if (!hasil.ok) ctx.addIssue({ code: "custom", path: ["asalSekolahKabupatenKota"], message: hasil.pesan });
+  });
 
 /** Bagian A (permintaan user): mitra daftar sendiri, langsung aktif tanpa perlu admin approve. */
 export const daftarMitraSchema = z.object({

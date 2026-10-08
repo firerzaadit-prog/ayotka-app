@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/session";
 import { buildKesiapanAntarSekolah } from "@/lib/analytics/global";
 import { bacaRentangTanggal } from "@/lib/analytics/rentang";
-import { bacaCakupanDinas } from "@/lib/dinas/wilayah";
+import { bacaCakupanDinas, bacaFilterWilayahDinas } from "@/lib/dinas/wilayah";
 
 /**
  * Kesiapan TKA lintas sekolah - dipakai halaman dashboard dinas pendidikan
@@ -10,7 +10,8 @@ import { bacaCakupanDinas } from "@/lib/dinas/wilayah";
  * bisa melihat/verifikasi data yang sama tanpa akun dinas terpisah.
  *
  * Jika user adalah dinas_pendidikan, data otomatis difilter berdasarkan
- * kabupatenKota yang ditetapkan admin pusat.
+ * wilayah (provinsi atau kota/kabupaten) yang ditetapkan admin pusat. Dinas provinsi boleh mempersempit ke satu kota/
+ * kabupaten di provinsinya (?kabupatenKota=), semua akun boleh menyaring status sekolah (?statusSekolah=negeri|swasta).
  */
 export async function GET(request: Request) {
   let user;
@@ -23,9 +24,9 @@ export async function GET(request: Request) {
   // Wilayah cakupan dinas pendidikan (gagal tertutup: akun dinas tanpa wilayah ditolak, bukan melihat semua wilayah)
   const cakupan = await bacaCakupanDinas(user);
   if ("galat" in cakupan) return cakupan.galat;
-  const kabupatenKota = cakupan.kabupatenKota;
-
   const url = new URL(request.url);
+  const wilayahFilter = bacaFilterWilayahDinas(cakupan, url);
+  if ("galat" in wilayahFilter) return wilayahFilter.galat;
   const jenjang = url.searchParams.get("jenjang");
   const waktu = bacaRentangTanggal(url);
   if ("galat" in waktu) return waktu.galat;
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
   const perSekolah = await buildKesiapanAntarSekolah({
     jenjang: jenjang === "SD" || jenjang === "SMP" ? jenjang : null,
     wilayah: url.searchParams.get("wilayah"),
-    kabupatenKota,
+    ...wilayahFilter,
     ...waktu.rentang,
   });
 

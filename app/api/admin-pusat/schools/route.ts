@@ -7,6 +7,7 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { generateReadableCode, generateTempPassword } from "@/lib/utils/generate-code";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { schoolCreateSchema } from "@/lib/validations/school";
+import { periksaPasanganWilayah, statusSekolahUntukSimpan } from "@/lib/wilayah";
 import { buatPeriode, pilihPeriodeRujukan, segeraBerakhir, sisaHariWIB, statusPeriode } from "@/lib/billing/periode-sekolah";
 import { akhirHariWIB, startOfDayWIB, tanggalWIB } from "@/lib/utils/datetime";
 
@@ -85,7 +86,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const { npsn, alamat, seatQuota, validUntil, adminEmail, adminNama, ...rest } = parsed.data;
+  const { npsn, alamat, seatQuota, validUntil, adminEmail, adminNama, provinsi, kabupatenKota, statusSekolah, ...rest } = parsed.data;
+
+  // Provinsi dilengkapi dari kota/kabupaten (formulir lama hanya mengirim kota/kabupaten) dan pasangannya diperiksa.
+  const wilayah = periksaPasanganWilayah({ provinsi, kabupatenKota });
+  if (!wilayah.ok) {
+    return NextResponse.json({ error: wilayah.pesan }, { status: 400 });
+  }
 
   // Kuota + tanggal berakhir (berpasangan, lihat schoolCreateSchema) membentuk periode langganan pertama. Tanggal
   // yang sudah lewat ditolak SEBELUM akun admin dibuat, supaya tidak ada akun yatim bila periodenya tidak sah.
@@ -141,7 +148,9 @@ export async function POST(request: Request) {
           ...rest,
           npsn: npsn && npsn.length > 0 ? npsn : null,
           alamat: alamat && alamat.length > 0 ? alamat : null,
-          kabupatenKota: rest.kabupatenKota && rest.kabupatenKota.length > 0 ? rest.kabupatenKota : null,
+          provinsi: wilayah.nilai.provinsi,
+          kabupatenKota: wilayah.nilai.kabupatenKota,
+          statusSekolah: statusSekolahUntukSimpan(statusSekolah),
           kodeSekolah,
           status: "aktif",
         },

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { schoolUpdateSchema } from "@/lib/validations/school";
+import { statusSekolahUntukSimpan, wilayahSetelahPerubahan } from "@/lib/wilayah";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -50,14 +51,27 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     return NextResponse.json({ error: "Sekolah tidak ditemukan." }, { status: 404 });
   }
 
-  const { npsn, alamat, kabupatenKota, ...rest } = parsed.data;
+  const { npsn, alamat, provinsi, kabupatenKota, statusSekolah, ...rest } = parsed.data;
+
+  // Wilayah dihitung dari isian + data sebelumnya: kota/kabupaten tanpa provinsi dilengkapi provinsinya, dan mengganti
+  // provinsi tanpa memilih ulang kota/kabupaten ditolak bila kota/kabupaten lama bukan bagian provinsi baru.
+  const wilayah = wilayahSetelahPerubahan(
+    { provinsi, kabupatenKota },
+    { provinsi: before.provinsi, kabupatenKota: before.kabupatenKota },
+  );
+  if (!wilayah.ok) {
+    return NextResponse.json({ error: wilayah.pesan }, { status: 400 });
+  }
+  const wilayahBerubah = provinsi !== undefined || kabupatenKota !== undefined;
+
   const school = await prisma.school.update({
     where: { id },
     data: {
       ...rest,
       ...(npsn !== undefined ? { npsn: npsn.length > 0 ? npsn : null } : {}),
       ...(alamat !== undefined ? { alamat: alamat.length > 0 ? alamat : null } : {}),
-      ...(kabupatenKota !== undefined ? { kabupatenKota: kabupatenKota.length > 0 ? kabupatenKota : null } : {}),
+      ...(wilayahBerubah ? { provinsi: wilayah.nilai.provinsi, kabupatenKota: wilayah.nilai.kabupatenKota } : {}),
+      ...(statusSekolah !== undefined ? { statusSekolah: statusSekolahUntukSimpan(statusSekolah) } : {}),
     },
   });
 

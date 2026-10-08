@@ -25,7 +25,8 @@ export async function GET(request: Request) {
       ...(jenjang ? { jenjang } : {}),
       OR: [{ nama: { contains: q, mode: "insensitive" } }, { npsn: { contains: q } }],
     },
-    select: { id: true, nama: true, npsn: true, jenjang: true },
+    // Kota/kabupaten dan status ikut dikirim supaya siswa bisa membedakan sekolah yang namanya sama ("SD Negeri 1").
+    select: { id: true, nama: true, npsn: true, jenjang: true, provinsi: true, kabupatenKota: true, statusSekolah: true },
     orderBy: { nama: "asc" },
     take: 10,
   });

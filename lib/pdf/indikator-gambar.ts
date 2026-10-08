@@ -49,9 +49,14 @@ export type Penulis = ReturnType<typeof buatPenulis>;
 /** Keterangan tambahan per baris di kolom kanan bawah (mis. "12 siswa"); null = tidak ada. */
 export type KeteranganBaris<B extends BarisIndikator> = (b: B) => string | null;
 
+export interface OpsiKelompok {
+  /** Nama pembanding wilayah (laporan sekolah), dipakai bila kelompok punya rerata wilayah. */
+  labelWilayah?: string;
+}
+
 /**
- * Kelompok indikator lengkap: kepala (nama, daya serap, batang, vonis dan rujukan nasional) lalu baris tiap indikator
- * (jalur hierarki, teks indikator, batang, persen, rerata nasional). `label[0]` adalah nama tingkat pertama.
+ * Kelompok indikator lengkap: kepala (nama, daya serap, batang, vonis dan rujukan nasional, rerata wilayah bila ada) lalu
+ * baris tiap indikator (jalur hierarki, teks indikator, batang, persen, rerata nasional). `label[0]` adalah nama tingkat pertama.
  */
 export function gambarKelompok<B extends BarisIndikator>(
   doc: PDFKit.PDFDocument,
@@ -60,6 +65,7 @@ export function gambarKelompok<B extends BarisIndikator>(
   label: string[],
   kelompok: KelompokIndikator<B>[],
   keterangan?: KeteranganBaris<B>,
+  opsi?: OpsiKelompok,
 ) {
   const { toText, tinggi, tulis, pastikanMuat, dot } = buatPenulis(doc, fonts);
   const kolKiri = contentWidth - 150;
@@ -91,12 +97,18 @@ export function gambarKelompok<B extends BarisIndikator>(
   for (const k of kelompok) {
     const nama = toText(`${label[0]}: ${k.nama}`);
     const hNama = tinggi(nama, 10, contentWidth - 60, true);
-    const detail =
+    const detailDasar =
       k.vonis === "data_kurang"
         ? `${LABEL_VONIS.data_kurang} ${dot} baru ${k.jmlSoal} soal (minimal 3 untuk dibandingkan)`
         : k.nasional !== null
           ? `${LABEL_VONIS[k.vonis]} ${dot} rerata nasional ${formatPersen(k.nasional, 1)} (${formatSelisih(k.selisih)})`
           : LABEL_VONIS[k.vonis];
+    // Pembanding wilayah (hanya laporan sekolah) ditambahkan di baris detail yang sama; tingginya ikut diukur di bawah.
+    const wilayah =
+      typeof k.wilayah === "number"
+        ? ` ${dot} ${opsi?.labelWilayah ?? "wilayah"} ${formatPersen(k.wilayah, 1)}${typeof k.selisihWilayah === "number" ? ` (${formatSelisih(k.selisihWilayah)})` : ""}`
+        : "";
+    const detail = detailDasar + wilayah;
     const hDetail = tinggi(detail, 8, contentWidth);
     const hKepala = hNama + 12 + hDetail + 8;
     const pertama = ukurBaris(k.baris[0]!);

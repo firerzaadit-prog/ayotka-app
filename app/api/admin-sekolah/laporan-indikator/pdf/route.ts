@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   if (!param.subjectId) {
     return NextResponse.json({ error: "Pilih mata pelajaran dulu." }, { status: 400 });
   }
-  const data = await bangunLaporanIndikatorSekolah(prisma, param.schoolId, param.subjectId, param.rentang);
+  const data = await bangunLaporanIndikatorSekolah(prisma, param.schoolId, param.subjectId, param.rentang, { pembanding: param.pembanding });
   if (!data) return NextResponse.json({ error: "Mata pelajaran atau sekolah tidak ditemukan." }, { status: 404 });
 
   // Logo dibaca dari disk (bukan diunduh lewat alamat publik): server tidak selalu bisa memanggil alamat publiknya sendiri.

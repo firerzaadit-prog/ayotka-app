@@ -32,7 +32,7 @@ function noStoreJson(body: unknown, status?: number) {
 async function loadAttemptForAdmin(user: CurrentUser, attemptId: string): Promise<Attempt | null> {
   const attempt = await prisma.attempt.findUnique({
     where: { id: attemptId },
-    include: { student: { include: { school: { select: { kabupatenKota: true } } } } },
+    include: { student: { include: { school: { select: { provinsi: true, kabupatenKota: true } } } } },
   });
   if (!attempt) return null;
   if (user.role === "admin_pusat") return attempt;

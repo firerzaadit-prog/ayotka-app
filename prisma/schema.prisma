@@ -72,26 +72,37 @@ enum SchoolStatus {
   suspend
 }
 
+/// Status penyelenggara sekolah (negeri/swasta), dipakai untuk memetakan nilai per jenis sekolah seperti filter
+/// "Status Sekolah" di portal hasil TKA. Null = belum diisi.
+enum StatusSekolah {
+  negeri
+  swasta
+}
+
 model School {
-  id                  String       @id @default(uuid()) @db.Uuid
-  npsn                String?      @unique
+  id                  String         @id @default(uuid()) @db.Uuid
+  npsn                String?        @unique
   nama                String
   jenjang             Jenjang
   alamat              String?
-  kodeSekolah         String       @unique @map("kode_sekolah")
-  status              SchoolStatus @default(pending_verifikasi)
+  kodeSekolah         String         @unique @map("kode_sekolah")
+  status              SchoolStatus   @default(pending_verifikasi)
   /// Bagian 5 Jalur B: kuota kursi & masa berlaku diaktifkan manual oleh
   /// admin pusat setelah transfer dikonfirmasi di luar sistem — bukan hasil
   /// checkout mandiri. seatQuota null berarti belum pernah diaktifkan.
-  seatQuota           Int?         @map("seat_quota")
-  validUntil          DateTime?    @map("valid_until")
-  seatActivatedById   String?      @map("seat_activated_by_id") @db.Uuid
+  seatQuota           Int?           @map("seat_quota")
+  validUntil          DateTime?      @map("valid_until")
+  seatActivatedById   String?        @map("seat_activated_by_id") @db.Uuid
   /// Bagian 4.1: rujukan mitra WAJIB dicatat sebelum seatQuota diaktifkan,
   /// bukan sesudah — lihat lib/billing/partner-commission.ts.
-  referredByPartnerId String?      @map("referred_by_partner_id") @db.Uuid
-  /// Kota/kabupaten terstruktur (dropdown Jawa Timur) - dipakai untuk filter
-  /// wilayah akun dinas pendidikan, menggantikan pencarian substring alamat.
-  kabupatenKota       String?      @map("kabupaten_kota")
+  referredByPartnerId String?        @map("referred_by_partner_id") @db.Uuid
+  /// Kota/kabupaten terstruktur (dropdown se-Indonesia, lib/wilayah) - dipakai untuk filter
+  /// wilayah akun dinas pendidikan dan pemetaan nilai per wilayah. Nama unik secara nasional
+  /// ("Kabupaten Malang", "Kota Malang"), jadi provinsinya selalu bisa diturunkan dari nama ini.
+  kabupatenKota       String?        @map("kabupaten_kota")
+  /// Provinsi sekolah (nama resmi, mis. "Jawa Timur"); selalu cocok dengan kabupatenKota bila keduanya terisi.
+  provinsi            String?
+  statusSekolah       StatusSekolah? @map("status_sekolah")
 
   schoolUsers            SchoolUser[]
   students               Student[]
@@ -103,7 +114,9 @@ model School {
   partnerCommissions     PartnerCommission[]
   periode                PeriodeLangganan[]
   permintaanPerpanjangan PermintaanPerpanjangan[]
+  aiAnalysisSekolah      AiAnalysisSekolah[]
 
+  @@index([provinsi, kabupatenKota])
   @@map("schools")
 }
 
@@ -771,6 +784,22 @@ model AiAnalysis {
   @@map("ai_analyses")
 }
 
+model AiAnalysisSekolah {
+  id          String   @id @default(uuid()) @db.Uuid
+  schoolId    String   @map("school_id") @db.Uuid
+  kunci       String   @unique
+  versiPrompt String   @map("versi_prompt")
+  model       String
+  ringkasan   String
+  detailJson  Json     @map("detail_json")
+  generatedAt DateTime @default(now()) @map("generated_at")
+
+  school      School   @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+
+  @@index([schoolId])
+  @@map("ai_analyses_sekolah")
+}
+
 /// Satu baris = satu giliran (pesan siswa + balasan tutor) pada fitur Tanya Tutor AI di halaman pembahasan. Dipakai untuk
 /// dua hal: (1) batas harian per siswa - dicatat SEBELUM AI dipanggil (reservasi, supaya batas tidak bisa ditembus dengan
 /// permintaan serentak) dan dihapus lagi bila AI gagal menjawab (lib/tutor/penggunaan.ts); (2) riwayat percakapan yang
@@ -862,7 +891,11 @@ model DinasAdmin {
   userId        String   @unique @map("user_id") @db.Uuid
   nama          String
   instansi      String
-  kabupatenKota String   @map("kabupaten_kota")
+  /// Wilayah cakupan se-Indonesia (lib/wilayah). Dinas kota/kabupaten: provinsi + kabupatenKota terisi (satu
+  /// kota/kabupaten). Dinas provinsi: hanya provinsi (semua kota/kabupaten di provinsi itu). Keduanya kosong =
+  /// belum diatur: akun ditolak (gagal tertutup, lihat lib/dinas/wilayah.ts).
+  provinsi      String?
+  kabupatenKota String?  @map("kabupaten_kota")
   createdAt     DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
