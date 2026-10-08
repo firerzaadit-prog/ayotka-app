@@ -224,14 +224,10 @@ export default function AnalitikPage() {
         <div>
           <h2 className="mb-2 text-lg font-semibold text-slate-900">Kesiapan TKA</h2>
           <p className="mb-1 text-sm text-slate-500">
-            Berdasarkan skor terbaik tiap siswa & kategori capaian resmi Kemendikdasmen (Kurang/
-            Memadai/Baik/Istimewa). Angka SD memakai standar SMP karena Kemendikdasmen belum
-            merilis rentang nilai resmi khusus SD.
+            Berdasarkan skor terbaik tiap siswa dari <strong>seluruh jenis ujian (Try Out Sekolah, Try Out Nasional, maupun Try Out Mandiri)</strong>. Kategori capaian mengacu pada standar resmi Kemendikdasmen (Kurang/Memadai/Baik/Istimewa).
           </p>
           <p className="mb-3 text-xs text-slate-400">
-            IPA &amp; Bahasa Inggris (SMP) memakai standar kategori Bahasa Indonesia SMP - kedua
-            mapel ini di luar cakupan resmi TKA, yang hanya menguji Matematika &amp; Bahasa
-            Indonesia.
+            Catatan: Angka SD memakai standar SMP karena Kemendikdasmen belum merilis rentang nilai resmi khusus SD. IPA &amp; Bahasa Inggris (SMP) memakai standar kategori Bahasa Indonesia SMP karena kedua mapel ini di luar cakupan resmi TKA, yang hanya menguji Matematika &amp; Bahasa Indonesia.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <KesiapanCard title="Gabungan (semua mapel)" breakdown={kesiapan.gabungan} />
