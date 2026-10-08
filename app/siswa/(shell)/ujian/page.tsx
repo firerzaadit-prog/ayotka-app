@@ -14,7 +14,7 @@ import { formatHitungMundur } from "@/lib/utils/hitung-mundur";
 import { RiwayatPercobaanKartu, type ItemRiwayatKartu } from "@/components/siswa/riwayat-percobaan-kartu";
 import { getMapelIcon } from "@/components/icons/mapel-icons";
 
-type KategoriTO = "nasional" | "mandiri";
+type KategoriTO = "sekolah" | "nasional" | "mandiri";
 
 type SubjectInfo = { id: string; nama: string; jenjang?: string };
 
@@ -127,7 +127,7 @@ function UjianContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawKategori = searchParams.get("kategori");
-  const kategori: KategoriTO = rawKategori === "nasional" ? "nasional" : "mandiri";
+  const kategori: KategoriTO = rawKategori === "sekolah" ? "sekolah" : rawKategori === "nasional" ? "nasional" : "mandiri";
 
   const [selectedSubject, setSelectedSubject] = useState<string>("semua");
   const [jalur, setJalur] = useState<"A" | "B" | null>(null);
@@ -253,15 +253,17 @@ function UjianContent() {
     return <PageSkeleton />;
   }
 
-  // Khusus Jalur A (Sekolah) jika ada tugas sekolah aktif
+  // Khusus Jalur A (Sekolah)
+  const isJalurA = jalur === "A";
   const jumlahAktif = assignments?.length ?? 0;
-  const showAssignments = jalur === "A" && (jumlahAktif > 0 || assignmentsAkanDatang.length > 0);
+  const jumlahAkanDatang = assignmentsAkanDatang.length;
 
   const totalNasionalCount = packages?.filter((p) => p.kategori === "nasional").length ?? 0;
   const totalMandiriCount = packages?.filter((p) => p.kategori === "mandiri").length ?? 0;
   // Ada paket Mandiri yang berseri (terbuka bertahap per siswa) -> tampilkan penjelasan aturannya.
   const adaSeriMandiri = packages?.some((p) => p.kategori === "mandiri" && p.urutanSeri != null) ?? false;
 
+  const isSekolah = kategori === "sekolah";
   const isNasional = kategori === "nasional";
   const noNasionalQuota = isNasional && activePlan && activePlan.tryOutNasionalKuotaPerMapel === 0;
 
@@ -269,105 +271,58 @@ function UjianContent() {
     <div className="flex flex-col gap-6">
       {/* Header Halaman */}
       <PageHeader
-        title={isNasional ? "Try Out Nasional" : "Try Out Mandiri"}
+        title={isSekolah ? "Try Out Sekolah" : isNasional ? "Try Out Nasional" : "Try Out Mandiri"}
         description={
-          isNasional
-            ? "Try Out terjadwal resmi berskala nasional dengan sistem penilaian terstandar dan Analisis Learning Analytics."
-            : adaSeriMandiri
-              ? "Latihan try out mandiri untuk mengasah pemahaman materi dan kesiapan ujianmu. Paket baru terbuka bertahap, satu paket per hari untuk tiap mata pelajaran."
-              : "Latihan try out fleksibel kapan saja untuk mengasah pemahaman materi dan kesiapan ujianmu."
+          isSekolah
+            ? "Ujian dan penugasan khusus dari guru atau admin sekolahmu. Wajib dikerjakan sesuai jadwal."
+            : isNasional
+              ? "Try Out terjadwal resmi berskala nasional dengan sistem penilaian terstandar dan Analisis Learning Analytics."
+              : adaSeriMandiri
+                ? "Latihan try out mandiri untuk mengasah pemahaman materi dan kesiapan ujianmu. Paket baru terbuka bertahap, satu paket per hari untuk tiap mata pelajaran."
+                : "Latihan try out fleksibel kapan saja untuk mengasah pemahaman materi dan kesiapan ujianmu."
         }
       />
 
-      {/* Jika ada penugasan dari sekolah (Jalur A) */}
-      {showAssignments && (
-        <section className="flex flex-col gap-3 rounded-2xl border border-indigo-100 bg-indigo-50/40 p-4 sm:p-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-indigo-950">Ujian Ditugaskan Sekolah</h2>
-              <p className="text-xs text-indigo-700">Wajib dikerjakan sesuai jadwal yang ditentukan oleh guru/sekolahmu.</p>
+      {/* Navigasi Tab Kategori Utama */}
+      <div className={`grid grid-cols-1 gap-3 ${isJalurA ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+        {/* Tombol Tab Try Out Sekolah (Hanya Jalur A) */}
+        {isJalurA && (
+          <button
+            type="button"
+            onClick={() => handleKategoriChange("sekolah")}
+            className={`group flex items-start gap-4 rounded-2xl border p-4 text-left transition-all ${
+              isSekolah
+                ? "border-emerald-400 bg-gradient-to-br from-emerald-50 via-white to-green-50/50 shadow-md ring-2 ring-emerald-500/20"
+                : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/20"
+            }`}
+          >
+            <div
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${
+                isSekolah
+                  ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm shadow-emerald-500/25"
+                  : "bg-emerald-100 text-emerald-700"
+              }`}
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
+                <path d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75Z" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </div>
-            <span className="rounded-full bg-indigo-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-              {jumlahAktif + assignmentsAkanDatang.length} Ujian
-            </span>
-          </div>
-          <div className="flex flex-col gap-2">
-            {(assignments ?? []).map((a) => {
-              const attempt = attemptFor(a.id, "");
-              const disabled = attempt?.status === "paused";
-              return (
-                <Card key={a.id} className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-3">
-                      <MapelIconBadge nama={a.package.subject.nama} />
-                      <div>
-                        <p className="font-semibold text-slate-900">{a.package.nama}</p>
-                        <p className="text-xs text-slate-500">
-                          {a.package.subject.nama} · {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit ·{" "}
-                          <span className="font-medium text-indigo-700">Buka s.d. {formatWIBHariTanggalJam(a.selesai)}</span>
-                        </p>
-                      </div>
-                    </div>
-                    {disabled ? (
-                      <span className="rounded-xl bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-800">
-                        {actionLabel(attempt)}
-                      </span>
-                    ) : (
-                      <Link href={actionHref(attempt, a.id, "")} className={buttonClassName("primary")}>
-                        {actionLabel(attempt)}
-                      </Link>
-                    )}
-                  </div>
-                  <RiwayatPercobaanKartu items={riwayatUntuk(a.id, "")} />
-                </Card>
-              );
-            })}
-            {assignmentsAkanDatang.map((a) => {
-              const sisaMs = Date.parse(a.mulai) - jamServer;
-              return (
-                <Card
-                  key={a.id}
-                  data-penugasan-akan-datang={a.id}
-                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <MapelIconBadge nama={a.package.subject.nama} />
-                    <div>
-                      <p className="font-semibold text-slate-900">{a.package.nama}</p>
-                      <p className="text-xs text-slate-500">
-                        {a.package.subject.nama} · {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit
-                      </p>
-                      <p className="text-xs text-slate-600">
-                        Dibuka <span className="font-medium text-indigo-700">{formatWIBHariTanggalJam(a.mulai)}</span>{" "}
-                        s.d. {formatWIBHariTanggalJam(a.selesai)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-start gap-1.5 sm:items-end">
-                    <span
-                      data-hitung-mundur
-                      className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800"
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
-                      {sisaMs <= 0 ? "Segera dibuka..." : `Dimulai dalam ${formatHitungMundur(sisaMs)}`}
-                    </span>
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full rounded-xl bg-slate-100 px-4 py-2 text-center text-sm font-semibold text-slate-400 sm:w-auto"
-                    >
-                      Belum Dibuka
-                    </button>
-                  </div>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-      )}
+            <div className="flex flex-1 flex-col">
+              <div className="flex items-center justify-between">
+                <span className={`text-base font-bold ${isSekolah ? "text-emerald-950" : "text-slate-800"}`}>
+                  Try Out Sekolah
+                </span>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${isSekolah ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+                  {jumlahAktif + jumlahAkanDatang} Ujian
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Wajib dikerjakan sesuai jadwal sekolah
+              </p>
+            </div>
+          </button>
+        )}
 
-      {/* Navigasi Tab Kategori Utama (Try Out Nasional vs Try Out Mandiri) */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {/* Tombol Tab Try Out Nasional */}
         <button
           type="button"
@@ -419,14 +374,14 @@ function UjianContent() {
           type="button"
           onClick={() => handleKategoriChange("mandiri")}
           className={`group flex items-start gap-4 rounded-2xl border p-4 text-left transition-all ${
-            !isNasional
+            (!isNasional && !isSekolah)
               ? "border-indigo-400 bg-gradient-to-br from-indigo-50 via-white to-blue-50/50 shadow-md ring-2 ring-indigo-500/20"
               : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/20"
           }`}
         >
           <div
             className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${
-              !isNasional
+              (!isNasional && !isSekolah)
                 ? "bg-gradient-to-br from-indigo-600 to-cyan-600 text-white shadow-sm shadow-indigo-500/25"
                 : "bg-indigo-100 text-indigo-700"
             }`}
@@ -443,12 +398,12 @@ function UjianContent() {
           </div>
           <div className="flex flex-1 flex-col">
             <div className="flex items-center justify-between">
-              <span className={`text-base font-bold ${!isNasional ? "text-indigo-950" : "text-slate-800"}`}>
+              <span className={`text-base font-bold ${(!isNasional && !isSekolah) ? "text-indigo-950" : "text-slate-800"}`}>
                 Try Out Mandiri
               </span>
               <span
                 className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                  !isNasional ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
+                  (!isNasional && !isSekolah) ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
                 }`}
               >
                 {totalMandiriCount} Paket
@@ -461,7 +416,103 @@ function UjianContent() {
         </button>
       </div>
 
-      {/* Info Banner Khusus Try Out Nasional */}
+      {/* Konten Try Out Sekolah */}
+      {isSekolah && (
+        <section className="flex flex-col gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-emerald-950">Ujian Ditugaskan Sekolah</h2>
+              <p className="text-xs text-emerald-700">Wajib dikerjakan sesuai jadwal yang ditentukan oleh guru/sekolahmu.</p>
+            </div>
+          </div>
+          
+          {jumlahAktif === 0 && jumlahAkanDatang === 0 && (
+            <EmptyState
+              icon={<IconClipboardCheck />}
+              title="Belum ada Try Out Sekolah aktif"
+              description="Saat ini belum ada jadwal ujian atau penugasan dari sekolahmu. Silakan kerjakan Try Out Mandiri untuk latihan."
+            />
+          )}
+
+          <div className="flex flex-col gap-2">
+            {(assignments ?? []).map((a) => {
+              const attempt = attemptFor(a.id, "");
+              const disabled = attempt?.status === "paused";
+              return (
+                <Card key={a.id} className="flex flex-col gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3">
+                      <MapelIconBadge nama={a.package.subject.nama} />
+                      <div>
+                        <p className="font-semibold text-slate-900">{a.package.nama}</p>
+                        <p className="text-xs text-slate-500">
+                          {a.package.subject.nama} · {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit ·{" "}
+                          <span className="font-medium text-emerald-700">Buka s.d. {formatWIBHariTanggalJam(a.selesai)}</span>
+                        </p>
+                      </div>
+                    </div>
+                    {disabled ? (
+                      <span className="rounded-xl bg-amber-100 px-4 py-2 text-center text-sm font-semibold text-amber-800">
+                        {actionLabel(attempt)}
+                      </span>
+                    ) : (
+                      <Link href={actionHref(attempt, a.id, "")} className={buttonClassName("primary")}>
+                        {actionLabel(attempt)}
+                      </Link>
+                    )}
+                  </div>
+                  <RiwayatPercobaanKartu items={riwayatUntuk(a.id, "")} />
+                </Card>
+              );
+            })}
+            {assignmentsAkanDatang.map((a) => {
+              const sisaMs = Date.parse(a.mulai) - jamServer;
+              return (
+                <Card
+                  key={a.id}
+                  data-penugasan-akan-datang={a.id}
+                  className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <MapelIconBadge nama={a.package.subject.nama} />
+                    <div>
+                      <p className="font-semibold text-slate-900">{a.package.nama}</p>
+                      <p className="text-xs text-slate-500">
+                        {a.package.subject.nama} · {a.package.jumlahSoal} soal · {a.package.durasiMenit} menit
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        Dibuka <span className="font-medium text-emerald-700">{formatWIBHariTanggalJam(a.mulai)}</span>{" "}
+                        s.d. {formatWIBHariTanggalJam(a.selesai)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-start gap-1.5 sm:items-end">
+                    <span
+                      data-hitung-mundur
+                      className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />
+                      {sisaMs <= 0 ? "Segera dibuka..." : `Dimulai dalam ${formatHitungMundur(sisaMs)}`}
+                    </span>
+                    <button
+                      type="button"
+                      disabled
+                      className="w-full rounded-xl bg-slate-100 px-4 py-2 text-center text-sm font-semibold text-slate-400 sm:w-auto"
+                    >
+                      Belum Dibuka
+                    </button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Konten Paket Reguler (Nasional / Mandiri) */}
+      {!isSekolah && (
+        <>
+          {/* Info Banner Khusus Try Out Nasional */}
       {isNasional && (
         <div className="flex flex-col gap-3 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50/80 via-white to-indigo-50/80 p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3">

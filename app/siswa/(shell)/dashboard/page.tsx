@@ -9,7 +9,7 @@ import { kursiSekolahTersedia } from "@/lib/billing/entitlements";
 
 const QUICK_LINKS = [
   {
-    href: "/siswa/ujian",
+    href: "/siswa/ujian?kategori=sekolah",
     id: "link-tryout-sekolah",
     title: "Try Out Sekolah",
     description: "Ujian dan penugasan khusus dari guru atau admin sekolahmu. Wajib dikerjakan sesuai jadwal.",
