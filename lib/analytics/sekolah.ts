@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { KESIAPAN_SUBJECTS, ambilSkorTerbaikPerSiswaMapel, ringkasKesiapan } from "@/lib/analytics/kesiapan";
 import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
+import { namaElemenTampil, type ElemenDenganMapel } from "@/lib/content/label-elemen";
 
 /**
  * Tiket 5.7/5.8: agregasi analitik admin sekolah, dipakai bersama oleh
@@ -30,13 +31,13 @@ type StudentAgg = { nama: string; nisn: string | null; totalSkor: number; jumlah
 
 function addKompetensi(
   map: Map<string, KompetensiAgg>,
-  k: { id: string; deskripsi: string; elemen: { nama: string } },
+  k: { id: string; deskripsi: string; elemen: ElemenDenganMapel },
   jmlBenar: number,
   jmlSoal: number,
 ) {
   const existing = map.get(k.id) ?? {
     deskripsi: k.deskripsi,
-    elemen: k.elemen.nama,
+    elemen: namaElemenTampil(k.elemen),
     jmlBenar: 0,
     jmlSoal: 0,
   };
@@ -103,7 +104,7 @@ export async function buildAnalitikSekolah(
             select: {
               id: true,
               deskripsi: true,
-              elemen: { select: { nama: true } },
+              elemen: { select: { nama: true, subject: { select: { nama: true, jenjang: true } } } },
             },
           },
         },

@@ -119,3 +119,62 @@ describe("buildHasil.indikator - daya serap per indikator resmi", () => {
     expect(hasil.attempt.id).toBe("att-1");
   });
 });
+
+describe("buildHasil - nama elemen mengikuti Kerangka Asesmen (SD: 'Data', bukan 'Data dan Ketidakpastian')", () => {
+  const skor = (elemenId: string, nama: string, urutan: number, subject: { nama: string; jenjang: string }) => ({
+    jmlBenar: 2,
+    jmlSoal: 4,
+    persentase: 50,
+    kompetensi: { deskripsi: `Kompetensi ${nama}`, elemen: { id: elemenId, nama, urutan, subject } },
+  });
+
+  it("indikator resmi SD Matematika: kelompok Elemen tampil 'Data', data master tidak berubah", async () => {
+    const ind = indikator(1, { jenjang: "SD", elemen: "Data dan Ketidakpastian", subelemen: "Penyajian dan Penggunaan Data" });
+    m.answersFind.mockResolvedValue([jawab("q1", 1, ind), jawab("q2", 0, ind)]);
+    const hasil = await buildHasil(attempt);
+    expect(hasil.indikator!.kelompok.map((k) => k.nama)).toEqual(["Data"]);
+    expect(hasil.indikator!.kelompok[0]!.baris[0]).toMatchObject({ level1: "Data", level2: "Penyajian dan Penggunaan Data" });
+    expect(ind.elemen).toBe("Data dan Ketidakpastian");
+  });
+
+  it("indikator resmi SMP Matematika tetap 'Data dan Peluang'", async () => {
+    const ind = indikator(1, { jenjang: "SMP", elemen: "Data dan Peluang", subelemen: "Data" });
+    m.answersFind.mockResolvedValue([jawab("q1", 1, ind)]);
+    expect((await buildHasil(attempt)).indikator!.kelompok.map((k) => k.nama)).toEqual(["Data dan Peluang"]);
+  });
+
+  it("peta kompetensi per elemen: SD Matematika 'Data', SMP tetap 'Data dan Peluang', elemen lain tak berubah", async () => {
+    m.competencyFind.mockResolvedValue([
+      skor("e1", "Bilangan", 1, { nama: "Matematika", jenjang: "SD" }),
+      skor("e2", "Data dan Ketidakpastian", 3, { nama: "Matematika", jenjang: "SD" }),
+    ]);
+    expect((await buildHasil(attempt)).elemenScores.map((e) => e.elemenNama)).toEqual(["Bilangan", "Data"]);
+
+    m.competencyFind.mockResolvedValue([skor("e3", "Data dan Peluang", 4, { nama: "Matematika", jenjang: "SMP" })]);
+    expect((await buildHasil(attempt)).elemenScores.map((e) => e.elemenNama)).toEqual(["Data dan Peluang"]);
+  });
+
+  it("elemen dengan nama 'Data dan Ketidakpastian' pada mapel lain / jenjang lain tidak ikut diubah", async () => {
+    m.competencyFind.mockResolvedValue([
+      skor("e1", "Data dan Ketidakpastian", 1, { nama: "Bahasa Indonesia", jenjang: "SD" }),
+      skor("e2", "Data dan Ketidakpastian", 2, { nama: "Matematika", jenjang: "SMP" }),
+    ]);
+    expect((await buildHasil(attempt)).elemenScores.map((e) => e.elemenNama)).toEqual(["Data dan Ketidakpastian", "Data dan Ketidakpastian"]);
+  });
+
+  it("query peta kompetensi memuat mapel + jenjang elemen (dasar pemetaan label)", async () => {
+    await buildHasil(attempt);
+    expect(m.competencyFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: {
+          kompetensi: {
+            select: {
+              deskripsi: true,
+              elemen: { select: expect.objectContaining({ subject: { select: { nama: true, jenjang: true } } }) },
+            },
+          },
+        },
+      }),
+    );
+  });
+});

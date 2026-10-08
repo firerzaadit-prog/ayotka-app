@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { labelElemenTampil } from "@/lib/content/label-elemen";
 import { kunciTeksIndikator } from "./normalisasi";
 
 /**
@@ -119,6 +120,7 @@ export interface HierarkiIndikator {
  * TIDAK PERNAH memunculkan label "Elemen"/"Subelemen" (panduan Pusmendik: membingungkan guru dan siswa).
  */
 export function hierarkiIndikator(i: {
+  jenjang: string;
   namaMapel: string;
   elemen: string;
   subelemen: string;
@@ -126,7 +128,9 @@ export function hierarkiIndikator(i: {
   indikator: string;
 }): HierarkiIndikator {
   if (jumlahTingkatHierarki(i.namaMapel) === 4) {
-    return { label: ["Elemen", "Subelemen", "Kompetensi", "Indikator"], nilai: [i.elemen, i.subelemen, i.kompetensi, i.indikator] };
+    // Nama elemen ditampilkan menurut Kerangka Asesmen (SD: "Data", bukan "Data dan Ketidakpastian"); data master tetap apa adanya.
+    const elemen = labelElemenTampil({ jenjang: i.jenjang, namaMapel: i.namaMapel }, i.elemen);
+    return { label: ["Elemen", "Subelemen", "Kompetensi", "Indikator"], nilai: [elemen, i.subelemen, i.kompetensi, i.indikator] };
   }
   return { label: ["Kompetensi", "Subkompetensi", "Indikator"], nilai: [i.elemen, i.subelemen, i.indikator] };
 }

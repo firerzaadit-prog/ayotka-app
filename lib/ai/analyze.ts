@@ -4,6 +4,7 @@ import { generateAnalisis, MODEL_NAME } from "@/lib/ai/gemini";
 import { buildAnalisisPrompt } from "@/lib/ai/prompt";
 import { PROMPT_VERSION } from "@/lib/ai/version";
 import { mataPelajaranFromSubjectNama, renderKerangkaAsesmenRingkas } from "@/lib/content/kerangka-asesmen";
+import { labelElemenTampil } from "@/lib/content/label-elemen";
 import type { Attempt } from "@prisma/client";
 
 const TIDAK_DIJAWAB = "(tidak dijawab)";
@@ -143,6 +144,10 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
   const mapel = mataPelajaranFromSubjectNama(pkg.subject.nama);
   const kerangkaAsesmen = mapel ? renderKerangkaAsesmenRingkas(pkg.jenjang, mapel) : null;
 
+  // Nama elemen di prompt mengikuti Kerangka Asesmen (SD Matematika: "Data"), sama dengan rapor dan teks kerangka di atas,
+  // supaya analisis AI tidak memakai istilah lain.
+  const konteksElemen = { jenjang: pkg.jenjang, namaMapel: pkg.subject.nama };
+
   const prompt = buildAnalisisPrompt({
     namaSiswa: student.nama,
     paketNama: pkg.nama,
@@ -150,7 +155,7 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
     kerangkaAsesmen,
     kompetensi: competencyScores.map((c) => ({
       deskripsi: c.kompetensi.deskripsi,
-      elemenNama: c.kompetensi.elemen.nama,
+      elemenNama: labelElemenTampil(konteksElemen, c.kompetensi.elemen.nama),
       subElemen: c.kompetensi.subElemen,
       jmlBenar: c.jmlBenar,
       jmlSoal: c.jmlSoal,
@@ -167,7 +172,7 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
       nomor: i + 1,
       benar: (a.skor ?? 0) >= a.skorMaks,
       teksSoal: a.question.teks,
-      elemenNama: a.question.kompetensi.elemen.nama,
+      elemenNama: labelElemenTampil(konteksElemen, a.question.kompetensi.elemen.nama),
       subElemen: a.question.kompetensi.subElemen,
       levelBloom: a.question.levelBloom,
       jawabanSiswa: jawabanKeTeks(a.question, a.jawabanJson),

@@ -8,6 +8,7 @@ import { buildRanking } from "@/lib/exam/ranking";
 import { firstFinishedAttempt, percobaanBerjawabPertama } from "@/lib/exam/seri-mandiri";
 import { bukaPaketBerikutnyaSetelah } from "@/lib/exam/seri-jadwal";
 import { hitungLaporanSiswa } from "@/lib/indikator/daya-serap";
+import { namaElemenTampil } from "@/lib/content/label-elemen";
 
 /**
  * Tiket 5.9: ID separuh disamarkan untuk watermark - cukup untuk dilacak
@@ -45,7 +46,7 @@ export async function buildHasil(attempt: Attempt) {
         kompetensi: {
           select: {
             deskripsi: true,
-            elemen: { select: { id: true, nama: true, urutan: true } },
+            elemen: { select: { id: true, nama: true, urutan: true, subject: { select: { nama: true, jenjang: true } } } },
           },
         },
       },
@@ -198,7 +199,8 @@ export async function buildHasil(attempt: Attempt) {
     elemenScores: aggregateElemenScores(
       competencyScores.map((c) => ({
         elemenId: c.kompetensi.elemen.id,
-        elemenNama: c.kompetensi.elemen.nama,
+        // Nama elemen menurut Kerangka Asesmen (mis. SD Matematika: "Data"); nama di database tidak diubah.
+        elemenNama: namaElemenTampil(c.kompetensi.elemen),
         elemenUrutan: c.kompetensi.elemen.urutan,
         jmlBenar: c.jmlBenar,
         jmlSoal: c.jmlSoal,

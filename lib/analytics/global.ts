@@ -10,6 +10,7 @@ import {
 import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
 import { hitungPersentil, hitungRerata, hitungStandarDeviasi } from "@/lib/analytics/statistik";
 import { filterMulai, type RentangWaktu } from "@/lib/analytics/sekolah";
+import { namaElemenTampil } from "@/lib/content/label-elemen";
 
 export type AnalitikGlobalFilter = {
   schoolId?: string | null;
@@ -82,7 +83,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
             select: {
               id: true,
               deskripsi: true,
-              elemen: { select: { nama: true } },
+              elemen: { select: { nama: true, subject: { select: { nama: true, jenjang: true } } } },
             },
           },
         },
@@ -137,7 +138,7 @@ export async function buildAnalitikGlobal(filter: AnalitikGlobalFilter) {
       const k = cs.kompetensi;
       const existing = kompetensiMap.get(k.id) ?? {
         deskripsi: k.deskripsi,
-        elemen: k.elemen.nama,
+        elemen: namaElemenTampil(k.elemen),
         jmlBenar: 0,
         jmlSoal: 0,
       };

@@ -167,7 +167,7 @@ describe("parseMasterJson", () => {
 describe("hierarkiIndikator", () => {
   it("Matematika: 4 tingkat Elemen > Subelemen > Kompetensi > Indikator", () => {
     expect(jumlahTingkatHierarki("Matematika")).toBe(4);
-    const h = hierarkiIndikator({ namaMapel: "Matematika", elemen: "Bilangan", subelemen: "Bilangan Real", kompetensi: "Kemampuan X", indikator: "Ind (1)" });
+    const h = hierarkiIndikator({ jenjang: "SMP", namaMapel: "Matematika", elemen: "Bilangan", subelemen: "Bilangan Real", kompetensi: "Kemampuan X", indikator: "Ind (1)" });
     expect(h.label).toEqual(["Elemen", "Subelemen", "Kompetensi", "Indikator"]);
     expect(h.nilai).toEqual(["Bilangan", "Bilangan Real", "Kemampuan X", "Ind (1)"]);
   });
@@ -175,6 +175,7 @@ describe("hierarkiIndikator", () => {
   it("Bahasa Indonesia: 3 tingkat Kompetensi > Subkompetensi > Indikator, TANPA label Elemen/Subelemen", () => {
     expect(jumlahTingkatHierarki("Bahasa Indonesia")).toBe(3);
     const h = hierarkiIndikator({
+      jenjang: "SD",
       namaMapel: "Bahasa Indonesia",
       elemen: "Pemahaman Tekstual",
       subelemen: "Mengidentifikasi istilah",
@@ -194,5 +195,25 @@ describe("hierarkiIndikator", () => {
   it("nama mapel Matematika dikenali tanpa peduli huruf besar", () => {
     expect(jumlahTingkatHierarki("matematika")).toBe(4);
     expect(jumlahTingkatHierarki("MATEMATIKA")).toBe(4);
+  });
+
+  it("SD Matematika: elemen 'Data dan Ketidakpastian' dari master ditampilkan 'Data' (Kerangka Asesmen); tingkat lain tak berubah", () => {
+    const h = hierarkiIndikator({
+      jenjang: "SD",
+      namaMapel: "Matematika",
+      elemen: "Data dan Ketidakpastian",
+      subelemen: "Penyajian dan Penggunaan Data",
+      kompetensi: "Kemampuan X",
+      indikator: "Ind (1)",
+    });
+    expect(h.nilai).toEqual(["Data", "Penyajian dan Penggunaan Data", "Kemampuan X", "Ind (1)"]);
+    expect(h.label).toEqual(["Elemen", "Subelemen", "Kompetensi", "Indikator"]);
+  });
+
+  it("SMP/SMA Matematika tetap 'Data dan Peluang'; elemen SD lain tidak berubah", () => {
+    const dasar = { namaMapel: "Matematika", subelemen: "Data", kompetensi: "K", indikator: "I" };
+    expect(hierarkiIndikator({ ...dasar, jenjang: "SMP", elemen: "Data dan Peluang" }).nilai[0]).toBe("Data dan Peluang");
+    expect(hierarkiIndikator({ ...dasar, jenjang: "SMA", elemen: "Data dan Peluang" }).nilai[0]).toBe("Data dan Peluang");
+    expect(hierarkiIndikator({ ...dasar, jenjang: "SD", elemen: "Geometri dan Pengukuran" }).nilai[0]).toBe("Geometri dan Pengukuran");
   });
 });
