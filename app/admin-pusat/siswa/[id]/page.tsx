@@ -51,7 +51,6 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
       hasilByAttempt={hasilByAttempt}
       backHref="/admin-pusat/siswa"
       backLabel="Kembali ke Daftar Siswa"
-      canTrigger={true}
     />
   );
 }

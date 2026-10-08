@@ -52,15 +52,12 @@ export function RiwayatSiswaView({
   hasilByAttempt,
   backHref,
   backLabel,
-  canTrigger,
 }: {
   student: StudentRiwayat;
   kesiapanPerMapel: KesiapanSiswaPerMapel[];
   hasilByAttempt: Map<string, Awaited<ReturnType<typeof buildHasil>>>;
   backHref: string;
   backLabel: string;
-  /** Bisa memicu "Analisis ulang" AI - false untuk dinas pendidikan (akses baca saja). */
-  canTrigger: boolean;
 }) {
   return (
     <div className="flex flex-col gap-6">

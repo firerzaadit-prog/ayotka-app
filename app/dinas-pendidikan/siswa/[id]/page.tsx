@@ -59,7 +59,6 @@ export default async function DetailSiswaDinasPendidikanPage({ params }: { param
       hasilByAttempt={hasilByAttempt}
       backHref="/dinas-pendidikan/dashboard"
       backLabel="Kembali ke Kesiapan TKA Antar Sekolah"
-      canTrigger={false}
     />
   );
 }

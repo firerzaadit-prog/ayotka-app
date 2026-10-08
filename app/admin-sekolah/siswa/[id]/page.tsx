@@ -58,7 +58,6 @@ export default async function DetailSiswaAdminSekolahPage({ params }: { params: 
       hasilByAttempt={hasilByAttempt}
       backHref="/admin-sekolah/siswa"
       backLabel="Kembali ke Daftar Siswa"
-      canTrigger={true}
     />
   );
 }
