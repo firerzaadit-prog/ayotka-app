@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { KemendikdasmenDayaSerapView } from "@/components/analytics/kemendikdasmen-daya-serap-view";
-import type { JenjangResmi, MapelKey } from "@/lib/indikator/hierarki-resmi";
+import { KemendikdasmenDayaSerapView, type CategoryCounts } from "@/components/analytics/kemendikdasmen-daya-serap-view";
+import type { JenjangResmi, MapelKey, SkorKategoriTryOut } from "@/lib/indikator/hierarki-resmi";
 import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
 import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
 import type { KesiapanRingkasan } from "@/lib/analytics/kesiapan";
@@ -81,6 +81,9 @@ export default function AnalitikPage() {
   const [_periodeList, setPeriodeList] = useState<PeriodeOpsi[]>([]);
   const [periodeId, _setPeriodeId] = useState("");
 
+  const [categoryScores, setCategoryScores] = useState<SkorKategoriTryOut | null>(null);
+  const [categoryCounts, setCategoryCounts] = useState<CategoryCounts | null>(null);
+
   // 1. Ambil Profil Sekolah (Nama & Jenjang)
   useEffect(() => {
     let ignore = false;
@@ -155,7 +158,7 @@ export default function AnalitikPage() {
     };
   }, []);
 
-  // 5. Ambil Skor Sekolah per Indikator bila Mapel & Jenjang Cocok
+  // 5. Ambil Skor Sekolah per Indikator & Breakdown Kategori Try Out
   useEffect(() => {
     let ignore = false;
 
@@ -172,7 +175,11 @@ export default function AnalitikPage() {
       });
 
       if (!matchedMapel) {
-        if (!ignore) setSchoolScores(new Map());
+        if (!ignore) {
+          setSchoolScores(new Map());
+          setCategoryScores(null);
+          setCategoryCounts(null);
+        }
         return;
       }
 
@@ -196,6 +203,24 @@ export default function AnalitikPage() {
         setSchoolScores(scoresMap);
       } else {
         setSchoolScores(new Map());
+      }
+
+      if (res.ok && data?.breakdown) {
+        setCategoryScores({
+          mandiri: new Map(Object.entries(data.breakdown.mandiri?.skor ?? {})),
+          sekolah: new Map(Object.entries(data.breakdown.sekolah?.skor ?? {})),
+          nasional: new Map(Object.entries(data.breakdown.nasional?.skor ?? {})),
+        });
+        setCategoryCounts({
+          totalSiswa: data.breakdown.gabungan?.jumlahSiswa ?? 0,
+          totalAttempts: data.breakdown.gabungan?.jumlahPercobaan ?? 0,
+          mandiriAttempts: data.breakdown.mandiri?.jumlahPercobaan ?? 0,
+          sekolahAttempts: data.breakdown.sekolah?.jumlahPercobaan ?? 0,
+          nasionalAttempts: data.breakdown.nasional?.jumlahPercobaan ?? 0,
+        });
+      } else {
+        setCategoryScores(null);
+        setCategoryCounts(null);
       }
     })();
 
@@ -254,7 +279,8 @@ export default function AnalitikPage() {
       initialMapel={activeMapelKey}
       namaSekolah={schoolNama}
       schoolScores={schoolScores}
-      allowFilterSwitch={true}
+      categoryScores={categoryScores}
+      counts={categoryCounts}
       onFilterChange={({ jenjang, mapelKey }) => {
         setActiveJenjang(jenjang);
         setActiveMapelKey(mapelKey);

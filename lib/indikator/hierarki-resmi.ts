@@ -18,10 +18,18 @@ export interface ContohSoalItem {
   pembahasan: string;
 }
 
+export interface SkorKategoriTryOut {
+  mandiri?: Map<string, { dayaSerap: number; jmlSoal: number }> | null;
+  sekolah?: Map<string, { dayaSerap: number; jmlSoal: number }> | null;
+  nasional?: Map<string, { dayaSerap: number; jmlSoal: number }> | null;
+}
+
 export interface RingkasanTingkat1 {
   no: number;
   nama: string;
   nilaiNasional: number;
+  nilaiMandiri?: number | null;
+  nilaiSekolah?: number | null;
   jumlahIndikator: number;
   sekolahNilai?: number | null;
 }
@@ -30,9 +38,11 @@ export interface BarisHierarkiDetail {
   id: string;
   level: 1 | 2 | 3 | 4;
   teks: string;
+  nilaiMandiri?: number | null;
+  nilaiSekolah?: number | null;
   nilaiNasional: number;
   sekolahNilai?: number | null;
-  hasContohSoal: boolean;
+  hasContohSoal?: boolean;
   urutan?: number;
   contohSoal?: ContohSoalItem;
 }
@@ -46,7 +56,13 @@ export interface HierarkiKemendikdasmenResult {
   totalPeserta: number;
   labelTingkat: string[];
   ringkasan: RingkasanTingkat1[];
-  grafikData: Array<{ nama: string; nasional: number; sekolah?: number | null }>;
+  grafikData: Array<{
+    nama: string;
+    nasional: number;
+    mandiri?: number | null;
+    sekolah?: number | null;
+    sekolahNilai?: number | null;
+  }>;
   hierarkiRows: BarisHierarkiDetail[];
 }
 
@@ -256,7 +272,8 @@ function buatContohSoalFallback(item: RawIndicatorItem, mapel: string): ContohSo
 export function getOfficialHierarchyData(
   jenjang: JenjangResmi,
   mapelKey: MapelKey,
-  schoolScores?: Map<string, { dayaSerap: number; jmlSoal: number }>,
+  schoolScores?: Map<string, { dayaSerap: number; jmlSoal: number }> | null,
+  categoryScores?: SkorKategoriTryOut | null,
 ): HierarkiKemendikdasmenResult {
   const isMatematika = mapelKey === "matematika";
   const mapelNama = isMatematika ? "Matematika" : "Bahasa Indonesia";
@@ -271,6 +288,44 @@ export function getOfficialHierarchyData(
     ? ["Elemen", "Subelemen", "Kompetensi", "Indikator"]
     : ["Kompetensi", "Subkompetensi", "Indikator"];
 
+  // Helper pencari skor adaptif (indikator, kompetensi, subelemen, elemen, substring)
+  const findScore = (
+    scoresMap: Map<string, { dayaSerap: number; jmlSoal: number }> | null | undefined,
+    item: RawIndicatorItem,
+  ): number | null => {
+    if (!scoresMap || scoresMap.size === 0) return null;
+    const ind = item.indikator;
+    const hit =
+      scoresMap.get(ind) ??
+      scoresMap.get(ind.trim()) ??
+      scoresMap.get(ind.trim().toLowerCase());
+    if (hit) return hit.dayaSerap;
+
+    const extraKeys = [item.kompetensi, item.subelemen, item.elemen, item.subkompetensi].filter(Boolean) as string[];
+    for (const k of extraKeys) {
+      const kHit =
+        scoresMap.get(k) ??
+        scoresMap.get(k.trim()) ??
+        scoresMap.get(k.trim().toLowerCase());
+      if (kHit) return kHit.dayaSerap;
+    }
+
+    const iLower = ind.toLowerCase().trim();
+    for (const [key, val] of scoresMap.entries()) {
+      const kLower = key.toLowerCase();
+      if (iLower.includes(kLower) || kLower.includes(iLower)) {
+        return val.dayaSerap;
+      }
+    }
+    return null;
+  };
+
+  const calcAvg = (vals: Array<number | null | undefined>): number | null => {
+    const nums = vals.filter((v): v is number => typeof v === "number");
+    if (nums.length === 0) return null;
+    return Number((nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(2));
+  };
+
   // 1. Group by Level 1 (Elemen / Kompetensi)
   const l1Groups = new Map<string, RawIndicatorItem[]>();
   for (const item of rawList) {
@@ -279,7 +334,13 @@ export function getOfficialHierarchyData(
   }
 
   const ringkasan: RingkasanTingkat1[] = [];
-  const grafikData: Array<{ nama: string; nasional: number; sekolah?: number | null }> = [];
+  const grafikData: Array<{
+    nama: string;
+    nasional: number;
+    mandiri?: number | null;
+    sekolah?: number | null;
+    sekolahNilai?: number | null;
+  }> = [];
   const hierarkiRows: BarisHierarkiDetail[] = [];
 
   let l1Index = 1;
@@ -288,41 +349,36 @@ export function getOfficialHierarchyData(
       (l1Items.reduce((acc, it) => acc + (it.nilai_nasional || 0), 0) / l1Items.length).toFixed(2),
     );
 
-    const getSchoolScore = (indikatorTeks: string) => {
-      if (!schoolScores) return null;
-      return (
-        schoolScores.get(indikatorTeks) ||
-        schoolScores.get(indikatorTeks.trim()) ||
-        schoolScores.get(indikatorTeks.trim().toLowerCase()) ||
-        null
-      );
-    };
+    // Hitung skor leaf untuk seluruh item di elemen ini
+    const leafScores = l1Items.map((it) => {
+      const m = findScore(categoryScores?.mandiri || schoolScores, it);
+      const s = findScore(categoryScores?.sekolah, it);
+      const n = findScore(categoryScores?.nasional, it) ?? it.nilai_nasional;
+      const g = findScore(schoolScores, it);
+      return { m, s, n, g };
+    });
 
-    // Hitung rerata sekolah jika ada
-    let l1SchoolAvg: number | null = null;
-    if (schoolScores) {
-      const matched = l1Items
-        .map((it) => getSchoolScore(it.indikator))
-        .filter((sc): sc is { dayaSerap: number; jmlSoal: number } => Boolean(sc));
-      if (matched.length > 0) {
-        l1SchoolAvg = Number(
-          (matched.reduce((acc, it) => acc + it.dayaSerap, 0) / matched.length).toFixed(2),
-        );
-      }
-    }
+    const l1MandiriAvg = calcAvg(leafScores.map((x) => x.m));
+    const l1SekolahAvg = calcAvg(leafScores.map((x) => x.s));
+    const l1NasionalAvg = calcAvg(leafScores.map((x) => x.n)) ?? l1Avg;
+    const l1GabunganAvg = calcAvg(leafScores.map((x) => x.g));
 
     ringkasan.push({
       no: l1Index,
       nama: l1Name,
-      nilaiNasional: l1Avg,
+      nilaiNasional: l1NasionalAvg,
+      nilaiMandiri: l1MandiriAvg,
+      nilaiSekolah: l1SekolahAvg,
       jumlahIndikator: l1Items.length,
-      sekolahNilai: l1SchoolAvg,
+      sekolahNilai: l1GabunganAvg,
     });
 
     grafikData.push({
       nama: l1Name,
-      nasional: l1Avg,
-      sekolah: l1SchoolAvg,
+      nasional: l1NasionalAvg,
+      mandiri: l1MandiriAvg,
+      sekolah: l1SekolahAvg,
+      sekolahNilai: l1GabunganAvg,
     });
 
     // Baris Level 1
@@ -330,9 +386,10 @@ export function getOfficialHierarchyData(
       id: `l1-${l1Index}`,
       level: 1,
       teks: `${l1Index}. ${l1Name}`,
-      nilaiNasional: l1Avg,
-      sekolahNilai: l1SchoolAvg,
-      hasContohSoal: false,
+      nilaiNasional: l1NasionalAvg,
+      nilaiMandiri: l1MandiriAvg,
+      nilaiSekolah: l1SekolahAvg,
+      sekolahNilai: l1GabunganAvg,
     });
 
     // 2. Group by Level 2 (Subelemen / Subkompetensi)
@@ -348,25 +405,27 @@ export function getOfficialHierarchyData(
         (l2Items.reduce((acc, it) => acc + (it.nilai_nasional || 0), 0) / l2Items.length).toFixed(2),
       );
 
-      let l2SchoolAvg: number | null = null;
-      if (schoolScores) {
-        const matched = l2Items
-          .map((it) => getSchoolScore(it.indikator))
-          .filter((sc): sc is { dayaSerap: number; jmlSoal: number } => Boolean(sc));
-        if (matched.length > 0) {
-          l2SchoolAvg = Number(
-            (matched.reduce((acc, it) => acc + it.dayaSerap, 0) / matched.length).toFixed(2),
-          );
-        }
-      }
+      const l2LeafScores = l2Items.map((it) => {
+        const m = findScore(categoryScores?.mandiri || schoolScores, it);
+        const s = findScore(categoryScores?.sekolah, it);
+        const n = findScore(categoryScores?.nasional, it) ?? it.nilai_nasional;
+        const g = findScore(schoolScores, it);
+        return { m, s, n, g };
+      });
+
+      const l2MandiriAvg = calcAvg(l2LeafScores.map((x) => x.m));
+      const l2SekolahAvg = calcAvg(l2LeafScores.map((x) => x.s));
+      const l2NasionalAvg = calcAvg(l2LeafScores.map((x) => x.n)) ?? l2Avg;
+      const l2GabunganAvg = calcAvg(l2LeafScores.map((x) => x.g));
 
       hierarkiRows.push({
         id: `l2-${l1Index}-${l2Index}`,
         level: 2,
         teks: `› ${l2Name}`,
-        nilaiNasional: l2Avg,
-        sekolahNilai: l2SchoolAvg,
-        hasContohSoal: false,
+        nilaiNasional: l2NasionalAvg,
+        nilaiMandiri: l2MandiriAvg,
+        nilaiSekolah: l2SekolahAvg,
+        sekolahNilai: l2GabunganAvg,
       });
 
       if (isMatematika) {
@@ -383,54 +442,45 @@ export function getOfficialHierarchyData(
             (l3Items.reduce((acc, it) => acc + (it.nilai_nasional || 0), 0) / l3Items.length).toFixed(2),
           );
 
-          let l3SchoolAvg: number | null = null;
-          if (schoolScores) {
-            const matched = l3Items
-              .map((it) => getSchoolScore(it.indikator))
-              .filter((sc): sc is { dayaSerap: number; jmlSoal: number } => Boolean(sc));
-            if (matched.length > 0) {
-              l3SchoolAvg = Number(
-                (matched.reduce((acc, it) => acc + it.dayaSerap, 0) / matched.length).toFixed(2),
-              );
-            }
-          }
+          const l3LeafScores = l3Items.map((it) => {
+            const m = findScore(categoryScores?.mandiri || schoolScores, it);
+            const s = findScore(categoryScores?.sekolah, it);
+            const n = findScore(categoryScores?.nasional, it) ?? it.nilai_nasional;
+            const g = findScore(schoolScores, it);
+            return { m, s, n, g };
+          });
+
+          const l3MandiriAvg = calcAvg(l3LeafScores.map((x) => x.m));
+          const l3SekolahAvg = calcAvg(l3LeafScores.map((x) => x.s));
+          const l3NasionalAvg = calcAvg(l3LeafScores.map((x) => x.n)) ?? l3Avg;
+          const l3GabunganAvg = calcAvg(l3LeafScores.map((x) => x.g));
 
           hierarkiRows.push({
             id: `l3-${l1Index}-${l2Index}-${l3Index}`,
             level: 3,
             teks: `› ${l3Name}`,
-            nilaiNasional: l3Avg,
-            sekolahNilai: l3SchoolAvg,
-            hasContohSoal: false,
+            nilaiNasional: l3NasionalAvg,
+            nilaiMandiri: l3MandiriAvg,
+            nilaiSekolah: l3SekolahAvg,
+            sekolahNilai: l3GabunganAvg,
           });
 
           // 4. Level 4 for Matematika: Indikator (leaf)
           for (const item of l3Items) {
-            const schoolScore = getSchoolScore(item.indikator)?.dayaSerap ?? null;
-            const bankKey = `${jenjang}-${mapelKey}`;
-            const spesifikSoal = BANK_CONTOH_SOAL[bankKey]?.[item.urutan];
-            const fallbackSoal = buatContohSoalFallback(item, mapelNama);
-            const contohSoal: ContohSoalItem = {
-              nomor: item.urutan,
-              indikator: item.indikator,
-              stimulusJudul: spesifikSoal?.stimulusJudul || fallbackSoal.stimulusJudul,
-              stimulusTeks: spesifikSoal?.stimulusTeks || fallbackSoal.stimulusTeks,
-              pertanyaan: spesifikSoal?.pertanyaan || fallbackSoal.pertanyaan,
-              bentuk: spesifikSoal?.bentuk || fallbackSoal.bentuk,
-              pilihan: spesifikSoal?.pilihan || fallbackSoal.pilihan,
-              kunciJawaban: spesifikSoal?.kunciJawaban || fallbackSoal.kunciJawaban,
-              pembahasan: spesifikSoal?.pembahasan || fallbackSoal.pembahasan,
-            };
+            const mScore = findScore(categoryScores?.mandiri || schoolScores, item);
+            const sScore = findScore(categoryScores?.sekolah, item);
+            const nScore = findScore(categoryScores?.nasional, item) ?? item.nilai_nasional;
+            const gScore = findScore(schoolScores, item);
 
             hierarkiRows.push({
               id: `l4-${item.urutan}`,
               level: 4,
               teks: `• ${item.indikator}`,
-              nilaiNasional: item.nilai_nasional,
-              sekolahNilai: schoolScore,
-              hasContohSoal: true,
+              nilaiNasional: nScore,
+              nilaiMandiri: mScore,
+              nilaiSekolah: sScore,
+              sekolahNilai: gScore,
               urutan: item.urutan,
-              contohSoal,
             });
           }
           l3Index++;
@@ -438,31 +488,20 @@ export function getOfficialHierarchyData(
       } else {
         // Level 3 for Bahasa Indonesia: Indikator (leaf)
         for (const item of l2Items) {
-          const schoolScore = getSchoolScore(item.indikator)?.dayaSerap ?? null;
-          const bankKey = `${jenjang}-${mapelKey}`;
-          const spesifikSoal = BANK_CONTOH_SOAL[bankKey]?.[item.urutan];
-          const fallbackSoal = buatContohSoalFallback(item, mapelNama);
-          const contohSoal: ContohSoalItem = {
-            nomor: item.urutan,
-            indikator: item.indikator,
-            stimulusJudul: spesifikSoal?.stimulusJudul || fallbackSoal.stimulusJudul,
-            stimulusTeks: spesifikSoal?.stimulusTeks || fallbackSoal.stimulusTeks,
-            pertanyaan: spesifikSoal?.pertanyaan || fallbackSoal.pertanyaan,
-            bentuk: spesifikSoal?.bentuk || fallbackSoal.bentuk,
-            pilihan: spesifikSoal?.pilihan || fallbackSoal.pilihan,
-            kunciJawaban: spesifikSoal?.kunciJawaban || fallbackSoal.kunciJawaban,
-            pembahasan: spesifikSoal?.pembahasan || fallbackSoal.pembahasan,
-          };
+          const mScore = findScore(categoryScores?.mandiri || schoolScores, item);
+          const sScore = findScore(categoryScores?.sekolah, item);
+          const nScore = findScore(categoryScores?.nasional, item) ?? item.nilai_nasional;
+          const gScore = findScore(schoolScores, item);
 
           hierarkiRows.push({
             id: `l3-${item.urutan}`,
             level: 3,
             teks: `• ${item.indikator}`,
-            nilaiNasional: item.nilai_nasional,
-            sekolahNilai: schoolScore,
-            hasContohSoal: true,
+            nilaiNasional: nScore,
+            nilaiMandiri: mScore,
+            nilaiSekolah: sScore,
+            sekolahNilai: gScore,
             urutan: item.urutan,
-            contohSoal,
           });
         }
       }
