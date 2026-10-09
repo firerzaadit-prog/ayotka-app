@@ -31,10 +31,23 @@ jobs:
             echo ">>> Masuk ke direktori ayotka-app..."
             cd /var/www/ayotka-app
 
+            echo ">>> Git commit saat ini di VPS: $(git rev-parse HEAD)"
+            git remote -v
+
             echo ">>> Mengambil kode terbaru dari GitHub..."
-            git fetch https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git ${{ github.ref_name }}
-            git update-ref refs/remotes/origin/${{ github.ref_name }} FETCH_HEAD
-            git reset --hard FETCH_HEAD
+            if git fetch origin ${{ github.ref_name }}; then
+              echo ">>> git fetch origin berhasil!"
+              git reset --hard origin/${{ github.ref_name }}
+            elif git fetch https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git ${{ github.ref_name }}; then
+              echo ">>> git fetch dengan github.token berhasil!"
+              git update-ref refs/remotes/origin/${{ github.ref_name }} FETCH_HEAD
+              git reset --hard FETCH_HEAD
+            else
+              echo ">>> Fallback git pull..."
+              git pull origin ${{ github.ref_name }}
+            fi
+
+            echo ">>> Git commit setelah update: $(git rev-parse HEAD)"
 
             echo ">>> Install dependencies & Prisma generate..."
             npm install --prefer-offline
@@ -49,8 +62,8 @@ jobs:
             echo ">>> Build aplikasi Next.js..."
             npm run build
 
-            echo ">>> Reload PM2 zero-downtime..."
-            pm2 reload ayotka-app
+            echo ">>> Reload PM2..."
+            pm2 reload ayotka-app || pm2 restart ayotka-app
 
             echo ">>> Deploy ayotka.id selesai dengan sukses!"
 

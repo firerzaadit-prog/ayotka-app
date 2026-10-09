@@ -4,6 +4,9 @@ import { bacaParamLaporan } from "@/lib/indikator/laporan-param";
 import { bangunLaporanIndikatorSekolah, daftarMapelLaporan } from "@/lib/indikator/laporan-sekolah";
 import { ambilBreakdownKategoriSekolah } from "@/lib/indikator/laporan-breakdown";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * Laporan daya serap per indikator sekolah (JSON untuk halaman web). Tanpa ?subjectId hanya mengembalikan daftar mata
  * pelajaran yang punya percobaan selesai; dengan ?subjectId= ikut mengembalikan laporan mapel itu, lengkap dengan
