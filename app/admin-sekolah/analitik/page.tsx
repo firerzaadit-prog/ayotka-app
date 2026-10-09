@@ -6,7 +6,6 @@ import type { JenjangResmi, MapelKey } from "@/lib/indikator/hierarki-resmi";
 import { KesiapanCard } from "@/components/ui/kesiapan-breakdown";
 import { KesiapanSiswaList } from "@/components/analytics/kesiapan-siswa-list";
 import type { KesiapanRingkasan } from "@/lib/analytics/kesiapan";
-import { formatWIBDate } from "@/lib/utils/datetime";
 import { buttonClassName } from "@/components/ui/button";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
@@ -79,8 +78,8 @@ export default function AnalitikPage() {
   const [ranking, setRanking] = useState<RankingRow[] | null>(null);
   const [jumlahAttempt, setJumlahAttempt] = useState(0);
   const [kesiapan, setKesiapan] = useState<KesiapanRingkasan | null>(null);
-  const [periodeList, setPeriodeList] = useState<PeriodeOpsi[]>([]);
-  const [periodeId, setPeriodeId] = useState("");
+  const [_periodeList, setPeriodeList] = useState<PeriodeOpsi[]>([]);
+  const [periodeId, _setPeriodeId] = useState("");
 
   // 1. Ambil Profil Sekolah (Nama & Jenjang)
   useEffect(() => {
@@ -159,23 +158,24 @@ export default function AnalitikPage() {
   // 5. Ambil Skor Sekolah per Indikator bila Mapel & Jenjang Cocok
   useEffect(() => {
     let ignore = false;
-    if (mapelList.length === 0) return;
-
-    const matchedMapel = mapelList.find((m) => {
-      const matchJenjang = m.jenjang.toUpperCase() === activeJenjang.toUpperCase();
-      const matchMapel =
-        activeMapelKey === "matematika"
-          ? m.nama.toLowerCase().includes("matematika")
-          : m.nama.toLowerCase().includes("indonesia");
-      return matchJenjang && matchMapel;
-    });
-
-    if (!matchedMapel) {
-      setSchoolScores(new Map());
-      return;
-    }
 
     (async () => {
+      if (mapelList.length === 0) return;
+
+      const matchedMapel = mapelList.find((m) => {
+        const matchJenjang = m.jenjang.toUpperCase() === activeJenjang.toUpperCase();
+        const matchMapel =
+          activeMapelKey === "matematika"
+            ? m.nama.toLowerCase().includes("matematika")
+            : m.nama.toLowerCase().includes("indonesia");
+        return matchJenjang && matchMapel;
+      });
+
+      if (!matchedMapel) {
+        if (!ignore) setSchoolScores(new Map());
+        return;
+      }
+
       const p = new URLSearchParams();
       p.set("subjectId", matchedMapel.subjectId);
       if (periodeId) p.set("periodeId", periodeId);

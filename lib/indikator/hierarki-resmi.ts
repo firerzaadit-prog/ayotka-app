@@ -1,5 +1,7 @@
 import kemendikdasmenRaw from "./kemendikdasmen-official.json";
-const kemendikdasmenData = (kemendikdasmenRaw as any).default || kemendikdasmenRaw;
+const kemendikdasmenData = Array.isArray(kemendikdasmenRaw)
+  ? kemendikdasmenRaw
+  : ((kemendikdasmenRaw as unknown as { default: unknown[] }).default || []);
 
 export type JenjangResmi = "SD" | "SMP";
 export type MapelKey = "matematika" | "bahasa-indonesia";

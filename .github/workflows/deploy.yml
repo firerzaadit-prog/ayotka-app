@@ -11,6 +11,9 @@ concurrency:
   group: deploy-ayotka-vps
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -29,8 +32,9 @@ jobs:
             cd /var/www/ayotka-app
 
             echo ">>> Mengambil kode terbaru dari GitHub..."
-            git fetch origin
-            git reset --hard origin/${{ github.ref_name }}
+            git fetch https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git ${{ github.ref_name }}
+            git update-ref refs/remotes/origin/${{ github.ref_name }} FETCH_HEAD
+            git reset --hard FETCH_HEAD
 
             echo ">>> Install dependencies & Prisma generate..."
             npm install --prefer-offline

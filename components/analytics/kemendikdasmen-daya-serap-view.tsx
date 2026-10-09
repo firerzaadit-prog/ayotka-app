@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   getOfficialHierarchyData,
-  type BarisHierarkiDetail,
   type ContohSoalItem,
   type JenjangResmi,
   type MapelKey,
@@ -16,7 +15,6 @@ import {
   ChevronRight,
   BarChart3,
   BookOpen,
-  School,
   Users,
   CheckCircle2,
   X,
@@ -73,17 +71,21 @@ export function KemendikdasmenDayaSerapView({
   const [tahunPelajaran, setTahunPelajaran] = useState("2025/2026");
   const [modeTampilan, setModeTampilan] = useState<"capaian-kompetensi" | "statistik-nilai" | "ranking-siswa">("capaian-kompetensi");
   const [wilayahFilter, setWilayahFilter] = useState<"nasional" | "sekolah">("nasional");
-  const [radioJenjang, setRadioJenjang] = useState<"SEMUA" | "JENJANG" | "PAKET" | "SLB">("SEMUA");
+  const [radioJenjang, setRadioJenjang] = useState<string>("SEMUA");
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
 
-  // Sync state bila prop berubah dari parent
-  useEffect(() => {
-    if (initialJenjang) setJenjang(initialJenjang);
-  }, [initialJenjang]);
+  // Sync state bila prop berubah dari parent (React recommended render-time update)
+  const [prevInitialJenjang, setPrevInitialJenjang] = useState(initialJenjang);
+  if (initialJenjang !== prevInitialJenjang) {
+    setPrevInitialJenjang(initialJenjang);
+    setJenjang(initialJenjang);
+  }
 
-  useEffect(() => {
-    if (initialMapel) setMapelKey(initialMapel);
-  }, [initialMapel]);
+  const [prevInitialMapel, setPrevInitialMapel] = useState(initialMapel);
+  if (initialMapel !== prevInitialMapel) {
+    setPrevInitialMapel(initialMapel);
+    setMapelKey(initialMapel);
+  }
 
   const showSchoolColumn = Boolean(namaSekolah || (schoolScores && schoolScores.size > 0));
 
@@ -104,7 +106,7 @@ export function KemendikdasmenDayaSerapView({
   const {
     mapel: namaMapel,
     isMatematika,
-    totalSekolah,
+    totalSekolah: _totalSekolah,
     totalPeserta,
     ringkasan,
     grafikData,
@@ -195,7 +197,7 @@ export function KemendikdasmenDayaSerapView({
                     <select
                       id="filterWilayah"
                       value={wilayahFilter}
-                      onChange={(e) => setWilayahFilter(e.target.value as any)}
+                      onChange={(e) => setWilayahFilter(e.target.value as "nasional" | "sekolah")}
                       className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800 transition focus:border-blue-400 focus:outline-none"
                     >
                       <option value="nasional">Nasional</option>
@@ -248,7 +250,7 @@ export function KemendikdasmenDayaSerapView({
                             name="radioJenjang"
                             value={opt}
                             checked={radioJenjang === opt}
-                            onChange={() => setRadioJenjang(opt as any)}
+                            onChange={() => setRadioJenjang(opt)}
                             className="h-3.5 w-3.5 text-blue-600 focus:ring-blue-500"
                           />
                           <span className="text-[11px] font-medium">{opt}</span>
