@@ -27,7 +27,7 @@ export interface SkorKategoriTryOut {
 export interface RingkasanTingkat1 {
   no: number;
   nama: string;
-  nilaiNasional: number;
+  nilaiNasional?: number | null;
   nilaiMandiri?: number | null;
   nilaiSekolah?: number | null;
   jumlahIndikator: number;
@@ -40,7 +40,7 @@ export interface BarisHierarkiDetail {
   teks: string;
   nilaiMandiri?: number | null;
   nilaiSekolah?: number | null;
-  nilaiNasional: number;
+  nilaiNasional?: number | null;
   sekolahNilai?: number | null;
   hasContohSoal?: boolean;
   urutan?: number;
@@ -58,7 +58,7 @@ export interface HierarkiKemendikdasmenResult {
   ringkasan: RingkasanTingkat1[];
   grafikData: Array<{
     nama: string;
-    nasional: number;
+    nasional?: number | null;
     mandiri?: number | null;
     sekolah?: number | null;
     sekolahNilai?: number | null;
@@ -336,7 +336,7 @@ export function getOfficialHierarchyData(
   const ringkasan: RingkasanTingkat1[] = [];
   const grafikData: Array<{
     nama: string;
-    nasional: number;
+    nasional?: number | null;
     mandiri?: number | null;
     sekolah?: number | null;
     sekolahNilai?: number | null;
@@ -345,22 +345,18 @@ export function getOfficialHierarchyData(
 
   let l1Index = 1;
   for (const [l1Name, l1Items] of l1Groups.entries()) {
-    const l1Avg = Number(
-      (l1Items.reduce((acc, it) => acc + (it.nilai_nasional || 0), 0) / l1Items.length).toFixed(2),
-    );
-
-    // Hitung skor leaf untuk seluruh item di elemen ini
+    // Hitung skor leaf untuk seluruh item di elemen ini (MURNI dari pengerjaan siswa)
     const leafScores = l1Items.map((it) => {
-      const m = findScore(categoryScores?.mandiri || schoolScores, it);
+      const m = findScore(categoryScores?.mandiri, it);
       const s = findScore(categoryScores?.sekolah, it);
-      const n = findScore(categoryScores?.nasional, it) ?? it.nilai_nasional;
+      const n = findScore(categoryScores?.nasional, it);
       const g = findScore(schoolScores, it);
       return { m, s, n, g };
     });
 
     const l1MandiriAvg = calcAvg(leafScores.map((x) => x.m));
     const l1SekolahAvg = calcAvg(leafScores.map((x) => x.s));
-    const l1NasionalAvg = calcAvg(leafScores.map((x) => x.n)) ?? l1Avg;
+    const l1NasionalAvg = calcAvg(leafScores.map((x) => x.n));
     const l1GabunganAvg = calcAvg(leafScores.map((x) => x.g));
 
     ringkasan.push({
@@ -401,21 +397,17 @@ export function getOfficialHierarchyData(
 
     let l2Index = 1;
     for (const [l2Name, l2Items] of l2Groups.entries()) {
-      const l2Avg = Number(
-        (l2Items.reduce((acc, it) => acc + (it.nilai_nasional || 0), 0) / l2Items.length).toFixed(2),
-      );
-
       const l2LeafScores = l2Items.map((it) => {
-        const m = findScore(categoryScores?.mandiri || schoolScores, it);
+        const m = findScore(categoryScores?.mandiri, it);
         const s = findScore(categoryScores?.sekolah, it);
-        const n = findScore(categoryScores?.nasional, it) ?? it.nilai_nasional;
+        const n = findScore(categoryScores?.nasional, it);
         const g = findScore(schoolScores, it);
         return { m, s, n, g };
       });
 
       const l2MandiriAvg = calcAvg(l2LeafScores.map((x) => x.m));
       const l2SekolahAvg = calcAvg(l2LeafScores.map((x) => x.s));
-      const l2NasionalAvg = calcAvg(l2LeafScores.map((x) => x.n)) ?? l2Avg;
+      const l2NasionalAvg = calcAvg(l2LeafScores.map((x) => x.n));
       const l2GabunganAvg = calcAvg(l2LeafScores.map((x) => x.g));
 
       hierarkiRows.push({
@@ -438,21 +430,17 @@ export function getOfficialHierarchyData(
 
         let l3Index = 1;
         for (const [l3Name, l3Items] of l3Groups.entries()) {
-          const l3Avg = Number(
-            (l3Items.reduce((acc, it) => acc + (it.nilai_nasional || 0), 0) / l3Items.length).toFixed(2),
-          );
-
           const l3LeafScores = l3Items.map((it) => {
-            const m = findScore(categoryScores?.mandiri || schoolScores, it);
+            const m = findScore(categoryScores?.mandiri, it);
             const s = findScore(categoryScores?.sekolah, it);
-            const n = findScore(categoryScores?.nasional, it) ?? it.nilai_nasional;
+            const n = findScore(categoryScores?.nasional, it);
             const g = findScore(schoolScores, it);
             return { m, s, n, g };
           });
 
           const l3MandiriAvg = calcAvg(l3LeafScores.map((x) => x.m));
           const l3SekolahAvg = calcAvg(l3LeafScores.map((x) => x.s));
-          const l3NasionalAvg = calcAvg(l3LeafScores.map((x) => x.n)) ?? l3Avg;
+          const l3NasionalAvg = calcAvg(l3LeafScores.map((x) => x.n));
           const l3GabunganAvg = calcAvg(l3LeafScores.map((x) => x.g));
 
           hierarkiRows.push({
@@ -467,9 +455,9 @@ export function getOfficialHierarchyData(
 
           // 4. Level 4 for Matematika: Indikator (leaf)
           for (const item of l3Items) {
-            const mScore = findScore(categoryScores?.mandiri || schoolScores, item);
+            const mScore = findScore(categoryScores?.mandiri, item);
             const sScore = findScore(categoryScores?.sekolah, item);
-            const nScore = findScore(categoryScores?.nasional, item) ?? item.nilai_nasional;
+            const nScore = findScore(categoryScores?.nasional, item);
             const gScore = findScore(schoolScores, item);
 
             hierarkiRows.push({
@@ -488,9 +476,9 @@ export function getOfficialHierarchyData(
       } else {
         // Level 3 for Bahasa Indonesia: Indikator (leaf)
         for (const item of l2Items) {
-          const mScore = findScore(categoryScores?.mandiri || schoolScores, item);
+          const mScore = findScore(categoryScores?.mandiri, item);
           const sScore = findScore(categoryScores?.sekolah, item);
-          const nScore = findScore(categoryScores?.nasional, item) ?? item.nilai_nasional;
+          const nScore = findScore(categoryScores?.nasional, item);
           const gScore = findScore(schoolScores, item);
 
           hierarkiRows.push({
