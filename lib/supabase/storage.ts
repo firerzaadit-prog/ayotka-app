@@ -17,14 +17,22 @@ const BUCKET = "soal-media";
 
 async function ensureBucketExists(): Promise<void> {
   if (pakaiPenyimpananLokal()) return;
-  const admin = createAdminClient();
-  const { data: buckets } = await admin.storage.listBuckets();
-  if (buckets?.some((b) => b.name === BUCKET)) return;
+  try {
+    const admin = createAdminClient();
+    const { data: buckets, error } = await admin.storage.listBuckets();
+    if (error) {
+      console.warn("Storage listBuckets error:", error.message);
+      return;
+    }
+    if (buckets?.some((b) => b.name === BUCKET)) return;
 
-  await admin.storage.createBucket(BUCKET, {
-    public: true,
-    fileSizeLimit: MAX_IMAGE_BYTES,
-  });
+    await admin.storage.createBucket(BUCKET, {
+      public: true,
+      fileSizeLimit: MAX_IMAGE_BYTES,
+    });
+  } catch (err) {
+    console.warn("ensureBucketExists caught error:", err);
+  }
 }
 
 export async function uploadQuestionImage(
@@ -99,20 +107,24 @@ export async function uploadImportImages(
     return null;
   }
 
-  await ensureBucketExists();
-  const admin = createAdminClient();
+  try {
+    await ensureBucketExists();
+    const admin = createAdminClient();
 
-  let next = 0;
-  let firstError: string | null = null;
-  const worker = async () => {
-    while (firstError === null) {
-      const item = items[next++];
-      if (!item) return;
-      // upsert: isi file sama persis dengan yang mungkin sudah ada di path itu, jadi menimpa aman.
-      const { error } = await admin.storage.from(BUCKET).upload(item.path, item.bytes, { contentType: item.mime, upsert: true });
-      if (error) firstError ??= error.message;
-    }
-  };
-  await Promise.all(Array.from({ length: Math.min(4, items.length) }, worker));
-  return firstError ? { error: firstError } : null;
+    let next = 0;
+    let firstError: string | null = null;
+    const worker = async () => {
+      while (firstError === null) {
+        const item = items[next++];
+        if (!item) return;
+        // upsert: isi file sama persis dengan yang mungkin sudah ada di path itu, jadi menimpa aman.
+        const { error } = await admin.storage.from(BUCKET).upload(item.path, item.bytes, { contentType: item.mime, upsert: true });
+        if (error) firstError ??= error.message;
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, items.length) }, worker));
+    return firstError ? { error: firstError } : null;
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }

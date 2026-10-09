@@ -117,12 +117,17 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
   if (blocked.length > 0) {
     throw new ImportBlockedError(blocked);
   }
+  let uploadBerhasil = false;
   if (gambarUnik.size > 0) {
     const gagalUnggah = await uploadImportImages(
       [...gambarUnik.values()].map(({ path, bytes, mime }) => ({ path, bytes, mime })),
     );
-    if (gagalUnggah) {
-      throw new Error(`Gagal menyimpan gambar ke penyimpanan (${gagalUnggah.error}). Tidak ada yang diimpor - coba lagi.`);
+    if (!gagalUnggah) {
+      uploadBerhasil = true;
+    } else {
+      console.warn(
+        `Penyimpanan media penyimpanan (${gagalUnggah.error}). Menggunakan fallback URL sumber / inline data URI agar impor tidak gagal.`,
+      );
     }
   }
 
@@ -165,12 +170,32 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
   preview.questions.forEach((q, i) => {
     const questionId = randomUUID();
     const taxonomy = taxonomyBySourceId.get(q.sourceId)!;
+
+    let mediaUrl: string | null = null;
+    if (uploadBerhasil) {
+      mediaUrl = gambarUntukSoal.get(q.sourceId)?.url ?? null;
+    } else {
+      const srcG = gambarBySourceId.get(q.sourceId);
+      if (srcG) {
+        if (srcG.url) {
+          mediaUrl = srcG.url;
+        } else if (srcG.tipe === "svg" && srcG.svg_content) {
+          mediaUrl = `data:image/svg+xml;utf8,${encodeURIComponent(srcG.svg_content)}`;
+        } else {
+          const entry = gambarUntukSoal.get(q.sourceId);
+          if (entry) {
+            mediaUrl = `data:${entry.mime};base64,${entry.bytes.toString("base64")}`;
+          }
+        }
+      }
+    }
+
     questionRows.push({
       id: questionId,
       packageId,
       format: q.format!,
       teks: q.teks,
-      media: gambarUntukSoal.get(q.sourceId)?.url ?? null,
+      media: mediaUrl,
       bobot: 1,
       tingkatKesulitan: q.tingkatKesulitan!,
       kompetensiId: taxonomy.kompetensiId,
