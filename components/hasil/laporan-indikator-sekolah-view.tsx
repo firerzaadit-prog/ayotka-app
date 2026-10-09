@@ -172,22 +172,19 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
     };
   }, [periodeId, subjectId, filterWilayah, kategoriUjian, kunci]);
 
-  if (error) return <Alert variant="danger">{error}</Alert>;
-  if (!respons) return <PageSkeleton />;
-
-  const memuat = respons.kunci !== kunci;
+  const memuat = respons ? respons.kunci !== kunci : false;
   const qs = new URLSearchParams();
   if (schoolId) qs.set("schoolId", schoolId);
   if (periodeId) qs.set("periodeId", periodeId);
   if (subjectId) qs.set("subjectId", subjectId);
   if (kategoriUjian !== "semua") qs.set("kategoriUjian", kategoriUjian);
   tambahkanParamWilayah(qs, filterWilayah);
-  const adaLaporan = Boolean(respons.data) && !memuat;
-  const lap = !memuat ? respons.data?.laporan ?? null : null;
+  const adaLaporan = Boolean(respons?.data) && !memuat;
+  const lap = !memuat ? respons?.data?.laporan ?? null : null;
   const skorTotal = lap ? lap.kelompok.reduce((a, k) => a + k.skor, 0) : 0;
   const maksTotal = lap ? lap.kelompok.reduce((a, k) => a + k.skorMaks, 0) : 0;
-  const sekolah = respons.data?.sekolah;
-  const pembanding = !memuat ? respons.data?.pembanding ?? null : null;
+  const sekolah = respons?.data?.sekolah;
+  const pembanding = !memuat ? respons?.data?.pembanding ?? null : null;
   const labelWilayah = pembanding ? `AyoTKA ${pembanding.label}` : undefined;
 
   const schoolScoresMap = useMemo(() => {
@@ -225,8 +222,8 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
   const categoryCounts = useMemo(() => {
     if (!respons?.breakdown) return null;
     return {
-      totalSiswa: respons.breakdown.gabungan?.jumlahSiswa ?? respons.data?.jumlahSiswaMengerjakan,
-      totalAttempts: respons.breakdown.gabungan?.jumlahPercobaan ?? respons.data?.jumlahPercobaan,
+      totalSiswa: respons.breakdown.gabungan?.jumlahSiswa ?? respons?.data?.jumlahSiswaMengerjakan ?? 0,
+      totalAttempts: respons.breakdown.gabungan?.jumlahPercobaan ?? respons?.data?.jumlahPercobaan ?? 0,
       mandiriAttempts: respons.breakdown.mandiri?.jumlahPercobaan ?? 0,
       sekolahAttempts: respons.breakdown.sekolah?.jumlahPercobaan ?? 0,
       nasionalAttempts: respons.breakdown.nasional?.jumlahPercobaan ?? 0,
@@ -244,6 +241,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
     }
     return "-";
   }, [lap, maksTotal, skorTotal, schoolScoresMap]);
+
   // Pintasan cakupan pembanding dari data sekolah sendiri; hanya yang datanya terisi.
   const pintasan: Array<{ nama: string; nilai: NilaiFilterWilayah }> = [
     { nama: "Nasional", nilai: { ...filterWilayah, provinsi: "", kabupatenKota: "" } },
@@ -253,6 +251,9 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
       : []),
   ];
   const sama = (a: NilaiFilterWilayah, b: NilaiFilterWilayah) => a.provinsi === b.provinsi && a.kabupatenKota === b.kabupatenKota;
+
+  if (error) return <Alert variant="danger">{error}</Alert>;
+  if (!respons) return <PageSkeleton />;
 
   return (
     <div className="flex flex-col gap-6">
