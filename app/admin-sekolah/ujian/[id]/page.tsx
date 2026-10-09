@@ -113,10 +113,10 @@ export default function PenugasanDetailPage({
     <div className="flex flex-col gap-6">
       <div>
         <Link href="/admin-sekolah/ujian" className="text-sm text-slate-500 hover:text-slate-700">
-          &larr; Kembali ke Try Out Bersama
+          &larr; Kembali ke Try Out Sekolah
         </Link>
         <h1 className="mt-1 text-xl font-semibold text-slate-900">
-          {assignmentNama || "Try Out Bersama"}
+          {assignmentNama || "Try Out Sekolah"}
         </h1>
         <p className="text-sm text-slate-500">
           {tab === "pantau"
@@ -125,7 +125,7 @@ export default function PenugasanDetailPage({
         </p>
       </div>
 
-      <div role="tablist" aria-label="Bagian Try Out Bersama" className="flex gap-1 border-b border-slate-200">
+      <div role="tablist" aria-label="Bagian Try Out Sekolah" className="flex gap-1 border-b border-slate-200">
         {(["pantau", "rekap"] as const).map((t) => (
           <button
             key={t}

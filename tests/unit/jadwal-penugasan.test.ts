@@ -108,31 +108,25 @@ describe("periksaJadwalPenugasan - harus dalam masa langganan sekolah", () => {
 });
 
 describe("wherePaketTersedia", () => {
-  it("tanpa jenjang: terbit, untuk siswa sekolah/semua, milik sekolah itu ATAU paket pusat yang didistribusikan ke sana", () => {
+  it("tanpa jenjang: terbit, untuk siswa sekolah/semua, hanya paket pusat", () => {
     expect(wherePaketTersedia("sekolah-1")).toEqual({
       status: "published",
       targetSiswa: { in: ["sekolah", "semua"] },
       kategori: "mandiri",
-      OR: [
-        { ownerType: "sekolah", ownerId: "sekolah-1" },
-        {
-          ownerType: "pusat",
-          visibility: { some: { OR: [{ targetType: "semua" }, { targetType: "sekolah", schoolId: "sekolah-1" }] } },
-        },
-      ],
+      ownerType: "pusat",
     });
   });
 
   it("dengan jenjang: hanya paket jenjang itu", () => {
-    expect(wherePaketTersedia("sekolah-1", { jenjang: "SMP" })).toMatchObject({ jenjang: "SMP", status: "published" });
+    expect(wherePaketTersedia("sekolah-1", { jenjang: "SMP" })).toMatchObject({ jenjang: "SMP", status: "published", ownerType: "pusat" });
     expect(wherePaketTersedia("sekolah-1")).not.toHaveProperty("jenjang");
   });
 
   it("Try Out Nasional TIDAK termasuk secara bawaan (hanya admin pusat yang menjalankannya); termasukNasional membukanya untuk admin pusat", () => {
-    expect(wherePaketTersedia("sekolah-1")).toMatchObject({ kategori: "mandiri" });
-    expect(wherePaketTersedia("sekolah-1", { jenjang: "SMP" })).toMatchObject({ kategori: "mandiri", jenjang: "SMP" });
+    expect(wherePaketTersedia("sekolah-1")).toMatchObject({ kategori: "mandiri", ownerType: "pusat" });
+    expect(wherePaketTersedia("sekolah-1", { jenjang: "SMP" })).toMatchObject({ kategori: "mandiri", jenjang: "SMP", ownerType: "pusat" });
     expect(wherePaketTersedia("sekolah-1", { termasukNasional: true })).not.toHaveProperty("kategori");
-    expect(wherePaketTersedia("sekolah-1", { termasukNasional: false })).toMatchObject({ kategori: "mandiri" });
+    expect(wherePaketTersedia("sekolah-1", { termasukNasional: false })).toMatchObject({ kategori: "mandiri", ownerType: "pusat" });
   });
 
   it("paket khusus mandiri tidak termasuk (targetSiswa mandiri tidak ada di daftar)", () => {
@@ -140,9 +134,8 @@ describe("wherePaketTersedia", () => {
     expect(where.targetSiswa.in).not.toContain("mandiri");
   });
 
-  it("distribusi hanya berlaku untuk paket pusat (visibility yatim pada paket sekolah tidak membuatnya tersedia di sekolah lain)", () => {
-    const where = wherePaketTersedia("sekolah-1") as { OR: { ownerType: string; visibility?: unknown }[] };
-    const cabangVisibility = where.OR.find((c) => c.visibility);
-    expect(cabangVisibility?.ownerType).toBe("pusat");
+  it("paket buatan sekolah tidak diizinkan (hanya ownerType pusat)", () => {
+    const where = wherePaketTersedia("sekolah-1");
+    expect(where.ownerType).toBe("pusat");
   });
 });
