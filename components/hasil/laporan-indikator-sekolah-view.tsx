@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DaftarFokus, KelompokDetail } from "@/components/hasil/daya-serap-indikator";
 import { Alert } from "@/components/ui/alert";
@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { AnalisisAiSekolahPanel } from "@/components/ai/analisis-sekolah-panel";
 import { buttonClassName } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { KemendikdasmenDayaSerapView } from "@/components/analytics/kemendikdasmen-daya-serap-view";
+import type { JenjangResmi, MapelKey } from "@/lib/indikator/hierarki-resmi";
 import { EmptyState } from "@/components/ui/empty-state";
 import { IconChart } from "@/components/ui/empty-state-icons";
 import { PageHeader } from "@/components/ui/page-header";
@@ -115,6 +117,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
   const [kategoriUjian, setKategoriUjian] = useState<"semua" | "sekolah" | "nasional" | "mandiri">("semua");
   const [respons, setRespons] = useState<Respons | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [tampilanHierarki, setTampilanHierarki] = useState<"kemendikdasmen" | "akordion">("kemendikdasmen");
 
   useEffect(() => {
     let ignore = false;
@@ -175,6 +178,19 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
   const sekolah = respons.data?.sekolah;
   const pembanding = !memuat ? respons.data?.pembanding ?? null : null;
   const labelWilayah = pembanding ? `AyoTKA ${pembanding.label}` : undefined;
+
+  const schoolScoresMap = useMemo(() => {
+    if (!lap?.kelompok) return new Map<string, { dayaSerap: number; jmlSoal: number }>();
+    const map = new Map<string, { dayaSerap: number; jmlSoal: number }>();
+    for (const k of lap.kelompok) {
+      for (const b of k.baris ?? []) {
+        map.set(b.indikator, { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
+        map.set(b.indikator.trim(), { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
+        map.set(b.indikator.trim().toLowerCase(), { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
+      }
+    }
+    return map;
+  }, [lap]);
   // Pintasan cakupan pembanding dari data sekolah sendiri; hanya yang datanya terisi.
   const pintasan: Array<{ nama: string; nilai: NilaiFilterWilayah }> = [
     { nama: "Nasional", nilai: { ...filterWilayah, provinsi: "", kabupatenKota: "" } },
@@ -340,17 +356,72 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
             <Sebaran sebaran={lap.sebaran} />
           </Card>
 
-          <Card>
-            <h2 className="mb-1 text-lg font-semibold text-slate-900">Daya Serap per {lap.label[0]}</h2>
-            <p className="mb-4 text-sm text-slate-500">
-              {lap.mapel} · {lap.label.join(" → ")}. Rerata nasional adalah rujukan; vonis hanya diberikan per {lap.label[0]?.toLowerCase()}.
-            </p>
-            <div className="flex flex-col gap-3">
-              {lap.kelompok.map((k) => (
-                <KelompokDetail key={k.nama} label0={lap.label[0]!} k={k} tambahan={tambahanSiswa} terbuka={false} labelWilayah={labelWilayah} />
-              ))}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  Daya Serap per {lap.label[0]}
+                </h2>
+                <p className="text-sm text-slate-500">
+                  {lap.mapel} ({respons.data.mapel.jenjang}) · {lap.label.join(" → ")}. Rerata nasional sebagai rujukan resmi.
+                </p>
+              </div>
+
+              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setTampilanHierarki("kemendikdasmen")}
+                  className={`rounded-md px-3 py-1.5 font-medium transition cursor-pointer ${
+                    tampilanHierarki === "kemendikdasmen"
+                      ? "bg-white text-blue-700 shadow-xs font-semibold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Tampilan Resmi Kemendikdasmen
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTampilanHierarki("akordion")}
+                  className={`rounded-md px-3 py-1.5 font-medium transition cursor-pointer ${
+                    tampilanHierarki === "akordion"
+                      ? "bg-white text-slate-900 shadow-xs font-semibold"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Tampilan Akordion
+                </button>
+              </div>
             </div>
-          </Card>
+
+            {tampilanHierarki === "kemendikdasmen" ? (
+              <KemendikdasmenDayaSerapView
+                initialJenjang={(respons.data.mapel.jenjang.toUpperCase() === "SD" ? "SD" : "SMP") as JenjangResmi}
+                initialMapel={
+                  respons.data.mapel.nama.toLowerCase().includes("matematika")
+                    ? "matematika"
+                    : "bahasa-indonesia"
+                }
+                namaSekolah={respons.data.sekolah.nama}
+                schoolScores={schoolScoresMap}
+                allowFilterSwitch={false}
+              />
+            ) : (
+              <Card>
+                <div className="flex flex-col gap-3">
+                  {lap.kelompok.map((k) => (
+                    <KelompokDetail
+                      key={k.nama}
+                      label0={lap.label[0]!}
+                      k={k}
+                      tambahan={tambahanSiswa}
+                      terbuka={false}
+                      labelWilayah={labelWilayah}
+                    />
+                  ))}
+                </div>
+              </Card>
+            )}
+          </div>
 
           <Card>
             <h2 className="mb-1 text-lg font-semibold text-slate-900">Wawasan Learning Analytics</h2>
