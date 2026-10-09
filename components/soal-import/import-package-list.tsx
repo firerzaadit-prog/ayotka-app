@@ -46,7 +46,7 @@ export function ImportPackageList() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Impor dari soal.ayotka.id"
-        description="Paket berstatus diterbitkan di soal.ayotka.id - tarik ke Bank Soal ayotka-app sebagai paket draft."
+        description="Paket berstatus diterbitkan / tayang di soal.ayotka.id - tarik ke Bank Soal ayotka-app sebagai paket draft."
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
@@ -57,7 +57,7 @@ export function ImportPackageList() {
         <EmptyState
           icon={<IconDocument />}
           title="Belum ada paket yang bisa diimpor"
-          description="Paket baru bisa ditarik setelah statusnya diterbitkan di soal.ayotka.id (30/30 soal disetujui validator)."
+          description="Paket baru bisa ditarik setelah statusnya tayang / diterbitkan di soal.ayotka.id."
         />
       ) : (
         <TableContainer>

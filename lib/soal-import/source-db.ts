@@ -97,12 +97,11 @@ function getClient(): PrismaClient {
   return globalForSourceDb.soalSourceClient;
 }
 
-/** Paket berstatus `diterbitkan` - satu-satunya status yang boleh diimpor. */
 export async function listPublishedPackages(): Promise<SourcePaket[]> {
   return getClient().$queryRaw<SourcePaket[]>`
     SELECT id, code, nama, jenjang, mapel, status, jumlah_soal AS "jumlahSoal"
     FROM soal.question_packages
-    WHERE status = 'diterbitkan'
+    WHERE status IN ('diterbitkan', 'dalam_validasi')
     ORDER BY code ASC
   `;
 }
