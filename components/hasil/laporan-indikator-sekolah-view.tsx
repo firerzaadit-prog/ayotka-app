@@ -42,7 +42,18 @@ type DataLaporan = {
   pembanding?: PembandingWilayah | null;
   wawasan?: Wawasan[];
 };
-type Respons = { kunci: string; mapel: MapelOpsi[]; periodeLabel: string; data: DataLaporan | null };
+type Respons = {
+  kunci: string;
+  mapel: MapelOpsi[];
+  periodeLabel: string;
+  data: DataLaporan | null;
+  breakdown?: {
+    mandiri?: { skor?: Record<string, { dayaSerap: number; jmlSoal: number }>; jumlahSiswa?: number; jumlahPercobaan?: number };
+    sekolah?: { skor?: Record<string, { dayaSerap: number; jmlSoal: number }>; jumlahSiswa?: number; jumlahPercobaan?: number };
+    nasional?: { skor?: Record<string, { dayaSerap: number; jmlSoal: number }>; jumlahSiswa?: number; jumlahPercobaan?: number };
+    gabungan?: { skor?: Record<string, { dayaSerap: number; jmlSoal: number }>; jumlahSiswa?: number; jumlahPercobaan?: number };
+  } | null;
+};
 
 const selectClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 transition-colors focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
@@ -151,7 +162,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
         return;
       }
       setError(null);
-      setRespons({ kunci, mapel: data.mapel ?? [], periodeLabel: data.periodeLabel, data: data.data });
+      setRespons({ kunci, mapel: data.mapel ?? [], periodeLabel: data.periodeLabel, data: data.data, breakdown: data.breakdown ?? null });
       // belum ada mapel terpilih (atau pilihan lama tak ada di periode ini): pilih mapel pertama yang punya data
       const ada = (data.mapel as MapelOpsi[]).some((m) => m.subjectId === subjectId);
       if (!ada) setSubjectId(data.mapel.length > 0 ? data.mapel[0].subjectId : "");
@@ -171,7 +182,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
   if (subjectId) qs.set("subjectId", subjectId);
   if (kategoriUjian !== "semua") qs.set("kategoriUjian", kategoriUjian);
   tambahkanParamWilayah(qs, filterWilayah);
-  const adaLaporan = Boolean(respons.data?.laporan) && !memuat;
+  const adaLaporan = Boolean(respons.data) && !memuat;
   const lap = !memuat ? respons.data?.laporan ?? null : null;
   const skorTotal = lap ? lap.kelompok.reduce((a, k) => a + k.skor, 0) : 0;
   const maksTotal = lap ? lap.kelompok.reduce((a, k) => a + k.skorMaks, 0) : 0;
@@ -180,17 +191,59 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
   const labelWilayah = pembanding ? `AyoTKA ${pembanding.label}` : undefined;
 
   const schoolScoresMap = useMemo(() => {
-    if (!lap?.kelompok) return new Map<string, { dayaSerap: number; jmlSoal: number }>();
     const map = new Map<string, { dayaSerap: number; jmlSoal: number }>();
-    for (const k of lap.kelompok) {
-      for (const b of k.baris ?? []) {
-        map.set(b.indikator, { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
-        map.set(b.indikator.trim(), { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
-        map.set(b.indikator.trim().toLowerCase(), { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
+    if (lap?.kelompok) {
+      for (const k of lap.kelompok) {
+        for (const b of k.baris ?? []) {
+          map.set(b.indikator, { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
+          map.set(b.indikator.trim(), { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
+          map.set(b.indikator.trim().toLowerCase(), { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
+        }
+      }
+    }
+    if (respons?.breakdown?.gabungan?.skor) {
+      for (const [k, v] of Object.entries(respons.breakdown.gabungan.skor)) {
+        if (!map.has(k)) {
+          map.set(k, v);
+          map.set(k.trim(), v);
+          map.set(k.trim().toLowerCase(), v);
+        }
       }
     }
     return map;
-  }, [lap]);
+  }, [lap, respons]);
+
+  const categoryScoresMap = useMemo(() => {
+    if (!respons?.breakdown) return null;
+    return {
+      mandiri: new Map(Object.entries(respons.breakdown.mandiri?.skor ?? {})),
+      sekolah: new Map(Object.entries(respons.breakdown.sekolah?.skor ?? {})),
+      nasional: new Map(Object.entries(respons.breakdown.nasional?.skor ?? {})),
+    };
+  }, [respons?.breakdown]);
+
+  const categoryCounts = useMemo(() => {
+    if (!respons?.breakdown) return null;
+    return {
+      totalSiswa: respons.breakdown.gabungan?.jumlahSiswa ?? respons.data?.jumlahSiswaMengerjakan,
+      totalAttempts: respons.breakdown.gabungan?.jumlahPercobaan ?? respons.data?.jumlahPercobaan,
+      mandiriAttempts: respons.breakdown.mandiri?.jumlahPercobaan ?? 0,
+      sekolahAttempts: respons.breakdown.sekolah?.jumlahPercobaan ?? 0,
+      nasionalAttempts: respons.breakdown.nasional?.jumlahPercobaan ?? 0,
+    };
+  }, [respons?.breakdown, respons?.data]);
+
+  const persentaseKeseluruhan = useMemo(() => {
+    if (lap && maksTotal > 0) return formatPersen((skorTotal / maksTotal) * 100, 1);
+    if (schoolScoresMap.size > 0) {
+      const vals = Array.from(schoolScoresMap.values()).map((v) => v.dayaSerap);
+      if (vals.length > 0) {
+        const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+        return formatPersen(avg, 1);
+      }
+    }
+    return "-";
+  }, [lap, maksTotal, skorTotal, schoolScoresMap]);
   // Pintasan cakupan pembanding dari data sekolah sendiri; hanya yang datanya terisi.
   const pintasan: Array<{ nama: string; nilai: NilaiFilterWilayah }> = [
     { nama: "Nasional", nilai: { ...filterWilayah, provinsi: "", kabupatenKota: "" } },
@@ -329,80 +382,88 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
         />
       )}
 
-      {!memuat && respons.data && !respons.data.laporan && respons.mapel.length > 0 && (
+      {!memuat && respons.data && !respons.data.laporan && respons.mapel.length > 0 && tampilanHierarki === "akordion" && (
         <Alert variant="warning">
           Belum ada soal berindikator resmi Kemendikdasmen pada percobaan {respons.data.mapel.nama} di rentang ini
           ({respons.data.jumlahPercobaan} percobaan dari {respons.data.jumlahSiswaMengerjakan} siswa). Soal yang diimpor dari
-          soal.ayotka.id otomatis tertaut setelah admin pusat mengunggah master indikator resmi.
+          soal.ayotka.id otomatis tertaut setelah admin pusat mengunggah master indikator resmi. Silakan beralih ke Tampilan Resmi Kemendikdasmen.
         </Alert>
       )}
 
-      {lap && respons.data && (
+      {respons.data && (
         <>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard label="Siswa mengerjakan" value={respons.data.jumlahSiswaMengerjakan} hint={`${respons.data.jumlahPaket} paket`} />
             <StatCard label="Percobaan dihitung" value={respons.data.jumlahPercobaan} hint="percobaan pertama tiap siswa" />
             <StatCard
               label="Cakupan indikator resmi"
-              value={lap.jumlahJawaban > 0 ? formatPersen((lap.jawabanBerindikator / lap.jumlahJawaban) * 100, 0) : "-"}
-              hint={`${lap.jawabanBerindikator} dari ${lap.jumlahJawaban} jawaban`}
+              value={lap && lap.jumlahJawaban > 0 ? formatPersen((lap.jawabanBerindikator / lap.jumlahJawaban) * 100, 0) : "-"}
+              hint={lap ? `${lap.jawabanBerindikator} dari ${lap.jumlahJawaban} jawaban` : "Hierarki Pusmendik"}
             />
-            <StatCard label="Daya serap keseluruhan" value={maksTotal > 0 ? formatPersen((skorTotal / maksTotal) * 100, 1) : "-"} hint={respons.periodeLabel} />
+            <StatCard label="Daya serap keseluruhan" value={persentaseKeseluruhan} hint={respons.periodeLabel} />
           </div>
 
-          <Card>
-            <h2 className="mb-1 text-lg font-semibold text-slate-900">Sebaran Siswa</h2>
-            <p className="mb-4 text-sm text-slate-500">Berdasarkan daya serap keseluruhan tiap siswa pada mata pelajaran ini.</p>
-            <Sebaran sebaran={lap.sebaran} />
-          </Card>
+          {lap?.sebaran && (
+            <Card>
+              <h2 className="mb-1 text-lg font-semibold text-slate-900">Sebaran Siswa</h2>
+              <p className="mb-4 text-sm text-slate-500">Berdasarkan daya serap keseluruhan tiap siswa pada mata pelajaran ini.</p>
+              <Sebaran sebaran={lap.sebaran} />
+            </Card>
+          )}
 
           <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
-                  Daya Serap per {lap.label[0]}
+                  Daya Serap per {lap ? lap.label[0] : "Elemen"}
                 </h2>
                 <p className="text-sm text-slate-500">
-                  {lap.mapel} ({respons.data.mapel.jenjang}) · {lap.label.join(" → ")}. Rerata nasional sebagai rujukan resmi.
+                  {respons.data.mapel?.nama ?? "Mata Pelajaran"} ({respons.data.mapel?.jenjang ?? "SMP"}) · {lap ? lap.label.join(" → ") : "Elemen → Subelemen → Kompetensi → Indikator"}. Rerata nasional sebagai rujukan resmi.
                 </p>
               </div>
 
-              <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setTampilanHierarki("kemendikdasmen")}
-                  className={`rounded-md px-3 py-1.5 font-medium transition cursor-pointer ${
-                    tampilanHierarki === "kemendikdasmen"
-                      ? "bg-white text-blue-700 shadow-xs font-semibold"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Tampilan Resmi Kemendikdasmen
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTampilanHierarki("akordion")}
-                  className={`rounded-md px-3 py-1.5 font-medium transition cursor-pointer ${
-                    tampilanHierarki === "akordion"
-                      ? "bg-white text-slate-900 shadow-xs font-semibold"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
-                >
-                  Tampilan Akordion
-                </button>
-              </div>
+              {lap && (
+                <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100 p-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setTampilanHierarki("kemendikdasmen")}
+                    className={`rounded-md px-3 py-1.5 font-medium transition cursor-pointer ${
+                      tampilanHierarki === "kemendikdasmen"
+                        ? "bg-white text-blue-700 shadow-xs font-semibold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Tampilan Resmi Kemendikdasmen
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTampilanHierarki("akordion")}
+                    className={`rounded-md px-3 py-1.5 font-medium transition cursor-pointer ${
+                      tampilanHierarki === "akordion"
+                        ? "bg-white text-slate-900 shadow-xs font-semibold"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    Tampilan Akordion
+                  </button>
+                </div>
+              )}
             </div>
 
-            {tampilanHierarki === "kemendikdasmen" ? (
+            {tampilanHierarki === "kemendikdasmen" || !lap ? (
               <KemendikdasmenDayaSerapView
-                initialJenjang={(respons.data.mapel.jenjang.toUpperCase() === "SD" ? "SD" : "SMP") as JenjangResmi}
+                initialJenjang={
+                  ((respons.data.mapel?.jenjang ?? "SMP").toUpperCase() === "SD" ? "SD" : "SMP") as JenjangResmi
+                }
                 initialMapel={
-                  respons.data.mapel.nama.toLowerCase().includes("matematika")
+                  respons.data.mapel?.nama?.toLowerCase().includes("matematika")
                     ? "matematika"
                     : "bahasa-indonesia"
                 }
-                namaSekolah={respons.data.sekolah.nama}
+                namaSekolah={respons.data.sekolah?.nama ?? ""}
                 schoolScores={schoolScoresMap}
+                categoryScores={categoryScoresMap}
+                counts={categoryCounts}
                 allowFilterSwitch={false}
               />
             ) : (
@@ -442,9 +503,9 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
             )}
           </Card>
 
-          <AnalisisAiSekolahPanel kunci={kunci} queryString={qs.toString()} />
+          {lap && <AnalisisAiSekolahPanel kunci={kunci} queryString={qs.toString()} />}
 
-          {(lap.tren.length > 1 || lap.perLevel.length > 0) && (
+          {lap && (lap.tren.length > 1 || lap.perLevel.length > 0) && (
             <div className="grid gap-3 lg:grid-cols-2">
               {lap.tren.length > 1 && (
                 <Card>
@@ -471,63 +532,67 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
             </div>
           )}
 
-          <div>
-            <h2 className="mb-1 text-lg font-semibold text-slate-900">Fokus Remedial</h2>
-            <p className="mb-3 text-sm text-slate-500">
-              Dihitung otomatis dari hasil siswa. Analisis AI per siswa ada di halaman detail siswa.
-            </p>
-            <div className="grid gap-3 lg:grid-cols-2">
-              <DaftarFokus
-                judul="Prioritas remedial"
-                deskripsi="Indikator dengan daya serap terendah (di bawah 70%) dan cukup banyak jawaban (minimal 5)."
-                baris={lap.prioritasRemedial}
-                kosong="Tidak ada indikator di bawah 70% dengan jawaban yang cukup."
-                tambahan={tambahanSiswa}
-              />
-              <DaftarFokus
-                judul="Indikator di bawah rerata nasional"
-                deskripsi="Daya serap sekolah lebih rendah daripada rerata nasional; selisih terbesar lebih dulu."
-                baris={lap.diBawahNasional}
-                kosong="Tidak ada indikator di bawah rerata nasional (dengan jawaban yang cukup)."
-                tambahan={tambahanNasional}
-              />
+          {lap && (
+            <div>
+              <h2 className="mb-1 text-lg font-semibold text-slate-900">Fokus Remedial</h2>
+              <p className="mb-3 text-sm text-slate-500">
+                Dihitung otomatis dari hasil siswa. Analisis AI per siswa ada di halaman detail siswa.
+              </p>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <DaftarFokus
+                  judul="Prioritas remedial"
+                  deskripsi="Indikator dengan daya serap terendah (di bawah 70%) dan cukup banyak jawaban (minimal 5)."
+                  baris={lap.prioritasRemedial}
+                  kosong="Tidak ada indikator di bawah 70% dengan jawaban yang cukup."
+                  tambahan={tambahanSiswa}
+                />
+                <DaftarFokus
+                  judul="Indikator di bawah rerata nasional"
+                  deskripsi="Daya serap sekolah lebih rendah daripada rerata nasional; selisih terbesar lebih dulu."
+                  baris={lap.diBawahNasional}
+                  kosong="Tidak ada indikator di bawah rerata nasional (dengan jawaban yang cukup)."
+                  tambahan={tambahanNasional}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
-          <Card>
-            <h2 className="mb-1 text-lg font-semibold text-slate-900">Siswa yang Perlu Perhatian</h2>
-            <p className="mb-4 text-sm text-slate-500">
-              Daya serap keseluruhan di bawah 50% pada mata pelajaran ini, terendah lebih dulu, beserta dua indikator terlemahnya.
-            </p>
-            {lap.siswaPerhatian.length === 0 ? (
-              <p className="text-sm text-slate-500">Tidak ada siswa di bawah 50%.</p>
-            ) : (
-              <ul className="flex flex-col divide-y divide-slate-100">
-                {lap.siswaPerhatian.map((s) => (
-                  <li key={s.studentId} className="py-3">
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <Link href={`/admin-sekolah/siswa/${s.studentId}`} className="text-sm font-medium text-indigo-700 hover:underline">
-                        {s.nama}
-                      </Link>
-                      <span className={`font-mono text-sm font-semibold ${COMPETENCY_TIER_CLASS[competencyTier(s.dayaSerap)].text}`}>
-                        {formatPersen(s.dayaSerap, 0)}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400">
-                      {s.nisn ? `NISN ${s.nisn} · ` : ""}
-                      {s.jmlSoal} soal berindikator
-                    </p>
-                    {s.terlemah.length > 0 && (
-                      <p className="mt-1 text-xs leading-snug text-slate-600">
-                        <span className="font-medium text-slate-500">Terlemah: </span>
-                        {s.terlemah.map((b) => `${b.indikator} (${formatPersen(b.dayaSerap, 0)})`).join("; ")}
+          {lap && (
+            <Card>
+              <h2 className="mb-1 text-lg font-semibold text-slate-900">Siswa yang Perlu Perhatian</h2>
+              <p className="mb-4 text-sm text-slate-500">
+                Daya serap keseluruhan di bawah 50% pada mata pelajaran ini, terendah lebih dulu, beserta dua indikator terlemahnya.
+              </p>
+              {lap.siswaPerhatian.length === 0 ? (
+                <p className="text-sm text-slate-500">Tidak ada siswa di bawah 50%.</p>
+              ) : (
+                <ul className="flex flex-col divide-y divide-slate-100">
+                  {lap.siswaPerhatian.map((s) => (
+                    <li key={s.studentId} className="py-3">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <Link href={`/admin-sekolah/siswa/${s.studentId}`} className="text-sm font-medium text-indigo-700 hover:underline">
+                          {s.nama}
+                        </Link>
+                        <span className={`font-mono text-sm font-semibold ${COMPETENCY_TIER_CLASS[competencyTier(s.dayaSerap)].text}`}>
+                          {formatPersen(s.dayaSerap, 0)}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        {s.nisn ? `NISN ${s.nisn} · ` : ""}
+                        {s.jmlSoal} soal berindikator
                       </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
+                      {s.terlemah.length > 0 && (
+                        <p className="mt-1 text-xs leading-snug text-slate-600">
+                          <span className="font-medium text-slate-500">Terlemah: </span>
+                          {s.terlemah.map((b) => `${b.indikator} (${formatPersen(b.dayaSerap, 0)})`).join("; ")}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          )}
         </>
       )}
     </div>

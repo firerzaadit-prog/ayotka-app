@@ -283,7 +283,9 @@ export function getOfficialHierarchyData(
       d.nama_mapel.toLowerCase().includes(mapelNama.toLowerCase()),
   );
 
-  const stats = STATISTIK_NASIONAL[jenjang][mapelKey];
+  const targetJenjang: JenjangResmi = jenjang?.toUpperCase() === "SD" ? "SD" : "SMP";
+  const targetMapelKey: MapelKey = mapelKey === "bahasa-indonesia" ? "bahasa-indonesia" : "matematika";
+  const stats = STATISTIK_NASIONAL[targetJenjang]?.[targetMapelKey] ?? { sekolah: 0, peserta: 0 };
   const labelTingkat = isMatematika
     ? ["Elemen", "Subelemen", "Kompetensi", "Indikator"]
     : ["Kompetensi", "Subkompetensi", "Indikator"];
