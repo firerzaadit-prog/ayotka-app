@@ -26,8 +26,11 @@ describe("translateTingkatKesulitan", () => {
     expect(translateTingkatKesulitan("tinggi")).toBe("sulit");
   });
 
-  it("melempar error untuk nilai yang tidak dikenal", () => {
-    expect(() => translateTingkatKesulitan("mudah")).toThrow(/tidak dikenal/);
+  it("memetakan variasi seperti mudah/sulit/sukar dan default ke sedang", () => {
+    expect(translateTingkatKesulitan("mudah")).toBe("mudah");
+    expect(translateTingkatKesulitan("sulit")).toBe("sulit");
+    expect(translateTingkatKesulitan("sukar")).toBe("sulit");
+    expect(translateTingkatKesulitan("tidak_diketahui")).toBe("sedang");
   });
 });
 
@@ -57,11 +60,11 @@ describe("translateStimulusTipe", () => {
 });
 
 describe("translateLevelKognitif", () => {
-  it("mengembalikan null untuk input null", () => {
-    expect(translateLevelKognitif(null)).toBeNull();
+  it("mengembalikan default L1 untuk input null tanpa kesulitan", () => {
+    expect(translateLevelKognitif(null)).toBe("L1");
   });
 
-  it("mengenali tiga label kognitif standar, dengan atau tanpa prefix angka", () => {
+  it("mengenali tiga label kognitif standar Matematika, dengan atau tanpa prefix angka", () => {
     expect(translateLevelKognitif("Pengetahuan dan Pemahaman")).toBe("L1");
     expect(translateLevelKognitif("1. Pengetahuan dan Pemahaman")).toBe("L1");
     expect(translateLevelKognitif("Aplikasi")).toBe("L2");
@@ -70,16 +73,12 @@ describe("translateLevelKognitif", () => {
     expect(translateLevelKognitif("3. Penalaran")).toBe("L3");
   });
 
-  // Nilai-nilai ini benar-benar ada di data produksi soal.ayotka.id (dicek
-  // langsung ke database) - label kompetensi atau tingkat kesulitan yang
-  // nyasar ke kolom level_kognitif. Harus null (belum bisa ditentukan),
-  // bukan ditebak jadi salah satu dari L1/L2/L3.
-  it("mengembalikan null untuk nilai nyasar yang benar-benar ditemukan di data produksi", () => {
-    expect(translateLevelKognitif("Evaluasi dan Apresiasi")).toBeNull();
-    expect(translateLevelKognitif("Pemahaman Inferensial")).toBeNull();
-    expect(translateLevelKognitif("Pemahaman Tekstual")).toBeNull();
-    expect(translateLevelKognitif("Pemahaman")).toBeNull();
-    expect(translateLevelKognitif("sedang")).toBeNull();
-    expect(translateLevelKognitif("Rendah")).toBeNull();
+  it("mengenali label taksonomi Bahasa Indonesia dan kesulitan dari generator tanpa memblokir", () => {
+    expect(translateLevelKognitif("Evaluasi dan Apresiasi")).toBe("L3");
+    expect(translateLevelKognitif("Pemahaman Inferensial")).toBe("L2");
+    expect(translateLevelKognitif("Pemahaman Tekstual")).toBe("L1");
+    expect(translateLevelKognitif("Pemahaman")).toBe("L1");
+    expect(translateLevelKognitif("sedang")).toBe("L2");
+    expect(translateLevelKognitif("Rendah")).toBe("L1");
   });
 });

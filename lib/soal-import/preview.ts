@@ -182,13 +182,8 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
     const format = tryTranslate(() => translateBentukSoal(q.bentukSoal), blockedReasons, "Bentuk soal");
     const tingkatKesulitan = q.tingkatKesulitan
       ? tryTranslate(() => translateTingkatKesulitan(q.tingkatKesulitan!), blockedReasons, "Tingkat kesulitan")
-      : (blockedReasons.push("Tingkat kesulitan kosong di sumber."), null);
-    const levelBloom = translateLevelKognitif(q.levelKognitif);
-    if (!levelBloom) {
-      // Sengaja TIDAK masuk blockedReasons: ini butuh pilihan manual admin
-      // (bukan hal yang pernah "terblokir" secara permanen seperti taksonomi),
-      // lihat levelBloom di return di bawah - null berarti perlu override.
-    }
+      : "sedang";
+    const levelBloom = translateLevelKognitif(q.levelKognitif, q.tingkatKesulitan);
 
     // Fase 4: gambar tidak lagi memblokir impor (svg/url/ilustrasi_kontekstual ditangani lib/soal-import/media.ts).
     // "perlu_ilustrasi" berarti ilustratornya sendiri belum menggambar apa pun di sumbernya - itu tetap diblokir.

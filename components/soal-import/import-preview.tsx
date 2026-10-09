@@ -107,6 +107,21 @@ export function ImportPreview({ paketId }: { paketId: string }) {
     return subjects.filter((s) => s.nama === preview.sourcePaket.mapel);
   }, [subjects, preview]);
 
+  // Otomatis pilih subject tujuan jika cocok dengan mapel dan jenjang paket sumber
+  useEffect(() => {
+    if (!subjectId && preview && matchingSubjects.length > 0) {
+      const targetJenjang = preview.sourcePaket.jenjang.toUpperCase();
+      const match =
+        matchingSubjects.find((s) => {
+          const sj = s.jenjang.toUpperCase();
+          return sj === targetJenjang || (targetJenjang.includes("SMP") && sj === "SMP") || (targetJenjang.includes("SD") && sj === "SD");
+        }) ?? matchingSubjects[0];
+      if (match) {
+        setSubjectId(match.id);
+      }
+    }
+  }, [matchingSubjects, preview, subjectId]);
+
   const questionsNeedingLevel = useMemo(
     () => preview?.questions.filter((q) => !q.levelBloom) ?? [],
     [preview],
@@ -192,7 +207,17 @@ export function ImportPreview({ paketId }: { paketId: string }) {
       )}
 
       <Card>
-        <h2 className="mb-3 text-sm font-semibold text-slate-900">Tujuan impor</h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Tujuan impor</h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Paket soal akan langsung disimpan ke <strong>Bank Soal</strong> berstatus <strong>Draft</strong>.
+            </p>
+          </div>
+          <Button onClick={handleConfirm} disabled={!canConfirm || submitting}>
+            {submitting ? "Mengimpor..." : "Konfirmasi impor ke Bank Soal"}
+          </Button>
+        </div>
         <div className="flex flex-wrap items-end gap-3">
           <div className="w-64">
             <label className="mb-1 block text-xs font-medium text-slate-700">Subject</label>
