@@ -74,7 +74,7 @@ describe("Render Invoice Sekolah PDF", () => {
       tanggalInvoice: new Date("2026-10-10"),
       jatuhTempo: new Date("2026-10-24"),
       keterangan: "Akses Try Out AyoTKA Periode 2026/2027",
-      bankTujuan: "Bank Mandiri - No. Rek: 144-00-1234567-8 a.n. PT Ayo TKA Edukasi",
+      bankTujuan: "Bank Mandiri - No. Rek: 144-00-1234567-8 a.n. Grup Riset Media Pembelajaran dan Teknologi Matematika",
       catatan: "Harap transfer sebelum jatuh tempo.",
       dibayarAt: null,
       dibuatOlehId: null,
@@ -99,7 +99,7 @@ describe("Render Invoice Sekolah PDF", () => {
     bankAccount: {
       namaBank: "Bank Mandiri",
       nomorRekening: "144-00-1234567-8",
-      atasNama: "PT Ayo TKA Edukasi",
+      atasNama: "Grup Riset Media Pembelajaran dan Teknologi Matematika",
     },
   };
 

@@ -363,7 +363,7 @@ export function SchoolInvoicePanel({
               required
               value={bankTujuan}
               onChange={(e) => setBankTujuan(e.target.value)}
-              placeholder="Contoh: Bank Mandiri - No. Rek: 144-00-1234567-8 a.n. PT Ayo TKA Edukasi"
+              placeholder="Contoh: Bank Mandiri - No. Rek: 144-00-1234567-8 a.n. Grup Riset Media Pembelajaran dan Teknologi Matematika"
             />
           </div>
 

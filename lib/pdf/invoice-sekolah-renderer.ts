@@ -187,8 +187,8 @@ export async function renderInvoiceSekolahPdf(
     text(": LUNAS (Terverifikasi)", card2X + 104, currentY + 60, cardWidth - 118, 8.5, "#059669", true);
 
     // Penerbit
-    text("Penerbit", card2X + 14, currentY + 76, 90, 8.5, COLOR.muted);
-    text(": PT Ayo TKA Edukasi", card2X + 104, currentY + 76, cardWidth - 118, 8.5, COLOR.ink);
+    text("Penerbit", card2X + 14, currentY + 76, 48, 8, COLOR.muted);
+    text(": Grup Riset Media Pembelajaran dan Teknologi Matematika", card2X + 58, currentY + 76, cardWidth - 70, 7, COLOR.ink);
   } else {
     // Baris Jatuh Tempo
     text("Jatuh Tempo", card2X + 14, currentY + 44, 90, 8.5, COLOR.muted);
@@ -199,8 +199,8 @@ export async function renderInvoiceSekolahPdf(
     text(": Menunggu Pembayaran", card2X + 104, currentY + 60, cardWidth - 118, 8.5, COLOR.warnText, true);
 
     // Penerbit
-    text("Penerbit", card2X + 14, currentY + 76, 90, 8.5, COLOR.muted);
-    text(": PT Ayo TKA Edukasi", card2X + 104, currentY + 76, cardWidth - 118, 8.5, COLOR.ink);
+    text("Penerbit", card2X + 14, currentY + 76, 48, 8, COLOR.muted);
+    text(": Grup Riset Media Pembelajaran dan Teknologi Matematika", card2X + 58, currentY + 76, cardWidth - 70, 7, COLOR.ink);
   }
 
   text("Kontak Bantuan: support@ayotka.id · https://ayotka.id", card2X + 14, currentY + 93, cardWidth - 28, 7.5, COLOR.faint);
@@ -323,7 +323,7 @@ export async function renderInvoiceSekolahPdf(
   // ==========================================
   // 6. PETUNJUK PEMBAYARAN ATAU BUKTI PELUNASAN RESMI
   // ==========================================
-  const bankInfoTeks = invoice.bankTujuan || (bankAccount ? `${bankAccount.namaBank} - No. Rek: ${bankAccount.nomorRekening} a.n. ${bankAccount.atasNama}` : "Bank Mandiri - No. Rek: 144-00-1234567-8 a.n. PT Ayo TKA Edukasi");
+  const bankInfoTeks = invoice.bankTujuan || (bankAccount ? `${bankAccount.namaBank} - No. Rek: ${bankAccount.nomorRekening} a.n. ${bankAccount.atasNama}` : "Bank Mandiri - No. Rek: 144-00-1234567-8 a.n. Grup Riset Media Pembelajaran dan Teknologi Matematika");
 
   if (isLunas) {
     // KOTAK TANDA TERIMA & KUITANSI SAH (HIJAU EMERALD)
