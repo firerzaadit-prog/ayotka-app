@@ -104,7 +104,8 @@ export async function renderInvoiceSekolahPdf(
   text(`No: ${invoice.nomorInvoice}`, headerRightX, currentY + 18, headerRightWidth, 10, COLOR.ink, true, "right");
 
   // Status Badge
-  const badgeWidth = 140;
+  const isLunas = invoice.status === "lunas";
+  const badgeWidth = 148;
   const badgeHeight = 22;
   const badgeX = marginX + contentWidth - badgeWidth;
   const badgeY = currentY + 36;
@@ -114,11 +115,11 @@ export async function renderInvoiceSekolahPdf(
   let badgeText: string = COLOR.warnText;
   let statusLabel: string = "MENUNGGU PEMBAYARAN";
 
-  if (invoice.status === "lunas") {
-    badgeBg = COLOR.successBg;
-    badgeBorder = "#a7f3d0";
-    badgeText = COLOR.success;
-    statusLabel = "LUNAS";
+  if (isLunas) {
+    badgeBg = "#ecfdf5";
+    badgeBorder = "#34d399";
+    badgeText = "#065f46";
+    statusLabel = "LUNAS / TERBAYAR";
   } else if (invoice.status === "dibatalkan") {
     badgeBg = COLOR.dangerBg;
     badgeBorder = "#fecdd3";
@@ -140,7 +141,7 @@ export async function renderInvoiceSekolahPdf(
   // ==========================================
   const cardGap = 16;
   const cardWidth = (contentWidth - cardGap) / 2;
-  const cardHeight = 112;
+  const cardHeight = 114;
 
   // Kartu Kiri: DITAGIHKAN KEPADA (Sekolah)
   const card1X = marginX;
@@ -161,7 +162,7 @@ export async function renderInvoiceSekolahPdf(
   if (school.alamat) {
     text(school.alamat, card1X + 14, currentY + 72, cardWidth - 28, 8, COLOR.muted);
   }
-  text(`Kode Sekolah: ${school.kodeSekolah}`, card1X + 14, currentY + 88, cardWidth - 28, 8, COLOR.faint, true);
+  text(`Kode Sekolah: ${school.kodeSekolah}`, card1X + 14, currentY + 89, cardWidth - 28, 8, COLOR.faint, true);
 
   // Kartu Kanan: DETAIL INVOICE & PENERBIT
   const card2X = marginX + cardWidth + cardGap;
@@ -173,20 +174,34 @@ export async function renderInvoiceSekolahPdf(
   text("Tanggal Terbit", card2X + 14, currentY + 28, 90, 8.5, COLOR.muted);
   text(`: ${formatWIBDate(invoice.tanggalInvoice)}`, card2X + 104, currentY + 28, cardWidth - 118, 8.5, COLOR.ink, true);
 
-  // Baris Jatuh Tempo
-  text("Jatuh Tempo", card2X + 14, currentY + 44, 90, 8.5, COLOR.muted);
-  text(`: ${formatWIBHariTanggal(invoice.jatuhTempo)}`, card2X + 104, currentY + 44, cardWidth - 118, 8.5, COLOR.danger, true);
+  if (isLunas) {
+    // Tanggal Pelunasan
+    text("Tanggal Pelunasan", card2X + 14, currentY + 44, 90, 8.5, COLOR.muted);
+    const tanggalBayarStr = invoice.dibayarAt ? formatWIBDate(invoice.dibayarAt) : formatWIBDate(invoice.tanggalInvoice);
+    text(`: ${tanggalBayarStr}`, card2X + 104, currentY + 44, cardWidth - 118, 8.5, "#059669", true);
 
-  if (invoice.dibayarAt && invoice.status === "lunas") {
-    text("Tanggal Bayar", card2X + 14, currentY + 60, 90, 8.5, COLOR.muted);
-    text(`: ${formatWIBDate(invoice.dibayarAt)}`, card2X + 104, currentY + 60, cardWidth - 118, 8.5, COLOR.success, true);
+    // Status Pembayaran
+    text("Status Tagihan", card2X + 14, currentY + 60, 90, 8.5, COLOR.muted);
+    text(": LUNAS (Terverifikasi)", card2X + 104, currentY + 60, cardWidth - 118, 8.5, "#059669", true);
+
+    // Penerbit
+    text("Penerbit", card2X + 14, currentY + 76, 90, 8.5, COLOR.muted);
+    text(": PT Ayo TKA Edukasi", card2X + 104, currentY + 76, cardWidth - 118, 8.5, COLOR.ink);
+  } else {
+    // Baris Jatuh Tempo
+    text("Jatuh Tempo", card2X + 14, currentY + 44, 90, 8.5, COLOR.muted);
+    text(`: ${formatWIBHariTanggal(invoice.jatuhTempo)}`, card2X + 104, currentY + 44, cardWidth - 118, 8.5, COLOR.danger, true);
+
+    // Status
+    text("Status Tagihan", card2X + 14, currentY + 60, 90, 8.5, COLOR.muted);
+    text(": Menunggu Pembayaran", card2X + 104, currentY + 60, cardWidth - 118, 8.5, COLOR.warnText, true);
+
+    // Penerbit
+    text("Penerbit", card2X + 14, currentY + 76, 90, 8.5, COLOR.muted);
+    text(": PT Ayo TKA Edukasi", card2X + 104, currentY + 76, cardWidth - 118, 8.5, COLOR.ink);
   }
 
-  // Penerbit
-  text("Penerbit", card2X + 14, currentY + (invoice.dibayarAt && invoice.status === "lunas" ? 76 : 64), 90, 8.5, COLOR.muted);
-  text(": PT Ayo TKA Edukasi", card2X + 104, currentY + (invoice.dibayarAt && invoice.status === "lunas" ? 76 : 64), cardWidth - 118, 8.5, COLOR.ink);
-
-  text("Kontak / Bantuan: support@ayotka.id · https://ayotka.id", card2X + 14, currentY + 92, cardWidth - 28, 7.5, COLOR.faint);
+  text("Kontak Bantuan: support@ayotka.id · https://ayotka.id", card2X + 14, currentY + 93, cardWidth - 28, 7.5, COLOR.faint);
 
   currentY += cardHeight + 18;
 
@@ -250,7 +265,7 @@ export async function renderInvoiceSekolahPdf(
   currentY += rowH;
 
   // ==========================================
-  // 5. SUMMARY / TOTAL TAGIHAN
+  // 5. SUMMARY / TOTAL TAGIHAN & STEMPEL DIGITAL
   // ==========================================
   const summaryWidth = 248;
   const summaryX = marginX + contentWidth - summaryWidth;
@@ -273,6 +288,33 @@ export async function renderInvoiceSekolahPdf(
   text("TOTAL TAGIHAN", summaryX + 12, currentY + 12, 100, 9, COLOR.ink, true);
   text(formatRupiah(invoice.totalAmount), summaryX + 100, currentY + 10, summaryWidth - 112, 13, COLOR.primaryFrom, true, "right");
 
+  // Jika LUNAS: Gambar Cap / Stempel Digital Resmi di sebelah kiri summary
+  if (isLunas) {
+    const stampW = 200;
+    const stampH = 68;
+    const stampX = marginX + 16;
+    const stampY = currentY - 32;
+
+    doc.save();
+    // Rotasi sedikit (-6 derajat) agar terasa seperti stempel cap basah resmi
+    const stampCenterX = stampX + stampW / 2;
+    const stampCenterY = stampY + stampH / 2;
+    doc.rotate(-6, { origin: [stampCenterX, stampCenterY] });
+
+    // Outer double border
+    doc.roundedRect(stampX, stampY, stampW, stampH, 8).lineWidth(2).strokeColor("#059669").stroke();
+    doc.roundedRect(stampX + 3.5, stampY + 3.5, stampW - 7, stampH - 7, 5).lineWidth(0.8).strokeColor("#059669").stroke();
+
+    // Teks dalam stempel
+    doc.font(fonts.bold).fontSize(fonts.sz(7)).fillColor("#059669").text("★ AYOTKA OFFICIAL STAMP ★", stampX, stampY + 7, { width: stampW, align: "center" });
+    doc.font(fonts.bold).fontSize(fonts.sz(17)).fillColor("#047857").text("L U N A S", stampX, stampY + 19, { width: stampW, align: "center" });
+    doc.font(fonts.bold).fontSize(fonts.sz(7.5)).fillColor("#059669").text("TERVERIFIKASI SISTEM", stampX, stampY + 41, { width: stampW, align: "center" });
+    const tanggalStamp = invoice.dibayarAt ? formatWIBDate(invoice.dibayarAt) : formatWIBDate(invoice.tanggalInvoice);
+    doc.font(fonts.regular).fontSize(fonts.sz(6.8)).fillColor("#065f46").text(`Tgl: ${tanggalStamp}`, stampX, stampY + 52, { width: stampW, align: "center" });
+
+    doc.restore();
+  }
+
   currentY += totalBoxH + 8;
 
   // Terbilang
@@ -285,37 +327,72 @@ export async function renderInvoiceSekolahPdf(
   currentY += 24;
 
   // ==========================================
-  // 6. PETUNJUK PEMBAYARAN & REKENING BANK
+  // 6. PETUNJUK PEMBAYARAN ATAU BUKTI PELUNASAN RESMI
   // ==========================================
-  const bankBoxH = 110;
-  box(marginX, currentY, contentWidth, bankBoxH, COLOR.cardBg, COLOR.border, 8);
-
-  text("PETUNJUK PEMBAYARAN TRANSFER BANK:", marginX + 16, currentY + 12, contentWidth - 32, 8, COLOR.muted, true);
-
   const bankInfoTeks = invoice.bankTujuan || (bankAccount ? `${bankAccount.namaBank} - No. Rek: ${bankAccount.nomorRekening} a.n. ${bankAccount.atasNama}` : "Bank Mandiri - No. Rek: 144-00-1234567-8 a.n. PT Ayo TKA Edukasi");
 
-  box(marginX + 16, currentY + 28, contentWidth - 32, 34, "#ffffff", COLOR.border, 6);
-  text("Rekening Tujuan:", marginX + 28, currentY + 34, 100, 7.5, COLOR.muted);
-  text(bankInfoTeks, marginX + 28, currentY + 46, contentWidth - 56, 9.5, COLOR.primaryFrom, true);
+  if (isLunas) {
+    // KOTAK TANDA TERIMA & KUITANSI SAH (HIJAU EMERALD)
+    const receiptBoxH = 104;
+    box(marginX, currentY, contentWidth, receiptBoxH, "#f0fdf4", "#86efac", 8);
 
-  text(
-    `1. Mohon sertakan Nomor Invoice (${invoice.nomorInvoice}) pada berita transfer agar otomatis terverifikasi.`,
-    marginX + 16,
-    currentY + 70,
-    contentWidth - 32,
-    8,
-    COLOR.body,
-  );
-  text(
-    "2. Setelah melakukan pembayaran, bukti transfer dapat dikonfirmasikan ke Admin Pusat melalui sistem atau WhatsApp.",
-    marginX + 16,
-    currentY + 84,
-    contentWidth - 32,
-    8,
-    COLOR.body,
-  );
+    text("BUKTI & TANDA TERIMA PELUNASAN RESMI", marginX + 16, currentY + 11, contentWidth - 32, 8.5, "#065f46", true);
 
-  currentY += bankBoxH + 14;
+    box(marginX + 16, currentY + 26, contentWidth - 32, 36, "#ffffff", "#a7f3d0", 6);
+    text("Status Pembayaran:", marginX + 26, currentY + 32, 120, 7.5, COLOR.muted);
+    text("LUNAS PENUH — SISA TAGIHAN: RP 0", marginX + 26, currentY + 44, 260, 9.5, "#059669", true);
+
+    text("Metode Pembayaran:", marginX + 290, currentY + 32, 100, 7.5, COLOR.muted);
+    text(bankInfoTeks, marginX + 290, currentY + 44, contentWidth - 320, 8.5, COLOR.ink, true);
+
+    text(
+      `1. Tagihan invoice ini telah DITERIMA dan DIVERIFIKASI PENUH oleh Tim AyoTKA. Kuota ${invoice.jumlahSiswa} siswa telah aktif.`,
+      marginX + 16,
+      currentY + 68,
+      contentWidth - 32,
+      7.8,
+      "#065f46",
+    );
+    text(
+      "2. Dokumen elektronik ini diterbitkan secara sah sebagai Kuitansi / Bukti Pembayaran Resmi untuk pembukuan sekolah.",
+      marginX + 16,
+      currentY + 82,
+      contentWidth - 32,
+      7.8,
+      "#065f46",
+    );
+
+    currentY += receiptBoxH + 14;
+  } else {
+    // KOTAK INSTRUKSI TRANSFER (KUNING / ABU-ABU)
+    const bankBoxH = 110;
+    box(marginX, currentY, contentWidth, bankBoxH, COLOR.cardBg, COLOR.border, 8);
+
+    text("PETUNJUK PEMBAYARAN TRANSFER BANK:", marginX + 16, currentY + 12, contentWidth - 32, 8, COLOR.muted, true);
+
+    box(marginX + 16, currentY + 28, contentWidth - 32, 34, "#ffffff", COLOR.border, 6);
+    text("Rekening Tujuan:", marginX + 28, currentY + 34, 100, 7.5, COLOR.muted);
+    text(bankInfoTeks, marginX + 28, currentY + 46, contentWidth - 56, 9.5, COLOR.primaryFrom, true);
+
+    text(
+      `1. Mohon sertakan Nomor Invoice (${invoice.nomorInvoice}) pada berita transfer agar otomatis terverifikasi.`,
+      marginX + 16,
+      currentY + 70,
+      contentWidth - 32,
+      8,
+      COLOR.body,
+    );
+    text(
+      "2. Setelah melakukan pembayaran, bukti transfer dapat dikonfirmasikan ke Admin Pusat melalui sistem atau WhatsApp.",
+      marginX + 16,
+      currentY + 84,
+      contentWidth - 32,
+      8,
+      COLOR.body,
+    );
+
+    currentY += bankBoxH + 14;
+  }
 
   // Catatan Tambahan Admin (jika ada)
   if (invoice.catatan) {

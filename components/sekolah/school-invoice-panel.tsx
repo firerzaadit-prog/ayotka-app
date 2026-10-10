@@ -67,8 +67,10 @@ export function SchoolInvoicePanel({
 
   // Form State
   const [jumlahSiswa, setJumlahSiswa] = useState(String(defaultJumlahSiswa || 100));
-  const [hargaPerSiswa, setHargaPerSiswa] = useState("25000");
+  const [hargaPerSiswa, setHargaPerSiswa] = useState("20000");
   const [jatuhTempo, setJatuhTempo] = useState(geserTanggal(tanggalWIB(), 14));
+  const [statusBayar, setStatusBayar] = useState<"lunas" | "menunggu_pembayaran">("lunas");
+  const [tanggalBayar, setTanggalBayar] = useState(tanggalWIB());
   const [keterangan, setKeterangan] = useState("Paket Akses Ujian Try Out AyoTKA");
   const [bankTujuan, setBankTujuan] = useState("");
   const [catatan, setCatatan] = useState("");
@@ -144,6 +146,8 @@ export function SchoolInvoicePanel({
           bankTujuan: bankTujuan.trim() || null,
           catatan: catatan.trim() || null,
           periodeId: periodeId || null,
+          status: statusBayar,
+          dibayarAt: statusBayar === "lunas" ? (tanggalBayar || new Date().toISOString()) : null,
         }),
       });
 
@@ -363,6 +367,70 @@ export function SchoolInvoicePanel({
             />
           </div>
 
+          {/* Status Pembayaran & Pelunasan */}
+          <div className="rounded-xl border border-indigo-200/80 bg-white p-4 shadow-2xs">
+            <Label className="mb-2 block font-medium text-slate-800">Status Pembayaran Invoice</Label>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setStatusBayar("lunas")}
+                className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                  statusBayar === "lunas"
+                    ? "border-emerald-500 bg-emerald-50/70 ring-2 ring-emerald-500/20 text-emerald-950"
+                    : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <CheckCircle className={`mt-0.5 h-5 w-5 shrink-0 ${statusBayar === "lunas" ? "text-emerald-600" : "text-slate-400"}`} />
+                <div>
+                  <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>Sudah Lunas (Lunas Sah)</span>
+                    <Badge variant="success" className="text-[10px] py-0 px-1.5">Direkomendasikan</Badge>
+                  </div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    Invoice langsung berstatus Lunas, dicap stempel digital resmi pada PDF, dan berlaku sebagai kuitansi tanda terima sah.
+                  </p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusBayar("menunggu_pembayaran")}
+                className={`flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                  statusBayar === "menunggu_pembayaran"
+                    ? "border-amber-500 bg-amber-50/70 ring-2 ring-amber-500/20 text-amber-950"
+                    : "border-slate-200 bg-slate-50/50 hover:bg-slate-50 text-slate-700"
+                }`}
+              >
+                <Banknote className={`mt-0.5 h-5 w-5 shrink-0 ${statusBayar === "menunggu_pembayaran" ? "text-amber-600" : "text-slate-400"}`} />
+                <div>
+                  <div className="text-xs font-bold text-slate-900">Menunggu Pembayaran (Belum Bayar)</div>
+                  <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    Tagihan baru yang belum dibayar oleh sekolah. Mencantumkan petunjuk transfer bank.
+                  </p>
+                </div>
+              </button>
+            </div>
+
+            {statusBayar === "lunas" && (
+              <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="sm:w-1/2">
+                  <Label htmlFor="tanggalBayar" className="text-xs text-slate-700 font-medium">Tanggal Pelunasan</Label>
+                  <Input
+                    id="tanggalBayar"
+                    type="date"
+                    required
+                    value={tanggalBayar}
+                    onChange={(e) => setTanggalBayar(e.target.value)}
+                    className="mt-1"
+                  />
+                </div>
+                <div className="sm:w-1/2 text-xs text-emerald-800 bg-emerald-50 rounded-lg p-2.5 border border-emerald-200/60 leading-relaxed">
+                  ✓ Dokumen PDF akan otomatis dibubuhi <strong>Stempel Digital LUNAS</strong> dan <strong>Bukti Pelunasan Resmi</strong>.
+                </div>
+              </div>
+            )}
+          </div>
+
           <div>
             <Label htmlFor="keterangan">Keterangan / Nama Layanan</Label>
             <Input
@@ -384,8 +452,16 @@ export function SchoolInvoicePanel({
           </div>
 
           <div className="flex gap-2">
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Menerbitkan..." : "Terbitkan & Generate PDF"}
+            <Button
+              type="submit"
+              disabled={submitting}
+              className={statusBayar === "lunas" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+            >
+              {submitting
+                ? "Menerbitkan..."
+                : statusBayar === "lunas"
+                ? "Terbitkan Invoice Lunas & Generate PDF"
+                : "Terbitkan & Generate PDF"}
             </Button>
             <Button type="button" variant="secondary" onClick={() => setShowForm(false)}>
               Batal

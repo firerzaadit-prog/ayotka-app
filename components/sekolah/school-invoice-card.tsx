@@ -158,10 +158,16 @@ export function SchoolInvoiceCard() {
           <button
             onClick={() => handleDownload(latestInvoice)}
             disabled={downloadingId === latestInvoice.id}
-            className={`${buttonClassName("primary")} inline-flex items-center gap-2 shadow-sm`}
+            className={`${isLunas ? "bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-xl shadow-xs" : buttonClassName("primary")} inline-flex items-center gap-2 transition-colors`}
           >
             <Download className="h-4 w-4" />
-            <span>{downloadingId === latestInvoice.id ? "Mengunduh..." : "Download Invoice (PDF)"}</span>
+            <span>
+              {downloadingId === latestInvoice.id
+                ? "Mengunduh..."
+                : isLunas
+                ? "Download Invoice & Kuitansi Lunas (PDF)"
+                : "Download Invoice (PDF)"}
+            </span>
           </button>
 
           {totalCount > 1 && (
@@ -187,8 +193,8 @@ export function SchoolInvoiceCard() {
 
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-3.5">
           <span className="text-xs text-slate-500">Total Tagihan</span>
-          <p className="mt-1 text-base font-bold text-indigo-600">
-            {formatRupiah(latestInvoice.totalAmount)}
+          <p className={`mt-1 text-base font-bold ${isLunas ? "text-emerald-600" : "text-indigo-600"}`}>
+            {formatRupiah(latestInvoice.totalAmount)} {isLunas && <span className="text-xs font-semibold text-emerald-600">(LUNAS)</span>}
           </p>
           <span className="text-[11px] text-slate-400">
             {latestInvoice.keterangan || "Paket Ujian Try Out AyoTKA"}
@@ -209,6 +215,23 @@ export function SchoolInvoiceCard() {
           </span>
         </div>
       </div>
+
+      {/* Alert Berhasil Pelunasan jika Lunas */}
+      {isLunas && (
+        <Alert variant="success" className="mt-4">
+          <div className="flex flex-col gap-1 text-xs sm:text-sm">
+            <span className="font-semibold text-emerald-900">
+              ✓ Tagihan Pembayaran Telah Lunas & Terverifikasi
+            </span>
+            <span className="text-emerald-800">
+              Pembayaran tagihan invoice <strong className="font-mono">{latestInvoice.nomorInvoice}</strong> telah berhasil diverifikasi oleh Tim AyoTKA. Kuota akses ujian untuk sekolah Anda telah aktif dan siap digunakan siswa.
+            </span>
+            <span className="text-emerald-700 text-xs">
+              Silakan unduh dokumen PDF resmi di atas sebagai tanda terima sah dan kuitansi pelunasan berstempel digital resmi AyoTKA.
+            </span>
+          </div>
+        </Alert>
+      )}
 
       {/* Petunjuk Transfer jika belum bayar */}
       {isPending && latestInvoice.bankTujuan && (

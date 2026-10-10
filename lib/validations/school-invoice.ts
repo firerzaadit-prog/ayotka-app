@@ -8,6 +8,8 @@ export const schoolInvoiceCreateSchema = z.object({
   bankTujuan: z.string().max(250).optional().nullable(),
   catatan: z.string().max(500).optional().nullable(),
   periodeId: z.string().uuid().optional().nullable(),
+  status: z.enum(["menunggu_pembayaran", "lunas", "dibatalkan"]).default("menunggu_pembayaran"),
+  dibayarAt: z.string().optional().nullable(),
 });
 
 export const schoolInvoiceUpdateSchema = z.object({

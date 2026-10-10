@@ -53,10 +53,12 @@ export async function POST(
     );
   }
 
-  const { jumlahSiswa, hargaPerSiswa, jatuhTempo, keterangan, bankTujuan, catatan, periodeId } = parsed.data;
+  const { jumlahSiswa, hargaPerSiswa, jatuhTempo, keterangan, bankTujuan, catatan, periodeId, status, dibayarAt } = parsed.data;
   const subtotal = jumlahSiswa * hargaPerSiswa;
   const totalAmount = subtotal;
   const nomorInvoice = await generateNomorInvoiceSekolah();
+
+  const isLunas = status === "lunas";
 
   const invoice = await prisma.schoolInvoice.create({
     data: {
@@ -66,7 +68,8 @@ export async function POST(
       hargaPerSiswa,
       subtotal,
       totalAmount,
-      status: "menunggu_pembayaran",
+      status: status ?? "menunggu_pembayaran",
+      dibayarAt: isLunas ? (dibayarAt ? new Date(dibayarAt) : new Date()) : null,
       jatuhTempo: new Date(jatuhTempo),
       keterangan: keterangan?.trim() || null,
       bankTujuan: bankTujuan?.trim() || null,
