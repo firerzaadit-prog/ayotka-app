@@ -77,7 +77,28 @@ const PUBLIC_AUTH_PATHS = [
 // pemeriksaan ini sengaja tidak bergantung pada REST Supabase. Hasilnya di-cache sebentar di memori.
 export default async function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
+
+  // Tangani CORS untuk webhook & API integrasi affiliate.id (dipanggil browser dari affiliate.id)
+  if (pathname.startsWith("/api/webhooks/affiliate")) {
+    if (request.method === "OPTIONS") {
+      return new NextResponse(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept",
+          "Access-Control-Max-Age": "86400",
+        },
+      });
+    }
+  }
+
   const response = NextResponse.next({ request });
+  if (pathname.startsWith("/api/webhooks/affiliate")) {
+    response.headers.set("Access-Control-Allow-Origin", "*");
+    response.headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, Accept");
+  }
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -1,5 +1,13 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import {
+  affiliateCorsResponse,
+  affiliateJsonResponse,
+  parseAffiliatePayload,
+} from "@/lib/billing/affiliate-cors";
+
+export async function OPTIONS() {
+  return affiliateCorsResponse();
+}
 
 /**
  * Check Account/Slug Endpoint untuk affiliate.id (Gambar 4).
@@ -21,13 +29,14 @@ import { prisma } from "@/lib/db/prisma";
  */
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const uid = typeof body.uid === "string" ? body.uid.trim() : null;
+    const data = await parseAffiliatePayload(request);
+    const uidRaw = (data.uid as string) || (data.userId as string);
+    const uid = typeof uidRaw === "string" ? uidRaw.trim() : null;
 
     if (!uid) {
-      return NextResponse.json(
+      return affiliateJsonResponse(
         { status: false, message: "Field uid wajib disertakan." },
-        { status: 400 },
+        400,
       );
     }
 
@@ -40,13 +49,14 @@ export async function POST(request: Request) {
     });
 
     if (!student) {
-      return NextResponse.json(
-        { status: false, message: "Profil siswa tidak ditemukan untuk uid tersebut." },
-        { status: 404 },
-      );
+      return affiliateJsonResponse({
+        status: false,
+        message: "Profil siswa tidak ditemukan untuk uid tersebut.",
+        data: null,
+      });
     }
 
-    return NextResponse.json({
+    return affiliateJsonResponse({
       status: true,
       data: {
         uid,
@@ -61,9 +71,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[affiliate check-account error]:", error);
-    return NextResponse.json(
+    return affiliateJsonResponse(
       { status: false, message: "Terjadi kesalahan internal server." },
-      { status: 500 },
+      500,
     );
   }
+}
+
+export async function GET(request: Request) {
+  return POST(request);
 }

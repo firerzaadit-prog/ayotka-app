@@ -1,5 +1,13 @@
-import { NextResponse } from "next/server";
 import { processAffiliateFulfillment } from "@/lib/billing/affiliate-fulfillment";
+import {
+  affiliateCorsResponse,
+  affiliateJsonResponse,
+  parseAffiliatePayload,
+} from "@/lib/billing/affiliate-cors";
+
+export async function OPTIONS() {
+  return affiliateCorsResponse();
+}
 
 /**
  * Success Endpoint untuk affiliate.id SaaS Configuration (Gambar 4 & 5).
@@ -9,13 +17,17 @@ import { processAffiliateFulfillment } from "@/lib/billing/affiliate-fulfillment
  */
 export async function POST(request: Request) {
   try {
-    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const body = await parseAffiliatePayload(request);
 
     console.log("[affiliate SaaS success callback] received:", body);
 
     const uid = (body.uid as string) || (body.userId as string);
     const aid = (body.aid as string) || (body.studentId as string);
-    const email = (body.email as string) || (body.customer_email as string);
+    const email =
+      (body.email as string) ||
+      (body.customer_email as string) ||
+      (body.buyer_email as string) ||
+      (body.user_email as string);
 
     const orderRef =
       (body.order_id as string) ||
@@ -54,13 +66,13 @@ export async function POST(request: Request) {
     });
 
     if (!result.ok) {
-      return NextResponse.json(
+      return affiliateJsonResponse(
         { status: false, message: result.message },
-        { status: 400 },
+        400,
       );
     }
 
-    return NextResponse.json({
+    return affiliateJsonResponse({
       status: true,
       message: result.message,
       data: {
@@ -72,9 +84,13 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("[affiliate SaaS success error]:", error);
-    return NextResponse.json(
+    return affiliateJsonResponse(
       { status: false, message: "Terjadi kesalahan internal server." },
-      { status: 500 },
+      500,
     );
   }
+}
+
+export async function GET(request: Request) {
+  return POST(request);
 }

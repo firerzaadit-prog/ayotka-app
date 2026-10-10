@@ -1,10 +1,19 @@
-import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import {
+  affiliateCorsResponse,
+  affiliateJsonResponse,
+  parseAffiliatePayload,
+} from "@/lib/billing/affiliate-cors";
+
+export async function OPTIONS() {
+  return affiliateCorsResponse();
+}
 
 /**
  * Check Email Address Endpoint untuk affiliate.id (Gambar 4).
- * Request: POST { "email": "email@user.com" }
- * Response(200):
+ * Request: POST { "email": "email@user.com" } (atau form-data / urlencoded / query string)
+ *
+ * Response jika user ada (200):
  * {
  *   "status": true,
  *   "data": {
@@ -12,16 +21,29 @@ import { prisma } from "@/lib/db/prisma";
  *     "uid": "user_uid"
  *   }
  * }
+ *
+ * Response jika user belum ada (200):
+ * {
+ *   "status": false,
+ *   "message": "Akun belum terdaftar...",
+ *   "data": null
+ * }
  */
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const email = typeof body.email === "string" ? body.email.trim() : null;
+    const data = await parseAffiliatePayload(request);
+    const emailRaw =
+      (data.email as string) ||
+      (data.customer_email as string) ||
+      (data.user_email as string) ||
+      (data.buyer_email as string);
+
+    const email = typeof emailRaw === "string" ? emailRaw.trim() : null;
 
     if (!email) {
-      return NextResponse.json(
+      return affiliateJsonResponse(
         { status: false, message: "Field email wajib disertakan." },
-        { status: 400 },
+        400,
       );
     }
 
@@ -33,7 +55,7 @@ export async function POST(request: Request) {
     });
 
     if (user) {
-      return NextResponse.json({
+      return affiliateJsonResponse({
         status: true,
         data: {
           email: user.email,
@@ -42,20 +64,21 @@ export async function POST(request: Request) {
       });
     }
 
-    // Jika user belum ada di AyoTKA:
-    // affiliate.id menyatakan: "Kami akan cek apakah user sudah memiliki akses atau belum."
-    return NextResponse.json(
-      {
-        status: false,
-        message: "Akun dengan email ini belum terdaftar di AyoTKA. Silakan daftar terlebih dahulu di ayotka.id.",
-      },
-      { status: 404 },
-    );
+    // Kembalikan status: false dengan HTTP 200 agar client Axios affiliate.id tidak melempar Network Error (404/500)
+    return affiliateJsonResponse({
+      status: false,
+      message: "Akun dengan email ini belum terdaftar di AyoTKA. Silakan daftar terlebih dahulu di ayotka.id.",
+      data: null,
+    });
   } catch (error) {
     console.error("[affiliate check-email error]:", error);
-    return NextResponse.json(
+    return affiliateJsonResponse(
       { status: false, message: "Terjadi kesalahan internal server." },
-      { status: 500 },
+      500,
     );
   }
+}
+
+export async function GET(request: Request) {
+  return POST(request);
 }

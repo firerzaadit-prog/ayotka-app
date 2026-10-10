@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server";
 import { processAffiliateFulfillment } from "@/lib/billing/affiliate-fulfillment";
+import {
+  affiliateCorsResponse,
+  affiliateJsonResponse,
+  parseAffiliatePayload,
+} from "@/lib/billing/affiliate-cors";
+
+export async function OPTIONS() {
+  return affiliateCorsResponse();
+}
 
 function extractAmount(val: unknown): number | null {
   if (typeof val === "number" && !isNaN(val)) return val;
@@ -62,9 +71,9 @@ export async function GET(request: Request) {
     });
 
     if (!email && !orderRef && !productId) {
-      return NextResponse.json(
+      return affiliateJsonResponse(
         { ok: false, error: "Parameter tidak lengkap." },
-        { status: 400 },
+        400,
       );
     }
 
@@ -88,35 +97,27 @@ export async function GET(request: Request) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    return affiliateJsonResponse(result, result.ok ? 200 : 400);
   } catch (error) {
     console.error("[affiliate webhook GET error]:", error);
-    return NextResponse.json(
+    return affiliateJsonResponse(
       { ok: false, error: "Terjadi kesalahan internal server." },
-      { status: 500 },
+      500,
     );
   }
 }
 
 export async function POST(request: Request) {
   try {
-    let body: Record<string, unknown> = {};
-    const contentType = request.headers.get("content-type") || "";
-
-    if (contentType.includes("application/json")) {
-      body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
-    } else if (contentType.includes("application/x-www-form-urlencoded")) {
-      const formData = await request.formData();
-      body = Object.fromEntries(formData.entries());
-    }
-
+    const body = await parseAffiliatePayload(request);
     console.log("[affiliate webhook POST] received body:", body);
 
     const email =
       (body.email as string) ||
       (body.customer_email as string) ||
       (body.buyer_email as string) ||
-      (body.customer as { email?: string })?.email;
+      (body.user_email as string) ||
+      ((body.customer as { email?: string })?.email);
 
     const orderRef =
       (body.order_id as string) ||
@@ -152,12 +153,12 @@ export async function POST(request: Request) {
       rawPayload: body,
     });
 
-    return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+    return affiliateJsonResponse(result, result.ok ? 200 : 400);
   } catch (error) {
     console.error("[affiliate webhook POST error]:", error);
-    return NextResponse.json(
+    return affiliateJsonResponse(
       { ok: false, error: "Terjadi kesalahan internal server." },
-      { status: 500 },
+      500,
     );
   }
 }
