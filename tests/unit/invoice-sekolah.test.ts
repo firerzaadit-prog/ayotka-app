@@ -110,6 +110,7 @@ describe("Render Invoice Sekolah PDF", () => {
     const finishPromise = new Promise<Buffer>((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
 
     await renderInvoiceSekolahPdf(doc, dummyData, null);
+    expect(doc.bufferedPageRange().count).toBe(1);
     doc.end();
 
     const pdfBuffer = await finishPromise;
@@ -134,6 +135,7 @@ describe("Render Invoice Sekolah PDF", () => {
     const finishPromise = new Promise<Buffer>((resolve) => doc.on("end", () => resolve(Buffer.concat(chunks))));
 
     await renderInvoiceSekolahPdf(doc, lunasData, null);
+    expect(doc.bufferedPageRange().count).toBe(1);
     doc.end();
 
     const pdfBuffer = await finishPromise;

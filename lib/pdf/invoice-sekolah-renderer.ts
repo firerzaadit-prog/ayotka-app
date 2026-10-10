@@ -25,6 +25,8 @@ export async function renderInvoiceSekolahPdf(
   data: DataInvoiceSekolah,
   logoBuffer: Buffer | null,
 ) {
+  // Matikan auto page break berbasis bottom margin karena kita mengontrol posisi absolut 1 halaman penuh
+  doc.page.margins.bottom = 0;
   const fonts = setupFonts(doc);
   doc.font(fonts.regular);
 
@@ -295,34 +297,26 @@ export async function renderInvoiceSekolahPdf(
     const stampX = marginX + 16;
     const stampY = currentY - 32;
 
-    doc.save();
-    // Rotasi sedikit (-6 derajat) agar terasa seperti stempel cap basah resmi
-    const stampCenterX = stampX + stampW / 2;
-    const stampCenterY = stampY + stampH / 2;
-    doc.rotate(-6, { origin: [stampCenterX, stampCenterY] });
+    // Background tint halus
+    doc.roundedRect(stampX, stampY, stampW, stampH, 8).fill("#ecfdf5");
 
     // Outer double border
-    doc.roundedRect(stampX, stampY, stampW, stampH, 8).lineWidth(2).strokeColor("#059669").stroke();
+    doc.roundedRect(stampX, stampY, stampW, stampH, 8).lineWidth(1.8).strokeColor("#059669").stroke();
     doc.roundedRect(stampX + 3.5, stampY + 3.5, stampW - 7, stampH - 7, 5).lineWidth(0.8).strokeColor("#059669").stroke();
 
     // Teks dalam stempel
-    doc.font(fonts.bold).fontSize(fonts.sz(7)).fillColor("#059669").text("★ AYOTKA OFFICIAL STAMP ★", stampX, stampY + 7, { width: stampW, align: "center" });
-    doc.font(fonts.bold).fontSize(fonts.sz(17)).fillColor("#047857").text("L U N A S", stampX, stampY + 19, { width: stampW, align: "center" });
-    doc.font(fonts.bold).fontSize(fonts.sz(7.5)).fillColor("#059669").text("TERVERIFIKASI SISTEM", stampX, stampY + 41, { width: stampW, align: "center" });
+    text("★ AYOTKA OFFICIAL STAMP ★", stampX, stampY + 7, stampW, 7, "#059669", true, "center");
+    text("L U N A S", stampX, stampY + 19, stampW, 16, "#047857", true, "center");
+    text("TERVERIFIKASI SISTEM", stampX, stampY + 41, stampW, 7.5, "#059669", true, "center");
     const tanggalStamp = invoice.dibayarAt ? formatWIBDate(invoice.dibayarAt) : formatWIBDate(invoice.tanggalInvoice);
-    doc.font(fonts.regular).fontSize(fonts.sz(6.8)).fillColor("#065f46").text(`Tgl: ${tanggalStamp}`, stampX, stampY + 52, { width: stampW, align: "center" });
-
-    doc.restore();
+    text(`Tgl: ${tanggalStamp}`, stampX, stampY + 52, stampW, 6.8, "#065f46", false, "center");
   }
 
   currentY += totalBoxH + 8;
 
   // Terbilang
   const terbilangTeks = `Terbilang: ${terbilang(invoice.totalAmount)}`;
-  doc.font(fonts.regular)
-    .fontSize(fonts.sz(8))
-    .fillColor(COLOR.muted)
-    .text(terbilangTeks, marginX, currentY, { width: contentWidth, align: "right" });
+  text(terbilangTeks, marginX, currentY, contentWidth, 8, COLOR.muted, false, "right");
 
   currentY += 24;
 
