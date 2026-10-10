@@ -27,10 +27,17 @@ const LOGIN_JENDELA_MS = 60_000;
  * penyedia (402), atau galat server (>= 500, termasuk jawaban non-JSON dari gerbang). Kredensial salah, email belum
  * dikonfirmasi, akun diblokir, dan batas laju (429) punya status 400-429 dan ditangani terpisah.
  */
-function layananLoginBermasalah(error: { status?: number; name?: string } | null): boolean {
+function layananLoginBermasalah(error: { status?: number; name?: string; message?: string } | null): boolean {
   if (!error) return false;
   const status = error.status;
   if (typeof status === "number" && (status === 0 || status === 402 || status >= 500)) return true;
+  if (
+    typeof error.message === "string" &&
+    (error.message.includes("exceed_egress_quota") ||
+      error.message.includes("restricted due to the following violations"))
+  ) {
+    return true;
+  }
   return error.name === "AuthRetryableFetchError" || error.name === "AuthUnknownError";
 }
 

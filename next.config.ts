@@ -25,6 +25,15 @@ const nextConfig: NextConfig = {
   // HTTPS. Sengaja TANPA "preload" - itu komitmen submit ke daftar preload
   // browser yang susah dibatalkan, sebaiknya langkah terpisah & disengaja
   // setelah HTTPS produksi benar-benar stabil, bukan efek samping di sini.
+  async redirects() {
+    return [
+      {
+        source: "/masuk",
+        destination: "/login",
+        permanent: true,
+      },
+    ];
+  },
   async headers() {
     return [
       {
