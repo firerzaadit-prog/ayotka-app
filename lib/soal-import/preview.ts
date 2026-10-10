@@ -56,6 +56,7 @@ export interface PreviewQuestion {
   levelKognitifSumber: string | null;
   levelBloom: LevelKognitif | null;
   stimulusId: string | null;
+  stimulus: PreviewStimulus | null;
   blockedReasons: string[];
 }
 
@@ -64,6 +65,7 @@ export interface PreviewStimulus {
   tipe: string;
   judul: string;
   konten: string;
+  jumlahKata: number;
 }
 
 export interface PreviousImport {
@@ -137,7 +139,12 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
     tipe: s.tipe,
     judul: s.judul,
     konten: s.konten,
+    jumlahKata:
+      s.jumlahKata && s.jumlahKata > 0
+        ? s.jumlahKata
+        : s.konten?.trim().split(/\s+/).filter(Boolean).length || 0,
   }));
+  const stimulusMap = new Map(stimulusList.map((s) => [s.sourceId, s]));
 
   // Indikator resmi (master yang diunggah admin pusat) untuk jenjang + mapel paket ini. Master belum diunggah = daftar
   // kosong: impor tetap jalan, soalnya hanya belum bisa dihitung di rapor per indikator (bisa dicocokkan nanti).
@@ -226,6 +233,7 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
       levelKognitifSumber: q.levelKognitif,
       levelBloom,
       stimulusId: q.stimulusId,
+      stimulus: q.stimulusId ? (stimulusMap.get(q.stimulusId) ?? null) : null,
       // Label taksonomi yang belum pernah dipetakan TIDAK memblokir impor -
       // executeImport otomatis membuat Elemen/Kompetensi baru (resmi=false)
       // dari label sumbernya sendiri (keputusan user: admin cuma perlu isi

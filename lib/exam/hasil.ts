@@ -36,6 +36,7 @@ export async function buildHasil(attempt: Attempt) {
             statements: { orderBy: { urutan: "asc" } },
             categories: { orderBy: { urutan: "asc" } },
             indikatorResmi: true,
+            stimulus: true,
           },
         },
       },
@@ -81,6 +82,14 @@ export async function buildHasil(attempt: Attempt) {
       format: q.format,
       teks: q.teks,
       media: q.media,
+      stimulus: q.stimulus
+        ? {
+            id: q.stimulus.id,
+            tipe: q.stimulus.tipe,
+            judul: q.stimulus.judul,
+            konten: q.stimulus.konten,
+          }
+        : null,
       jawabanJson: a.jawabanJson,
       skor: a.skor,
       skorMaks: a.skorMaks,

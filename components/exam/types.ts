@@ -8,6 +8,12 @@ export type ExamQuestion = {
   teks: string;
   media: string | null;
   bobot: number;
+  stimulus?: {
+    id: string;
+    tipe: string;
+    judul: string | null;
+    konten: string;
+  } | null;
   options: ExamOption[];
   categories: ExamCategory[];
   statements: ExamStatement[];

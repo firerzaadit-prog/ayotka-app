@@ -33,7 +33,14 @@ type Question = {
   teks: string;
   pembahasan?: string | null;
   tingkatKesulitan: string;
-  kompetensi: { kode: string };
+  kompetensi: {
+    kode: string;
+    subElemen?: string | null;
+    deskripsi?: string;
+    elemen?: { id?: string; nama: string };
+  };
+  stimulus?: { id: string; judul: string; tipe: string } | null;
+  indikatorTeks?: string | null;
   _count: { attemptAnswers: number };
 };
 
@@ -696,7 +703,7 @@ export function PackageDetail({
                     <Th>Teks Soal</Th>
                     <Th>Format</Th>
                     <Th>Kesulitan</Th>
-                    <Th>Kompetensi</Th>
+                    <Th>Elemen / Kompetensi</Th>
                     <Th></Th>
                   </tr>
                 </Thead>
@@ -707,9 +714,16 @@ export function PackageDetail({
                         {(questionPage - 1) * questionPageSize + idx + 1}
                       </Td>
                       <Td className="max-w-sm">
-                        <span className="line-clamp-2 text-sm text-slate-800 leading-relaxed">
-                          {stripLatex(q.teks)}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          {q.stimulus && (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200/80 rounded px-1.5 py-0.5 w-fit">
+                              <span className="text-[10px]">📖</span> {q.stimulus.judul}
+                            </span>
+                          )}
+                          <span className="line-clamp-2 text-sm text-slate-800 leading-relaxed">
+                            {stripLatex(q.teks)}
+                          </span>
+                        </div>
                       </Td>
                       <Td>
                         <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${
@@ -726,9 +740,21 @@ export function PackageDetail({
                         </span>
                       </Td>
                       <Td>
-                        <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-mono font-medium text-indigo-700 ring-1 ring-indigo-200">
-                          {q.kompetensi.kode}
-                        </span>
+                        <div className="flex flex-col gap-0.5 max-w-[220px]">
+                          {q.kompetensi.elemen?.nama && (
+                            <span className="text-[11px] font-semibold text-slate-600 line-clamp-1">
+                              {q.kompetensi.elemen.nama}
+                            </span>
+                          )}
+                          <span className="text-xs text-slate-700 line-clamp-1">
+                            {q.kompetensi.subElemen || q.kompetensi.deskripsi || q.kompetensi.kode}
+                          </span>
+                          {q.indikatorTeks && (
+                            <span className="text-[10px] text-slate-500 line-clamp-1 italic">
+                              {q.indikatorTeks}
+                            </span>
+                          )}
+                        </div>
                       </Td>
                       <Td className="text-right">
                         <div className="flex items-center justify-end gap-3">

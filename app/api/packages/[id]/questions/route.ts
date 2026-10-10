@@ -23,12 +23,14 @@ export async function GET(_request: Request, { params }: RouteParams) {
 
   const questions = await prisma.question.findMany({
     where: { packageId, deletedAt: null },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: "asc" },
     include: {
       options: { orderBy: { urutan: "asc" } },
       categories: { orderBy: { urutan: "asc" } },
       statements: { orderBy: { urutan: "asc" } },
-      kompetensi: true,
+      kompetensi: { include: { elemen: true } },
+      stimulus: true,
+      indikatorResmi: true,
     },
   });
 

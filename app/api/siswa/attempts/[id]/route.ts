@@ -99,6 +99,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         options: { orderBy: { urutan: "asc" } },
         categories: { orderBy: { urutan: "asc" } },
         statements: { orderBy: { urutan: "asc" } },
+        stimulus: true,
       },
     }),
     prisma.attemptAnswer.findMany({ where: { attemptId: attempt.id } }),
@@ -116,6 +117,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       teks: q.teks,
       media: q.media,
       bobot: q.bobot,
+      stimulus: q.stimulus
+        ? {
+            id: q.stimulus.id,
+            tipe: q.stimulus.tipe,
+            judul: q.stimulus.judul,
+            konten: q.stimulus.konten,
+          }
+        : null,
       // Label A/B/C/D dihitung ulang dari posisi tampil setelah acak, bukan
       // label asli tersimpan - kalau tetap pakai label asli, urutannya jadi
       // "C, B, A, D" dsb. yang justru membongkar bahwa opsinya diacak.

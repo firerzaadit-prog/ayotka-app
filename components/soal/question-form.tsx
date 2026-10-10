@@ -10,6 +10,8 @@ import { Alert } from "@/components/ui/alert";
 import { ImageUpload } from "@/components/soal/image-upload";
 import { InlineImageUpload } from "@/components/soal/inline-image-upload";
 import { RichText } from "@/components/soal/rich-text";
+import { HierarkiIndikatorCard } from "@/components/soal/hierarki-indikator-card";
+import { FileText } from "lucide-react";
 
 function insertAtCursor(inputId: string, textToInsert: string, value: string, setter: (val: string) => void) {
   const el = document.getElementById(inputId) as HTMLInputElement | HTMLTextAreaElement | null;
@@ -108,6 +110,22 @@ export type QuestionFormInitial = {
   kompetensiId: string;
   levelBloom: string;
   pembahasan: string | null;
+  stimulus?: {
+    id: string;
+    judul: string;
+    tipe: string;
+    konten: string;
+    jumlahKata?: number | null;
+  } | null;
+  indikatorTeks?: string | null;
+  indikatorResmiId?: string | null;
+  kompetensi?: {
+    id: string;
+    subElemen?: string | null;
+    deskripsi?: string;
+    elemen?: { id: string; nama: string };
+  } | null;
+  subjectName?: string;
   options: Option[];
   statements: (Statement & { correctCategory: "Benar" | "Salah" })[];
 };
@@ -301,6 +319,43 @@ export function QuestionForm({
             diubah, hasil siswa lama bisa terlihat tidak cocok dengan nilainya. Jumlah pilihan jawaban
             tidak bisa dikurangi.
           </Alert>
+        )}
+
+        {(initial?.kompetensi || initial?.indikatorTeks) && (
+          <HierarkiIndikatorCard
+            mapel={initial.subjectName || "Matematika"}
+            elemen={initial.kompetensi?.elemen?.nama || null}
+            subElemen={initial.kompetensi?.subElemen || null}
+            kompetensi={initial.kompetensi?.deskripsi || null}
+            indikator={initial.indikatorTeks || null}
+            indikatorResmiId={initial.indikatorResmiId || null}
+          />
+        )}
+
+        {initial?.stimulus && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4">
+            <div className="flex items-center justify-between pb-2 mb-2 border-b border-blue-100">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-blue-600" />
+                <span className="font-semibold text-xs text-blue-950">
+                  Stimulus: {initial.stimulus.judul}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {initial.stimulus.jumlahKata ? (
+                  <span className="text-[11px] text-slate-500 font-mono">
+                    {initial.stimulus.jumlahKata} kata
+                  </span>
+                ) : null}
+                <span className="text-[10px] font-medium bg-blue-100 text-blue-800 rounded px-1.5 py-0.5">
+                  {initial.stimulus.tipe}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg bg-white p-3 border border-blue-100/80 shadow-xs max-h-80 overflow-y-auto">
+              <RichText text={initial.stimulus.konten} className="text-xs leading-relaxed text-slate-800" />
+            </div>
+          </div>
         )}
 
         {!initial && (

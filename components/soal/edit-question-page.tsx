@@ -47,6 +47,11 @@ export function EditQuestionPage({
           kompetensiId: q.kompetensiId,
           levelBloom: q.levelBloom,
           pembahasan: q.pembahasan,
+          stimulus: q.stimulus ?? null,
+          indikatorTeks: q.indikatorTeks ?? null,
+          indikatorResmiId: q.indikatorId ?? null,
+          kompetensi: q.kompetensi ?? null,
+          subjectName: q.package?.subject?.nama ?? pkgData.package?.subject?.nama ?? "",
           options: q.options ?? [],
           statements: (q.statements ?? []).map((s: { teks: string; media: string | null; urutan: number; correctCategoryId: string }) => ({
             teks: s.teks,

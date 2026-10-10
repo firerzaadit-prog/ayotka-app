@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bot } from "lucide-react";
+import { Bot, FileText } from "lucide-react";
 import { RichText } from "@/components/soal/rich-text";
 import { TutorAiChat, type SoalChat } from "@/components/tutor/tutor-ai-chat";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,8 @@ export type PerSoal = {
   questionId: string;
   format: string;
   teks: string;
+  media?: string | null;
+  stimulus?: { id: string; tipe: string; judul: string | null; konten: string } | null;
   skor: number | null;
   skorMaks: number;
   // Bentuk aslinya beda-beda per format (lihat cast per blok di bawah) - dan
@@ -132,6 +134,19 @@ export function RincianJawaban({
                 {(s.skor ?? 0) >= s.skorMaks ? "Benar" : "Salah"}
               </Badge>
             </div>
+            {s.stimulus && (
+              <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1.5">
+                {s.stimulus.judul && (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                    <FileText className="h-4 w-4 text-indigo-600" />
+                    <span>Stimulus: {s.stimulus.judul}</span>
+                  </div>
+                )}
+                <div className="rounded-lg border border-slate-200/80 bg-white p-3 text-xs text-slate-700 font-sans leading-relaxed whitespace-pre-wrap overflow-x-auto">
+                  <RichText text={s.stimulus.konten} />
+                </div>
+              </div>
+            )}
             <div className="mb-2 text-sm">
               <RichText text={s.teks} />
             </div>

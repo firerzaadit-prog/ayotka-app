@@ -10,8 +10,10 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { FileText, Image as ImageIcon } from "lucide-react";
 
 import { RichText } from "@/components/soal/rich-text";
+import { HierarkiIndikatorCard } from "@/components/soal/hierarki-indikator-card";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 
@@ -25,6 +27,14 @@ type PreviewStatement = {
   no: number;
   teks: string;
   kategoriBenar: string;
+};
+
+type PreviewStimulusData = {
+  sourceId: string;
+  tipe: string;
+  judul: string;
+  konten: string;
+  jumlahKata?: number;
 };
 
 type PreviewQuestion = {
@@ -47,6 +57,8 @@ type PreviewQuestion = {
   taxonomyKompetensiLabel: string | null;
   levelKognitifSumber: string | null;
   levelBloom: "L1" | "L2" | "L3" | null;
+  stimulusId: string | null;
+  stimulus: PreviewStimulusData | null;
   gambarTipe: "svg" | "url" | "perlu_ilustrasi" | "ilustrasi_kontekstual" | null;
   gambarPreviewUrl: string | null;
   gambarAlt: string | null;
@@ -55,7 +67,7 @@ type PreviewQuestion = {
 
 type Preview = {
   sourcePaket: { id: string; code: string; nama: string; jenjang: string; mapel: string; jumlahSoal: number };
-  stimulusList: Array<{ sourceId: string; tipe: string; judul: string; konten: string }>;
+  stimulusList: PreviewStimulusData[];
   questions: PreviewQuestion[];
   readyToImport: boolean;
   previousImports: Array<{ packageId: string; packageNama: string; importedAt: string }>;
@@ -190,19 +202,31 @@ export function ImportPreview({ paketId }: { paketId: string }) {
 
       {preview.stimulusList.length > 0 && (
         <Card>
-          <h2 className="mb-3 text-sm font-semibold text-slate-900">
-            Bacaan bersama ({preview.stimulusList.length})
-          </h2>
-          <div className="flex flex-col gap-3">
-            {preview.stimulusList.map((s) => (
-              <div key={s.sourceId} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                <p className="mb-1.5 font-semibold text-slate-800">{s.judul}</p>
-                <div className="text-slate-600 leading-relaxed">
-                  <RichText text={s.konten} />
+          <details className="group">
+            <summary className="flex cursor-pointer select-none items-center justify-between text-sm font-semibold text-slate-900">
+              <span className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-indigo-600" />
+                <span>Daftar Stimulus Bacaan &amp; Data ({preview.stimulusList.length})</span>
+              </span>
+              <span className="text-xs font-normal text-indigo-600 group-open:hidden">Lihat ringkasan bacaan &darr;</span>
+              <span className="hidden text-xs font-normal text-indigo-600 group-open:inline">Tutup &uarr;</span>
+            </summary>
+            <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-3">
+              {preview.stimulusList.map((s) => (
+                <div key={s.sourceId} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+                  <div className="mb-1.5 flex items-center justify-between font-semibold text-slate-800">
+                    <span>{s.judul}</span>
+                    <span className="text-xs font-mono font-normal text-slate-500">
+                      {s.jumlahKata ?? s.konten.trim().split(/\s+/).filter(Boolean).length} kata
+                    </span>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto rounded border border-slate-200/60 bg-white p-2.5 text-xs text-slate-600 leading-relaxed">
+                    <RichText text={s.konten} />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </details>
         </Card>
       )}
 
@@ -268,6 +292,7 @@ export function ImportPreview({ paketId }: { paketId: string }) {
           {preview.questions.map((q) => (
             <QuestionRow
               key={q.sourceId}
+              mapel={preview.sourcePaket.mapel}
               question={q}
               levelOverride={levelOverrides[q.sourceId]}
               onLevelOverride={(level) => setLevelOverrides((prev) => ({ ...prev, [q.sourceId]: level }))}
@@ -333,10 +358,12 @@ function IndikatorRingkasan({ ringkas }: { ringkas: Preview["indikatorRingkas"] 
 }
 
 function QuestionRow({
+  mapel,
   question,
   levelOverride,
   onLevelOverride,
 }: {
+  mapel: string;
   question: PreviewQuestion;
   levelOverride: "L1" | "L2" | "L3" | undefined;
   onLevelOverride: (level: "L1" | "L2" | "L3") => void;
@@ -346,14 +373,14 @@ function QuestionRow({
 
   return (
     <div
-      className={`rounded-lg border p-4 text-sm transition-colors ${
-        isReady ? "border-slate-200 bg-white" : "border-amber-300 bg-amber-50/40"
+      className={`rounded-xl border p-4 sm:p-5 text-sm transition-colors ${
+        isReady ? "border-slate-200 bg-white shadow-sm" : "border-amber-300 bg-amber-50/40"
       }`}
     >
-      {/* Header baris: Nomor, status kesiapan, badge format, tingkat kesulitan, level Bloom, dan taksonomi */}
+      {/* Header baris: Nomor, status kesiapan, badge format, tingkat kesulitan, level Bloom */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="font-mono text-xs font-semibold text-slate-700">
+          <span className="font-mono text-xs font-bold text-slate-800">
             #{question.nomorUrut ?? "?"} · {question.code}
           </span>
           {isReady ? <Badge variant="success">Siap</Badge> : <Badge variant="warning">Perlu perhatian</Badge>}
@@ -381,36 +408,70 @@ function QuestionRow({
             </span>
           ) : null}
         </div>
-        <div className="flex flex-col items-end gap-0.5 text-xs text-slate-500">
-          <span className="font-medium text-slate-700">{question.elemen}</span>
-          {question.subElemen && <span className="text-[11px] text-slate-400">{question.subElemen}</span>}
-        </div>
       </div>
 
-      {/* Indikator di sumber: resmi (sama persis dengan master Kemendikdasmen) atau di luar daftar resmi */}
-      {question.indikator && (
-        <div className="mt-2.5 flex flex-wrap items-start gap-1.5 text-[11px] leading-snug text-slate-500">
-          <Badge variant={question.indikatorResmiId ? "success" : "neutral"} className="shrink-0 px-2 py-0 text-[11px]">
-            {question.indikatorResmiId ? "Indikator resmi" : "Di luar indikator resmi"}
-          </Badge>
-          <span className="min-w-0 flex-1">{question.indikator}</span>
+      {/* Hierarki Indikator Resmi Pusmendik (Elemen, Subelemen, Kompetensi, Indikator) */}
+      <div className="mt-3">
+        <HierarkiIndikatorCard
+          mapel={mapel}
+          elemen={question.elemen}
+          subElemen={question.subElemen}
+          kompetensi={question.kompetensi}
+          indikator={question.indikator}
+          indikatorResmiId={question.indikatorResmiId}
+        />
+      </div>
+
+      {/* Stimulus Bacaan / Tabel jika ada */}
+      {question.stimulus && (
+        <div className="mt-3.5 rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+            <span className="flex items-center gap-1.5">
+              <FileText className="h-4 w-4 text-indigo-600" />
+              <span>Stimulus: {question.stimulus.judul || "Stimulus Bacaan/Data TKA"}</span>
+            </span>
+            <span className="font-mono text-slate-500">
+              {question.stimulus.jumlahKata ?? question.stimulus.konten.trim().split(/\s+/).filter(Boolean).length} kata
+            </span>
+          </div>
+          <div className="rounded-lg border border-slate-200/80 bg-white p-3.5 text-xs text-slate-700 font-sans leading-relaxed whitespace-pre-wrap overflow-x-auto">
+            <RichText text={question.stimulus.konten} />
+          </div>
         </div>
       )}
 
       {/* Teks Soal */}
-      <div className="mt-3 text-sm text-slate-800 leading-relaxed">
-        <RichText text={question.teks} />
+      <div className="mt-3.5">
+        <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block mb-1.5 font-mono">
+          Teks Soal
+        </label>
+        <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-800 leading-relaxed">
+          <RichText text={question.teks} />
+        </div>
       </div>
 
-      {/* Gambar jika ada */}
+      {/* Gambar / Visualisasi jika ada */}
       {question.gambarPreviewUrl && (
-        <div className="my-3">
-          {/* eslint-disable-next-line @next/next/no-img-element -- pratinjau memuat langsung dari sumber */}
-          <img
-            src={question.gambarPreviewUrl}
-            alt={question.gambarAlt ?? ""}
-            className="max-h-60 rounded-md border border-slate-200 bg-white p-1 object-contain"
-          />
+        <div className="mt-3.5">
+          <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 font-mono flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <ImageIcon className="h-3.5 w-3.5 text-indigo-600" />
+              Visualisasi / Diagram Pendukung
+            </span>
+            {question.gambarAlt && (
+              <span className="text-[11px] text-slate-400 font-sans normal-case italic">
+                {question.gambarAlt}
+              </span>
+            )}
+          </label>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 flex flex-col items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element -- pratinjau memuat langsung dari sumber */}
+            <img
+              src={question.gambarPreviewUrl}
+              alt={question.gambarAlt ?? ""}
+              className="max-h-60 rounded-md border border-slate-200 bg-white p-1 object-contain"
+            />
+          </div>
         </div>
       )}
 

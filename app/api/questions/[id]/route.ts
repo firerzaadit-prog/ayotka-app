@@ -16,7 +16,10 @@ async function loadQuestionWithAnswerCount(id: string) {
       options: { orderBy: { urutan: "asc" } },
       categories: { orderBy: { urutan: "asc" } },
       statements: { orderBy: { urutan: "asc" } },
-      package: { select: { status: true } },
+      package: { select: { status: true, subjectId: true, jenjang: true, subject: { select: { nama: true } } } },
+      stimulus: true,
+      kompetensi: { include: { elemen: true } },
+      indikatorResmi: true,
       _count: { select: { attemptAnswers: true } },
     },
   });

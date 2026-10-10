@@ -14,6 +14,7 @@ import { WaktuTersisaCard } from "@/components/exam/waktu-tersisa-card";
 import { NomorSoalCard } from "@/components/exam/nomor-soal-card";
 import { formatSisaWaktuRingkas, nadaWaktu } from "@/lib/exam/format-waktu";
 import { cn } from "@/lib/utils/cn";
+import { FileText } from "lucide-react";
 
 type AttemptState = {
   id: string;
@@ -545,6 +546,20 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
             </div>
 
             <div className="px-5 py-5 sm:px-6">
+              {question.stimulus && (
+                <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
+                  {question.stimulus.judul && (
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
+                      <FileText className="h-4 w-4 text-indigo-600" />
+                      <span>Stimulus: {question.stimulus.judul}</span>
+                    </div>
+                  )}
+                  <div className="rounded-lg border border-slate-200/80 bg-white p-3.5 text-sm text-slate-800 leading-relaxed font-sans overflow-x-auto whitespace-pre-wrap">
+                    <RichText text={question.stimulus.konten} />
+                  </div>
+                </div>
+              )}
+
               <div className="mb-4 text-base leading-relaxed text-slate-900">
                 <RichText text={question.teks} />
               </div>

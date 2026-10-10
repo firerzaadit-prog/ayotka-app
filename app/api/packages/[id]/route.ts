@@ -31,8 +31,14 @@ export async function GET(_request: Request, { params }: RouteParams) {
       blueprint: { include: { items: { include: { kompetensi: true } } } },
       questions: {
         where: { deletedAt: null },
-        orderBy: { createdAt: "desc" },
-        include: { kompetensi: true, _count: { select: { attemptAnswers: true } } },
+        orderBy: { createdAt: "asc" },
+        include: {
+          stimulus: true,
+          kompetensi: { include: { elemen: true } },
+          indikatorResmi: true,
+          options: { orderBy: { urutan: "asc" } },
+          _count: { select: { attemptAnswers: true } },
+        },
       },
     },
   });

@@ -66,6 +66,7 @@ export interface SourceStimulus {
   tipe: string;
   judul: string;
   konten: string;
+  jumlahKata?: number | null;
 }
 
 function getSourceDatabaseUrl(): string {
@@ -145,6 +146,6 @@ export async function getIndikatorPaket(paketId: string): Promise<Array<{ teks: 
 export async function getStimulusByIds(ids: string[]): Promise<SourceStimulus[]> {
   if (ids.length === 0) return [];
   return getClient().$queryRaw<SourceStimulus[]>(
-    Prisma.sql`SELECT id, tipe, judul, konten FROM soal.stimulus WHERE id IN (${Prisma.join(ids)})`,
+    Prisma.sql`SELECT id, tipe, judul, konten, COALESCE(jumlah_kata, 0) AS "jumlahKata" FROM soal.stimulus WHERE id IN (${Prisma.join(ids)})`,
   );
 }
