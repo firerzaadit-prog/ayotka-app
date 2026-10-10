@@ -113,9 +113,9 @@ async function main() {
   const planSemester = await prisma.plan.findFirstOrThrow({ where: { kode: "semester" } });
   const planSchool = await prisma.plan.findFirstOrThrow({ where: { kode: "school" } });
 
-  // Cari SMPN 1 MADIUN
+  // Cari Sekolah Test Kuota
   const schoolSMP = await prisma.school.findFirstOrThrow({
-    where: { nama: { contains: "SMPN 1 MADIUN", mode: "insensitive" } },
+    where: { nama: { contains: "Sekolah Test Kuota", mode: "insensitive" } },
     include: {
       periode: {
         where: { dicabutAt: null, berakhir: { gt: new Date() } },
@@ -126,7 +126,7 @@ async function main() {
 
   const activePeriodeSMP = schoolSMP.periode[0];
   if (!activePeriodeSMP) {
-    throw new Error("Tidak ada periode aktif untuk SMPN 1 MADIUN");
+    throw new Error("Tidak ada periode aktif untuk Sekolah Test Kuota");
   }
 
   const now = new Date();
@@ -241,11 +241,11 @@ async function main() {
   console.log(`[OK] Siswa Mandiri 6 Bulan siap: ${emailMandiri6}`);
 
   // ----------------------------------------------------
-  // 3. SISWA SEKOLAH (SMPN 1 MADIUN)
+  // 3. SISWA SEKOLAH (Sekolah Test Kuota)
   // ----------------------------------------------------
   const emailSekolah = "siswa.sekolah@ayotka.id";
   const nisnSekolah = "9988776655";
-  const namaSekolah = "Siswa Sekolah Mitra (SMPN 1 Madiun)";
+  const namaSekolah = "Siswa Sekolah Mitra (Sekolah Test Kuota)";
   const userIdSekolah = await createOrUpdateAuthUser(emailSekolah, defaultPassword, namaSekolah);
 
   // Jika siswa sekolah punya akun NISN sintetis, sinkronkan juga akun nisn-nya
