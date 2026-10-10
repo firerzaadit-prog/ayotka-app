@@ -141,69 +141,70 @@ export async function renderInvoiceSekolahPdf(
   // ==========================================
   // 3. DUA KARTU INFORMASI (DITAGIHKAN & METADATA)
   // ==========================================
-  const cardGap = 16;
-  const cardWidth = (contentWidth - cardGap) / 2;
+  const cardGap = 14;
+  const cardWidthLeft = 210;
+  const cardWidthRight = contentWidth - cardGap - cardWidthLeft; // ~291.28 pt (lebih lega untuk nama penerbit)
   const cardHeight = 114;
 
   // Kartu Kiri: DITAGIHKAN KEPADA (Sekolah)
   const card1X = marginX;
-  box(card1X, currentY, cardWidth, cardHeight, COLOR.cardBg, COLOR.border, 8);
+  box(card1X, currentY, cardWidthLeft, cardHeight, COLOR.cardBg, COLOR.border, 8);
 
-  text("DITAGIHKAN KEPADA:", card1X + 14, currentY + 12, cardWidth - 28, 7.5, COLOR.muted, true);
-  text(school.nama, card1X + 14, currentY + 26, cardWidth - 28, 11, COLOR.ink, true);
+  text("DITAGIHKAN KEPADA:", card1X + 14, currentY + 12, cardWidthLeft - 28, 7.5, COLOR.muted, true);
+  text(school.nama, card1X + 14, currentY + 26, cardWidthLeft - 28, 11, COLOR.ink, true);
 
   const jenjangTeks = `Jenjang: ${school.jenjang}${school.statusSekolah ? ` (${school.statusSekolah.toUpperCase()})` : ""}`;
   const npsnTeks = school.npsn ? ` · NPSN: ${school.npsn}` : "";
-  text(`${jenjangTeks}${npsnTeks}`, card1X + 14, currentY + 44, cardWidth - 28, 8.5, COLOR.body);
+  text(`${jenjangTeks}${npsnTeks}`, card1X + 14, currentY + 44, cardWidthLeft - 28, 8.5, COLOR.body);
 
   const wilayah = [school.kabupatenKota, school.provinsi].filter(Boolean).join(", ");
   if (wilayah) {
-    text(wilayah, card1X + 14, currentY + 58, cardWidth - 28, 8.5, COLOR.body);
+    text(wilayah, card1X + 14, currentY + 58, cardWidthLeft - 28, 8.5, COLOR.body);
   }
 
   if (school.alamat) {
-    text(school.alamat, card1X + 14, currentY + 72, cardWidth - 28, 8, COLOR.muted);
+    text(school.alamat, card1X + 14, currentY + 72, cardWidthLeft - 28, 8, COLOR.muted);
   }
-  text(`Kode Sekolah: ${school.kodeSekolah}`, card1X + 14, currentY + 89, cardWidth - 28, 8, COLOR.faint, true);
+  text(`Kode Sekolah: ${school.kodeSekolah}`, card1X + 14, currentY + 89, cardWidthLeft - 28, 8, COLOR.faint, true);
 
   // Kartu Kanan: DETAIL INVOICE & PENERBIT
-  const card2X = marginX + cardWidth + cardGap;
-  box(card2X, currentY, cardWidth, cardHeight, COLOR.cardBg, COLOR.border, 8);
+  const card2X = marginX + cardWidthLeft + cardGap;
+  box(card2X, currentY, cardWidthRight, cardHeight, COLOR.cardBg, COLOR.border, 8);
 
-  text("INFORMASI INVOICE:", card2X + 14, currentY + 12, cardWidth - 28, 7.5, COLOR.muted, true);
+  text("INFORMASI INVOICE:", card2X + 14, currentY + 12, cardWidthRight - 28, 7.5, COLOR.muted, true);
 
   // Baris Tanggal Terbit
-  text("Tanggal Terbit", card2X + 14, currentY + 28, 90, 8.5, COLOR.muted);
-  text(`: ${formatWIBDate(invoice.tanggalInvoice)}`, card2X + 104, currentY + 28, cardWidth - 118, 8.5, COLOR.ink, true);
+  text("Tanggal Terbit", card2X + 14, currentY + 28, 78, 8.5, COLOR.muted);
+  text(`: ${formatWIBDate(invoice.tanggalInvoice)}`, card2X + 92, currentY + 28, cardWidthRight - 106, 8.5, COLOR.ink, true);
 
   if (isLunas) {
     // Tanggal Pelunasan
-    text("Tanggal Pelunasan", card2X + 14, currentY + 44, 90, 8.5, COLOR.muted);
+    text("Tanggal Pelunasan", card2X + 14, currentY + 44, 78, 8.5, COLOR.muted);
     const tanggalBayarStr = invoice.dibayarAt ? formatWIBDate(invoice.dibayarAt) : formatWIBDate(invoice.tanggalInvoice);
-    text(`: ${tanggalBayarStr}`, card2X + 104, currentY + 44, cardWidth - 118, 8.5, "#059669", true);
+    text(`: ${tanggalBayarStr}`, card2X + 92, currentY + 44, cardWidthRight - 106, 8.5, "#059669", true);
 
     // Status Pembayaran
-    text("Status Tagihan", card2X + 14, currentY + 60, 90, 8.5, COLOR.muted);
-    text(": LUNAS (Terverifikasi)", card2X + 104, currentY + 60, cardWidth - 118, 8.5, "#059669", true);
+    text("Status Tagihan", card2X + 14, currentY + 60, 78, 8.5, COLOR.muted);
+    text(": LUNAS (Terverifikasi)", card2X + 92, currentY + 60, cardWidthRight - 106, 8.5, "#059669", true);
 
-    // Penerbit
-    text("Penerbit", card2X + 14, currentY + 76, 48, 8, COLOR.muted);
-    text(": Grup Riset Media Pembelajaran dan Teknologi Matematika", card2X + 58, currentY + 76, cardWidth - 70, 7, COLOR.ink);
+    // Penerbit (1 baris lurus tanpa ada kata yang wrap ke bawah)
+    text("Penerbit", card2X + 14, currentY + 76, 40, 8, COLOR.muted);
+    text(": Grup Riset Media Pembelajaran dan Teknologi Matematika", card2X + 54, currentY + 76, cardWidthRight - 64, 7.2, COLOR.ink);
   } else {
     // Baris Jatuh Tempo
-    text("Jatuh Tempo", card2X + 14, currentY + 44, 90, 8.5, COLOR.muted);
-    text(`: ${formatWIBHariTanggal(invoice.jatuhTempo)}`, card2X + 104, currentY + 44, cardWidth - 118, 8.5, COLOR.danger, true);
+    text("Jatuh Tempo", card2X + 14, currentY + 44, 78, 8.5, COLOR.muted);
+    text(`: ${formatWIBHariTanggal(invoice.jatuhTempo)}`, card2X + 92, currentY + 44, cardWidthRight - 106, 8.5, COLOR.danger, true);
 
     // Status
-    text("Status Tagihan", card2X + 14, currentY + 60, 90, 8.5, COLOR.muted);
-    text(": Menunggu Pembayaran", card2X + 104, currentY + 60, cardWidth - 118, 8.5, COLOR.warnText, true);
+    text("Status Tagihan", card2X + 14, currentY + 60, 78, 8.5, COLOR.muted);
+    text(": Menunggu Pembayaran", card2X + 92, currentY + 60, cardWidthRight - 106, 8.5, COLOR.warnText, true);
 
-    // Penerbit
-    text("Penerbit", card2X + 14, currentY + 76, 48, 8, COLOR.muted);
-    text(": Grup Riset Media Pembelajaran dan Teknologi Matematika", card2X + 58, currentY + 76, cardWidth - 70, 7, COLOR.ink);
+    // Penerbit (1 baris lurus tanpa ada kata yang wrap ke bawah)
+    text("Penerbit", card2X + 14, currentY + 76, 40, 8, COLOR.muted);
+    text(": Grup Riset Media Pembelajaran dan Teknologi Matematika", card2X + 54, currentY + 76, cardWidthRight - 64, 7.2, COLOR.ink);
   }
 
-  text("Kontak Bantuan: support@ayotka.id · https://ayotka.id", card2X + 14, currentY + 93, cardWidth - 28, 7.5, COLOR.faint);
+  text("Kontak Bantuan: support@ayotka.id · https://ayotka.id", card2X + 14, currentY + 93, cardWidthRight - 28, 7.5, COLOR.faint);
 
   currentY += cardHeight + 18;
 
