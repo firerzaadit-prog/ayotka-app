@@ -5,7 +5,12 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { createSnapTransaction } from "@/lib/billing/midtrans";
 import { getSaldo, getHargaLearningAnalytics } from "@/lib/billing/saldo";
 import { saldoTopupSchema, SALDO_TOPUP_DENOMINASI } from "@/lib/validations/saldo";
-import { AFFILIATE_LINK_TOPUP, buildKonfirmasiTopupWa, getPaymentMode } from "@/lib/billing/pembayaran-affiliate";
+import {
+  AFFILIATE_SLUG_TOPUP,
+  buildAffiliateUrl,
+  buildKonfirmasiTopupWa,
+  getPaymentMode,
+} from "@/lib/billing/pembayaran-affiliate";
 
 /**
  * Bagian D/G (permintaan user): wallet/saldo siswa untuk beli Learning
@@ -44,9 +49,15 @@ export async function GET() {
   const affiliateTopup =
     paymentMode === "affiliate"
       ? Object.fromEntries(
-          SALDO_TOPUP_DENOMINASI.filter((n) => AFFILIATE_LINK_TOPUP[n]).map((n) => [
+          SALDO_TOPUP_DENOMINASI.filter((n) => Boolean(AFFILIATE_SLUG_TOPUP[n as keyof typeof AFFILIATE_SLUG_TOPUP])).map((n) => [
             n,
-            { url: AFFILIATE_LINK_TOPUP[n]!, waUrl: buildKonfirmasiTopupWa({ nominal: n, email: user.email }) },
+            {
+              url: buildAffiliateUrl(AFFILIATE_SLUG_TOPUP[n as keyof typeof AFFILIATE_SLUG_TOPUP], {
+                email: user.email,
+                nama: student.nama,
+              }),
+              waUrl: buildKonfirmasiTopupWa({ nominal: n, email: user.email }),
+            },
           ]),
         )
       : null;
@@ -54,7 +65,9 @@ export async function GET() {
   return NextResponse.json({
     saldo,
     hargaLearningAnalytics,
-    denominasi: affiliateTopup ? SALDO_TOPUP_DENOMINASI.filter((n) => affiliateTopup[n]) : SALDO_TOPUP_DENOMINASI,
+    denominasi: affiliateTopup
+      ? SALDO_TOPUP_DENOMINASI.filter((n) => Boolean(affiliateTopup[n]))
+      : SALDO_TOPUP_DENOMINASI,
     paymentMode,
     affiliateTopup,
     waKonfirmasiUmum: paymentMode === "affiliate" ? buildKonfirmasiTopupWa({ nominal: null, email: user.email }) : null,

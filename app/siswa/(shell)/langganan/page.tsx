@@ -50,6 +50,7 @@ export default function LanggananSiswaPage() {
   const [submittingPlanId, setSubmittingPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sukses, setSukses] = useState(false);
 
   async function handleCopyReferral(code: string) {
     try {
@@ -73,6 +74,8 @@ export default function LanggananSiswaPage() {
       const res = await fetch("/api/siswa/checkout");
       const json = await res.json().catch(() => null);
       if (!ignore && res.ok) setData(json);
+      const search = new URLSearchParams(window.location.search);
+      if (!ignore && search.get("sukses") === "langganan") setSukses(true);
     })();
     return () => {
       ignore = true;
@@ -213,18 +216,20 @@ export default function LanggananSiswaPage() {
         </Alert>
       )}
 
+      {sukses && (
+        <Alert variant="success">
+          Pembayaran berhasil! Paket langganan kamu telah diaktifkan secara otomatis.
+        </Alert>
+      )}
+
       {data.paymentMode === "affiliate" && (
         <Card className="border-indigo-200 bg-indigo-50/50">
-          <p className="text-sm font-semibold text-indigo-950">Cara berlangganan</p>
+          <p className="text-sm font-semibold text-indigo-950">⚡ Berlangganan Otomatis via affiliate.id</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-relaxed text-slate-700">
-            <li>Pilih paket di bawah, lalu bayar lewat halaman affiliate.id yang terbuka di tab baru.</li>
+            <li>Pilih paket di bawah dan selesaikan pembayaran di affiliate.id.</li>
+            <li>Email akun AyoTKA kamu terisi otomatis saat checkout.</li>
             <li>
-              Setelah membayar, kirim <b>bukti pembayaran</b> dan <b>email akunmu</b> ke admin lewat WhatsApp
-              (tombol &quot;Konfirmasi via WhatsApp&quot; di bawah paket sudah menyiapkan pesannya).
-            </li>
-            <li>
-              Admin memeriksa pembayaranmu lalu mengaktifkan langganan. Begitu aktif, status akses di halaman ini
-              berubah menjadi <b>Aktif</b>.
+              Begitu pembayaran lunas, langganan kamu akan langsung aktif secara otomatis dalam beberapa detik tanpa perlu konfirmasi manual!
             </li>
           </ol>
         </Card>
@@ -345,9 +350,9 @@ export default function LanggananSiswaPage() {
                             href={data.affiliatePlans[p.id]!.waUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-center text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+                            className="text-center text-xs font-semibold text-slate-500 hover:text-emerald-700"
                           >
-                            Sudah membayar? Konfirmasi via WhatsApp →
+                            Kendala pembayaran? Hubungi admin via WhatsApp →
                           </a>
                         </>
                       ) : (

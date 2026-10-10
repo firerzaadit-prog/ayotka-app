@@ -53,6 +53,7 @@ export default function WalletPage() {
   const [error, setError] = useState<string | null>(null);
   // Halaman hasil ujian yang mengirim siswa ke sini untuk mengisi saldo (?kembali=...), supaya mudah kembali.
   const [kembali, setKembali] = useState<string | null>(null);
+  const [sukses, setSukses] = useState(false);
 
   useEffect(() => {
     let ignore = false;
@@ -60,9 +61,11 @@ export default function WalletPage() {
       const res = await fetch("/api/siswa/saldo");
       const json = await res.json().catch(() => null);
       if (!ignore && res.ok) setData(json);
+      const search = new URLSearchParams(window.location.search);
       // Hanya jalur internal ke halaman hasil ujian yang diterima (bukan alamat sembarang) - mencegah pengalihan terbuka.
-      const tujuan = jalurKembaliHasil(new URLSearchParams(window.location.search).get("kembali"));
+      const tujuan = jalurKembaliHasil(search.get("kembali"));
       if (!ignore && tujuan) setKembali(tujuan);
+      if (!ignore && search.get("sukses") === "topup") setSukses(true);
     })();
     return () => {
       ignore = true;
@@ -104,6 +107,12 @@ export default function WalletPage() {
         </Alert>
       )}
 
+      {sukses && (
+        <Alert variant="success">
+          Pembayaran berhasil! Saldo kamu telah ditambahkan secara otomatis.
+        </Alert>
+      )}
+
       {error && <Alert variant="danger">{error}</Alert>}
 
       <Card className="text-center">
@@ -117,13 +126,14 @@ export default function WalletPage() {
       <Card className="flex flex-col gap-3">
         <p className="text-sm font-medium text-slate-700">Top-up saldo</p>
         {data.paymentMode === "affiliate" && (
-          <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-slate-600">
-            <li>Pilih nominal di bawah, lalu bayar lewat halaman affiliate.id yang terbuka di tab baru.</li>
-            <li>
-              Setelah membayar, kirim <b>bukti pembayaran</b> dan <b>email akunmu</b> ke admin lewat WhatsApp.
-            </li>
-            <li>Admin memeriksa pembayaranmu lalu menambahkan saldo. Setelah masuk, saldo di halaman ini bertambah.</li>
-          </ol>
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-900">
+            <p className="font-semibold text-emerald-950">⚡ Top-up Otomatis via affiliate.id</p>
+            <ol className="mt-1 list-decimal space-y-1 pl-4 leading-relaxed text-emerald-800">
+              <li>Pilih nominal di bawah dan selesaikan pembayaran di affiliate.id.</li>
+              <li>Email akun AyoTKA kamu terisi otomatis saat checkout.</li>
+              <li>Begitu pembayaran lunas, saldo akan langsung terisi secara otomatis tanpa perlu konfirmasi manual!</li>
+            </ol>
+          </div>
         )}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {data.paymentMode === "affiliate"
@@ -144,9 +154,9 @@ export default function WalletPage() {
                       href={tautan.waUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-center text-[11px] font-semibold text-emerald-700 hover:text-emerald-800"
+                      className="text-center text-[11px] font-medium text-slate-500 hover:text-emerald-700"
                     >
-                      Sudah bayar? Konfirmasi WA
+                      Bantuan / Kendala WA
                     </a>
                   </div>
                 );
@@ -169,7 +179,7 @@ export default function WalletPage() {
             rel="noopener noreferrer"
             className="w-fit text-xs font-semibold text-emerald-700 hover:text-emerald-800"
           >
-            Sudah membayar nominal lain? Hubungi admin via WhatsApp →
+            Kendala pembayaran? Hubungi admin via WhatsApp →
           </a>
         )}
       </Card>

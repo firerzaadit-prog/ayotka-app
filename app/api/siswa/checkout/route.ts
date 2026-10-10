@@ -7,7 +7,8 @@ import { getActiveEntitlement, kursiSekolahTersedia } from "@/lib/billing/entitl
 import { PESAN_DITANGGUNG_SEKOLAH } from "@/lib/billing/kredit-pribadi-pesan";
 import { SUMBER_KREDIT_PRIBADI } from "@/lib/billing/kredit-pribadi";
 import {
-  AFFILIATE_LINK_PLAN,
+  AFFILIATE_SLUG_PLAN,
+  buildAffiliateUrl,
   buildKonfirmasiLanggananWa,
   getPaymentMode,
 } from "@/lib/billing/pembayaran-affiliate";
@@ -73,11 +74,14 @@ export async function GET() {
     paymentMode === "affiliate"
       ? Object.fromEntries(
           plans
-            .filter((p) => AFFILIATE_LINK_PLAN[p.kode])
+            .filter((p) => Boolean(AFFILIATE_SLUG_PLAN[p.kode as keyof typeof AFFILIATE_SLUG_PLAN]))
             .map((p) => [
               p.id,
               {
-                url: AFFILIATE_LINK_PLAN[p.kode]!,
+                url: buildAffiliateUrl(AFFILIATE_SLUG_PLAN[p.kode as keyof typeof AFFILIATE_SLUG_PLAN], {
+                  email: user.email,
+                  nama: student.nama,
+                }),
                 waUrl: buildKonfirmasiLanggananWa({ namaPaket: p.nama, harga: p.harga, email: user.email }),
               },
             ]),

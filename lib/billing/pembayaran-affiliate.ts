@@ -27,10 +27,31 @@ function link(slug: string): string {
   return `${AFFILIATE_BASE}/${slug}${AFFILIATE_QS}`;
 }
 
+export const AFFILIATE_SLUG_PLAN = {
+  monthly: "ayotkaid-bulanan-OngB8kshcTdiPiai49fx",
+  semester: "ayotkaid-pembayaran-1-semester-T8rMqjdApjU940LkYgul",
+} as const;
+
+export const AFFILIATE_SLUG_TOPUP = {
+  25_000: "ayotkid-pembayaran-topup-kredit-25000-KnvFM8Z81a42ut0ZkRHg",
+  50_000: "ayotkaid-top-up-kredit-50000-jqKvm6YMT1YzqDwgdVey",
+} as const;
+
+export function buildAffiliateUrl(slug: string, options?: { email?: string; nama?: string }): string {
+  let url = `${AFFILIATE_BASE}/${slug}${AFFILIATE_QS}`;
+  if (options?.email) {
+    url += `&email=${encodeURIComponent(options.email)}`;
+  }
+  if (options?.nama) {
+    url += `&name=${encodeURIComponent(options.nama)}`;
+  }
+  return url;
+}
+
 /** Tautan produk per paket langganan (kunci = Plan.kode). */
 export const AFFILIATE_LINK_PLAN: Record<string, string> = {
-  monthly: link("ayotkaid-bulanan-OngB8kshcTdiPiai49fx"),
-  semester: link("ayotkaid-pembayaran-1-semester-T8rMqjdApjU940LkYgul"),
+  monthly: link(AFFILIATE_SLUG_PLAN.monthly),
+  semester: link(AFFILIATE_SLUG_PLAN.semester),
 };
 
 /**
@@ -38,8 +59,8 @@ export const AFFILIATE_LINK_PLAN: Record<string, string> = {
  * di affiliate.id - nominal lain (100rb/200rb) disembunyikan di mode affiliate.
  */
 export const AFFILIATE_LINK_TOPUP: Record<number, string> = {
-  25_000: link("ayotkid-pembayaran-topup-kredit-25000-KnvFM8Z81a42ut0ZkRHg"),
-  50_000: link("ayotkaid-top-up-kredit-50000-jqKvm6YMT1YzqDwgdVey"),
+  25_000: link(AFFILIATE_SLUG_TOPUP[25_000]),
+  50_000: link(AFFILIATE_SLUG_TOPUP[50_000]),
 };
 
 function rupiah(n: number): string {
