@@ -148,7 +148,7 @@ async function kirimTautanReset(params: { email: string; nama: string; roleLabel
     html: emailHtml,
   });
   if (!emailResult.ok) {
-    console.warn("Gagal mengirim email reset password:", emailResult.error);
+    console.warn(`Gagal mengirim email reset password [${emailResult.kode}]:`, emailResult.error);
     // Fallback terakhir: jika semua penyedia gagal, coba mekanisme built-in Supabase
     await supabaseAdmin.auth
       .resetPasswordForEmail(email, {

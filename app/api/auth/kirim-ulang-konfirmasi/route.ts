@@ -88,8 +88,8 @@ export async function POST(request: NextRequest) {
     peran: user.role === "mitra" ? "mitra" : "siswa",
   });
   if (!hasil.ok) {
-    console.error("[kirim-ulang-konfirmasi] email gagal terkirim:", hasil.error);
-    return NextResponse.json({ error: pesanEmailBelumTerkirim(hasil.kuotaHabis) }, { status: 503 });
+    console.error(`[kirim-ulang-konfirmasi] email gagal terkirim [${hasil.kode}]:`, hasil.error);
+    return NextResponse.json({ error: pesanEmailBelumTerkirim(hasil.kuotaHabis, hasil.kode) }, { status: 503 });
   }
 
   return NextResponse.json({ ok: true, message: PESAN_UMUM });

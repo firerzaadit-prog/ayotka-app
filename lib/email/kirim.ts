@@ -1,9 +1,11 @@
 import { sendViaResendApi, type SendViaResendInput } from "@/lib/email/resend";
 import { mailketingTersedia, sendViaMailketingApi } from "@/lib/email/mailketing";
+import { gabungKode, KODE_MAILKETING_NONAKTIF, kodeGalatMailketing, kodeGalatResend } from "@/lib/email/kode-galat";
 
 export type KirimEmailResult =
   | { ok: true; lewat: "resend" | "mailketing" }
-  | { ok: false; error: string; kuotaHabis: boolean };
+  /** kode = penyebab singkat yang aman ditampilkan/dicatat (lihat lib/email/kode-galat.ts), mis. "resend-401 + mailketing-nonaktif". */
+  | { ok: false; error: string; kuotaHabis: boolean; kode: string };
 
 /**
  * Pintu tunggal pengiriman email transaksional (konfirmasi pendaftaran,
@@ -23,7 +25,12 @@ export async function kirimEmail(input: SendViaResendInput): Promise<KirimEmailR
 
   const penerimaDitolak = resend.status === 400 || resend.status === 422;
   if (penerimaDitolak || !(await mailketingTersedia())) {
-    return { ok: false, error: resend.error, kuotaHabis: resend.kuotaHabis };
+    return {
+      ok: false,
+      error: resend.error,
+      kuotaHabis: resend.kuotaHabis,
+      kode: gabungKode(kodeGalatResend(resend), penerimaDitolak ? null : KODE_MAILKETING_NONAKTIF),
+    };
   }
 
   console.warn(`[email] Resend gagal (${resend.error}), mencoba Mailketing.`);
@@ -35,5 +42,6 @@ export async function kirimEmail(input: SendViaResendInput): Promise<KirimEmailR
     error: `${resend.error} | ${cadangan.error}`,
     // Kuota habis hanya jujur dilaporkan kalau cadangan pun tidak menolong.
     kuotaHabis: resend.kuotaHabis,
+    kode: gabungKode(kodeGalatResend(resend), kodeGalatMailketing(cadangan)),
   };
 }

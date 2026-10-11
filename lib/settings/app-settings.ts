@@ -1,7 +1,7 @@
-import { resolveFromAddress } from "@/lib/email/from-address";
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
 import { decryptSecret } from "@/lib/security/crypto";
+import { tentukanKonfigResend, type KonfigResend } from "@/lib/settings/resend-config";
 
 const SETTINGS_ID = "global";
 
@@ -101,43 +101,41 @@ export async function getResolvedMidtransConfig(): Promise<{
 }
 
 /**
- * Resolver Resend Email: Prioritas Database Admin Pusat -> Fallback ke Vercel env.
+ * Resolver Resend Email: Prioritas Database Admin Pusat -> Fallback ke .env server. Aturan memilihnya ada di
+ * lib/settings/resend-config.ts (kunci database yang kelak ditolak Resend tidak lagi menutup kunci .env yang valid).
  */
-export async function getResolvedResendConfig(): Promise<{
-  apiKey: string;
-  fromEmail: string;
-  source: "database" | "env" | "none";
-}> {
-  if (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST)) {
-    const envKey = process.env.RESEND_API_KEY || "";
-    return {
-      apiKey: envKey,
-      fromEmail: resolveFromAddress(process.env.RESEND_FROM_EMAIL),
-      source: envKey ? "env" : "none",
-    };
-  }
+export async function getResolvedResendConfig(): Promise<KonfigResend> {
+  const dariEnv = tentukanKonfigResend({
+    dbTersimpan: false,
+    dbKunci: "",
+    dbFrom: null,
+    envKunci: process.env.RESEND_API_KEY,
+    envFrom: process.env.RESEND_FROM_EMAIL,
+  });
+
+  if (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST)) return dariEnv;
 
   try {
     const settings = await getGlobalAppSettings();
-    const dbApiKey = decryptSecret(settings.resendApiKeyEncrypted);
-
-    if (dbApiKey) {
-      return {
-        apiKey: dbApiKey,
-        fromEmail: resolveFromAddress(settings.resendFromEmail, process.env.RESEND_FROM_EMAIL),
-        source: "database",
-      };
+    const konfig = tentukanKonfigResend({
+      dbTersimpan: Boolean(settings.resendApiKeyEncrypted?.trim()),
+      dbKunci: decryptSecret(settings.resendApiKeyEncrypted),
+      dbFrom: settings.resendFromEmail,
+      envKunci: process.env.RESEND_API_KEY,
+      envFrom: process.env.RESEND_FROM_EMAIL,
+    });
+    if (konfig.kunciDatabaseTakTerbaca) {
+      console.warn(
+        "[settings] Kunci Resend yang tersimpan di database tidak bisa dibaca (APP_ENCRYPTION_KEY / SUPABASE_SERVICE_ROLE_KEY server berbeda dari saat kunci disimpan?). " +
+          (konfig.apiKey ? "Memakai RESEND_API_KEY dari .env." : "RESEND_API_KEY di .env juga kosong, jadi email tidak bisa dikirim."),
+      );
     }
+    return konfig;
   } catch (err) {
     console.warn("[settings] Gagal membaca Resend config dari database, memakai fallback env:", err);
   }
 
-  const envKey = process.env.RESEND_API_KEY || "";
-  return {
-    apiKey: envKey,
-    fromEmail: resolveFromAddress(process.env.RESEND_FROM_EMAIL),
-    source: envKey ? "env" : "none",
-  };
+  return dariEnv;
 }
 
 /**

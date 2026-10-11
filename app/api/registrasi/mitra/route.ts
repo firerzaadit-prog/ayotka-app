@@ -113,11 +113,11 @@ export async function POST(request: Request) {
     peran: "mitra",
   });
   if (!emailResult.ok) {
-    console.error("[registrasi-mitra] akun dibuat tapi email konfirmasi gagal:", emailResult.error);
+    console.error(`[registrasi-mitra] akun dibuat tapi email konfirmasi gagal [${emailResult.kode}]:`, emailResult.error);
     return NextResponse.json({
       ok: true,
       emailTerkirim: false,
-      pesan: pesanEmailBelumTerkirim(emailResult.kuotaHabis),
+      pesan: pesanEmailBelumTerkirim(emailResult.kuotaHabis, emailResult.kode),
     });
   }
 

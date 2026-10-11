@@ -50,9 +50,13 @@ export async function kirimEmailKonfirmasi(params: {
   });
 }
 
-/** Pesan untuk layar pendaftar kalau akun sudah jadi tapi email belum terkirim. */
-export function pesanEmailBelumTerkirim(kuotaHabis: boolean): string {
-  return kuotaHabis
+/**
+ * Pesan untuk layar pendaftar kalau akun sudah jadi tapi email belum terkirim. `kode` (lib/email/kode-galat.ts) ditambahkan
+ * di ujung supaya penyebabnya langsung terlihat saat dilaporkan, tanpa harus membuka log server.
+ */
+export function pesanEmailBelumTerkirim(kuotaHabis: boolean, kode?: string): string {
+  const dasar = kuotaHabis
     ? "Akunmu sudah dibuat, tapi email konfirmasi belum bisa dikirim karena sistem email sedang sangat ramai. Coba klik \"Kirim ulang email konfirmasi\" beberapa menit lagi."
     : "Akunmu sudah dibuat, tapi email konfirmasi belum berhasil terkirim. Klik \"Kirim ulang email konfirmasi\" di bawah untuk mencoba lagi.";
+  return kode ? `${dasar} (Kode: ${kode})` : dasar;
 }

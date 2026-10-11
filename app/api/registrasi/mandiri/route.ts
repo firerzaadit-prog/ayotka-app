@@ -264,11 +264,11 @@ export async function POST(request: Request) {
     peran: "siswa",
   });
   if (!emailResult.ok) {
-    console.error("[registrasi-mandiri] akun dibuat tapi email konfirmasi gagal:", emailResult.error);
+    console.error(`[registrasi-mandiri] akun dibuat tapi email konfirmasi gagal [${emailResult.kode}]:`, emailResult.error);
     return NextResponse.json({
       ok: true,
       emailTerkirim: false,
-      pesan: pesanEmailBelumTerkirim(emailResult.kuotaHabis),
+      pesan: pesanEmailBelumTerkirim(emailResult.kuotaHabis, emailResult.kode),
     });
   }
 

@@ -49,17 +49,13 @@ function isKuotaHabis(status: number, body: string): boolean {
   }
 }
 
-export async function sendViaResendApi(
+/** Satu kunci, dengan percobaan ulang untuk kegagalan sesaat (jaringan, 429 biasa, 5xx). */
+async function kirimDenganKunci(
+  apiKey: string,
+  from: string,
   { to, subject, html }: SendViaResendInput,
-  options: SendOptions = {},
+  delays: number[],
 ): Promise<SendViaResendResult> {
-  const { apiKey, fromEmail } = await getResolvedResendConfig();
-  if (!apiKey) {
-    return { ok: false, error: "RESEND_API_KEY belum diisi di Pengaturan Sistem atau .env", kuotaHabis: false };
-  }
-  const from = fromEmail || "AyoTKA <noreply@ayotka.id>";
-  const delays = options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
-
   let lastError = "Gagal mengirim email.";
   let lastStatus: number | undefined;
   for (let attempt = 0; attempt <= delays.length; attempt++) {
@@ -94,4 +90,38 @@ export async function sendViaResendApi(
   }
 
   return { ok: false, error: lastError, kuotaHabis: false, status: lastStatus };
+}
+
+export async function sendViaResendApi(
+  input: SendViaResendInput,
+  options: SendOptions = {},
+): Promise<SendViaResendResult> {
+  const { apiKey, fromEmail, kunciCadanganEnv, kunciDatabaseTakTerbaca } = await getResolvedResendConfig();
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: kunciDatabaseTakTerbaca
+        ? "Kunci Resend di Pengaturan Sistem tidak bisa dibaca (kunci enkripsi server berubah) dan RESEND_API_KEY di .env juga kosong"
+        : "RESEND_API_KEY belum diisi di Pengaturan Sistem atau .env",
+      kuotaHabis: false,
+    };
+  }
+  const from = fromEmail || "AyoTKA <noreply@ayotka.id>";
+  const delays = options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
+
+  const hasil = await kirimDenganKunci(apiKey, from, input, delays);
+  const ditolakKunci = !hasil.ok && (hasil.status === 401 || hasil.status === 403);
+  if (hasil.ok || !ditolakKunci || !kunciCadanganEnv) return hasil;
+
+  // Kunci dari Pengaturan Sistem (database) ditolak, tetapi ada RESEND_API_KEY lain di .env: coba itu sebelum menyerah,
+  // supaya kunci database yang basi (dicabut/diganti di Resend) tidak menghentikan semua email.
+  console.warn(`[email] Kunci Resend dari Pengaturan Sistem ditolak (HTTP ${hasil.status}); mencoba RESEND_API_KEY dari .env.`);
+  const cadangan = await kirimDenganKunci(kunciCadanganEnv, from, input, delays);
+  if (cadangan.ok) {
+    console.warn("[email] RESEND_API_KEY dari .env berhasil. Perbarui kunci Resend di Pengaturan Sistem: kunci yang tersimpan di sana sudah tidak berlaku.");
+    return cadangan;
+  }
+  // Yang dilaporkan tetap galat kunci utama (itu yang diatur admin); galat kunci .env hanya dicatat di log.
+  console.warn(`[email] RESEND_API_KEY dari .env juga gagal (${cadangan.status ?? "tanpa status"}).`);
+  return hasil;
 }
