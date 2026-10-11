@@ -169,12 +169,84 @@ describe("buildHasil - nama elemen mengikuti Kerangka Asesmen (SD: 'Data', bukan
         include: {
           kompetensi: {
             select: {
+              id: true,
               deskripsi: true,
+              subElemen: true,
+              levelKognitif: true,
               elemen: { select: expect.objectContaining({ subject: { select: { nama: true, jenjang: true } } }) },
             },
           },
         },
       }),
     );
+  });
+});
+
+describe("buildHasil.hierarkiKompetensi - hierarki Elemen > Subelemen > Kompetensi untuk rapor siswa", () => {
+  const skor = (id: string, elemen: { id: string; nama: string; urutan: number }, sub: string, deskripsi: string, benar: number, soal: number, level = "L1") => ({
+    kompetensiId: id,
+    jmlBenar: benar,
+    jmlSoal: soal,
+    persentase: soal > 0 ? (benar / soal) * 100 : 0,
+    kompetensi: {
+      id,
+      deskripsi,
+      subElemen: sub,
+      levelKognitif: level,
+      elemen: { ...elemen, subject: { nama: "Matematika", jenjang: "SMP" } },
+    },
+  });
+  const ALJABAR = { id: "e-aljabar", nama: "Aljabar", urutan: 1 };
+  const BILANGAN = { id: "e-bilangan", nama: "Bilangan", urutan: 2 };
+
+  it("meminta subelemen dan level kognitif ikut dimuat", async () => {
+    await buildHasil(attempt);
+    expect(m.competencyFind).toHaveBeenCalledWith(
+      expect.objectContaining({
+        include: { kompetensi: { select: expect.objectContaining({ id: true, subElemen: true, levelKognitif: true, deskripsi: true }) } },
+      }),
+    );
+  });
+
+  it("tanpa skor kompetensi -> daftar kosong", async () => {
+    expect((await buildHasil(attempt)).hierarkiKompetensi).toEqual([]);
+  });
+
+  it("menyusun hierarki berurutan resmi (Bilangan sebelum Aljabar walau urutan database sebaliknya) dengan jumlah per simpul", async () => {
+    m.competencyFind.mockResolvedValue([
+      skor("k1", ALJABAR, "Bentuk Aljabar", "Menghitung operasi aljabar", 1, 2),
+      skor("k2", ALJABAR, "Bentuk Aljabar", "Mengaplikasikan sifat operasi", 3, 3, "L2"),
+      skor("k3", BILANGAN, "Bilangan Real", "Menghitung hasil operasi", 1, 4),
+    ]);
+    const h = (await buildHasil(attempt)).hierarkiKompetensi;
+    expect(h.map((b) => [b.level, b.teks])).toEqual([
+      [1, "Bilangan"],
+      [2, "Bilangan Real"],
+      [3, "Menghitung hasil operasi"],
+      [1, "Aljabar"],
+      [2, "Bentuk Aljabar"],
+      [3, "Menghitung operasi aljabar"],
+      [3, "Mengaplikasikan sifat operasi"],
+    ]);
+    expect(h.find((b) => b.teks === "Aljabar")).toMatchObject({ jmlBenar: 4, jmlSoal: 5, nomor: 2 });
+    // konsisten dengan Peta Kompetensi lama (per elemen)
+    const elemen = (await buildHasil(attempt)).elemenScores;
+    expect(elemen.find((e) => e.elemenNama === "Aljabar")).toMatchObject({ jmlBenar: 4, jmlSoal: 5 });
+  });
+
+  it("baris skor lama tanpa subelemen/level/id (data tiruan atau skema lama) tidak membuat galat", async () => {
+    m.competencyFind.mockResolvedValue([
+      { jmlBenar: 1, jmlSoal: 2, persentase: 50, kompetensi: { deskripsi: "Kompetensi tanpa detail", elemen: { ...ALJABAR, subject: { nama: "Matematika", jenjang: "SMP" } } } },
+    ]);
+    const h = (await buildHasil(attempt)).hierarkiKompetensi;
+    expect(h.map((b) => b.teks)).toEqual(["Aljabar", "Lainnya", "Kompetensi tanpa detail"]);
+  });
+
+  it("mapel tanpa hierarki resmi tetap menghasilkan hierarki (urutan database + abjad)", async () => {
+    m.competencyFind.mockResolvedValue([
+      { ...skor("k9", BILANGAN, "Sub B", "K9", 1, 1), kompetensi: { ...skor("k9", BILANGAN, "Sub B", "K9", 1, 1).kompetensi, elemen: { ...BILANGAN, subject: { nama: "IPA", jenjang: "SMP" } } } },
+      { ...skor("k8", ALJABAR, "Sub A", "K8", 1, 1), kompetensi: { ...skor("k8", ALJABAR, "Sub A", "K8", 1, 1).kompetensi, elemen: { ...ALJABAR, subject: { nama: "IPA", jenjang: "SMP" } } } },
+    ]);
+    expect((await buildHasil(attempt)).hierarkiKompetensi.filter((b) => b.level === 1).map((b) => b.teks)).toEqual(["Aljabar", "Bilangan"]);
   });
 });

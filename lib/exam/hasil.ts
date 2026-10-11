@@ -9,6 +9,8 @@ import { firstFinishedAttempt, percobaanBerjawabPertama } from "@/lib/exam/seri-
 import { bukaPaketBerikutnyaSetelah } from "@/lib/exam/seri-jadwal";
 import { hitungLaporanSiswa } from "@/lib/indikator/daya-serap";
 import { namaElemenTampil } from "@/lib/content/label-elemen";
+import { bangunHierarkiKompetensi } from "@/lib/exam/hierarki-kompetensi";
+import { urutanHierarkiResmi } from "@/lib/indikator/hierarki-resmi";
 
 /**
  * Tiket 5.9: ID separuh disamarkan untuk watermark - cukup untuk dilacak
@@ -46,7 +48,10 @@ export async function buildHasil(attempt: Attempt) {
       include: {
         kompetensi: {
           select: {
+            id: true,
             deskripsi: true,
+            subElemen: true,
+            levelKognitif: true,
             elemen: { select: { id: true, nama: true, urutan: true, subject: { select: { nama: true, jenjang: true } } } },
           },
         },
@@ -203,6 +208,26 @@ export async function buildHasil(attempt: Attempt) {
       jmlSoal: c.jmlSoal,
       persentase: c.persentase,
     })),
+    // Hierarki Elemen > Subelemen > Kompetensi dengan capaian di tiap simpul (tampilan web rapor siswa, seperti tabel hierarki
+    // di Analitik Admin Sekolah), diurutkan menurut hierarki resmi bila elemen/subelemennya dikenal - lib/exam/hierarki-kompetensi.ts.
+    hierarkiKompetensi: bangunHierarkiKompetensi(
+      competencyScores.map((c, i) => ({
+        kompetensiId: c.kompetensiId ?? c.kompetensi.id ?? `k${i}`,
+        elemenId: c.kompetensi.elemen.id,
+        elemenNama: namaElemenTampil(c.kompetensi.elemen),
+        elemenNamaAsli: c.kompetensi.elemen.nama,
+        elemenUrutan: c.kompetensi.elemen.urutan,
+        subElemen: c.kompetensi.subElemen ?? "",
+        kompetensi: c.kompetensi.deskripsi,
+        level: c.kompetensi.levelKognitif ?? "",
+        jmlBenar: c.jmlBenar,
+        jmlSoal: c.jmlSoal,
+      })),
+      (() => {
+        const mapel = competencyScores[0]?.kompetensi.elemen.subject;
+        return mapel ? urutanHierarkiResmi(mapel.jenjang, mapel.nama) : null;
+      })(),
+    ),
     // Bagian 8.7 brief: Peta Kompetensi ditampilkan per Elemen (bukan per
     // Kompetensi butir halus) di web & PDF - lihat lib/exam/elemen-scores.ts.
     elemenScores: aggregateElemenScores(

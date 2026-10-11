@@ -9,6 +9,8 @@ import { Alert } from "@/components/ui/alert";
 import { buttonClassName } from "@/components/ui/button";
 import { RincianJawaban, type PerSoal } from "@/components/hasil/rincian-jawaban";
 import { PetaKompetensiChart } from "@/components/hasil/peta-kompetensi-chart";
+import { HierarkiKompetensiTabel } from "@/components/hasil/hierarki-kompetensi-tabel";
+import type { BarisHierarkiKompetensi } from "@/lib/exam/hierarki-kompetensi";
 import { DayaSerapIndikator } from "@/components/hasil/daya-serap-indikator";
 import type { LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
 import type { OpsiLaSusulan } from "@/lib/billing/learning-analytics";
@@ -40,6 +42,8 @@ type Hasil = {
   ranking: { peringkatSaya: number; totalPeserta: number; papan: { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } | null;
   perSoal: PerSoal[];
   elemenScores: { elemenNama: string; jmlBenar: number; jmlSoal: number; persentase: number }[];
+  /** Hierarki Elemen > Subelemen > Kompetensi dengan capaian; tidak ada pada respons server lama (jatuh ke grafik batang). */
+  hierarkiKompetensi?: BarisHierarkiKompetensi[];
   /** Daya serap per indikator resmi Kemendikdasmen; null/tidak ada bila tak ada soal berindikator resmi. */
   indikator?: LaporanIndikatorSiswa | null;
   /** Opsi menjalankan Learning Analytics susulan (null bila server gagal menghitungnya: kartu tidak ditampilkan). */
@@ -182,8 +186,19 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
 
       {hasil.elemenScores.length > 0 && (
         <Card>
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Peta Kompetensi</h2>
-          <PetaKompetensiChart scores={hasil.elemenScores} />
+          <h2 className="mb-1 text-lg font-semibold text-slate-900">Peta Kompetensi</h2>
+          {hasil.hierarkiKompetensi && hasil.hierarkiKompetensi.length > 0 ? (
+            <>
+              <p className="mb-4 text-xs text-slate-500">
+                Capaianmu pada percobaan ini, per Elemen › Subelemen › Kompetensi.
+              </p>
+              <HierarkiKompetensiTabel baris={hasil.hierarkiKompetensi} />
+            </>
+          ) : (
+            <div className="mt-3">
+              <PetaKompetensiChart scores={hasil.elemenScores} />
+            </div>
+          )}
         </Card>
       )}
 

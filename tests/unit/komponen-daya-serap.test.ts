@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { DayaSerapIndikator } from "@/components/hasil/daya-serap-indikator";
+import { BarisUraian, DayaSerapIndikator } from "@/components/hasil/daya-serap-indikator";
 import { hitungLaporanSiswa, type InfoIndikator, type JawabanBerindikator } from "@/lib/indikator/daya-serap";
 
 const mat = (n: number, o: Partial<InfoIndikator> = {}): InfoIndikator => ({
@@ -93,5 +93,40 @@ describe("komponen DayaSerapIndikator (rapor siswa di web)", () => {
     expect(h).toContain("bg-emerald-600");
     expect(h).toContain("bg-amber-600");
     expect(h).toContain("bg-rose-600");
+  });
+});
+
+describe("nomor urut indikator resmi tidak ditampilkan (terbaca seperti nomor soal)", () => {
+  it("tampilan bawaan (tabel hierarki + kartu fokus): tidak ada lencana #n atau 'Kode Indikator Resmi', kalimat indikator tetap tampil", () => {
+    const h = html([...ulang(mat(1), 4, 4), ...ulang(mat(2), 3, 1), ...ulang(mat(3), 2, 2), ...ulang(mat(4), 2, 0)]);
+    expect(h).not.toMatch(/>\s*#\d+\s*</);
+    expect(h).not.toContain("Kode Indikator Resmi");
+    expect(h).toContain("Indikator mat 1");
+    expect(h).toContain("Prioritas belajar");
+  });
+
+  it("kartu baris (akordion dan laporan sekolah): tidak ada lencana, nomor di ujung kalimat dibuang dari teks yang terlihat", () => {
+    const b = {
+      indikatorId: "i1",
+      level1: "Bilangan",
+      level2: "Bilangan Real",
+      level3: "Kemampuan X",
+      indikator: "Menyelesaikan operasi bilangan bentuk pangkat (13)",
+      urutan: 13,
+      jmlSoal: 5,
+      skor: 4,
+      skorMaks: 5,
+      dayaSerap: 80,
+      nasional: 34.1,
+    };
+    const h = renderToStaticMarkup(createElement("ul", null, createElement(BarisUraian, { b })));
+    expect(h).not.toMatch(/>\s*#\d+\s*</);
+    expect(h).not.toContain("Kode Indikator Resmi");
+    // teks yang terlihat tidak memuat "(13)"; nomor aslinya hanya ada di teks bantu pembaca layar dan tooltip
+    const terlihat = h.replace(/<span class="sr-only">[^<]*<\/span>/g, "").replace(/<[^>]+>/g, " ");
+    expect(terlihat).toContain("Menyelesaikan operasi bilangan bentuk pangkat");
+    expect(terlihat).not.toContain("(13)");
+    expect(terlihat).toContain("5 soal");
+    expect(terlihat).toContain("nasional 34,1%");
   });
 });

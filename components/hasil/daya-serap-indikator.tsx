@@ -81,8 +81,8 @@ export function BarisUraian<B extends BarisIndikator>({
 }) {
   const cls = COMPETENCY_TIER_CLASS[competencyTier(b.dayaSerap)];
   const ket = tambahan?.(b);
-  const { judul, nomorUrut } = bersihkanTeksIndikator(b.indikator);
-  const noIndikator = b.urutan || nomorUrut;
+  // Nomor urut indikator resmi (mis. "(13)" di ujung kalimat) sengaja tidak ditampilkan: terbaca seperti nomor soal.
+  const { judul } = bersihkanTeksIndikator(b.indikator);
 
   return (
     <li className="rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5">
@@ -91,14 +91,6 @@ export function BarisUraian<B extends BarisIndikator>({
         {b.level3 ? ` · ${b.level3}` : ""}
       </p>
       <div className="mt-0.5 flex items-start gap-2 text-sm leading-snug text-slate-800">
-        {noIndikator && (
-          <span
-            title={`Kode Indikator Resmi Pusmendik #${noIndikator}`}
-            className="inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 mt-0.5 select-none"
-          >
-            #{noIndikator}
-          </span>
-        )}
         <span className="flex-1" title={b.indikator}>
           {judul}
         </span>
@@ -202,19 +194,13 @@ export function DaftarFokus<B extends BarisIndikator>({
       ) : (
         <ol className="flex flex-col gap-2">
           {baris.map((b) => {
-            const { judul: teksBersih, nomorUrut } = bersihkanTeksIndikator(b.indikator);
-            const noIndikator = b.urutan || nomorUrut;
+            const { judul: teksBersih } = bersihkanTeksIndikator(b.indikator);
             return (
               <li key={b.indikatorId} className="text-sm leading-snug text-slate-800">
                 <div className="flex items-start gap-2">
                   <span className="font-mono text-xs font-semibold text-slate-500 shrink-0 mt-0.5">
                     {formatPersen(b.dayaSerap, 0)}
                   </span>
-                  {noIndikator && (
-                    <span className="inline-flex shrink-0 items-center px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                      #{noIndikator}
-                    </span>
-                  )}
                   <span className="flex-1" title={b.indikator}>
                     {teksBersih}
                   </span>
@@ -611,14 +597,6 @@ export function TabelHierarkiResmiSiswa({
                         <div className="flex flex-col gap-1">
                           <div className="flex items-start gap-2">
                             <span className="text-slate-400 shrink-0 select-none">•</span>
-                            {row.nomorUrut && (
-                              <span
-                                title={`Kode Indikator Resmi Pusmendik #${row.nomorUrut}`}
-                                className="inline-flex shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 select-none"
-                              >
-                                #{row.nomorUrut}
-                              </span>
-                            )}
                             <span className="leading-snug" title={row.rawIndikatorTeks || row.teks}>
                               {row.judulTampil}
                             </span>

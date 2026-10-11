@@ -266,6 +266,47 @@ function buatContohSoalFallback(item: RawIndicatorItem, mapel: string): ContohSo
   };
 }
 
+/** Nama untuk dibandingkan antar sumber: tanpa beda huruf besar/kecil dan spasi ganda. */
+export function kunciNamaHierarki(nama: string): string {
+  return nama.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export interface UrutanHierarkiResmi {
+  /** Nama elemen (dinormalkan dengan kunciNamaHierarki) menurut urutan resmi. */
+  elemen: string[];
+  /** Per elemen (kunci dinormalkan): nama subelemen (dinormalkan) menurut urutan resmi. Kosong untuk Bahasa Indonesia. */
+  subelemen: Map<string, string[]>;
+}
+
+/**
+ * Urutan elemen dan subelemen menurut hierarki resmi (urutan kemunculan di data master), supaya tampilan lain - mis. tabel
+ * hierarki kompetensi di rapor siswa - berurutan sama dengan Tampilan Analitik. null bila jenjang/mapel tidak punya
+ * hierarki resmi. Untuk Bahasa Indonesia hanya urutan tingkat pertama (Kompetensi) yang bermakna: tingkat keduanya di data
+ * master berupa kalimat indikator, bukan nama subkompetensi.
+ */
+export function urutanHierarkiResmi(jenjang: string, namaMapel: string): UrutanHierarkiResmi | null {
+  const j = jenjang.trim().toUpperCase();
+  if (j !== "SD" && j !== "SMP") return null;
+  const matematika = /matematika/i.test(namaMapel);
+  const bahasa = /bahasa\s+indonesia/i.test(namaMapel);
+  if (!matematika && !bahasa) return null;
+  const mapel = matematika ? "matematika" : "bahasa indonesia";
+
+  const elemen: string[] = [];
+  const subelemen = new Map<string, string[]>();
+  for (const d of kemendikdasmenData as RawIndicatorItem[]) {
+    if (d.jenjang.toUpperCase() !== j || !d.nama_mapel.toLowerCase().includes(mapel)) continue;
+    const e = kunciNamaHierarki(d.elemen);
+    if (!elemen.includes(e)) elemen.push(e);
+    if (!matematika) continue;
+    const subs = subelemen.get(e) ?? [];
+    const s = kunciNamaHierarki(d.subelemen ?? "");
+    if (s && !subs.includes(s)) subs.push(s);
+    subelemen.set(e, subs);
+  }
+  return elemen.length > 0 ? { elemen, subelemen } : null;
+}
+
 /**
  * Membangun hierarki resmi lengkap Kemendikdasmen untuk 4 kombinasi jenjang & mapel.
  */
