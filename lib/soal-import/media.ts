@@ -176,6 +176,15 @@ function encodeSvg(svgContent: string | undefined): ResolvedSourceImage {
   return { status: "ready", bytes: Buffer.from(content, "utf-8"), mime: "image/svg+xml", ext: "svg" };
 }
 
+/**
+ * Alasan sebuah SVG dari sumber TIDAK boleh disalin ke soal (null = layak). Dipakai sinkron media soal yang sudah diimpor
+ * (lib/soal-import/sinkron-media.ts) supaya diagram rusak tidak sampai ke siswa; aturannya sama dengan saat impor.
+ */
+export function validasiSvgSumber(svgContent: string | undefined): string | null {
+  const hasil = encodeSvg(svgContent);
+  return hasil.status === "blocked" ? hasil.reason : null;
+}
+
 /** Urai data URI (misal data:image/jpeg;base64,/9j/...) menjadi buffer bytes dan tipe mime. */
 function decodeDataUri(raw: string | undefined): { bytes: Buffer; mime: string } | null {
   if (!raw) return null;

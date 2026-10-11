@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { TableSkeleton } from "@/components/ui/skeleton";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { IconDocument } from "@/components/ui/empty-state-icons";
+import { SinkronMediaCard } from "@/components/soal-import/sinkron-media-card";
 
 type SourcePackage = {
   id: string;
@@ -50,6 +51,8 @@ export function ImportPackageList() {
       />
 
       {error && <Alert variant="danger">{error}</Alert>}
+
+      <SinkronMediaCard />
 
       {packages === null ? (
         <TableSkeleton rows={5} columns={5} />

@@ -143,6 +143,18 @@ export async function getIndikatorPaket(paketId: string): Promise<Array<{ teks: 
   `;
 }
 
+/**
+ * Teks soal + gambar sumber untuk SETIAP soal sebuah paket, dipakai sinkron media soal yang SUDAH diimpor
+ * (lib/soal-import/sinkron-media.ts). Teks soal = soal_text di sumber, sama dengan yang disalin ke Question.teks.
+ */
+export async function getGambarPaket(paketId: string): Promise<Array<{ teks: string; gambar: SoalPayload["gambar"] }>> {
+  return getClient().$queryRaw<Array<{ teks: string; gambar: SoalPayload["gambar"] }>>`
+    SELECT payload->>'soal_text' AS teks, payload->'gambar' AS gambar
+    FROM soal.questions
+    WHERE paket_id = ${paketId} AND payload->>'soal_text' IS NOT NULL
+  `;
+}
+
 export async function getStimulusByIds(ids: string[]): Promise<SourceStimulus[]> {
   if (ids.length === 0) return [];
   return getClient().$queryRaw<SourceStimulus[]>(
