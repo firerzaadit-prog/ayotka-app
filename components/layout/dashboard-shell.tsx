@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import Image from "next/image";
+import { klikDiTautan } from "@/lib/ui/tutup-laci";
 
 export function DashboardShell({
   title,
@@ -11,6 +12,7 @@ export function DashboardShell({
   akunDetail,
   nav,
   banner,
+  awalTerbuka = false,
   children,
 }: {
   title: string;
@@ -20,10 +22,22 @@ export function DashboardShell({
   akunDetail?: string;
   nav?: ReactNode;
   banner?: ReactNode;
+  /** Hanya untuk pratinjau/tes: membuka laci menu HP sejak render pertama. */
+  awalTerbuka?: boolean;
   children: ReactNode;
 }) {
   const router = useRouter();
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(awalTerbuka);
+
+  // Esc menutup laci menu di layar kecil.
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -32,7 +46,7 @@ export function DashboardShell({
   }
 
   const brand = (
-    <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-5 bg-white">
+    <div className="flex min-h-16 shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-2">
       <div className="flex items-center gap-2.5">
         <div className="relative h-9 w-9 shrink-0">
           <Image
@@ -43,7 +57,7 @@ export function DashboardShell({
             priority
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-base font-bold tracking-tight text-slate-900 leading-none">AyoTKA</p>
           <span className="mt-1 inline-block rounded-full bg-gradient-to-r from-indigo-50 to-violet-50 px-2 py-0.5 text-[0.65rem] font-semibold text-indigo-700 border border-indigo-200/60 leading-tight">
             {title}
@@ -73,17 +87,25 @@ export function DashboardShell({
           onClick={() => setMobileNavOpen(false)}
         />
       )}
+      {/*
+        Laci yang TERTUTUP tidak boleh meninggalkan apa pun di layar atau menangkap ketukan: overflow-hidden memotong isi yang
+        lebih lebar dari laci (mis. lencana peran siswa dengan nama sekolah panjang, yang dulu meluber, menutupi tombol menu,
+        dan membuat menu tak bisa dibuka di HP), dan `inert` + aria-hidden mematikannya total sampai dibuka.
+      */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-slate-200/80 bg-white shadow-xl transition-transform lg:hidden ${
-          mobileNavOpen ? "translate-x-0" : "-translate-x-full"
+        id="menu-samping-hp"
+        aria-hidden={!mobileNavOpen}
+        inert={!mobileNavOpen}
+        className={`fixed inset-y-0 left-0 z-30 flex w-64 max-w-[85vw] flex-col overflow-hidden border-r border-slate-200/80 bg-white transition-transform lg:hidden ${
+          mobileNavOpen ? "translate-x-0 shadow-xl" : "-translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between border-b border-slate-100 pr-3">
-          {brand}
+          <div className="min-w-0 flex-1">{brand}</div>
           <button
             type="button"
             onClick={() => setMobileNavOpen(false)}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+            className="shrink-0 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
             aria-label="Tutup menu"
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
@@ -91,7 +113,15 @@ export function DashboardShell({
             </svg>
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-4">{nav}</nav>
+        {/* Mengetuk salah satu menu menutup laci (halaman berganti di belakangnya). */}
+        <nav
+          className="flex-1 overflow-y-auto px-3 py-4"
+          onClick={(e) => {
+            if (klikDiTautan(e.target as HTMLElement)) setMobileNavOpen(false);
+          }}
+        >
+          {nav}
+        </nav>
       </aside>
 
       <div className="flex min-h-screen min-w-0 flex-1 flex-col">
@@ -99,8 +129,10 @@ export function DashboardShell({
           <div className="flex shrink-0 items-center gap-3">
             <button
               onClick={() => setMobileNavOpen(true)}
-              className="rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
+              className="shrink-0 rounded-xl border border-slate-200 p-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 lg:hidden"
               aria-label="Buka menu"
+              aria-controls="menu-samping-hp"
+              aria-expanded={mobileNavOpen}
             >
               <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
                 <path

@@ -306,9 +306,12 @@ export default function AnalisisAiGagalPage() {
                         <span className="text-slate-400">{STATUS_LABEL[a.status]}</span>
                       </Td>
                       <Td className="max-w-xs">
-                        <p className="line-clamp-2 text-xs text-rose-600" title={a.error}>
-                          {a.error}
-                        </p>
+                        {/* Dua baris saja supaya baris tabel ringkas; ketuk/klik untuk membuka pesan lengkap (di HP tidak ada tooltip hover). */}
+                        <details className="group">
+                          <summary className="cursor-pointer list-none text-xs text-rose-600" title={a.error}>
+                            <span className="line-clamp-2 group-open:line-clamp-none">{a.error}</span>
+                          </summary>
+                        </details>
                       </Td>
                       <Td>
                         <Button
