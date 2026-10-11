@@ -9,7 +9,8 @@ import {
 } from "./source-db";
 import { translateBentukSoal, translateLevelKognitif, translateTingkatKesulitan } from "./format-translator";
 import { resolveTaxonomyMapping } from "./taxonomy-resolver";
-import { precheckSourceGambar, previewImageSrc } from "./media";
+import { precheckSourceGambar, previewImageSrc, previewMediaData } from "./media";
+import type { QuestionMediaData } from "@/lib/soal/media-types";
 import { kodeJenjangMaster } from "@/lib/indikator/normalisasi";
 import { buatPencocokIndikator, ringkasIndikatorImpor, type RingkasIndikatorImpor } from "@/lib/indikator/pencocokan";
 import type { LevelKognitif, QuestionFormat, TingkatKesulitan } from "@prisma/client";
@@ -39,6 +40,7 @@ export interface PreviewQuestion {
   /** Untuk ditampilkan di preview saja - url sumber langsung, atau data-URI untuk svg. Belum diunduh/disimpan. */
   gambarPreviewUrl: string | null;
   gambarAlt: string | null;
+  gambarData?: QuestionMediaData | null;
   opsi: PreviewOption[];
   kategoriRespons: string[];
   pernyataan: PreviewStatement[];
@@ -218,6 +220,7 @@ export async function buildImportPreview(paketIdOrCode: string): Promise<ImportP
       gambarTipe,
       gambarPreviewUrl: previewImageSrc(q.payload.gambar),
       gambarAlt: q.payload.gambar?.deskripsi_alt ?? null,
+      gambarData: previewMediaData(q.payload.gambar),
       opsi,
       kategoriRespons: q.payload.kategori_respons ?? [],
       pernyataan,

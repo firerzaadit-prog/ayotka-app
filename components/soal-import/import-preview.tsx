@@ -10,10 +10,12 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import { FileText, Image as ImageIcon } from "lucide-react";
+import { FileText } from "lucide-react";
 
 import { RichText } from "@/components/soal/rich-text";
 import { HierarkiIndikatorCard } from "@/components/soal/hierarki-indikator-card";
+import { MediaIlustrasi } from "@/components/soal/media-ilustrasi";
+import type { QuestionMediaData } from "@/lib/soal/media-types";
 
 type Subject = { id: string; nama: string; jenjang: "SD" | "SMP" };
 
@@ -62,6 +64,7 @@ type PreviewQuestion = {
   gambarTipe: "svg" | "url" | "perlu_ilustrasi" | "ilustrasi_kontekstual" | null;
   gambarPreviewUrl: string | null;
   gambarAlt: string | null;
+  gambarData?: QuestionMediaData | null;
   blockedReasons: string[];
 };
 
@@ -86,7 +89,7 @@ export function ImportPreview({ paketId }: { paketId: string }) {
   const [refreshKey, setRefreshKey] = useState(0);
 
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [subjectId, setSubjectId] = useState("");
+  const [subjectPilihan, setSubjectId] = useState("");
   const [durasiMenit, setDurasiMenit] = useState("60");
   const [kategori, setKategori] = useState<"mandiri" | "nasional">("nasional");
   const [levelOverrides, setLevelOverrides] = useState<Record<string, "L1" | "L2" | "L3">>({});
@@ -119,20 +122,19 @@ export function ImportPreview({ paketId }: { paketId: string }) {
     return subjects.filter((s) => s.nama === preview.sourcePaket.mapel);
   }, [subjects, preview]);
 
-  // Otomatis pilih subject tujuan jika cocok dengan mapel dan jenjang paket sumber
-  useEffect(() => {
-    if (!subjectId && preview && matchingSubjects.length > 0) {
-      const targetJenjang = preview.sourcePaket.jenjang.toUpperCase();
-      const match =
-        matchingSubjects.find((s) => {
-          const sj = s.jenjang.toUpperCase();
-          return sj === targetJenjang || (targetJenjang.includes("SMP") && sj === "SMP") || (targetJenjang.includes("SD") && sj === "SD");
-        }) ?? matchingSubjects[0];
-      if (match) {
-        setSubjectId(match.id);
-      }
-    }
-  }, [matchingSubjects, preview, subjectId]);
+  // Subject tujuan otomatis jika cocok dengan mapel dan jenjang paket sumber; pilihan manual admin menang. Diturunkan saat
+  // render (bukan lewat efek + setState) supaya tidak ada render berantai dan tidak ada saat di mana nilainya masih kosong.
+  const subjectOtomatis = useMemo(() => {
+    if (!preview || matchingSubjects.length === 0) return "";
+    const targetJenjang = preview.sourcePaket.jenjang.toUpperCase();
+    const match =
+      matchingSubjects.find((s) => {
+        const sj = s.jenjang.toUpperCase();
+        return sj === targetJenjang || (targetJenjang.includes("SMP") && sj === "SMP") || (targetJenjang.includes("SD") && sj === "SD");
+      }) ?? matchingSubjects[0];
+    return match?.id ?? "";
+  }, [matchingSubjects, preview]);
+  const subjectId = subjectPilihan || subjectOtomatis;
 
   const questionsNeedingLevel = useMemo(
     () => preview?.questions.filter((q) => !q.levelBloom) ?? [],
@@ -451,27 +453,12 @@ function QuestionRow({
       </div>
 
       {/* Gambar / Visualisasi jika ada */}
-      {question.gambarPreviewUrl && (
+      {(question.gambarData || question.gambarPreviewUrl) && (
         <div className="mt-3.5">
-          <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 font-mono flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <ImageIcon className="h-3.5 w-3.5 text-indigo-600" />
-              Visualisasi / Diagram Pendukung
-            </span>
-            {question.gambarAlt && (
-              <span className="text-[11px] text-slate-400 font-sans normal-case italic">
-                {question.gambarAlt}
-              </span>
-            )}
-          </label>
-          <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 flex flex-col items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element -- pratinjau memuat langsung dari sumber */}
-            <img
-              src={question.gambarPreviewUrl}
-              alt={question.gambarAlt ?? ""}
-              className="max-h-60 rounded-md border border-slate-200 bg-white p-1 object-contain"
-            />
-          </div>
+          <MediaIlustrasi
+            media={question.gambarData || question.gambarPreviewUrl}
+            alt={question.gambarAlt}
+          />
         </div>
       )}
 

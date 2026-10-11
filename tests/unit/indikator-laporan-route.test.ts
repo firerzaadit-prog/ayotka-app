@@ -107,11 +107,17 @@ describe.each([
     expect(m.bangun).not.toHaveBeenCalled();
   });
 
-  it("sekolah SELALU dari sesi: ?schoolId= palsu diabaikan sama sekali", async () => {
+  it("sekolah SELALU hasil resolveSchoolId: ?schoolId= hanya diteruskan sebagai PERMINTAAN, tidak pernah dipakai langsung", async () => {
+    // Keputusannya ada di resolveSchoolId: admin sekolah selalu mendapat sekolah dari sesinya (diuji di schools-scope.test.ts),
+    // admin pusat boleh memilih sekolah (fitur Laporan Daya Serap tanpa impersonasi). Di sini mock-nya mengembalikan sekolah
+    // sesi, dan seluruh laporan harus dibangun untuk sekolah itu - bukan untuk nilai di URL.
     await GET(req(`?subjectId=${SUBJECT}&schoolId=sekolah-lain`));
-    expect(m.resolveSchoolId).toHaveBeenCalledWith({ id: "admin-1", role: "admin_sekolah" }, null);
-    for (const panggilan of [...m.daftarMapel.mock.calls, ...m.bangun.mock.calls]) {
+    expect(m.resolveSchoolId).toHaveBeenCalledWith({ id: "admin-1", role: "admin_sekolah" }, "sekolah-lain");
+    const panggilanData = [...m.daftarMapel.mock.calls, ...m.bangun.mock.calls];
+    expect(panggilanData.length).toBeGreaterThan(0);
+    for (const panggilan of panggilanData) {
       expect(panggilan[1]).toBe("sek-1");
+      expect(panggilan).not.toContain("sekolah-lain");
     }
   });
 

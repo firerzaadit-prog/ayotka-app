@@ -50,7 +50,9 @@ vi.mock("@/lib/soal-import/taxonomy-resolver", () => ({
 vi.mock("@/lib/soal-import/media", () => ({
   precheckSourceGambar: vi.fn(() => null),
   previewImageSrc: vi.fn(() => null),
+  previewMediaData: vi.fn(() => null),
   resolveSourceImage: vi.fn(async () => ({ status: "none" })),
+  resolveAllSourceImages: vi.fn(async () => ({ status: "none" })),
 }));
 vi.mock("@/lib/supabase/storage", () => ({
   importImagePath: vi.fn(),

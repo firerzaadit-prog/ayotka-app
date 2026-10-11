@@ -3,6 +3,8 @@
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RichText } from "@/components/soal/rich-text";
+import { MediaIlustrasi } from "@/components/soal/media-ilustrasi";
+import { labelFormatSoal } from "@/lib/exam/label-format";
 import { SoalPg } from "@/components/exam/soal-pg";
 import { SoalPgKompleks } from "@/components/exam/soal-pg-kompleks";
 import { SoalPgKategori } from "@/components/exam/soal-pg-kategori";
@@ -534,10 +536,15 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
 
           <div className="select-none rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:px-6">
-              <h2 className="text-lg font-bold text-slate-900">
-                Soal No. {currentIndex + 1}
-                <span className="ml-2 text-sm font-medium text-slate-400">dari {questions.length}</span>
-              </h2>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  Soal No. {currentIndex + 1}
+                  <span className="ml-2 text-sm font-medium text-slate-400">dari {questions.length}</span>
+                </h2>
+                <span className="rounded-md border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                  {labelFormatSoal(question.format)}
+                </span>
+              </div>
               {subjectNama && (
                 <span className="shrink-0 rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">
                   {subjectNama}
@@ -560,36 +567,61 @@ export default function AttemptPage({ params }: { params: Promise<{ id: string }
                 </div>
               )}
 
-              <div className="mb-4 text-base leading-relaxed text-slate-900">
-                <RichText text={question.teks} />
+              {/* Teks Soal */}
+              <div className="mb-4 space-y-1.5">
+                <span className="block font-mono text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                  Teks Soal
+                </span>
+                <div className="text-base leading-relaxed text-slate-900">
+                  <RichText text={question.teks} />
+                </div>
               </div>
+
               {question.media && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={question.media} alt="" className="mb-4 max-w-full rounded-lg border border-slate-200" />
+                <MediaIlustrasi media={question.media} className="mb-5" />
               )}
 
-              {question.format === "pg" && (
-                <SoalPg
-                  options={question.options}
-                  value={answers[question.id]?.jawabanJson as { option_id: string } | undefined}
-                  onChange={(j) => persistAnswer(question.id, j, isRagu)}
-                />
-              )}
-              {question.format === "pg_kompleks" && (
-                <SoalPgKompleks
-                  options={question.options}
-                  value={answers[question.id]?.jawabanJson as { option_ids: string[] } | undefined}
-                  onChange={(j) => persistAnswer(question.id, j, isRagu)}
-                />
-              )}
-              {question.format === "pg_kategori" && (
-                <SoalPgKategori
-                  categories={question.categories}
-                  statements={question.statements}
-                  value={answers[question.id]?.jawabanJson as Record<string, string> | undefined}
-                  onChange={(j) => persistAnswer(question.id, j, isRagu)}
-                />
-              )}
+              {/* Pilihan Jawaban / Kategori Respons */}
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="block font-mono text-[10.5px] font-bold uppercase tracking-wider text-slate-400">
+                    {question.format === "pg_kategori" ? "Pernyataan & Kategori Respons" : "Pilihan Jawaban"}
+                  </span>
+                  {question.format === "pg_kompleks" && (
+                    <span className="text-[11px] font-medium text-slate-500 italic">
+                      Pilihlah semua jawaban yang benar
+                    </span>
+                  )}
+                  {question.format === "pg_kategori" && (
+                    <span className="text-[11px] font-medium text-slate-500 italic">
+                      Pilihlah satu kategori untuk setiap baris
+                    </span>
+                  )}
+                </div>
+
+                {question.format === "pg" && (
+                  <SoalPg
+                    options={question.options}
+                    value={answers[question.id]?.jawabanJson as { option_id: string } | undefined}
+                    onChange={(j) => persistAnswer(question.id, j, isRagu)}
+                  />
+                )}
+                {question.format === "pg_kompleks" && (
+                  <SoalPgKompleks
+                    options={question.options}
+                    value={answers[question.id]?.jawabanJson as { option_ids: string[] } | undefined}
+                    onChange={(j) => persistAnswer(question.id, j, isRagu)}
+                  />
+                )}
+                {question.format === "pg_kategori" && (
+                  <SoalPgKategori
+                    categories={question.categories}
+                    statements={question.statements}
+                    value={answers[question.id]?.jawabanJson as Record<string, string> | undefined}
+                    onChange={(j) => persistAnswer(question.id, j, isRagu)}
+                  />
+                )}
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 sm:px-6">

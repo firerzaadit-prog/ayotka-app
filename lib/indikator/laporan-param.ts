@@ -25,7 +25,8 @@ export type HasilParamLaporan =
 
 /**
  * Otorisasi + parameter bersama ketiga rute laporan indikator sekolah (JSON, PDF, Excel): hanya admin sekolah (atau admin pusat
- * yang sedang mengelola sebuah sekolah), sekolah SELALU dari sesi (tidak pernah dari parameter), ?subjectId= harus UUID, dan
+ * yang sedang mengelola sebuah sekolah), sekolah ditentukan resolveSchoolId (admin sekolah SELALU memakai sekolah dari sesinya
+ * dan ?schoolId= diabaikan; hanya admin pusat yang boleh memilih sekolah lewat ?schoolId= atau mode Kelola Sekolah), ?subjectId= harus UUID, dan
  * ?periodeId= divalidasi milik sekolah itu oleh bacaRentangPeriode. Perhitungan laporan cukup berat, jadi dibatasi lajunya.
  */
 export async function bacaParamLaporan(request: Request): Promise<HasilParamLaporan> {

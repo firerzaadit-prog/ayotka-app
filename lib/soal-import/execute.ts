@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db/prisma";
 import { buildImportPreview } from "./preview";
 import { translateJenjang, translateStimulusTipe } from "./format-translator";
 import { getQuestionsForPackage } from "./source-db";
-import { resolveSourceImage } from "./media";
+import { resolveAllSourceImages } from "./media";
+import { formatQuestionMedia } from "@/lib/soal/media-types";
 import { importImagePath, publicImageUrl, uploadImportImages } from "@/lib/supabase/storage";
 import { autoResolveOrCreateTaxonomy } from "./taxonomy-resolver";
 import { kompetensiKey } from "@/lib/soal/excel-format";
@@ -82,7 +83,21 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
   const gambarBySourceId = new Map(sourceQuestions.map((q) => [q.id, q.payload.gambar ?? null]));
 
   type GambarTerunggah = { path: string; url: string; bytes: Buffer; mime: string };
-  const gambarUntukSoal = new Map<string, GambarTerunggah | null>();
+  type UploadedItem = {
+    tipe: "svg" | "foto";
+    label: string;
+    entry: GambarTerunggah;
+    svgContent?: string;
+    fallbackUrl?: string;
+    mime: string;
+    bytes: Buffer;
+  };
+  type MediaSoalTerunggah = {
+    caption?: string | null;
+    items: UploadedItem[];
+  };
+
+  const mediaUntukSoal = new Map<string, MediaSoalTerunggah | null>();
   const gambarUnik = new Map<string, GambarTerunggah>();
 
   const KONKURENSI_UNDUH = 4;
@@ -92,25 +107,37 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
       while (idxUnduh < preview.questions.length) {
         const q = preview.questions[idxUnduh++]!;
         if (blocked.some((b) => b.sourceId === q.sourceId)) continue;
-        const hasil = await resolveSourceImage(gambarBySourceId.get(q.sourceId) ?? null);
+        const hasil = await resolveAllSourceImages(gambarBySourceId.get(q.sourceId) ?? null);
         if (hasil.status === "blocked") {
           const existing = blocked.find((b) => b.sourceId === q.sourceId);
           if (existing) existing.reasons.push(hasil.reason);
           else blocked.push({ sourceId: q.sourceId, code: q.code, reasons: [hasil.reason] });
           continue;
         }
-        if (hasil.status === "none") {
-          gambarUntukSoal.set(q.sourceId, null);
+        if (hasil.status === "none" || hasil.items.length === 0) {
+          mediaUntukSoal.set(q.sourceId, null);
           continue;
         }
-        const hash = createHash("sha256").update(hasil.bytes).digest("hex");
-        const path = importImagePath(hash, hasil.ext);
-        let entry = gambarUnik.get(path);
-        if (!entry) {
-          entry = { path, url: publicImageUrl(path), bytes: hasil.bytes, mime: hasil.mime };
-          gambarUnik.set(path, entry);
+        const items: UploadedItem[] = [];
+        for (const it of hasil.items) {
+          const hash = createHash("sha256").update(it.bytes).digest("hex");
+          const path = importImagePath(hash, it.ext);
+          let entry = gambarUnik.get(path);
+          if (!entry) {
+            entry = { path, url: publicImageUrl(path), bytes: it.bytes, mime: it.mime };
+            gambarUnik.set(path, entry);
+          }
+          items.push({
+            tipe: it.tipe,
+            label: it.label,
+            entry,
+            svgContent: it.svgContent,
+            fallbackUrl: it.fallbackUrl,
+            mime: it.mime,
+            bytes: it.bytes,
+          });
         }
-        gambarUntukSoal.set(q.sourceId, entry);
+        mediaUntukSoal.set(q.sourceId, { caption: hasil.caption, items });
       }
     }),
   );
@@ -172,21 +199,31 @@ export async function executeImport(params: ExecuteImportParams): Promise<Execut
     const taxonomy = taxonomyBySourceId.get(q.sourceId)!;
 
     let mediaUrl: string | null = null;
-    if (uploadBerhasil) {
-      mediaUrl = gambarUntukSoal.get(q.sourceId)?.url ?? null;
-    } else {
-      const srcG = gambarBySourceId.get(q.sourceId);
-      if (srcG) {
-        if (srcG.url) {
-          mediaUrl = srcG.url;
-        } else if (srcG.tipe === "svg" && srcG.svg_content) {
-          mediaUrl = `data:image/svg+xml;utf8,${encodeURIComponent(srcG.svg_content)}`;
-        } else {
-          const entry = gambarUntukSoal.get(q.sourceId);
-          if (entry) {
-            mediaUrl = `data:${entry.mime};base64,${entry.bytes.toString("base64")}`;
-          }
-        }
+    const mediaRes = mediaUntukSoal.get(q.sourceId);
+    if (mediaRes && mediaRes.items.length > 0) {
+      if (mediaRes.items.length === 1 && !mediaRes.caption && !mediaRes.items[0]?.svgContent) {
+        // Satu gambar tunggal tanpa caption & tanpa svgContent khusus -> simpan URL langsung
+        const it = mediaRes.items[0]!;
+        mediaUrl = uploadBerhasil
+          ? it.entry.url
+          : (it.fallbackUrl || `data:${it.mime};base64,${it.bytes.toString("base64")}`);
+      } else {
+        // Multi-gambar atau ada caption visualisasi
+        mediaUrl = formatQuestionMedia({
+          tipe: mediaRes.items.length > 1 ? "multi" : "single",
+          caption: mediaRes.caption,
+          items: mediaRes.items.map((it) => {
+            const url = uploadBerhasil
+              ? it.entry.url
+              : (it.fallbackUrl || (it.svgContent ? `data:image/svg+xml;utf8,${encodeURIComponent(it.svgContent)}` : `data:${it.mime};base64,${it.bytes.toString("base64")}`));
+            return {
+              tipe: it.tipe,
+              label: it.label,
+              url,
+              svgContent: it.svgContent,
+            };
+          }),
+        });
       }
     }
 

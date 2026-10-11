@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { ImageUpload } from "@/components/soal/image-upload";
 import { InlineImageUpload } from "@/components/soal/inline-image-upload";
+import { MediaIlustrasi } from "@/components/soal/media-ilustrasi";
 import { RichText } from "@/components/soal/rich-text";
 import { HierarkiIndikatorCard } from "@/components/soal/hierarki-indikator-card";
 import { FileText } from "lucide-react";
@@ -400,7 +401,21 @@ export function QuestionForm({
           )}
           <div className="mt-4">
             <Label className="mb-2 block text-xs text-slate-500">Gambar pendukung tambahan (ditampilkan di bawah soal, opsional)</Label>
-            <ImageUpload value={media} onChange={setMedia} />
+            <ImageUpload
+              value={media}
+              onChange={setMedia}
+              pratinjau={
+                media?.trim().startsWith("{") ? (
+                  <div className="space-y-1.5">
+                    <MediaIlustrasi media={media} />
+                    <p className="text-xs text-slate-500">
+                      Media ganda dari impor generator (diagram dan/atau foto, dengan keterangan): siswa melihatnya sebagai tab.
+                      Mengunggah gambar baru akan menggantinya dengan satu gambar; jika tidak diubah, tetap tersimpan apa adanya.
+                    </p>
+                  </div>
+                ) : undefined
+              }
+            />
           </div>
         </div>
 

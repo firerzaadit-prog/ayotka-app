@@ -1,15 +1,21 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
-/** Tiket 2.4: upload gambar dengan preview sebelum & validasi ukuran/tipe. */
+/**
+ * Tiket 2.4: upload gambar dengan preview sebelum & validasi ukuran/tipe.
+ * `pratinjau`: tampilan pengganti <img> untuk nilai yang bukan satu alamat gambar (mis. media ganda berformat JSON dari
+ * impor generator); tombol Ganti/Hapus tetap bekerja pada `value`.
+ */
 export function ImageUpload({
   value,
   onChange,
+  pratinjau,
 }: {
   value: string | null | undefined;
   onChange: (url: string | null) => void;
+  pratinjau?: ReactNode;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -44,7 +50,8 @@ export function ImageUpload({
 
   return (
     <div className="flex flex-col gap-2">
-      {value && (
+      {value && pratinjau}
+      {value && !pratinjau && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={value} alt="Pratinjau" className="max-h-40 rounded-lg border border-slate-200" />
       )}

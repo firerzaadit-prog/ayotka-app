@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bot, FileText } from "lucide-react";
 import { RichText } from "@/components/soal/rich-text";
+import { MediaIlustrasi } from "@/components/soal/media-ilustrasi";
 import { TutorAiChat, type SoalChat } from "@/components/tutor/tutor-ai-chat";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -150,6 +151,9 @@ export function RincianJawaban({
             <div className="mb-2 text-sm">
               <RichText text={s.teks} />
             </div>
+            {s.media && (
+              <MediaIlustrasi media={s.media} className="mb-3" />
+            )}
             {s.options && s.options.length > 0 && (() => {
               const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
               const selectedId = jawaban?.option_id;

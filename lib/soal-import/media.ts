@@ -18,10 +18,31 @@ export const MAKS_BYTE_GAMBAR_SUMBER = 5 * 1024 * 1024;
 const TIMEOUT_MS = 10_000;
 const MAKS_REDIRECT = 5;
 
+import type { QuestionMediaData, MediaItem } from "@/lib/soal/media-types";
+
 export type ResolvedSourceImage =
   | { status: "none" }
   | { status: "blocked"; reason: string }
   | { status: "ready"; bytes: Buffer; mime: string; ext: string };
+
+export type ResolvedItemImage = {
+  tipe: "svg" | "foto";
+  label: string;
+  bytes: Buffer;
+  mime: string;
+  ext: string;
+  svgContent?: string;
+  fallbackUrl?: string;
+};
+
+export type ResolvedMediaResult =
+  | { status: "none" }
+  | { status: "blocked"; reason: string }
+  | {
+      status: "ready";
+      caption?: string | null;
+      items: ResolvedItemImage[];
+    };
 
 /** Proteksi SSRF dasar - hanya http(s) publik, bukan alamat lokal/privat. Dicek ulang di setiap hop redirect. */
 function safeExternalUrl(raw: string): URL | null {
@@ -214,9 +235,137 @@ async function resolveIlustrasiKontekstual(gambar: SourceGambar): Promise<Resolv
 }
 
 /**
- * Ubah satu payload.gambar jadi bytes siap-unggah. HANYA dipanggil saat eksekusi
- * impor (bukan saat preview) - unduhan sungguhan ke soal.ayotka.id cukup sekali,
- * tepat sebelum commit, konsisten dengan pola lib/soal/resolve-gambar.ts.
+ * Ubah satu payload.gambar jadi kumpulan bytes siap-unggah (mendukung Diagram Presisi SVG + Foto Ilustrasi).
+ * Digunakan saat eksekusi impor untuk menyimpan semua gambar/diagram yang tersedia untuk butir soal.
+ */
+export async function resolveAllSourceImages(gambar: SourceGambar | null | undefined): Promise<ResolvedMediaResult> {
+  if (!gambar) return { status: "none" };
+  if (gambar.tipe === "perlu_ilustrasi") {
+    return {
+      status: "blocked",
+      reason: "Gambar untuk soal ini belum dibuat ilustrator di soal.ayotka.id (status: perlu ilustrasi).",
+    };
+  }
+
+  const caption = gambar.deskripsi_alt?.trim() || null;
+  const items: ResolvedItemImage[] = [];
+
+  if (gambar.tipe === "svg") {
+    const res = encodeSvg(gambar.svg_content);
+    if (res.status === "blocked") return res;
+    if (res.status === "ready") {
+      items.push({
+        tipe: "svg",
+        label: "Diagram Presisi (SVG)",
+        bytes: res.bytes,
+        mime: res.mime,
+        ext: res.ext,
+        svgContent: gambar.svg_content,
+      });
+      return { status: "ready", caption, items };
+    }
+    return { status: "none" };
+  }
+
+  if (gambar.tipe === "url") {
+    if (!gambar.url) return { status: "blocked", reason: "Tipe gambar url tapi url kosong di sumber." };
+    const res = await ambilGambarDariUrl(gambar.url);
+    if (res.status === "blocked") return res;
+    if (res.status === "ready") {
+      items.push({
+        tipe: "foto",
+        label: "Foto Ilustrasi",
+        bytes: res.bytes,
+        mime: res.mime,
+        ext: res.ext,
+        fallbackUrl: gambar.url,
+      });
+    }
+    return { status: "ready", caption, items };
+  }
+
+  if (gambar.tipe === "ilustrasi_kontekstual") {
+    // 1. Diagram Presisi SVG (svg_fallback)
+    let masalahSvg: string | null = null;
+    if (gambar.svg_fallback) {
+      const svgRes = encodeSvg(gambar.svg_fallback);
+      if (svgRes.status === "ready") {
+        items.push({
+          tipe: "svg",
+          label: "Diagram Presisi (SVG)",
+          bytes: svgRes.bytes,
+          mime: svgRes.mime,
+          ext: svgRes.ext,
+          svgContent: gambar.svg_fallback,
+        });
+      } else if (svgRes.status === "blocked") {
+        masalahSvg = svgRes.reason;
+      }
+    }
+
+    // 2. Foto Ilustrasi (image_data atau url)
+    let photoRes: ResolvedSourceImage | null = null;
+    let fallbackUrl: string | undefined = undefined;
+    let masalahImageData: string | null = null;
+
+    if (gambar.image_data) {
+      const decoded = decodeDataUri(gambar.image_data);
+      if (!decoded) {
+        masalahImageData = "Format image_data pada gambar ilustrasi kontekstual tidak valid.";
+      } else if (decoded.bytes.length > MAKS_BYTE_GAMBAR_SUMBER) {
+        masalahImageData = "Ukuran gambar ilustrasi kontekstual melebihi 5 MB.";
+      } else {
+        const info = sniffGambar(decoded.bytes);
+        if (info) photoRes = { status: "ready", bytes: decoded.bytes, mime: info.mime, ext: info.ext };
+        else masalahImageData = "Isi image_data pada gambar ilustrasi kontekstual bukan gambar PNG/JPEG/WEBP/GIF yang valid.";
+      }
+    }
+
+    if (!photoRes && urlBisaDipakai(gambar.url)) {
+      const res = await ambilGambarDariUrl(gambar.url!.trim());
+      if (res.status === "blocked") {
+        return {
+          status: "blocked",
+          reason: `Gambar ilustrasi kontekstual tidak bisa diambil dari soal.ayotka.id: ${res.reason}`,
+        };
+      }
+      if (res.status === "ready") {
+        photoRes = res;
+        fallbackUrl = gambar.url!.trim();
+      }
+    }
+
+    if (photoRes && photoRes.status === "ready") {
+      items.push({
+        tipe: "foto",
+        label: "Foto Ilustrasi",
+        bytes: photoRes.bytes,
+        mime: photoRes.mime,
+        ext: photoRes.ext,
+        fallbackUrl,
+      });
+    }
+
+    if (items.length === 0) {
+      // Sebutkan sebab yang sebenarnya (SVG cadangan rusak / data gambar rusak) agar bisa diperbaiki di sumber.
+      const sebab = [masalahImageData, masalahSvg ? `SVG cadangan tidak valid: ${masalahSvg}` : null].filter(Boolean).join(" ");
+      return {
+        status: "blocked",
+        reason: sebab || 'Gambar bertipe "ilustrasi_kontekstual" tetapi data gambar dan SVG fallback kosong di sumber.',
+      };
+    }
+
+    return { status: "ready", caption, items };
+  }
+
+  return {
+    status: "blocked",
+    reason: `Tipe gambar tidak dikenal dari soal.ayotka.id: "${String((gambar as { tipe: unknown }).tipe)}".`,
+  };
+}
+
+/**
+ * Ubah satu payload.gambar jadi bytes siap-unggah (versi tunggal untuk kompatibilitas kode lama).
  */
 export async function resolveSourceImage(gambar: SourceGambar | null | undefined): Promise<ResolvedSourceImage> {
   if (!gambar) return { status: "none" };
@@ -305,5 +454,61 @@ export function previewImageSrc(gambar: SourceGambar | null | undefined): string
     }
   }
   return null;
+}
+
+/**
+ * Susun QuestionMediaData untuk tampilan pratinjau impor di admin (mendukung tab Diagram Presisi SVG & Foto Ilustrasi).
+ */
+export function previewMediaData(gambar: SourceGambar | null | undefined): QuestionMediaData | null {
+  if (!gambar) return null;
+  const items: MediaItem[] = [];
+  const caption = gambar.deskripsi_alt?.trim() || null;
+
+  if (gambar.tipe === "svg" && gambar.svg_content) {
+    if (encodeSvg(gambar.svg_content).status !== "blocked") {
+      items.push({
+        tipe: "svg",
+        label: "Diagram Presisi (SVG)",
+        svgContent: gambar.svg_content,
+        url: `data:image/svg+xml;base64,${Buffer.from(gambar.svg_content, "utf-8").toString("base64")}`,
+        alt: caption ?? undefined,
+      });
+    }
+  } else if (gambar.tipe === "ilustrasi_kontekstual") {
+    // 1. Diagram Presisi SVG (svg_fallback) jika ada
+    if (gambar.svg_fallback && encodeSvg(gambar.svg_fallback).status !== "blocked") {
+      items.push({
+        tipe: "svg",
+        label: "Diagram Presisi (SVG)",
+        svgContent: gambar.svg_fallback,
+        url: `data:image/svg+xml;base64,${Buffer.from(gambar.svg_fallback, "utf-8").toString("base64")}`,
+        alt: caption ?? undefined,
+      });
+    }
+    // 2. Foto Ilustrasi (image_data atau url)
+    const photoUrl = gambar.image_data || (urlBisaDipakai(gambar.url) ? gambar.url?.trim() : undefined);
+    if (photoUrl) {
+      items.push({
+        tipe: "foto",
+        label: "Foto Ilustrasi",
+        url: photoUrl,
+        alt: caption ?? undefined,
+      });
+    }
+  } else if (gambar.tipe === "url" && gambar.url) {
+    items.push({
+      tipe: "foto",
+      label: "Foto Ilustrasi",
+      url: gambar.url,
+      alt: caption ?? undefined,
+    });
+  }
+
+  if (items.length === 0) return null;
+  return {
+    tipe: items.length > 1 ? "multi" : "single",
+    caption,
+    items,
+  };
 }
 

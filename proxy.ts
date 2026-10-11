@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { bacaPengaturanMaintenance } from "@/lib/maintenance/pengaturan";
+import { safeNext } from "@/lib/utils/safe-next";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -201,17 +202,20 @@ export default async function proxy(request: NextRequest) {
 
       if (pathname === "/login") {
         if (role === "siswa") {
-          return NextResponse.redirect(new URL("/siswa/dashboard", request.url));
+          const nextTarget = safeNext(searchParams.get("next"), "/siswa/dashboard");
+          return NextResponse.redirect(new URL(nextTarget, request.url));
         }
         return response;
       }
 
       if (pathname.startsWith("/registrasi")) {
-        return NextResponse.redirect(new URL(ROLE_HOME[role] ?? "/", request.url));
+        const nextTarget = safeNext(searchParams.get("next"), ROLE_HOME[role] ?? "/");
+        return NextResponse.redirect(new URL(nextTarget, request.url));
       }
 
       if (ROLE_HOME[role]) {
-        return NextResponse.redirect(new URL(ROLE_HOME[role]!, request.url));
+        const nextTarget = safeNext(searchParams.get("next"), ROLE_HOME[role]!);
+        return NextResponse.redirect(new URL(nextTarget, request.url));
       }
     }
 

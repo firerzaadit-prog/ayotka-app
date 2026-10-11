@@ -319,3 +319,37 @@ describe("file .xlsx sungguhan", () => {
     expect(q.options.map((o) => o.teks)).toEqual(["5", "6", "7", "8"]);
   });
 });
+
+describe("ekspor media ganda (JSON) tetap bisa diimpor lagi", () => {
+  const ganda = JSON.stringify({
+    tipe: "multi",
+    caption: "Dua bangun",
+    items: [
+      { tipe: "svg", label: "Diagram Presisi (SVG)", url: "data:image/svg+xml;utf8,%3Csvg%2F%3E", svgContent: "<svg/>" },
+      { tipe: "foto", label: "Foto Ilustrasi", url: "https://x.test/foto.png" },
+    ],
+  });
+
+  it("kolom Media Soal berisi alamat foto, lolos validasi impor, dan tidak ada JSON di sel", () => {
+    const rows = questionsToRows([{ ...exported[0]!, media: ganda }]).map((cells, i) => ({ row: i + 2, cells }));
+    expect(rows[0]!.cells.media).toBe("https://x.test/foto.png");
+    const { questions, errors } = rowsToQuestions(rows, KOMP);
+    expect(errors).toEqual([]);
+    expect(questions[0]!.data.media).toBe("https://x.test/foto.png");
+  });
+
+  it("media ganda yang hanya berisi diagram diekspor kosong (bukan JSON) dan soalnya tetap lolos impor", () => {
+    const hanyaDiagram = JSON.stringify({ items: [{ tipe: "svg", svgContent: "<svg/>" }] });
+    const rows = questionsToRows([{ ...exported[0]!, media: hanyaDiagram }]).map((cells, i) => ({ row: i + 2, cells }));
+    expect(rows[0]!.cells.media).toBe("");
+    const { questions, errors } = rowsToQuestions(rows, KOMP);
+    expect(errors).toEqual([]);
+    expect(questions[0]!.data.media).toBeNull();
+  });
+
+  it("JSON mentah di sel tetap ditolak impor (alasan ekspor tidak boleh menulisnya)", () => {
+    const rows = questionsToRows([exported[0]!]).map((cells, i) => ({ row: i + 2, cells: { ...cells, media: ganda } }));
+    const { errors } = rowsToQuestions(rows, KOMP);
+    expect(errors.some((e) => /Media Soal harus berupa URL/.test(e.pesan))).toBe(true);
+  });
+});

@@ -5,6 +5,14 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined;
 
 const nextConfig: NextConfig = {
+  // Izinkan akses dev dari network IP lokal (mis. 192.168.1.7) agar Next.js Turbopack tidak memblokir static chunks & HMR dengan 403 Forbidden
+  allowedDevOrigins: [
+    "192.168.1.7",
+    "192.168.1.*",
+    "192.168.*",
+    "localhost",
+    "127.0.0.1",
+  ],
   // Font Unicode untuk rapor PDF dibaca lewat fs saat runtime (lib/pdf/
   // rapor-renderer.ts) - bukan import, jadi tidak otomatis ikut ter-bundle di
   // fungsi serverless Vercel. Kalau file ini tidak ikut, rapor tetap jadi

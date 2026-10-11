@@ -1,4 +1,5 @@
 import { questionCreateSchema } from "@/lib/validations/question";
+import { mediaUntukExcel } from "@/lib/soal/media-types";
 
 /**
  * Format Excel untuk impor/ekspor soal (satu baris = satu soal). Modul ini
@@ -336,7 +337,8 @@ export function questionsToRows(questions: ExportQuestion[]): ExcelRow[] {
       kesulitan: q.tingkatKesulitan,
       level: q.levelBloom,
       bobot: String(q.bobot),
-      media: q.media ?? "",
+      // Media ganda (JSON) tidak muat di kolom ini dan akan ditolak saat diimpor lagi: lihat mediaUntukExcel.
+      media: mediaUntukExcel(q.media),
       pembahasan: q.pembahasan ?? "",
     };
     if (q.format === "pg" || q.format === "pg_kompleks") {
