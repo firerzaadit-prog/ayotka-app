@@ -9,6 +9,7 @@ import { hitungOpsiLaSusulan } from "@/lib/billing/la-susulan";
 import { infoTutorHalaman } from "@/lib/tutor/penyimpanan";
 import { checkAndClaimSession } from "@/lib/exam/session-guard";
 import { susunRiwayatPercobaan } from "@/lib/exam/percobaan";
+import { mediaTanpaKeterangan } from "@/lib/soal/media-types";
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -68,7 +69,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return null;
       }),
     ]);
-    return NextResponse.json({ ...hasil, laSusulan, tutorAi, percobaan: susunRiwayatPercobaan(attemptsPaket, attempt.id) });
+    // Keterangan gambar tidak ikut ke siswa (bisa menyebut jawabannya); buildHasil sendiri dibiarkan utuh karena juga
+    // dipakai halaman admin dan rapor PDF.
+    const perSoal = hasil.perSoal.map((s) => ({ ...s, media: mediaTanpaKeterangan(s.media) }));
+    return NextResponse.json({ ...hasil, perSoal, laSusulan, tutorAi, percobaan: susunRiwayatPercobaan(attemptsPaket, attempt.id) });
   }
 
   // Tiket 4.13: satu sesi aktif per attempt - tab/device lain yang masih
@@ -115,7 +119,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       id: q.id,
       format: q.format,
       teks: q.teks,
-      media: q.media,
+      // Tanpa keterangan gambar: bisa menyebut jawaban (lihat mediaTanpaKeterangan).
+      media: mediaTanpaKeterangan(q.media),
       bobot: q.bobot,
       stimulus: q.stimulus
         ? {

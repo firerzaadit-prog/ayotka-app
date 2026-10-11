@@ -121,6 +121,31 @@ export function formatQuestionMedia(data: QuestionMediaData): string {
 }
 
 /**
+ * Media soal untuk SISWA: keterangan visualisasi (deskripsi_alt dari soal.ayotka.id) dibuang, begitu juga teks alternatif
+ * item yang disalin dari keterangan itu. Keterangan itu ditulis untuk penelaah soal dan kadang menyebutkan justru sifat yang
+ * ditanyakan (mis. "kedua diagonal berpotongan tegak lurus" untuk soal yang menanyakan itu), jadi tidak boleh sampai ke
+ * layar siswa atau ke browsernya. Gambarnya sendiri (diagram + foto, label tab) tetap utuh.
+ *
+ * Alamat gambar polos dikembalikan apa adanya; media JSON yang tidak bisa dibaca menjadi null (memang tidak tampil di
+ * layar); media JSON satu gambar tanpa keterangan kembali menjadi alamat gambar polos seperti format lama.
+ */
+export function mediaTanpaKeterangan(raw: string | null | undefined): string | null | undefined {
+  if (!raw) return raw;
+  if (!raw.trim().startsWith("{")) return raw;
+  const data = parseQuestionMedia(raw);
+  if (!data) return null;
+  return formatQuestionMedia({
+    tipe: data.tipe,
+    caption: null,
+    items: data.items.map((item) => {
+      const tanpaAlt = { ...item };
+      delete tanpaAlt.alt;
+      return tanpaAlt;
+    }),
+  });
+}
+
+/**
  * Nilai kolom "Media Soal" untuk ekspor Excel. Kolom itu hanya menerima SATU alamat gambar http(s) (lihat validasi
  * impor di lib/soal/excel-format.ts), sedangkan media ganda disimpan sebagai JSON; JSON mentah di sel akan ditolak
  * saat file yang sama diimpor lagi dan bisa melewati batas 32.767 karakter sel Excel. Jadi untuk media ganda diekspor
