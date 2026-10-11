@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { closeOpenLoginSession } from "@/lib/auth/logout";
 import { ACTING_AS_SCHOOL_COOKIE } from "@/lib/schools/scope";
 import { safeNext } from "@/lib/utils/safe-next";
+import { asalPublik } from "@/lib/utils/asal-publik";
 
 /**
  * Dituju lewat redirect() dari layout ber-role (bukan fetch dari client),
@@ -29,7 +30,8 @@ export async function GET(request: NextRequest) {
   await supabase.auth.signOut({ scope: "local" });
 
   const next = safeNext(new URL(request.url).searchParams.get("next"), "/login");
-  const response = NextResponse.redirect(new URL(next, request.url));
+  // Alamat publik, bukan request.url (di belakang nginx berisi https://localhost:3001; lihat lib/utils/asal-publik.ts).
+  const response = NextResponse.redirect(new URL(next, asalPublik(request)));
   // Hapus konteks mode "Kelola Sekolah" supaya tidak nyangkut ke sesi
   // admin_pusat lain kalau browser ini dipakai bergantian (lihat
   // lib/schools/scope.ts).

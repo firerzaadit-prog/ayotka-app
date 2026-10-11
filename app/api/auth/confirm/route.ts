@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/utils/safe-next";
+import { asalPublik } from "@/lib/utils/asal-publik";
 
 /**
  * Tiket 1.6: penerima link email Supabase Auth (dipakai bersama untuk reset
@@ -18,7 +19,10 @@ import { safeNext } from "@/lib/utils/safe-next";
  * dikirim beberapa detik sebelumnya.
  */
 export async function GET(request: NextRequest) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  // Alamat publik, BUKAN origin dari request.url: di belakang nginx itu "https://localhost:3001" dan tautan di email
+  // konfirmasi/reset password berujung "This site can't be reached" (lihat lib/utils/asal-publik.ts).
+  const origin = asalPublik(request);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type");
   const next = safeNext(searchParams.get("next"));

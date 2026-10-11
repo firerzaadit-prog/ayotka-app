@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { asalPublik } from "@/lib/utils/asal-publik";
 import { processAffiliateFulfillment } from "@/lib/billing/affiliate-fulfillment";
 import {
   affiliateCorsResponse,
@@ -90,10 +91,12 @@ export async function GET(request: Request) {
     const acceptHeader = request.headers.get("accept") || "";
     // Jika dibuka langsung dari browser user (redirect setelah bayar):
     if (acceptHeader.includes("text/html")) {
+      // Alamat publik, bukan url.origin (di belakang nginx berisi https://localhost:3001; lihat lib/utils/asal-publik.ts).
+      const asal = asalPublik(request);
       const redirectUrl =
         result.type === "topup"
-          ? new URL("/siswa/wallet?sukses=topup", url.origin)
-          : new URL("/siswa/langganan?sukses=langganan", url.origin);
+          ? new URL("/siswa/wallet?sukses=topup", asal)
+          : new URL("/siswa/langganan?sukses=langganan", asal);
       return NextResponse.redirect(redirectUrl);
     }
 
