@@ -17,21 +17,57 @@ const KONFIG: Record<PeranKonfirmasi, { subject: string; sapaan: string; next: s
 };
 
 /**
+ * Alamat dasar tautan konfirmasi di email. NEXT_PUBLIC_APP_URL wajib di produksi: tanpa itu tautan di email mengarah ke
+ * alamat yang salah, jadi lebih baik pengiriman dibatalkan dengan kode yang jelas (null) daripada mengirim tautan rusak
+ * atau melempar galat setelah akun terlanjur dibuat. Di luar produksi (dev/tes) dipakai http://localhost:3000.
+ */
+function tautanKonfirmasi(): URL | null {
+  const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const dasar = env || (process.env.NODE_ENV === "production" ? "" : "http://localhost:3000");
+  try {
+    return new URL(`${dasar.replace(/\/+$/, "")}/api/auth/confirm`);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Dipakai bersama oleh pendaftaran (type "signup", token dari generateLink
  * saat akun dibuat) dan kirim ulang (type "magiclink" - terbukti lewat uji
  * langsung ke Supabase bahwa verifyOtp magiclink pada akun yang belum
  * terkonfirmasi ikut mengonfirmasi emailnya, dan berbeda dari "signup" tidak
  * butuh password asli siswa).
  */
-export async function kirimEmailKonfirmasi(params: {
+export async function kirimEmailKonfirmasi(params: ParamKonfirmasi): Promise<KirimEmailResult> {
+  try {
+    return await bangunDanKirim(params);
+  } catch (err) {
+    // Dipanggil SETELAH akun dibuat (pendaftaran) atau saat kirim ulang: galat tak terduga di sini tidak boleh menjadi
+    // 500 ke layar pendaftar. Akunnya sudah ada; cukup tampilkan pesan "belum terkirim" beserta kodenya.
+    console.error("[konfirmasi] galat tak terduga saat menyiapkan atau mengirim email:", err);
+    return { ok: false, error: "Galat tak terduga saat mengirim email konfirmasi", kuotaHabis: false, kode: "email-galat-tak-terduga" };
+  }
+}
+
+type ParamKonfirmasi = {
   email: string;
   nama: string;
   tokenHash: string;
   type: "signup" | "magiclink";
   peran: PeranKonfirmasi;
-}): Promise<KirimEmailResult> {
+};
+
+async function bangunDanKirim(params: ParamKonfirmasi): Promise<KirimEmailResult> {
   const konfig = KONFIG[params.peran];
-  const confirmUrl = new URL(`${process.env.NEXT_PUBLIC_APP_URL}/api/auth/confirm`);
+  const confirmUrl = tautanKonfirmasi();
+  if (!confirmUrl) {
+    return {
+      ok: false,
+      error: "NEXT_PUBLIC_APP_URL belum diisi atau bukan alamat yang sah, tautan konfirmasi tidak bisa dibuat",
+      kuotaHabis: false,
+      kode: "app-url-tidak-valid",
+    };
+  }
   confirmUrl.searchParams.set("token_hash", params.tokenHash);
   confirmUrl.searchParams.set("type", params.type);
   confirmUrl.searchParams.set("next", konfig.next);

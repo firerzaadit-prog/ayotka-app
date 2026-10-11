@@ -17,6 +17,10 @@ const forgotPasswordSchema = z.object({
 const PESAN_UMUM =
   "Jika email tersebut terdaftar di AyoTKA, tautan atur ulang password sudah dikirim. Cek kotak masuk atau folder spam dalam beberapa menit.";
 
+// Akun yang masuk dengan NISN memakai email sintetis ({nisn}@nisn.ayotka.id) yang tidak punya kotak surat. Mengirim ke
+// sana hanya menghasilkan email terpental (merusak reputasi pengirim), jadi dilewati; pesan ke pengguna tetap sama.
+const EMAIL_SINTETIS = /@nisn\.ayotka\.id$/i;
+
 const ROLE_LABEL: Record<string, string> = {
   mitra: "Mitra",
   admin_sekolah: "Admin Sekolah",
@@ -66,8 +70,8 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  // Akun nonaktif tidak dikirimi tautan, tapi pesannya tetap sama.
-  if (user && user.status !== "nonaktif") {
+  // Akun nonaktif dan akun email-sintetis (NISN) tidak dikirimi tautan, tapi pesannya tetap sama.
+  if (user && user.status !== "nonaktif" && !EMAIL_SINTETIS.test(user.email)) {
     const nama =
       user.partnerProfile?.nama ??
       user.studentProfile?.nama ??

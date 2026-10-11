@@ -15,6 +15,10 @@
  *  resend-429            batas kecepatan Resend; resend-kuota = kuota harian/bulanan habis
  *  resend-5xx            gangguan di Resend
  *  resend-jaringan       server tidak bisa menjangkau api.resend.com
+ *  app-url-tidak-valid   NEXT_PUBLIC_APP_URL kosong/tidak sah di server, jadi tautan konfirmasi tidak bisa dibuat
+ *                        (email dibatalkan; kode ini diberikan lib/email/konfirmasi.ts, bukan penyedia email)
+ *  email-galat-tak-terduga  galat tak terduga di kode (bukan penyedia email) saat menyiapkan email konfirmasi; rinciannya
+ *                        ada di log server
  *  mailketing-nonaktif   cadangan Mailketing tidak dipakai karena tokennya kosong
  *  mailketing-*          sama untuk Mailketing (mis. mailketing-402 = kredit habis)
  */

@@ -6,7 +6,10 @@ import { checkRateLimit } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/audit/log";
 import { kirimEmailKonfirmasi, pesanEmailBelumTerkirim } from "@/lib/email/konfirmasi";
 
-const schema = z.object({ email: z.string().email("Format email tidak valid.") });
+// trim() SEBELUM email(): papan ketik HP sering menambah spasi di ujung alamat, dan formulir pendaftaran meneruskan isian
+// apa adanya ke tombol kirim ulang (pendaftarannya sendiri sudah memangkas spasi), jadi tanpa ini tombolnya menjawab
+// "Format email tidak valid" padahal emailnya benar.
+const schema = z.object({ email: z.string().trim().email("Format email tidak valid.") });
 
 const PESAN_UMUM =
   "Kalau emailmu terdaftar dan belum dikonfirmasi, email konfirmasi baru sudah dikirim. Cek kotak masuk dan folder spam.";
