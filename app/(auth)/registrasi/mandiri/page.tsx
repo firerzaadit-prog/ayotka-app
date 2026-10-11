@@ -164,7 +164,10 @@ function RegistrasiMandiriForm() {
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <div>
         <h1 className="text-lg font-semibold text-slate-900">Daftar - Siswa Mandiri</h1>
-        <p className="text-sm text-slate-500">Berbayar per mata pelajaran, termasuk beberapa kali Try Out TKA.</p>
+        <p className="text-sm font-medium text-slate-700">Gratis*</p>
+        <p className="mt-0.5 text-xs text-slate-500">
+          *Gratis untuk 1x Try Out per mata pelajaran. Paket Bulanan atau Semester tersedia bila kamu ingin latihan lebih banyak.
+        </p>
       </div>
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -271,9 +274,6 @@ function RegistrasiMandiriForm() {
               kosongKabupatenKota="Pilih kota/kabupaten"
             />
             <PilihStatusSekolah id="asalSekolahStatus" value={asalStatus} onChange={setAsalStatus} wajib label="Sekolahmu negeri atau swasta?" />
-            <p className="text-xs text-slate-500">
-              Dipakai untuk memetakan nilai per wilayah dan jenis sekolah, seperti di portal hasil TKA.
-            </p>
           </div>
           <button
             type="button"
