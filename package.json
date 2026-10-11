@@ -14,7 +14,8 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "tsx prisma/seed.ts",
     "seed:subjects": "tsx scripts/seed-subjects.ts",
-    "cron:langganan": "tsx scripts/cron-langganan.ts"
+    "cron:langganan": "tsx scripts/cron-langganan.ts",
+    "lokal:cek": "node scripts/lokal/cek-kesamaan.mjs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

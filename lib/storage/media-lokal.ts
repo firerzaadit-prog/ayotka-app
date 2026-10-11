@@ -19,6 +19,16 @@ export function pakaiPenyimpananLokal(): boolean {
   return process.env.STORAGE_DRIVER === "local";
 }
 
+/**
+ * true di komputer pengembang yang memakai database/server PRODUKSI (LOKAL_TERHUBUNG_PRODUKSI=true di .env.local; di
+ * server produksi variabel ini tidak ada). Toleran pada huruf besar dan "1" karena salah ketik di sini berarti penjaga
+ * mati ke arah yang tidak aman.
+ */
+export function terhubungKeProduksiDariLokal(): boolean {
+  const nilai = process.env.LOKAL_TERHUBUNG_PRODUKSI?.trim().toLowerCase();
+  return nilai === "true" || nilai === "1";
+}
+
 function konfigurasi(): { dir: string; baseUrl: string } {
   const dir = process.env.MEDIA_DIR?.trim();
   const baseUrl = process.env.MEDIA_PUBLIC_BASE_URL?.trim().replace(/\/+$/, "");
@@ -51,6 +61,15 @@ export async function simpanBerkasLokal(
   bytes: Uint8Array,
   opsi: { timpa: boolean },
 ): Promise<{ error: string } | null> {
+  // Komputer pengembang yang memakai database produksi: berkas ini hanya akan ada di disk komputer ini, sedangkan alamat
+  // publik produksinya tersimpan di database bersama - gambar rusak bagi semua pengguna. Lebih baik ditolak dengan pesan jelas.
+  if (terhubungKeProduksiDariLokal()) {
+    return {
+      error:
+        "Unggah gambar dimatikan di komputer lokal yang terhubung ke database produksi (berkasnya hanya ada di komputer ini, " +
+        "sedangkan alamatnya tersimpan di produksi sehingga gambar rusak). Unggah lewat https://ayotka.id.",
+    };
+  }
   if (!pathMediaAman(p)) return { error: "Path berkas tidak valid." };
   try {
     const { dir } = konfigurasi();

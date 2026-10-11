@@ -8,7 +8,7 @@ vi.mock("server-only", () => ({}));
 const m = vi.hoisted(() => ({ buatAdmin: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: m.buatAdmin }));
 
-import { pathMediaAman, simpanBerkasLokal, urlPublikLokal } from "@/lib/storage/media-lokal";
+import { pathMediaAman, simpanBerkasLokal, terhubungKeProduksiDariLokal, urlPublikLokal } from "@/lib/storage/media-lokal";
 import { importImagePath, publicImageUrl, uploadImportImages, uploadQuestionImage } from "@/lib/supabase/storage";
 
 const PNG = Buffer.from(
@@ -32,12 +32,14 @@ beforeEach(async () => {
   process.env.STORAGE_DRIVER = "local";
   process.env.MEDIA_DIR = dir;
   process.env.MEDIA_PUBLIC_BASE_URL = "https://ayotka.test/media/soal-media/"; // garis miring akhir sengaja ada
+  delete process.env.LOKAL_TERHUBUNG_PRODUKSI; // tes berkas ini tidak boleh bergantung pada lingkungan pengembang
 });
 
 afterEach(async () => {
   delete process.env.STORAGE_DRIVER;
   delete process.env.MEDIA_DIR;
   delete process.env.MEDIA_PUBLIC_BASE_URL;
+  delete process.env.LOKAL_TERHUBUNG_PRODUKSI;
   await rm(induk, { recursive: true, force: true });
 });
 
@@ -135,6 +137,48 @@ describe("publicImageUrl dan uploadImportImages (mode lokal)", () => {
     const gagal = await uploadImportImages([{ path: "../x.png", bytes: PNG, mime: "image/png" }]);
     expect(gagal?.error).toMatch(/tidak valid/);
     expect(await uploadImportImages([])).toBeNull();
+  });
+});
+
+describe("penjaga LOKAL_TERHUBUNG_PRODUKSI (komputer pengembang yang memakai database produksi)", () => {
+  beforeEach(() => {
+    process.env.LOKAL_TERHUBUNG_PRODUKSI = "true";
+  });
+
+  it("simpanBerkasLokal menolak menulis apa pun dan tidak menyentuh disk", async () => {
+    const hasil = await simpanBerkasLokal("a.png", PNG, { timpa: false });
+    expect(hasil?.error).toMatch(/dimatikan.*database produksi/);
+    expect(await readdir(dir)).toEqual([]);
+    expect(await simpanBerkasLokal("impor/a.png", PNG, { timpa: true })).not.toBeNull();
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("unggah soal mengembalikan galat yang jelas dan tidak membuat berkas", async () => {
+    const file = new File([PNG], "x.png", { type: "image/png" });
+    expect(await uploadQuestionImage(file)).toEqual({ error: expect.stringMatching(/dimatikan.*produksi/) });
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("unggah gambar impor melaporkan galat yang sama dan tidak membuat berkas", async () => {
+    const hasil = await uploadImportImages([{ path: "impor/a1.png", bytes: PNG, mime: "image/png" }]);
+    expect(hasil?.error).toMatch(/dimatikan/);
+    expect(await readdir(dir)).toEqual([]);
+  });
+
+  it("aktif untuk true/TRUE/True/1 (dengan spasi), mati untuk selain itu", async () => {
+    for (const v of ["true", "TRUE", "True", " true ", "1"]) {
+      process.env.LOKAL_TERHUBUNG_PRODUKSI = v;
+      expect(terhubungKeProduksiDariLokal(), JSON.stringify(v)).toBe(true);
+      expect((await simpanBerkasLokal("x.png", PNG, { timpa: true }))?.error, JSON.stringify(v)).toMatch(/dimatikan/);
+    }
+    for (const v of ["false", "0", "", "ya", "yes"]) {
+      process.env.LOKAL_TERHUBUNG_PRODUKSI = v;
+      expect(terhubungKeProduksiDariLokal(), JSON.stringify(v)).toBe(false);
+    }
+    delete process.env.LOKAL_TERHUBUNG_PRODUKSI;
+    expect(terhubungKeProduksiDariLokal()).toBe(false);
+    expect(await simpanBerkasLokal("bebas.png", PNG, { timpa: false })).toBeNull(); // tanpa variabel = perilaku produksi
+    expect(await readdir(dir)).toEqual(["bebas.png"]);
   });
 });
 
