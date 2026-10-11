@@ -843,8 +843,8 @@ model AiAnalysisSekolah {
 /// Satu baris = satu giliran (pesan siswa + balasan tutor) pada fitur Tanya Tutor AI di halaman pembahasan. Dipakai untuk
 /// dua hal: (1) batas harian per siswa - dicatat SEBELUM AI dipanggil (reservasi, supaya batas tidak bisa ditembus dengan
 /// permintaan serentak) dan dihapus lagi bila AI gagal menjawab (lib/tutor/penggunaan.ts); (2) riwayat percakapan yang
-/// bisa dilanjutkan siswa. Isi percakapan HANYA disimpan SEMINGGU sejak dikirim (HARI_SIMPAN_RIWAYAT), lalu seluruh baris
-/// dihapus otomatis - lihat lib/tutor/penyimpanan.ts. Foto TIDAK disimpan (hanya penanda adaFoto).
+/// bisa dilanjutkan siswa. Isi percakapan disimpan selama HARI_SIMPAN_RIWAYAT hari sejak dikirim (nilai sekarang 36500 =
+/// praktis seterusnya), lalu seluruh baris dihapus - lihat lib/tutor/penyimpanan.ts. Foto TIDAK disimpan (hanya penanda adaFoto).
 model TutorAiPesan {
   id         String   @id @default(uuid()) @db.Uuid
   studentId  String   @map("student_id") @db.Uuid

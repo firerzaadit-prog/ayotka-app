@@ -6,7 +6,8 @@ import { ringkasanTutor, type RingkasanTutor } from "@/lib/tutor/penggunaan";
 const HARI_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Isi percakapan Tanya Tutor AI hanya disimpan HARI_SIMPAN_RIWAYAT (7) hari sejak tiap pesan dikirim. Dua lapis jaminan:
+ * Isi percakapan Tanya Tutor AI disimpan selama HARI_SIMPAN_RIWAYAT hari sejak tiap pesan dikirim (nilai sekarang 36500 =
+ * praktis seterusnya; lihat lib/tutor/konstanta.ts). Bila batas itu dipendekkan, ada dua lapis jaminan:
  *  1. Tidak pernah ditampilkan lagi lewat aplikasi begitu lewat batas ini (semua pembacaan memakai batasSimpan);
  *  2. Barisnya dihapus fisik: oleh cron server lima menit yang sudah ada (app/api/cron/proses-antrean-ai) dan, sebagai
  *     cadangan, oleh bersihkanBilaPerlu yang ikut berjalan saat fitur Tutor dipakai.
@@ -31,7 +32,7 @@ export async function simpanPercakapan(id: string, isi: { pesan: string; balasan
   await prisma.tutorAiPesan.update({ where: { id }, data: { pesan: isi.pesan, balasan: isi.balasan, adaFoto: isi.adaFoto } });
 }
 
-/** Percakapan siswa untuk SATU soal pada SATU percobaan (hanya yang belum lewat 7 hari dan sudah berbalasan), urut dari yang tertua. */
+/** Percakapan siswa untuk SATU soal pada SATU percobaan (hanya yang belum lewat batas simpan dan sudah berbalasan), urut dari yang tertua. */
 export async function muatRiwayat(
   params: { attemptId: string; studentId: string; questionId: string },
   sekarang: Date = new Date(),
@@ -97,7 +98,7 @@ export async function hapusPercakapan(params: { attemptId: string; studentId: st
   return hasil.count;
 }
 
-/** Hapus SEMUA baris (semua siswa) yang sudah lewat 7 hari. Mengembalikan jumlah yang dihapus. */
+/** Hapus SEMUA baris (semua siswa) yang sudah lewat batas simpan. Mengembalikan jumlah yang dihapus. */
 export async function bersihkanRiwayatKedaluwarsa(sekarang: Date = new Date()): Promise<number> {
   const hasil = await prisma.tutorAiPesan.deleteMany({ where: { createdAt: { lt: batasSimpan(sekarang) } } });
   return hasil.count;

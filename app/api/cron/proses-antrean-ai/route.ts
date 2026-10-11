@@ -17,8 +17,9 @@ import { bersihkanRiwayatKedaluwarsa } from "@/lib/tutor/penyimpanan";
  * antrean AI supaya analisis percobaan yang baru ditutup ikut terproses di putaran yang sama. Sengaja tidak dibuat
  * cron tersendiri: satu panggilan cukup untuk keduanya.
  *
- * Juga MENGHAPUS riwayat percakapan Tanya Tutor AI yang sudah lewat 7 hari (lib/tutor/penyimpanan.ts): janji kepada siswa
- * bahwa percakapan "disimpan seminggu lalu dihapus otomatis" ditepati di sini, tanpa perlu cron baru di server.
+ * Juga MENGHAPUS riwayat percakapan Tanya Tutor AI yang sudah lewat batas simpan (HARI_SIMPAN_RIWAYAT, lib/tutor/penyimpanan.ts):
+ * bila batasnya dipendekkan, janji "dihapus otomatis" ditepati di sini tanpa perlu cron baru di server. Dengan batas
+ * sekarang (36500 hari) praktis tidak ada yang terhapus.
  *
  * Diverifikasi lewat header Authorization: Bearer CRON_SECRET (format yang sama dengan Vercel Cron)
  * supaya endpoint ini tidak bisa dipicu sembarang orang dari luar - tanpa
@@ -52,7 +53,7 @@ export async function GET(request: Request) {
   let riwayatTutorDihapus = 0;
   try {
     riwayatTutorDihapus = await bersihkanRiwayatKedaluwarsa();
-    if (riwayatTutorDihapus > 0) console.log(`[tutor-riwayat] dihapus ${riwayatTutorDihapus} baris yang lewat 7 hari`);
+    if (riwayatTutorDihapus > 0) console.log(`[tutor-riwayat] dihapus ${riwayatTutorDihapus} baris yang lewat batas simpan`);
   } catch (err) {
     console.error("[tutor-riwayat] pembersihan gagal:", err);
   }

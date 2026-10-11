@@ -151,7 +151,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     );
   }
 
-  // Simpan percakapan (pesan siswa + balasan) SEMINGGU supaya bisa dilanjutkan; foto tidak disimpan. Gagal menyimpan
+  // Simpan percakapan (pesan siswa + balasan) selama HARI_SIMPAN_RIWAYAT hari supaya bisa dilanjutkan; foto tidak disimpan. Gagal menyimpan
   // tidak boleh menggagalkan jawaban yang sudah sampai: siswa tetap menerima balasannya.
   const pesanTerakhir = body.messages[body.messages.length - 1]!;
   await simpanPercakapan(reservasi.id, {

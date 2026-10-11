@@ -34,8 +34,8 @@ async function pemilikDanSoal(request: Request, params: RouteParams["params"]) {
 }
 
 /**
- * Percakapan Tanya Tutor AI milik siswa untuk SATU soal pada percobaannya sendiri, yang belum lewat 7 hari (isinya
- * dihapus otomatis sesudah itu - lib/tutor/penyimpanan.ts). Hanya siswa pemilik percobaan yang bisa membacanya; tidak ada
+ * Percakapan Tanya Tutor AI milik siswa untuk SATU soal pada percobaannya sendiri, yang belum lewat batas simpan
+ * (HARI_SIMPAN_RIWAYAT; lewat itu isinya dihapus - lib/tutor/penyimpanan.ts). Hanya siswa pemilik percobaan yang bisa membacanya; tidak ada
  * halaman admin yang menampilkan isi percakapan. Foto tidak pernah disimpan, hanya penanda `adaFoto`.
  */
 export async function GET(request: Request, { params }: RouteParams) {
@@ -52,7 +52,7 @@ export async function GET(request: Request, { params }: RouteParams) {
 }
 
 /**
- * Siswa menghapus percakapannya untuk satu soal sebelum 7 hari berakhir. Hanya isinya yang dikosongkan; jatah pesan
+ * Siswa menghapus percakapannya untuk satu soal kapan saja. Hanya isinya yang dikosongkan; jatah pesan
  * harian TIDAK kembali (lihat hapusPercakapan).
  */
 export async function DELETE(request: Request, { params }: RouteParams) {

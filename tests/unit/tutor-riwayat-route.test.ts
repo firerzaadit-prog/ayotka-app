@@ -19,6 +19,7 @@ vi.mock("@/lib/tutor/penyimpanan", () => ({
 }));
 
 import { DELETE, GET } from "@/app/api/siswa/attempts/[id]/tutor/riwayat/route";
+import { HARI_SIMPAN_RIWAYAT } from "@/lib/tutor/konstanta";
 
 const QID = "0f8d3acf-76bd-4d04-871c-769e0124a500";
 const ATTEMPT = { id: "att-1", studentId: "siswa-1", status: "selesai" };
@@ -65,7 +66,7 @@ describe("GET riwayat percakapan Tutor", () => {
     const res = await GET(req(`?questionId=${QID}`), params);
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.json()).toEqual({ pesan: giliran, hariSimpan: 7 });
+    expect(await res.json()).toEqual({ pesan: giliran, hariSimpan: HARI_SIMPAN_RIWAYAT });
   });
 
   it("memicu pembersihan cadangan tanpa menunggunya", async () => {

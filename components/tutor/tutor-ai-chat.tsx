@@ -6,6 +6,7 @@ import { Bot, Paperclip, Send, Sparkles, Trash2, User, X } from "lucide-react";
 import { RichText } from "@/components/soal/rich-text";
 import { Alert } from "@/components/ui/alert";
 import { GalatFoto, kompresGambar } from "@/components/tutor/kompres-gambar";
+import { KeteranganLamaSimpan } from "@/components/tutor/keterangan-lama-simpan";
 import { MAKS_PANJANG_PESAN, MAKS_PESAN_RIWAYAT } from "@/lib/tutor/konstanta";
 import { formatWIB } from "@/lib/utils/datetime";
 import { potongRiwayat } from "@/lib/tutor/riwayat";
@@ -119,7 +120,7 @@ export function TutorAiChat({
   const [lihatSoal, setLihatSoal] = useState(false);
   // Layanan Tutor kadang butuh puluhan detik: setelah beberapa saat menunggu, beri tahu bahwa sistem masih bekerja.
   const [menungguLama, setMenungguLama] = useState(false);
-  // Percakapan tersimpan (maks. hariSimpan hari) dimuat SEKALI saat drawer pertama kali dibuka.
+  // Percakapan tersimpan (selama hariSimpan hari) dimuat SEKALI saat drawer pertama kali dibuka.
   const [memuatRiwayat, setMemuatRiwayat] = useState(adaRiwayat);
   // Menghapus percakapan: dua langkah (tombol, lalu konfirmasi di tempat) supaya tidak terhapus karena salah sentuh.
   const [konfirmasiHapus, setKonfirmasiHapus] = useState(false);
@@ -364,8 +365,7 @@ export function TutorAiChat({
 
         <div className="border-b border-indigo-100 bg-indigo-50 px-4 py-2 text-[11px] leading-snug text-indigo-900" data-keterangan-penyimpanan>
           <p>
-            Percakapan ini disimpan <b>{hariSimpan} hari</b> sejak dikirim agar bisa kamu lanjutkan, lalu dihapus otomatis.
-            Foto yang kamu kirim tidak disimpan. Admin sekolah tidak dapat membacanya.
+            <KeteranganLamaSimpan hariSimpan={hariSimpan} /> Foto yang kamu kirim tidak disimpan. Admin sekolah tidak dapat membacanya.
           </p>
           {pesan.length > 0 && !memuatRiwayat && !konfirmasiHapus && (
             <button

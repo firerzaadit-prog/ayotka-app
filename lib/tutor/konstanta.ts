@@ -37,9 +37,17 @@ export const MAKS_PANJANG_BALASAN = 100000;
 
 /**
  * Lama isi percakapan Tanya Tutor AI disimpan, dihitung sejak tiap pesan dikirim. Sesudah itu isinya tidak ditampilkan
- * lagi dan barisnya dihapus otomatis (lib/tutor/penyimpanan.ts). Angka ini juga dipakai untuk keterangan ke siswa.
+ * lagi dan barisnya dihapus (lib/tutor/penyimpanan.ts). Nilai sekarang 36500 hari (±100 tahun) = praktis disimpan
+ * seterusnya, sesuai Kebijakan Privasi; siswa tetap bisa menghapus percakapannya sendiri kapan saja. Angka ini juga
+ * dipakai untuk keterangan ke siswa (components/tutor/keterangan-lama-simpan.tsx), yang otomatis menyesuaikan.
  */
 export const HARI_SIMPAN_RIWAYAT = 36500;
+
+/**
+ * Lama simpan sebesar ini atau lebih dianggap "tanpa batas waktu": keterangan ke siswa tidak menyebut jumlah hari
+ * maupun penghapusan otomatis (yang tidak akan pernah terjadi), melainkan bahwa percakapan bisa dilanjutkan kapan saja.
+ */
+export const AMBANG_TANPA_BATAS_HARI = 3650;
 
 /** Paling banyak giliran yang dimuat saat siswa membuka kembali percakapan satu soal (batas harian x hari simpan jauh di bawahnya). */
 export const MAKS_GILIRAN_DIMUAT = 10000;
