@@ -2,8 +2,10 @@ import { processAffiliateFulfillment } from "@/lib/billing/affiliate-fulfillment
 import {
   affiliateCorsResponse,
   affiliateJsonResponse,
+  affiliateTolak,
   parseAffiliatePayload,
 } from "@/lib/billing/affiliate-cors";
+import { periksaAksesAffiliate } from "@/lib/billing/affiliate-auth";
 
 export async function OPTIONS() {
   return affiliateCorsResponse();
@@ -16,6 +18,11 @@ export async function OPTIONS() {
  * - Success (Existing User) Endpoint
  */
 export async function POST(request: Request) {
+  const akses = periksaAksesAffiliate(request);
+  if (!akses.ok) {
+    console.warn(`[affiliate SaaS success] ditolak (${akses.status}): rahasia tidak ada atau salah`);
+    return affiliateTolak(akses);
+  }
   try {
     const body = await parseAffiliatePayload(request);
 

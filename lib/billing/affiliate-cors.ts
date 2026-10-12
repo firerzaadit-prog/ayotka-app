@@ -20,6 +20,11 @@ export function affiliateJsonResponse(data: unknown, status = 200) {
   });
 }
 
+/** Jawaban untuk panggilan tanpa rahasia yang benar (lihat lib/billing/affiliate-auth.ts); bentuknya cocok untuk semua endpoint. */
+export function affiliateTolak(hasil: { status: 401 | 503; pesan: string }) {
+  return affiliateJsonResponse({ ok: false, status: false, error: hasil.pesan, message: hasil.pesan }, hasil.status);
+}
+
 /**
  * Membaca payload dari berbagai format (JSON, FormData, x-www-form-urlencoded, URL query string)
  */
@@ -62,5 +67,8 @@ export async function parseAffiliatePayload(request: Request): Promise<Record<st
     }
   }
 
-  return { ...queryParams, ...body };
+  // Rahasia webhook (?token=) tidak boleh ikut terbawa ke log server maupun audit log lewat rawPayload.
+  const gabungan = { ...queryParams, ...body };
+  delete gabungan.token;
+  return gabungan;
 }

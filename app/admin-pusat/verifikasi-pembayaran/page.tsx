@@ -13,6 +13,7 @@ import { IconWallet } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { formatWIBDate } from "@/lib/utils/datetime";
 import { AktivasiManualPanel } from "@/components/billing/aktivasi-manual-panel";
+import { AffiliatePengaturanCard } from "@/components/billing/affiliate-pengaturan-card";
 
 type InvoiceButuhVerifikasi = {
   id: string;
@@ -89,6 +90,8 @@ export default function VerifikasiPembayaranPage() {
         di bawah setelah bukti pembayaran siswa dicek. Daftar invoice di bagian bawah halaman ini hanya untuk
         pembayaran online (Midtrans) yang belum tercatat lunas.
       </Alert>
+
+      <AffiliatePengaturanCard />
 
       <AktivasiManualPanel />
 

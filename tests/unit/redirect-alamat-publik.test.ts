@@ -32,14 +32,19 @@ import { GET as confirmGet, POST as confirmPost } from "@/app/api/auth/confirm/r
 import { GET as forceLogoutGet } from "@/app/api/auth/force-logout/route";
 import { GET as affiliateGet } from "@/app/api/webhooks/affiliate/route";
 import { kirimEmailKonfirmasi } from "@/lib/email/konfirmasi";
+import { rahasiaWebhookAffiliate } from "@/lib/billing/affiliate-auth";
 
 // Produksi: nginx meneruskan permintaan ke aplikasi dengan alamat internal (Host tidak diteruskan). Sebelum perbaikan,
 // semua redirect rute API di bawah ini mengarah ke https://localhost:3001 ("This site can't be reached").
 const PUBLIK = "https://ayotka.id";
 const INTERNAL = "https://localhost:3001";
 const lokasi = (res: Response) => res.headers.get("location");
+// Webhook affiliate kini wajib membawa rahasia (lib/billing/affiliate-auth.ts)
+const KUNCI_SERVER = "kunci-uji-redirect-1234567890";
+const TOKEN = rahasiaWebhookAffiliate({ APP_ENCRYPTION_KEY: KUNCI_SERVER })!;
 
 beforeEach(() => {
+  vi.stubEnv("APP_ENCRYPTION_KEY", KUNCI_SERVER);
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("NEXT_PUBLIC_APP_URL", PUBLIK);
   m.user.current = null;
@@ -148,7 +153,7 @@ describe("/api/auth/force-logout", () => {
 });
 
 describe("/api/webhooks/affiliate (pengalihan browser pembeli setelah bayar)", () => {
-  const PARAM = "email=siswa%40example.com&order_id=INV-1&amount=50000";
+  const PARAM = `email=siswa%40example.com&order_id=INV-1&amount=50000&token=${TOKEN}`;
 
   it("dibuka browser (Accept: text/html): top-up -> dompet, langganan -> halaman langganan, di alamat publik", async () => {
     m.fulfil.mockResolvedValueOnce({ ok: true, type: "topup" });

@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { asalPublik } from "@/lib/utils/asal-publik";
+import { periksaAksesAffiliate } from "@/lib/billing/affiliate-auth";
 import { processAffiliateFulfillment } from "@/lib/billing/affiliate-fulfillment";
 import {
   affiliateCorsResponse,
   affiliateJsonResponse,
+  affiliateTolak,
   parseAffiliatePayload,
 } from "@/lib/billing/affiliate-cors";
 
@@ -27,6 +29,11 @@ function extractAmount(val: unknown): number | null {
  * maupun via POST (standar webhook webhook payloads).
  */
 export async function GET(request: Request) {
+  const akses = periksaAksesAffiliate(request);
+  if (!akses.ok) {
+    console.warn(`[affiliate webhook GET] ditolak (${akses.status}): rahasia tidak ada atau salah`);
+    return affiliateTolak(akses);
+  }
   try {
     const url = new URL(request.url);
     const searchParams = url.searchParams;
@@ -85,7 +92,8 @@ export async function GET(request: Request) {
       productTitle,
       amount,
       paymentChannel: "affiliate_get_webhook",
-      rawPayload: Object.fromEntries(searchParams.entries()),
+      // tanpa ?token= (rahasia webhook): rawPayload masuk audit log
+      rawPayload: Object.fromEntries([...searchParams.entries()].filter(([kunci]) => kunci !== "token")),
     });
 
     const acceptHeader = request.headers.get("accept") || "";
@@ -111,6 +119,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const akses = periksaAksesAffiliate(request);
+  if (!akses.ok) {
+    console.warn(`[affiliate webhook POST] ditolak (${akses.status}): rahasia tidak ada atau salah`);
+    return affiliateTolak(akses);
+  }
   try {
     const body = await parseAffiliatePayload(request);
     console.log("[affiliate webhook POST] received body:", body);

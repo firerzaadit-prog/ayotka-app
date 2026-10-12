@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/db/prisma";
+import { getClientIp } from "@/lib/audit/log";
+import { checkRateLimit } from "@/lib/rate-limit";
 import {
   affiliateCorsResponse,
   affiliateJsonResponse,
+  affiliateTolak,
   parseAffiliatePayload,
 } from "@/lib/billing/affiliate-cors";
+import { periksaAksesAffiliate } from "@/lib/billing/affiliate-auth";
 
 export async function OPTIONS() {
   return affiliateCorsResponse();
@@ -30,6 +34,15 @@ export async function OPTIONS() {
  * }
  */
 export async function POST(request: Request) {
+  const akses = periksaAksesAffiliate(request);
+  if (!akses.ok) {
+    console.warn(`[affiliate check-email] ditolak (${akses.status}): rahasia tidak ada atau salah`);
+    return affiliateTolak(akses);
+  }
+  // Juga dibatasi lajunya: endpoint ini menjawab apakah sebuah email/akun ada, jadi tidak boleh bisa disapu.
+  if (!checkRateLimit(`affiliate-check-email:${getClientIp(request) ?? "unknown"}`, 60, 60_000)) {
+    return affiliateJsonResponse({ status: false, message: "Terlalu banyak permintaan." }, 429);
+  }
   try {
     const data = await parseAffiliatePayload(request);
     const emailRaw =
