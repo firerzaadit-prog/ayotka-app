@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { PageSkeleton } from "@/components/ui/skeleton";
+import { PetunjukEmailAffiliate } from "@/components/billing/petunjuk-email-affiliate";
 
 type Riwayat = {
   id: string;
@@ -22,6 +23,7 @@ type Riwayat = {
 
 type SaldoData = {
   saldo: number;
+  email?: string;
   hargaLearningAnalytics: number;
   denominasi: number[];
   /** "affiliate" = top-up lewat tautan affiliate.id + konfirmasi admin via WhatsApp (sementara, lihat lib/billing/pembayaran-affiliate.ts). */
@@ -130,8 +132,13 @@ export default function WalletPage() {
             <p className="font-semibold text-emerald-950">⚡ Top-up Otomatis via affiliate.id</p>
             <ol className="mt-1 list-decimal space-y-1 pl-4 leading-relaxed text-emerald-800">
               <li>Pilih nominal di bawah dan selesaikan pembayaran di affiliate.id.</li>
-              <li>Email akun AyoTKA kamu terisi otomatis saat checkout.</li>
-              <li>Begitu pembayaran lunas, saldo akan langsung terisi secara otomatis tanpa perlu konfirmasi manual!</li>
+              <li>
+                <PetunjukEmailAffiliate email={data.email} untuk="saldo" />
+              </li>
+              <li>
+                Setelah pembayaran lunas dan diverifikasi affiliate.id (biasanya 5-10 menit), saldo terisi otomatis tanpa perlu konfirmasi manual. Kalau
+                lebih lama dari itu, hubungi admin lewat tautan WhatsApp di bawah.
+              </li>
             </ol>
           </div>
         )}

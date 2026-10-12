@@ -89,6 +89,8 @@ export async function GET() {
       : null;
 
   return NextResponse.json({
+    /** Email akun, untuk petunjuk mengisi formulir checkout affiliate.id (harus sama persis agar pembayaran dicocokkan). */
+    email: user.email,
     jalur: student.jalur,
     sekolah: student.school,
     /** Jalur A yang kursi sekolahnya berlaku/tersedia sekarang: tidak perlu (dan tidak boleh) membeli paket sendiri. */

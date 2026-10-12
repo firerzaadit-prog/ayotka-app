@@ -64,6 +64,8 @@ export async function GET() {
 
   return NextResponse.json({
     saldo,
+    /** Email akun, untuk petunjuk mengisi formulir checkout affiliate.id (harus sama persis agar pembayaran dicocokkan). */
+    email: user.email,
     hargaLearningAnalytics,
     denominasi: affiliateTopup
       ? SALDO_TOPUP_DENOMINASI.filter((n) => Boolean(affiliateTopup[n]))

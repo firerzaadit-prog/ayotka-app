@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { formatWIBDate } from "@/lib/utils/datetime";
 import { VoucherRedeemCard } from "@/components/siswa/voucher-redeem-card";
+import { PetunjukEmailAffiliate } from "@/components/billing/petunjuk-email-affiliate";
 
 type Plan = { id: string; kode: string; nama: string; harga: number; durasiHari: number | null };
 type Entitlement = {
@@ -18,6 +19,7 @@ type Entitlement = {
   source: "invoice" | "voucher" | "school_seat";
 };
 type CheckoutData = {
+  email?: string;
   jalur: "A" | "B";
   sekolah: { nama: string } | null;
   /** Jalur A yang kursi sekolahnya berlaku/tersedia sekarang: akses ditanggung sekolah, tidak perlu beli paket. */
@@ -227,9 +229,12 @@ export default function LanggananSiswaPage() {
           <p className="text-sm font-semibold text-indigo-950">⚡ Berlangganan Otomatis via affiliate.id</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-relaxed text-slate-700">
             <li>Pilih paket di bawah dan selesaikan pembayaran di affiliate.id.</li>
-            <li>Email akun AyoTKA kamu terisi otomatis saat checkout.</li>
             <li>
-              Begitu pembayaran lunas, langganan kamu akan langsung aktif secara otomatis dalam beberapa detik tanpa perlu konfirmasi manual!
+              <PetunjukEmailAffiliate email={data.email} untuk="langganan" />
+            </li>
+            <li>
+              Setelah pembayaran lunas dan diverifikasi affiliate.id (biasanya 5-10 menit), langganan kamu aktif otomatis tanpa perlu konfirmasi
+              manual. Kalau lebih lama dari itu, hubungi admin lewat WhatsApp.
             </li>
           </ol>
         </Card>
