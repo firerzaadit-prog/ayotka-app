@@ -1,20 +1,18 @@
 "use client";
 
 import { useState } from "react";
-
-/** Akun jalur sekolah masuk memakai NISN dan punya email sintetis yang tidak bisa dipakai untuk membayar. */
-const EMAIL_SINTETIS = /@nisn\.ayotka\.id$/i;
+import { adalahEmailSintetis } from "@/lib/billing/pembayaran-affiliate";
 
 /**
- * Petunjuk mengisi email di formulir checkout affiliate.id. Pembayaran otomatis mencocokkan pembeli dengan akun lewat email,
- * dan formulir affiliate.id belum tentu terisi sendiri (di checkout sungguhan kolom Email kosong), jadi siswa diminta mengisinya
- * sendiri dan diberi email akunnya untuk disalin.
+ * Petunjuk soal email di formulir checkout affiliate.id. Pembayaran otomatis mencocokkan pembeli dengan akun lewat email.
+ * Tautan bayar kita membawa email akun (buildAffiliateUrl), sehingga kolom Email terisi sendiri dan terkunci; petunjuk ini
+ * memberi tahu hal itu dan cadangannya bila kolom ternyata kosong (mis. format email ditolak affiliate.id): isi sama persis.
  */
 export function PetunjukEmailAffiliate({ email, untuk }: { email: string | null | undefined; untuk: "saldo" | "langganan" }) {
   const [tersalin, setTersalin] = useState(false);
   const hasil = untuk === "saldo" ? "saldo" : "langganan";
 
-  if (email && EMAIL_SINTETIS.test(email)) {
+  if (adalahEmailSintetis(email)) {
     return (
       <>
         Akunmu masuk memakai NISN, jadi tidak punya email yang bisa dicocokkan otomatis. Setelah membayar, kirim bukti pembayaran ke admin lewat
@@ -36,20 +34,18 @@ export function PetunjukEmailAffiliate({ email, untuk }: { email: string | null 
 
   return (
     <>
-      Isi kolom <strong>Email</strong> dan <strong>Konfirmasi Email</strong> di formulir checkout{" "}
       {email ? (
         <>
-          dengan email akunmu:{" "}
-          <span className="font-mono font-semibold break-all select-all">{email}</span>{" "}
+          Email akunmu (<span className="font-mono font-semibold break-all select-all">{email}</span>{" "}
           <button type="button" onClick={salin} className="rounded border border-current px-1.5 py-0.5 text-[11px] font-medium">
             {tersalin ? "Tersalin" : "Salin"}
           </button>
-          .
+          ) otomatis terisi di formulir checkout dan terkunci, jadi tidak perlu diketik. Kalau kolom Email ternyata kosong, isi dengan email itu.
         </>
       ) : (
-        "dengan email akun AyoTKA kamu."
+        <>Kolom Email di formulir checkout harus berisi email akun AyoTKA kamu.</>
       )}{" "}
-      Harus sama persis, karena itulah cara {hasil} dicocokkan ke akunmu. Biarkan jumlah beli 1.
+      Email harus sama persis, karena itulah cara {hasil} dicocokkan ke akunmu. Biarkan jumlah beli 1.
     </>
   );
 }

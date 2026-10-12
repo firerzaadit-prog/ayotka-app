@@ -37,13 +37,24 @@ export const AFFILIATE_SLUG_TOPUP = {
   50_000: "ayotkaid-top-up-kredit-50000-jqKvm6YMT1YzqDwgdVey",
 } as const;
 
-export function buildAffiliateUrl(slug: string, options?: { email?: string; nama?: string }): string {
-  let url = `${AFFILIATE_BASE}/${slug}${AFFILIATE_QS}`;
-  if (options?.email) {
+/** Akun jalur sekolah masuk memakai NISN dan punya email sintetis (tidak bisa menerima email, dan memuat NISN siswa). */
+const EMAIL_SINTETIS = /@nisn\.ayotka\.id$/i;
+
+export function adalahEmailSintetis(email: string | null | undefined): boolean {
+  return Boolean(email) && EMAIL_SINTETIS.test(email as string);
+}
+
+/**
+ * Tautan bayar produk di affiliate.id, LANGSUNG ke halaman checkout. Pembayaran otomatis mencocokkan pembeli ke akun lewat
+ * email, jadi email akun siswa dibawa lewat `?email=`: halaman checkout affiliate.id mengisi kolom Email dari parameter itu,
+ * mengunci kolomnya (tidak bisa salah ketik) dan menyembunyikan kolom Konfirmasi Email (diperiksa di browser, 12 Okt 2026).
+ * Halaman produk TIDAK bisa dipakai untuk ini: tombol "Beli Sekarang"-nya hanya meneruskan `aff` dan membuang parameter lain.
+ * Email sintetis NISN tidak dikirim (memuat NISN anak ke pihak ketiga); siswa itu diarahkan ke aktivasi manual lewat WhatsApp.
+ */
+export function buildAffiliateUrl(slug: string, options?: { email?: string }): string {
+  let url = `${AFFILIATE_BASE}/${slug}/checkout${AFFILIATE_QS}`;
+  if (options?.email && !adalahEmailSintetis(options.email)) {
     url += `&email=${encodeURIComponent(options.email)}`;
-  }
-  if (options?.nama) {
-    url += `&name=${encodeURIComponent(options.nama)}`;
   }
   return url;
 }

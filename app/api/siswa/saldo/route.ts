@@ -54,7 +54,6 @@ export async function GET() {
             {
               url: buildAffiliateUrl(AFFILIATE_SLUG_TOPUP[n as keyof typeof AFFILIATE_SLUG_TOPUP], {
                 email: user.email,
-                nama: student.nama,
               }),
               waUrl: buildKonfirmasiTopupWa({ nominal: n, email: user.email }),
             },

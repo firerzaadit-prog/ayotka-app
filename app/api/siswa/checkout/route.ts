@@ -80,7 +80,6 @@ export async function GET() {
               {
                 url: buildAffiliateUrl(AFFILIATE_SLUG_PLAN[p.kode as keyof typeof AFFILIATE_SLUG_PLAN], {
                   email: user.email,
-                  nama: student.nama,
                 }),
                 waUrl: buildKonfirmasiLanggananWa({ namaPaket: p.nama, harga: p.harga, email: user.email }),
               },
