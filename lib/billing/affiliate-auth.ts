@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { DAFTAR_KODE_PRODUK, type KodeProdukAffiliate } from "@/lib/billing/affiliate-produk";
 
 /**
  * Pengaman panggilan dari affiliate.id (webhook Purchase dan endpoint SaaS check-email / check-account / success).
@@ -71,16 +72,23 @@ export function periksaAksesAffiliate(request: Request, env: Env = process.env):
   return cocok ? { ok: true } : { ok: false, status: 401, pesan: "Tidak diizinkan." };
 }
 
-/** Alamat lengkap (dengan rahasia) yang diisikan admin ke pengaturan produk di affiliate.id. */
+/**
+ * Alamat lengkap (dengan rahasia) yang diisikan admin ke pengaturan produk di affiliate.id. Purchase, Check Email dan
+ * Check Account sama untuk semua produk. Success berbeda per produk (membawa `produk=<kode>`) karena panggilan Success
+ * dari affiliate.id tidak menyebutkan produk yang dibeli; lihat lib/billing/affiliate-produk.ts.
+ */
 export function alamatWebhookAffiliate(asal: string, env: Env = process.env) {
   const rahasia = rahasiaWebhookAffiliate(env);
   if (!rahasia) return null;
   const dasar = asal.replace(/\/+$/, "");
-  const dengan = (jalur: string) => `${dasar}${jalur}?token=${rahasia}`;
+  const dengan = (jalur: string, tambahan = "") => `${dasar}${jalur}?token=${rahasia}${tambahan}`;
+  const success = Object.fromEntries(
+    DAFTAR_KODE_PRODUK.map((kode) => [kode, dengan("/api/webhooks/affiliate/success", `&produk=${kode}`)]),
+  ) as Record<KodeProdukAffiliate, string>;
   return {
     purchase: dengan("/api/webhooks/affiliate"),
     checkEmail: dengan("/api/webhooks/affiliate/check-email"),
     checkAccount: dengan("/api/webhooks/affiliate/check-account"),
-    success: dengan("/api/webhooks/affiliate/success"),
+    success,
   };
 }

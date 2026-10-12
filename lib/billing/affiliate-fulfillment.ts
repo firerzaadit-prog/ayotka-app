@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/audit/log";
 import { SUMBER_KREDIT_PRIBADI, selaraskanKreditSiswaAman } from "@/lib/billing/kredit-pribadi";
+import { jenisDariKode, type JenisProduk } from "@/lib/billing/affiliate-produk";
+import { ringkasDataDiterima } from "@/lib/billing/affiliate-data";
+
+export type { JenisProduk };
 
 export const AFFILIATE_PRODUCT_IDS = {
   TOPUP_50K: "jqKvm6YMT1YzqDwgdVey",
@@ -26,6 +30,8 @@ export type AffiliatePaymentPayload = {
   productId?: string | null;
   productTitle?: string | null;
   amount?: number | null;
+  /** Kode produk dari alamat panggilan (`?produk=`, lihat affiliate-produk.ts); didahulukan karena alamatnya rahasia. */
+  produkKode?: string | null;
   paymentChannel?: string | null;
   rawPayload?: unknown;
 };
@@ -43,8 +49,6 @@ export type FulfillmentResult = {
   planName?: string;
   alreadyProcessed?: boolean;
 };
-
-export type JenisProduk = "topup_50k" | "topup_25k" | "langganan_bulanan" | "langganan_semester";
 
 /**
  * Produk mana yang dibayar. Urutan: ID produk persis -> judul produk -> (hanya bila tidak ada judul) nominal persis
@@ -107,7 +111,10 @@ async function catat(
       productId: payload.productId ?? null,
       productTitle: payload.productTitle ?? null,
       amount: payload.amount ?? null,
+      produkKode: payload.produkKode ?? null,
       channel: payload.paymentChannel ?? null,
+      // Data mentah yang diterima, supaya admin bisa melihat apa yang sebenarnya dikirim affiliate.id tanpa membuka log server.
+      dataDiterima: ringkasDataDiterima(payload.rawPayload),
     },
   });
 }
@@ -132,7 +139,7 @@ async function gagal(payload: AffiliatePaymentPayload, kode: KodeGagal, message:
 export async function processAffiliateFulfillment(
   payload: AffiliatePaymentPayload,
 ): Promise<FulfillmentResult> {
-  const { email, userId, studentId, orderRef, productId, productTitle, paymentChannel = "affiliate_id" } = payload;
+  const { email, userId, studentId, orderRef, productId, productTitle, produkKode, paymentChannel = "affiliate_id" } = payload;
   const amount = typeof payload.amount === "number" && Number.isFinite(payload.amount) ? payload.amount : null;
 
   // 1. Cari profil siswa
@@ -172,12 +179,18 @@ export async function processAffiliateFulfillment(
   }
 
   // 2. Tentukan jenis produk (Top-up saldo atau Paket Langganan); produk tak dikenal ditolak
-  const produk = tentukanProdukAffiliate({ productId, productTitle, amount });
+  // Kode produk dari alamat didahulukan; bila ada tetapi salah ketik, ditolak (bukan ditebak dari data lain).
+  const produk = produkKode?.trim() ? jenisDariKode(produkKode) : tentukanProdukAffiliate({ productId, productTitle, amount });
   if (!produk) {
+    const petunjuk = produkKode?.trim()
+      ? `Kode produk di alamat tidak dikenal ("${produkKode.trim().slice(0, 40)}"); salin ulang alamat Success dari Admin Pusat > Verifikasi Pembayaran.`
+      : !productId && !productTitle && amount === null
+        ? " Panggilan tidak membawa produk: isi Success (New/Existing User) di affiliate.id dengan alamat Success untuk produk itu dari Admin Pusat > Verifikasi Pembayaran."
+        : "";
     return gagal(
       payload,
       "produk_tidak_dikenal",
-      `Produk tidak dikenali (id: ${productId || "-"}, judul: ${productTitle || "-"}, nominal: ${amount ?? "-"}); tidak ada yang diproses.`,
+      `Produk tidak dikenali (id: ${productId || "-"}, judul: ${productTitle || "-"}, nominal: ${amount ?? "-"}); tidak ada yang diproses. ${petunjuk}`.trim(),
     );
   }
 

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { asalPublik } from "@/lib/utils/asal-publik";
 import { periksaAksesAffiliate } from "@/lib/billing/affiliate-auth";
 import { processAffiliateFulfillment } from "@/lib/billing/affiliate-fulfillment";
+import { kodeProdukDariAlamat } from "@/lib/billing/affiliate-produk";
+import { ringkasDataDiterima } from "@/lib/billing/affiliate-data";
 import {
   affiliateCorsResponse,
   affiliateJsonResponse,
@@ -49,6 +51,9 @@ export async function GET(request: Request) {
       searchParams.get("order_id") ||
       searchParams.get("transaction_id") ||
       searchParams.get("invoice_id") ||
+      searchParams.get("invoice_number") ||
+      searchParams.get("invoiceNumber") ||
+      searchParams.get("order_number") ||
       searchParams.get("orderId") ||
       searchParams.get("id");
 
@@ -70,17 +75,22 @@ export async function GET(request: Request) {
 
     const amount = extractAmount(rawAmount);
 
+    const parameter = Object.fromEntries([...searchParams.entries()].filter(([kunci]) => kunci !== "token"));
     console.log("[affiliate webhook GET] received:", {
       email,
       orderRef,
       productId,
       productTitle,
       amount,
+      // semua parameter yang benar-benar dikirim affiliate.id, untuk mengetahui nama aslinya
+      semuaParameter: ringkasDataDiterima(parameter),
     });
 
-    if (!email && !orderRef && !productId) {
+    // Webhook Purchase hanya bisa mengenali pembeli lewat email. Tanpa email tidak ada yang bisa diproses (pembeli
+    // dikenali lewat panggilan Success SaaS yang membawa uid), dan ini bukan kegagalan yang perlu dicatat untuk admin.
+    if (!email) {
       return affiliateJsonResponse(
-        { ok: false, error: "Parameter tidak lengkap." },
+        { ok: false, error: "Parameter tidak lengkap: email pembeli tidak ada." },
         400,
       );
     }
@@ -91,9 +101,10 @@ export async function GET(request: Request) {
       productId,
       productTitle,
       amount,
+      produkKode: kodeProdukDariAlamat(request),
       paymentChannel: "affiliate_get_webhook",
       // tanpa ?token= (rahasia webhook): rawPayload masuk audit log
-      rawPayload: Object.fromEntries([...searchParams.entries()].filter(([kunci]) => kunci !== "token")),
+      rawPayload: parameter,
     });
 
     const acceptHeader = request.headers.get("accept") || "";
@@ -126,7 +137,7 @@ export async function POST(request: Request) {
   }
   try {
     const body = await parseAffiliatePayload(request);
-    console.log("[affiliate webhook POST] received body:", body);
+    console.log("[affiliate webhook POST] received body:", ringkasDataDiterima(body) ?? body);
 
     const email =
       (body.email as string) ||
@@ -139,6 +150,9 @@ export async function POST(request: Request) {
       (body.order_id as string) ||
       (body.transaction_id as string) ||
       (body.invoice_id as string) ||
+      (body.invoice_number as string) ||
+      (body.invoiceNumber as string) ||
+      (body.order_number as string) ||
       (body.id as string);
 
     const productId =
@@ -159,12 +173,20 @@ export async function POST(request: Request) {
 
     const amount = extractAmount(rawAmount);
 
+    if (!email) {
+      return affiliateJsonResponse(
+        { ok: false, error: "Parameter tidak lengkap: email pembeli tidak ada." },
+        400,
+      );
+    }
+
     const result = await processAffiliateFulfillment({
       email,
       orderRef,
       productId,
       productTitle,
       amount,
+      produkKode: kodeProdukDariAlamat(request),
       paymentChannel: "affiliate_post_webhook",
       rawPayload: body,
     });

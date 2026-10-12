@@ -6,6 +6,8 @@ import {
   parseAffiliatePayload,
 } from "@/lib/billing/affiliate-cors";
 import { periksaAksesAffiliate } from "@/lib/billing/affiliate-auth";
+import { kodeProdukDariAlamat } from "@/lib/billing/affiliate-produk";
+import { ringkasDataDiterima } from "@/lib/billing/affiliate-data";
 
 export async function OPTIONS() {
   return affiliateCorsResponse();
@@ -16,6 +18,10 @@ export async function OPTIONS() {
  * Dipakai untuk:
  * - Success (New User) Endpoint
  * - Success (Existing User) Endpoint
+ *
+ * Isi panggilan dari affiliate.id hanya { uid, type, duration, affiliateId, invoice_number }: tidak ada produk dan nominal.
+ * Produk dibaca dari alamat (`?produk=`, satu alamat per produk, lihat lib/billing/affiliate-produk.ts), pembeli dikenali
+ * dari `uid` (yang kita kirim sendiri lewat check-email), dan `invoice_number` jadi nomor order (anti ganda).
  */
 export async function POST(request: Request) {
   const akses = periksaAksesAffiliate(request);
@@ -26,7 +32,8 @@ export async function POST(request: Request) {
   try {
     const body = await parseAffiliatePayload(request);
 
-    console.log("[affiliate SaaS success callback] received:", body);
+    const produkKode = kodeProdukDariAlamat(request);
+    console.log("[affiliate SaaS success callback] received:", { produkKode, ...(ringkasDataDiterima(body) ?? {}) });
 
     const uid = (body.uid as string) || (body.userId as string);
     const aid = (body.aid as string) || (body.studentId as string);
@@ -40,6 +47,9 @@ export async function POST(request: Request) {
       (body.order_id as string) ||
       (body.transaction_id as string) ||
       (body.invoice_id as string) ||
+      (body.invoice_number as string) ||
+      (body.invoiceNumber as string) ||
+      (body.order_number as string) ||
       (body.id as string);
 
     const productId =
@@ -68,6 +78,7 @@ export async function POST(request: Request) {
       productId,
       productTitle,
       amount,
+      produkKode,
       paymentChannel: "affiliate_saas_success",
       rawPayload: body,
     });

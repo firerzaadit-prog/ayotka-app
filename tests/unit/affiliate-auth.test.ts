@@ -71,18 +71,20 @@ describe("periksaAksesAffiliate", () => {
 });
 
 describe("alamatWebhookAffiliate", () => {
-  it("empat alamat dengan rahasia yang sama, di asal publik tanpa garis miring ganda", () => {
+  it("tiga alamat umum + satu alamat Success per produk, rahasia sama, di asal publik tanpa garis miring ganda", () => {
     const a = alamatWebhookAffiliate("https://ayotka.id/", ENV)!;
+    const success = (kode: string) => `https://ayotka.id/api/webhooks/affiliate/success?token=${rahasia}&produk=${kode}`;
     expect(a).toEqual({
       purchase: `https://ayotka.id/api/webhooks/affiliate?token=${rahasia}`,
       checkEmail: `https://ayotka.id/api/webhooks/affiliate/check-email?token=${rahasia}`,
       checkAccount: `https://ayotka.id/api/webhooks/affiliate/check-account?token=${rahasia}`,
-      success: `https://ayotka.id/api/webhooks/affiliate/success?token=${rahasia}`,
+      success: { topup25k: success("topup25k"), topup50k: success("topup50k"), bulanan: success("bulanan"), semester: success("semester") },
     });
   });
 
   it("setiap alamat yang diberikan ke admin LOLOS pemeriksaan server (tidak mungkin salah salin)", () => {
-    for (const url of Object.values(alamatWebhookAffiliate("https://ayotka.id", ENV)!)) {
+    const a = alamatWebhookAffiliate("https://ayotka.id", ENV)!;
+    for (const url of [a.purchase, a.checkEmail, a.checkAccount, ...Object.values(a.success)]) {
       expect(periksaAksesAffiliate(minta(url), ENV), url).toEqual({ ok: true });
     }
   });

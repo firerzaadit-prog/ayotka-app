@@ -7,8 +7,14 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { formatWIB } from "@/lib/utils/datetime";
+import { DAFTAR_KODE_PRODUK, KODE_PRODUK_AFFILIATE, type KodeProdukAffiliate } from "@/lib/billing/affiliate-produk";
 
-export type AlamatAffiliate = { purchase: string; checkEmail: string; checkAccount: string; success: string };
+export type AlamatAffiliate = {
+  purchase: string;
+  checkEmail: string;
+  checkAccount: string;
+  success: Record<KodeProdukAffiliate, string>;
+};
 export type CallbackBermasalah = {
   id: string;
   waktu: string;
@@ -19,14 +25,26 @@ export type CallbackBermasalah = {
   produk: string | null;
   nominal: number | null;
   nomorOrder: string | null;
+  /** Data mentah yang diterima server (kunci -> isi); null untuk catatan lama yang belum menyimpannya. */
+  dataDiterima?: Record<string, string> | null;
 };
 
-const BARIS_ALAMAT: Array<{ kunci: keyof AlamatAffiliate; label: string; tempat: string }> = [
-  { kunci: "purchase", label: "Webhook Purchase", tempat: "Integrasi Webhook > Webhook Purchase" },
-  { kunci: "checkEmail", label: "Check Email Address Endpoint", tempat: "Saas Configuration" },
-  { kunci: "checkAccount", label: "Check Account/Slug Endpoint", tempat: "Saas Configuration" },
-  { kunci: "success", label: "Success (New User) dan Success (Existing User) Endpoint", tempat: "Saas Configuration (isi keduanya dengan alamat yang sama)" },
+type BarisAlamat = { kunci: string; label: string; tempat: string; nilai: (a: AlamatAffiliate) => string };
+
+/** Alamat yang SAMA untuk semua produk. */
+const BARIS_UMUM: BarisAlamat[] = [
+  { kunci: "purchase", label: "Webhook Purchase", tempat: "Integrasi Webhook > Webhook Purchase", nilai: (a) => a.purchase },
+  { kunci: "checkEmail", label: "Check Email Address Endpoint", tempat: "Saas Configuration", nilai: (a) => a.checkEmail },
+  { kunci: "checkAccount", label: "Check Account/Slug Endpoint", tempat: "Saas Configuration", nilai: (a) => a.checkAccount },
 ];
+
+/** Alamat Success: BERBEDA untuk tiap produk. */
+const BARIS_SUCCESS: BarisAlamat[] = DAFTAR_KODE_PRODUK.map((kode) => ({
+  kunci: `success-${kode}`,
+  label: `Produk ${KODE_PRODUK_AFFILIATE[kode].label}`,
+  tempat: "Saas Configuration > Success (New User) DAN Success (Existing User), isi keduanya dengan alamat ini",
+  nilai: (a: AlamatAffiliate) => a.success[kode],
+}));
 
 const rupiah = (n: number) => new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
 
@@ -56,7 +74,19 @@ export function DaftarCallbackBermasalah({ daftar }: { daftar: CallbackBermasala
               <Td>
                 <Badge variant={c.jenis === "ganda" ? "warning" : "danger"}>{c.jenis === "ganda" ? "Diduga ganda" : "Gagal"}</Badge>
               </Td>
-              <Td className="text-xs text-slate-600">{c.pesan ?? c.kode ?? "-"}</Td>
+              <Td className="text-xs text-slate-600">
+                {c.pesan ?? c.kode ?? "-"}
+                {c.dataDiterima && (
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-slate-500">Data yang diterima</summary>
+                    <pre className="mt-1 whitespace-pre-wrap break-all rounded bg-slate-50 p-2 font-mono text-[11px] text-slate-600">
+                      {Object.entries(c.dataDiterima)
+                        .map(([kunci, isi]) => `${kunci}: ${isi}`)
+                        .join("\n")}
+                    </pre>
+                  </details>
+                )}
+              </Td>
               <Td className="text-xs">{c.email ?? "-"}</Td>
               <Td className="text-xs">{c.produk ?? "-"}</Td>
               <Td className="text-xs">{c.nominal !== null ? rupiah(c.nominal) : "-"}</Td>
@@ -66,6 +96,63 @@ export function DaftarCallbackBermasalah({ daftar }: { daftar: CallbackBermasala
         </tbody>
       </Table>
     </TableContainer>
+  );
+}
+
+function BarisSalin({
+  baris,
+  nilai,
+  tersalin,
+  onSalin,
+}: {
+  baris: BarisAlamat;
+  nilai: string;
+  tersalin: boolean;
+  onSalin: (kunci: string, nilai: string) => void;
+}) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-slate-700">
+        {baris.label} <span className="font-normal text-slate-400">&middot; {baris.tempat}</span>
+      </p>
+      <div className="mt-1 flex gap-2">
+        <input
+          readOnly
+          value={nilai}
+          onFocus={(e) => e.currentTarget.select()}
+          aria-label={baris.label}
+          className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700"
+        />
+        <Button type="button" variant="secondary" onClick={() => onSalin(baris.kunci, nilai)} className="shrink-0">
+          {tersalin ? "Tersalin" : "Salin"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Alamat yang harus diisikan admin ke affiliate.id: tiga alamat umum, lalu satu alamat Success per produk. */
+export function DaftarAlamatAffiliate({
+  alamat,
+  tersalin,
+  onSalin,
+}: {
+  alamat: AlamatAffiliate;
+  tersalin: string | null;
+  onSalin: (kunci: string, nilai: string) => void;
+}) {
+  return (
+    <div className="mt-4 flex flex-col gap-3">
+      {BARIS_UMUM.map((b) => (
+        <BarisSalin key={b.kunci} baris={b} nilai={b.nilai(alamat)} tersalin={tersalin === b.kunci} onSalin={onSalin} />
+      ))}
+      <p className="mt-2 text-xs font-semibold text-slate-700">
+        Success (New User) dan Success (Existing User): alamat BERBEDA untuk tiap produk
+      </p>
+      {BARIS_SUCCESS.map((b) => (
+        <BarisSalin key={b.kunci} baris={b} nilai={b.nilai(alamat)} tersalin={tersalin === b.kunci} onSalin={onSalin} />
+      ))}
+    </div>
   );
 }
 
@@ -113,8 +200,9 @@ export function AffiliatePengaturanCard() {
       <h2 className="text-sm font-semibold text-slate-900">Pembayaran otomatis affiliate.id</h2>
       <p className="mt-1 max-w-3xl text-sm text-slate-500">
         Server hanya menerima panggilan dari affiliate.id yang membawa kode rahasia di alamatnya. Salin alamat di bawah ke pengaturan produk di
-        affiliate.id (<em>Edit Produk</em>) untuk SETIAP produk AyoTKA (Top Up 25.000, Top Up 50.000, Bulanan, Semester). Panggilan tanpa kode ini
-        ditolak, jadi alamat lama yang belum diganti tidak akan mengisi saldo. Jangan bagikan alamat ini.
+        affiliate.id (<em>Edit Produk</em>) untuk SETIAP produk AyoTKA (Top Up 25.000, Top Up 50.000, Bulanan, Semester). Tiga alamat pertama sama
+        untuk semua produk. Alamat Success BERBEDA untuk tiap produk, karena affiliate.id tidak memberi tahu produk apa yang dibeli: pakai alamat
+        yang sesuai produknya (tertukar berarti saldo atau paket yang masuk salah). Panggilan tanpa kode rahasia ditolak. Jangan bagikan alamat ini.
       </p>
 
       {galat && (
@@ -129,29 +217,7 @@ export function AffiliatePengaturanCard() {
         </Alert>
       )}
 
-      {alamat && (
-        <div className="mt-4 flex flex-col gap-3">
-          {BARIS_ALAMAT.map((b) => (
-            <div key={b.kunci}>
-              <p className="text-xs font-medium text-slate-700">
-                {b.label} <span className="font-normal text-slate-400">&middot; {b.tempat}</span>
-              </p>
-              <div className="mt-1 flex gap-2">
-                <input
-                  readOnly
-                  value={alamat[b.kunci]}
-                  onFocus={(e) => e.currentTarget.select()}
-                  aria-label={b.label}
-                  className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-700"
-                />
-                <Button type="button" variant="secondary" onClick={() => salin(b.kunci, alamat[b.kunci])} className="shrink-0">
-                  {tersalin === b.kunci ? "Tersalin" : "Salin"}
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      {alamat && <DaftarAlamatAffiliate alamat={alamat} tersalin={tersalin} onSalin={salin} />}
 
       <h3 className="mt-6 text-sm font-semibold text-slate-900">Panggilan yang perlu ditindaklanjuti</h3>
       <p className="mb-2 text-xs text-slate-500">

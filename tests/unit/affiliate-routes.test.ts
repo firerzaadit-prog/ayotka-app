@@ -168,3 +168,60 @@ describe("webhook affiliate: dengan rahasia yang benar", () => {
     expect(m.rate.mock.calls.map((c) => c[0])).toEqual(["affiliate-check-email:1.2.3.4", "affiliate-check-account:1.2.3.4"]);
   });
 });
+
+describe("webhook affiliate: bentuk panggilan ASLI affiliate.id (dari audit log 11-12 Okt)", () => {
+  // Isi Success SaaS persis seperti yang tercatat: tanpa email, produk, atau nominal.
+  const ASLI = { uid: "46a031b2-718e-48d4-bce0-c3bb88056a37", type: "onetime", duration: 30, affiliateId: "tomili2204-gmail--1789370238619066965", invoice_number: "AFF-TOM-1791781541315" };
+
+  it("Success: pembeli dari uid, nomor order dari invoice_number, produk dari ?produk= di alamat", async () => {
+    const res = await successPost(json(`${BASE}/success?token=${RAHASIA}&produk=topup25k`, ASLI));
+    expect(res.status).toBe(200);
+    expect(m.fulfil.mock.calls[0]![0]).toMatchObject({ userId: ASLI.uid, orderRef: ASLI.invoice_number, produkKode: "topup25k", paymentChannel: "affiliate_saas_success" });
+  });
+
+  it("Success tanpa ?produk= (alamat lama atau salah tempel): kode produk null, supaya pemenuhan menolaknya dengan petunjuk", async () => {
+    await successPost(json(`${BASE}/success?token=${RAHASIA}`, ASLI));
+    expect(m.fulfil.mock.calls[0]![0].produkKode).toBeNull();
+  });
+
+  it("kode produk hanya dibaca dari ALAMAT: yang ada di isi kiriman diabaikan, tidak bisa menimpa", async () => {
+    await successPost(json(`${BASE}/success?token=${RAHASIA}&produk=topup25k`, { ...ASLI, produk: "topup50k" }));
+    expect(m.fulfil.mock.calls[0]![0].produkKode).toBe("topup25k");
+    await successPost(json(`${BASE}/success?token=${RAHASIA}`, { ...ASLI, produk: "topup50k" }));
+    expect(m.fulfil.mock.calls[1]![0].produkKode).toBeNull();
+  });
+
+  it("alamat yang ditempeli '?uid=...' oleh affiliate.id: kode produk dan rahasia tetap terbaca", async () => {
+    const res = await successGet(new Request(`${BASE}/success?token=${RAHASIA}&produk=semester?uid=${ASLI.uid}&invoice_number=${ASLI.invoice_number}`));
+    expect(res.status).toBe(200);
+    expect(m.fulfil.mock.calls[0]![0]).toMatchObject({ produkKode: "semester", orderRef: ASLI.invoice_number });
+  });
+
+  it("Success mencatat di log SEMUA kunci yang diterima (untuk mengetahui nama asli parameter), tanpa rahasia", async () => {
+    await successPost(json(`${BASE}/success?token=${RAHASIA}&produk=bulanan`, { ...ASLI, kunci_baru_affiliate: "nilai-baru" }));
+    const log = semuaLog();
+    for (const kunci of ["uid", "invoice_number", "affiliateId", "duration", "kunci_baru_affiliate", "bulanan"]) expect(log).toContain(kunci);
+    expect(log).not.toContain(RAHASIA);
+  });
+
+  it("Purchase tanpa email: 400 tanpa memanggil pemenuhan (bukan kegagalan yang dicatat untuk admin); GET dan POST", async () => {
+    const get = await purchaseGet(new Request(`${BASE}?token=${RAHASIA}&invoice_number=${ASLI.invoice_number}&product_id=${T50}`));
+    expect(get.status).toBe(400);
+    expect((await purchasePost(json(`${BASE}?token=${RAHASIA}`, { invoice_number: ASLI.invoice_number, product_id: T50 }))).status).toBe(400);
+    expect(m.fulfil).not.toHaveBeenCalled();
+  });
+
+  it("Purchase dengan email: invoice_number dipakai sebagai nomor order (sama dengan Success, jadi tidak diproses dua kali)", async () => {
+    await purchaseGet(new Request(`${BASE}?token=${RAHASIA}&email=budi@example.com&invoice_number=${ASLI.invoice_number}&product_id=${T50}`));
+    await purchasePost(json(`${BASE}?token=${RAHASIA}`, { email: "budi@example.com", invoice_number: ASLI.invoice_number, product_id: T50 }));
+    expect(m.fulfil.mock.calls[0]![0].orderRef).toBe(ASLI.invoice_number);
+    expect(m.fulfil.mock.calls[1]![0].orderRef).toBe(ASLI.invoice_number);
+  });
+
+  it("Purchase GET mencatat di log semua parameter yang dikirim, termasuk yang namanya belum dikenal, tanpa rahasia", async () => {
+    await purchaseGet(new Request(`${BASE}?token=${RAHASIA}&email=budi@example.com&nama_parameter_asing=xyz&product_id=${T50}`));
+    const log = semuaLog();
+    expect(log).toContain("nama_parameter_asing");
+    expect(log).not.toContain(RAHASIA);
+  });
+});

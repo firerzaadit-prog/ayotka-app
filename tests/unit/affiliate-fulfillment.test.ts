@@ -298,3 +298,83 @@ describe("processAffiliateFulfillment: langganan", () => {
     expect(catatan("affiliate_callback_gagal")[0]!.after).toMatchObject({ kode: "paket_tidak_ada" });
   });
 });
+
+describe("processAffiliateFulfillment: Success SaaS asli (hanya uid + invoice_number; produk dari kode di alamat)", () => {
+  // Isi sebenarnya yang dikirim affiliate.id (audit log 11 Okt): tidak ada email, produk, maupun nominal.
+  const ASLI = { uid: "user-1", type: "onetime", duration: 30, affiliateId: "tomili2204-gmail--1789370238619066965", invoice_number: "AFF-TOM-1791781541315" };
+  const success = (produkKode: string | null, tambahan: Record<string, unknown> = {}) =>
+    processAffiliateFulfillment({ userId: ASLI.uid, orderRef: ASLI.invoice_number, produkKode, paymentChannel: "affiliate_saas_success", rawPayload: { ...ASLI, ...tambahan } });
+
+  it("Top Up 25.000: saldo bertambah TEPAT 25.000 (bukan 50.000 seperti kode lama), nomor order = invoice_number", async () => {
+    const r = await success("topup25k");
+    expect(r).toMatchObject({ ok: true, type: "topup", nominal: 25_000, studentName: "Budi" });
+    expect(s.saldo).toHaveLength(1);
+    expect(s.saldo[0]).toMatchObject({ studentId: "siswa-1", jumlah: 25_000, gatewayRef: "affiliate_AFF-TOM-1791781541315", paymentChannel: "affiliate_saas_success" });
+    expect(catatan("affiliate_callback_gagal")).toHaveLength(0);
+  });
+
+  it("setiap kode produk memberi hasil yang benar", async () => {
+    expect((await success("topup50k")).nominal).toBe(50_000);
+    expect(s.saldo[0]!.jumlah).toBe(50_000);
+
+    s.saldo = [];
+    const bulanan = await success("bulanan");
+    expect(bulanan).toMatchObject({ ok: true, type: "langganan", planName: "Paket Bulanan" });
+    expect(s.invoice[0]).toMatchObject({ planId: "plan-m", gatewayRef: "affiliate_AFF-TOM-1791781541315" });
+
+    s.invoice = [];
+    s.entitlement = [];
+    const semester = await success("semester");
+    expect(semester).toMatchObject({ ok: true, type: "langganan", planName: "Paket Semester" });
+    expect(s.invoice[0]).toMatchObject({ planId: "plan-s" });
+    expect(s.saldo).toHaveLength(0);
+  });
+
+  it("panggilan Success yang sama dua kali (invoice_number sama) hanya menambah saldo sekali", async () => {
+    await success("topup25k");
+    const lagi = await success("topup25k");
+    expect(lagi).toMatchObject({ ok: true, alreadyProcessed: true });
+    expect(s.saldo).toHaveLength(1);
+  });
+
+  it("kode dari alamat didahulukan atas data lain di isi kiriman (alamatnya rahasia, isi kiriman tidak)", async () => {
+    const r = await processAffiliateFulfillment({ userId: ASLI.uid, orderRef: "AFF-X", produkKode: "topup25k", productId: T50, productTitle: "Top Up 50000", amount: 50_000 });
+    expect(r).toMatchObject({ ok: true, nominal: 25_000 });
+  });
+
+  it("kode salah ketik: DITOLAK (tidak ditebak dari data lain), dicatat bersama kode yang salah", async () => {
+    const r = await processAffiliateFulfillment({ userId: ASLI.uid, orderRef: "AFF-Y", produkKode: "topup-25", productId: T50, amount: 50_000 });
+    expect(r).toMatchObject({ ok: false, kode: "produk_tidak_dikenal" });
+    expect(r.message).toContain('Kode produk di alamat tidak dikenal ("topup-25")');
+    expect(s.saldo).toHaveLength(0);
+    expect(catatan("affiliate_callback_gagal")[0]!.after).toMatchObject({ kode: "produk_tidak_dikenal", produkKode: "topup-25" });
+  });
+
+  it("tanpa kode dan tanpa data produk (alamat Success lama): ditolak dengan petunjuk, isi mentahnya tersimpan di audit untuk admin", async () => {
+    const r = await success(null);
+    expect(r).toMatchObject({ ok: false, kode: "produk_tidak_dikenal" });
+    expect(r.message).toContain("alamat Success untuk produk itu");
+    expect(s.saldo).toHaveLength(0);
+    const [c] = catatan("affiliate_callback_gagal");
+    expect(c).toMatchObject({ entitasId: "AFF-TOM-1791781541315" });
+    expect(c!.after).toMatchObject({ kode: "produk_tidak_dikenal", produkKode: null, dataDiterima: { uid: "user-1", type: "onetime", duration: "30", affiliateId: ASLI.affiliateId, invoice_number: ASLI.invoice_number } });
+  });
+
+  it("data mentah di audit tidak memuat rahasia webhook dan dipotong bila sangat panjang", async () => {
+    await success(null, { token: "RAHASIA-JANGAN-BOCOR", catatan: "x".repeat(1000) });
+    const after = catatan("affiliate_callback_gagal")[0]!.after as { dataDiterima: Record<string, string> };
+    expect(JSON.stringify(after)).not.toContain("RAHASIA-JANGAN-BOCOR");
+    expect(after.dataDiterima.catatan!.length).toBeLessThan(250);
+  });
+
+  it("petunjuk 'alamat Success' tidak muncul untuk produk yang memang punya data tetapi tidak cocok (mis. judul asing)", async () => {
+    const r = await processAffiliateFulfillment({ userId: ASLI.uid, orderRef: "AFF-Z", productTitle: "Kaos" });
+    expect(r.message).not.toContain("alamat Success");
+  });
+
+  it("siswa tidak dikenal (uid asing) tetap ditolak walau kode produknya benar, tanpa saldo", async () => {
+    const r = await processAffiliateFulfillment({ userId: "uid-asing", orderRef: "AFF-Q", produkKode: "topup25k" });
+    expect(r).toMatchObject({ ok: false, kode: "siswa_tidak_ditemukan" });
+    expect(s.saldo).toHaveLength(0);
+  });
+});
