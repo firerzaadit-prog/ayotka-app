@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { createSnapTransaction } from "@/lib/billing/midtrans";
 import { getSaldo, getHargaLearningAnalytics } from "@/lib/billing/saldo";
+import { emailUntukCheckout } from "@/lib/billing/email-pembayaran";
 import { saldoTopupSchema, SALDO_TOPUP_DENOMINASI } from "@/lib/validations/saldo";
 import {
   AFFILIATE_SLUG_TOPUP,
@@ -46,6 +47,8 @@ export async function GET() {
   // masing-masing dengan tautan bayar + pesan konfirmasi WhatsApp siap kirim.
   // Lihat lib/billing/pembayaran-affiliate.ts.
   const paymentMode = getPaymentMode();
+  // Email yang dibawa ke checkout: email akun, atau alamat pembayaran khusus untuk akun NISN.
+  const emailCheckout = emailUntukCheckout(user.email, student.id);
   const affiliateTopup =
     paymentMode === "affiliate"
       ? Object.fromEntries(
@@ -53,7 +56,7 @@ export async function GET() {
             n,
             {
               url: buildAffiliateUrl(AFFILIATE_SLUG_TOPUP[n as keyof typeof AFFILIATE_SLUG_TOPUP], {
-                email: user.email,
+                email: emailCheckout,
               }),
               waUrl: buildKonfirmasiTopupWa({ nominal: n, email: user.email }),
             },
@@ -63,8 +66,8 @@ export async function GET() {
 
   return NextResponse.json({
     saldo,
-    /** Email akun, untuk petunjuk mengisi formulir checkout affiliate.id (harus sama persis agar pembayaran dicocokkan). */
-    email: user.email,
+    /** Email yang dipakai di checkout affiliate.id (email akun, atau alamat pembayaran khusus akun NISN), untuk petunjuk di halaman. */
+    email: emailCheckout,
     hargaLearningAnalytics,
     denominasi: affiliateTopup
       ? SALDO_TOPUP_DENOMINASI.filter((n) => Boolean(affiliateTopup[n]))

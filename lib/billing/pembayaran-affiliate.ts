@@ -45,6 +45,17 @@ export function adalahEmailSintetis(email: string | null | undefined): boolean {
 }
 
 /**
+ * Alamat pembayaran khusus akun NISN (dibuat di lib/billing/email-pembayaran.ts, server saja). Pengecekan bentuknya ada di sini
+ * supaya komponen klien bisa memakainya tanpa membawa kode kripto.
+ */
+export const EMAIL_PEMBAYARAN = { domain: "bayar.ayotka.id" } as const;
+const POLA_EMAIL_PEMBAYARAN = /^s[0-9a-f]{32}@bayar\.ayotka\.id$/i;
+
+export function adalahEmailPembayaran(email: string | null | undefined): boolean {
+  return POLA_EMAIL_PEMBAYARAN.test((email ?? "").trim());
+}
+
+/**
  * Tautan bayar produk di affiliate.id, LANGSUNG ke halaman checkout. Pembayaran otomatis mencocokkan pembeli ke akun lewat
  * email, jadi email akun siswa dibawa lewat `?email=`: halaman checkout affiliate.id mengisi kolom Email dari parameter itu,
  * mengunci kolomnya (tidak bisa salah ketik) dan menyembunyikan kolom Konfirmasi Email (diperiksa di browser, 12 Okt 2026).

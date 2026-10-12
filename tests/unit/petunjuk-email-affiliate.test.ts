@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { readFileSync } from "node:fs";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -14,7 +14,8 @@ vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn(), getClientIp: () => "1.2.3
 
 import { GET as saldoGet } from "@/app/api/siswa/saldo/route";
 import { PetunjukEmailAffiliate } from "@/components/billing/petunjuk-email-affiliate";
-import { AFFILIATE_SLUG_PLAN, AFFILIATE_SLUG_TOPUP, adalahEmailSintetis, buildAffiliateUrl } from "@/lib/billing/pembayaran-affiliate";
+import { AFFILIATE_SLUG_PLAN, AFFILIATE_SLUG_TOPUP, adalahEmailPembayaran, adalahEmailSintetis, buildAffiliateUrl } from "@/lib/billing/pembayaran-affiliate";
+import { emailPembayaranSiswa } from "@/lib/billing/email-pembayaran";
 
 const teks = (h: string) => h.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 const render = (props: { email: string | null | undefined; untuk: "saldo" | "langganan" }) => renderToStaticMarkup(createElement(PetunjukEmailAffiliate, props));
@@ -52,6 +53,21 @@ describe("PetunjukEmailAffiliate", () => {
     expect(teks(render({ email: "3155213156@NISN.AYOTKA.ID", untuk: "saldo" }))).not.toContain("3155213156@");
   });
 
+  it("alamat pembayaran khusus akun NISN: disebut 'alamat pembayaran', tanpa janji bukti dikirim ke email, saldo/langganan terlihat di halaman", () => {
+    const alamat = emailPembayaranSiswa("71b222eb-472c-4b11-9bc2-170adc610384", { APP_ENCRYPTION_KEY: "kunci-uji" })!;
+    const h = render({ email: alamat, untuk: "saldo" });
+    const t = teks(h);
+    expect(t).toContain("Alamat pembayaran akunmu");
+    expect(t).toContain(alamat);
+    expect(t).toContain("otomatis terisi di formulir checkout dan terkunci");
+    expect(t).toContain("tidak menerima email");
+    expect(t).toContain("saldo masuk otomatis dan terlihat di halaman ini");
+    expect(t).not.toContain("WhatsApp");
+    expect(h).toContain(">Salin<");
+    expect(teks(render({ email: "budi@example.com", untuk: "saldo" }))).not.toContain("tidak menerima email");
+    expect(teks(render({ email: "budi@example.com", untuk: "saldo" }))).toContain("Email akunmu");
+  });
+
   it("email belum diketahui (jawaban lama): petunjuk umum tanpa tombol salin", () => {
     for (const email of [null, undefined, ""]) {
       const h = render({ email, untuk: "saldo" });
@@ -62,9 +78,15 @@ describe("PetunjukEmailAffiliate", () => {
   });
 });
 
+const UUID_SISWA = "71b222eb-472c-4b11-9bc2-170adc610384";
+
+afterEach(() => vi.unstubAllEnvs());
+
 describe("GET /api/siswa/saldo", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    vi.stubEnv("APP_ENCRYPTION_KEY", "kunci-enkripsi-server-uji-1234567890");
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
     m.requireRole.mockResolvedValue({ id: "user-1", email: "budi@example.com" });
     m.studentFind.mockResolvedValue({ id: "siswa-1", nama: "Budi" });
     m.getSaldo.mockResolvedValue(0);
@@ -89,14 +111,29 @@ describe("GET /api/siswa/saldo", () => {
     }
   });
 
-  it("akun NISN: email sintetis (memuat NISN) TIDAK ikut ke affiliate.id", async () => {
+  it("akun NISN: email sintetis (memuat NISN) TIDAK ikut ke affiliate.id; yang dibawa alamat pembayaran khusus, tanpa NISN dan tanpa ID siswa", async () => {
     m.requireRole.mockResolvedValue({ id: "user-2", email: "3155213156@nisn.ayotka.id" });
-    const { affiliateTopup } = await (await saldoGet()).json();
-    for (const { url } of Object.values(affiliateTopup) as Array<{ url: string }>) {
+    m.studentFind.mockResolvedValue({ id: UUID_SISWA, nama: "Siti" });
+    const badan = await (await saldoGet()).json();
+    const alamat = emailPembayaranSiswa(UUID_SISWA)!;
+    expect(adalahEmailPembayaran(alamat)).toBe(true);
+    expect(badan.email).toBe(alamat);
+    for (const { url } of Object.values(badan.affiliateTopup) as Array<{ url: string }>) {
       expect(url).toContain("/checkout?aff=");
-      expect(url).not.toContain("email=");
+      expect(new URL(url).searchParams.get("email")).toBe(alamat);
       expect(url).not.toContain("3155213156");
+      expect(url).not.toContain("nisn.ayotka.id");
+      expect(url).not.toContain(UUID_SISWA);
+      expect(url).not.toContain(UUID_SISWA.replace(/-/g, ""));
     }
+  });
+
+  it("akun NISN tetapi server tanpa kunci: tidak ada email di tautan (jatuh ke jalur WhatsApp), email sintetis tidak bocor", async () => {
+    vi.stubEnv("APP_ENCRYPTION_KEY", "");
+    m.requireRole.mockResolvedValue({ id: "user-2", email: "3155213156@nisn.ayotka.id" });
+    m.studentFind.mockResolvedValue({ id: UUID_SISWA, nama: "Siti" });
+    const badan = await (await saldoGet()).json();
+    for (const { url } of Object.values(badan.affiliateTopup) as Array<{ url: string }>) expect(url).not.toContain("email=");
   });
 
   it("bukan siswa: 403 dan tidak membocorkan email", async () => {
@@ -161,7 +198,12 @@ describe("halaman siswa: janji 'email terisi otomatis' sudah tidak ada", () => {
     expect(apiCheckout).not.toMatch(/nama:\s*student\.nama/);
   });
 
-  it("jawaban API checkout (langganan) memuat email akun", () => {
-    expect(apiCheckout).toMatch(/return NextResponse\.json\(\{\s*(\/\*\*[^]*?\*\/\s*)?email: user\.email,\s*jalur: student\.jalur/);
+  it("tautan bayar langganan dibangun dengan email untuk checkout (alamat pembayaran bagi akun NISN), bukan email akun mentah", () => {
+    expect(apiCheckout).toMatch(/buildAffiliateUrl\(AFFILIATE_SLUG_PLAN\[[^\]]*\],\s*\{\s*email: emailCheckout,\s*\}\)/);
+    expect(apiCheckout).toContain("emailUntukCheckout(user.email, student.id)");
+  });
+
+  it("jawaban API checkout (langganan) memuat email untuk checkout (email akun atau alamat pembayaran NISN)", () => {
+    expect(apiCheckout).toMatch(/return NextResponse\.json\(\{\s*(\/\*\*[^]*?\*\/\s*)?email: emailCheckout,\s*jalur: student\.jalur/);
   });
 });

@@ -19,6 +19,7 @@ import { GET as successGet, POST as successPost } from "@/app/api/webhooks/affil
 import { GET as cekEmailGet, POST as cekEmailPost } from "@/app/api/webhooks/affiliate/check-email/route";
 import { GET as cekAkunGet, POST as cekAkunPost } from "@/app/api/webhooks/affiliate/check-account/route";
 import { rahasiaWebhookAffiliate } from "@/lib/billing/affiliate-auth";
+import { emailPembayaranSiswa } from "@/lib/billing/email-pembayaran";
 
 const KUNCI_SERVER = "kunci-enkripsi-server-uji-1234567890";
 const RAHASIA = rahasiaWebhookAffiliate({ APP_ENCRYPTION_KEY: KUNCI_SERVER })!;
@@ -223,5 +224,47 @@ describe("webhook affiliate: bentuk panggilan ASLI affiliate.id (dari audit log 
     const log = semuaLog();
     expect(log).toContain("nama_parameter_asing");
     expect(log).not.toContain(RAHASIA);
+  });
+});
+
+describe("check-email: alamat pembayaran khusus akun NISN (lib/billing/email-pembayaran.ts)", () => {
+  const ID_NISN = "71b222eb-472c-4b11-9bc2-170adc610384";
+  const alamat = () => emailPembayaranSiswa(ID_NISN, { APP_ENCRYPTION_KEY: KUNCI_SERVER })!;
+  const cek = (email: string) => cekEmailPost(json(`${BASE}/check-email?token=${RAHASIA}`, { email }));
+
+  it("alamat dikenali: siswa dicari lewat ID hasil pembalikan, uid = akun login siswa itu (bukan baca tabel email)", async () => {
+    m.studentFind.mockResolvedValue({ userId: "user-nisn-9" });
+    const res = await cek(alamat());
+    expect(await res.json()).toEqual({ status: true, data: { email: alamat(), uid: "user-nisn-9" } });
+    expect(m.studentFind).toHaveBeenCalledWith({ where: { id: ID_NISN, deletedAt: null }, select: { userId: true } });
+    expect(m.userFind).not.toHaveBeenCalled();
+  });
+
+  it("huruf besar pada alamat tetap dikenali", async () => {
+    m.studentFind.mockResolvedValue({ userId: "user-nisn-9" });
+    expect((await (await cek(alamat().toUpperCase())).json()).status).toBe(true);
+    expect(m.studentFind.mock.calls[0]![0].where.id).toBe(ID_NISN);
+  });
+
+  it("siswa sudah dihapus atau tak punya akun login: status false (tidak membocorkan apa pun)", async () => {
+    m.userFind.mockResolvedValue(null);
+    m.studentFind.mockResolvedValue(null);
+    expect(await (await cek(alamat())).json()).toMatchObject({ status: false, data: null });
+    m.studentFind.mockResolvedValue({ userId: null });
+    expect(await (await cek(alamat())).json()).toMatchObject({ status: false, data: null });
+  });
+
+  it("alamat bentukan dari kunci lain (palsu): status false", async () => {
+    m.userFind.mockResolvedValue(null);
+    m.studentFind.mockResolvedValue(null);
+    const palsu = emailPembayaranSiswa(ID_NISN, { APP_ENCRYPTION_KEY: "kunci-penyerang-sama-sekali-123456" })!;
+    expect(await (await cek(palsu)).json()).toMatchObject({ status: false });
+    expect(m.studentFind.mock.calls[0]![0].where.id).not.toBe(ID_NISN);
+  });
+
+  it("email biasa tidak menyentuh tabel siswa: tetap lewat pencarian email seperti semula", async () => {
+    await cek("budi@example.com");
+    expect(m.studentFind).not.toHaveBeenCalled();
+    expect(m.userFind).toHaveBeenCalledTimes(1);
   });
 });

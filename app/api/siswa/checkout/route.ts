@@ -6,6 +6,7 @@ import { createSnapTransaction } from "@/lib/billing/midtrans";
 import { getActiveEntitlement, kursiSekolahTersedia } from "@/lib/billing/entitlements";
 import { PESAN_DITANGGUNG_SEKOLAH } from "@/lib/billing/kredit-pribadi-pesan";
 import { SUMBER_KREDIT_PRIBADI } from "@/lib/billing/kredit-pribadi";
+import { emailUntukCheckout } from "@/lib/billing/email-pembayaran";
 import {
   AFFILIATE_SLUG_PLAN,
   buildAffiliateUrl,
@@ -70,6 +71,8 @@ export async function GET() {
   // lib/billing/pembayaran-affiliate.ts. Di mode ini UI memakai tautan di
   // bawah, bukan tombol checkout Midtrans.
   const paymentMode = getPaymentMode();
+  // Email yang dibawa ke checkout: email akun, atau alamat pembayaran khusus untuk akun NISN.
+  const emailCheckout = emailUntukCheckout(user.email, student.id);
   const affiliatePlans =
     paymentMode === "affiliate"
       ? Object.fromEntries(
@@ -79,7 +82,7 @@ export async function GET() {
               p.id,
               {
                 url: buildAffiliateUrl(AFFILIATE_SLUG_PLAN[p.kode as keyof typeof AFFILIATE_SLUG_PLAN], {
-                  email: user.email,
+                  email: emailCheckout,
                 }),
                 waUrl: buildKonfirmasiLanggananWa({ namaPaket: p.nama, harga: p.harga, email: user.email }),
               },
@@ -88,8 +91,8 @@ export async function GET() {
       : null;
 
   return NextResponse.json({
-    /** Email akun, untuk petunjuk mengisi formulir checkout affiliate.id (harus sama persis agar pembayaran dicocokkan). */
-    email: user.email,
+    /** Email yang dipakai di checkout affiliate.id (email akun, atau alamat pembayaran khusus akun NISN), untuk petunjuk di halaman. */
+    email: emailCheckout,
     jalur: student.jalur,
     sekolah: student.school,
     /** Jalur A yang kursi sekolahnya berlaku/tersedia sekarang: tidak perlu (dan tidak boleh) membeli paket sendiri. */

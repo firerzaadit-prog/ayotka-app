@@ -3,6 +3,7 @@ import { logAudit } from "@/lib/audit/log";
 import { SUMBER_KREDIT_PRIBADI, selaraskanKreditSiswaAman } from "@/lib/billing/kredit-pribadi";
 import { jenisDariKode, type JenisProduk } from "@/lib/billing/affiliate-produk";
 import { ringkasDataDiterima } from "@/lib/billing/affiliate-data";
+import { studentIdDariEmailPembayaran } from "@/lib/billing/email-pembayaran";
 
 export type { JenisProduk };
 
@@ -155,6 +156,15 @@ export async function processAffiliateFulfillment(
   if (!student && userId) {
     student = await prisma.student.findFirst({
       where: { userId, deletedAt: null },
+      include: { user: true },
+    });
+  }
+
+  // Alamat pembayaran khusus akun NISN (lib/billing/email-pembayaran.ts) langsung menunjuk ID siswanya.
+  const idDariAlamat = !student && email ? studentIdDariEmailPembayaran(email) : null;
+  if (idDariAlamat) {
+    student = await prisma.student.findFirst({
+      where: { id: idDariAlamat, deletedAt: null },
       include: { user: true },
     });
   }

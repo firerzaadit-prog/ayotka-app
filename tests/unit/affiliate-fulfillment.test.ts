@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -86,6 +86,7 @@ vi.mock("@/lib/audit/log", () => ({ logAudit: async (a: Record<string, unknown>)
 vi.mock("@/lib/billing/kredit-pribadi", () => ({ SUMBER_KREDIT_PRIBADI: ["invoice", "voucher"], selaraskanKreditSiswaAman: vi.fn(async () => undefined) }));
 
 import { AFFILIATE_PRODUCT_IDS, JENDELA_GANDA_MENIT, processAffiliateFulfillment, tentukanProdukAffiliate } from "@/lib/billing/affiliate-fulfillment";
+import { emailPembayaranSiswa } from "@/lib/billing/email-pembayaran";
 
 const T50 = AFFILIATE_PRODUCT_IDS.TOPUP_50K;
 const T25 = AFFILIATE_PRODUCT_IDS.TOPUP_25K;
@@ -376,5 +377,50 @@ describe("processAffiliateFulfillment: Success SaaS asli (hanya uid + invoice_nu
     const r = await processAffiliateFulfillment({ userId: "uid-asing", orderRef: "AFF-Q", produkKode: "topup25k" });
     expect(r).toMatchObject({ ok: false, kode: "siswa_tidak_ditemukan" });
     expect(s.saldo).toHaveLength(0);
+  });
+});
+
+describe("processAffiliateFulfillment: alamat pembayaran khusus akun NISN", () => {
+  const KUNCI = "kunci-enkripsi-server-uji-1234567890";
+  const ID_NISN = "71b222eb-472c-4b11-9bc2-170adc610384";
+  const alamat = (env: Record<string, string | undefined> = { APP_ENCRYPTION_KEY: KUNCI }) => emailPembayaranSiswa(ID_NISN, env)!;
+
+  beforeEach(() => {
+    vi.stubEnv("APP_ENCRYPTION_KEY", KUNCI);
+    vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "");
+    s.siswa.push({ id: ID_NISN, userId: "user-nisn", nama: "Siti", deletedAt: null, user: { email: "3155213156@nisn.ayotka.id" } });
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("pembayaran lewat alamat khusus (jalur Purchase: email + produk) masuk ke siswa NISN itu", async () => {
+    const r = await processAffiliateFulfillment({ email: alamat(), orderRef: "AFF-NISN-1", productId: T25 });
+    expect(r).toMatchObject({ ok: true, type: "topup", nominal: 25_000, studentName: "Siti" });
+    expect(s.saldo[0]).toMatchObject({ studentId: ID_NISN, jumlah: 25_000, gatewayRef: "affiliate_AFF-NISN-1" });
+  });
+
+  it("huruf besar pada alamat tetap cocok", async () => {
+    const r = await processAffiliateFulfillment({ email: alamat().toUpperCase(), orderRef: "AFF-NISN-2", productId: T25 });
+    expect(r).toMatchObject({ ok: true, studentName: "Siti" });
+  });
+
+  it("siswa yang sudah dihapus tidak dikenali lewat alamat ini; tercatat untuk admin", async () => {
+    s.siswa.find((x) => x.id === ID_NISN)!.deletedAt = new Date();
+    const r = await processAffiliateFulfillment({ email: alamat(), orderRef: "AFF-NISN-3", productId: T25 });
+    expect(r).toMatchObject({ ok: false, kode: "siswa_tidak_ditemukan" });
+    expect(s.saldo).toHaveLength(0);
+    expect(catatan("affiliate_callback_gagal")).toHaveLength(1);
+  });
+
+  it("alamat bentukan kunci lain (palsu) dan server tanpa kunci: tidak ada yang diberi saldo", async () => {
+    const palsu = alamat({ APP_ENCRYPTION_KEY: "kunci-penyerang-sama-sekali-123456" });
+    expect(await processAffiliateFulfillment({ email: palsu, orderRef: "AFF-NISN-4", productId: T25 })).toMatchObject({ ok: false, kode: "siswa_tidak_ditemukan" });
+    vi.stubEnv("APP_ENCRYPTION_KEY", "");
+    expect(await processAffiliateFulfillment({ email: alamat(), orderRef: "AFF-NISN-5", productId: T25 })).toMatchObject({ ok: false, kode: "siswa_tidak_ditemukan" });
+    expect(s.saldo).toHaveLength(0);
+  });
+
+  it("email biasa tetap dicari lewat email seperti semula (alamat khusus tidak mengubah jalur lama)", async () => {
+    const r = await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "AFF-BIASA", productId: T25 });
+    expect(r).toMatchObject({ ok: true, studentName: "Budi" });
   });
 });

@@ -8,6 +8,7 @@ import {
   parseAffiliatePayload,
 } from "@/lib/billing/affiliate-cors";
 import { periksaAksesAffiliate } from "@/lib/billing/affiliate-auth";
+import { studentIdDariEmailPembayaran } from "@/lib/billing/email-pembayaran";
 
 export async function OPTIONS() {
   return affiliateCorsResponse();
@@ -58,6 +59,15 @@ export async function POST(request: Request) {
         { status: false, message: "Field email wajib disertakan." },
         400,
       );
+    }
+
+    // Alamat pembayaran khusus akun NISN (lib/billing/email-pembayaran.ts): dibalik ke ID siswa, lalu akunnya dicari.
+    const idSiswa = studentIdDariEmailPembayaran(email);
+    if (idSiswa) {
+      const siswa = await prisma.student.findFirst({ where: { id: idSiswa, deletedAt: null }, select: { userId: true } });
+      if (siswa?.userId) {
+        return affiliateJsonResponse({ status: true, data: { email, uid: siswa.userId } });
+      }
     }
 
     const user = await prisma.user.findFirst({
