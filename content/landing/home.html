@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AyoTKA – Tryout TKA SD & SMP dengan Rapor per Materi</title>
+<meta name="description" content="Tryout TKA SD dan SMP yang memetakan setiap jawaban ke materinya. Orang tua dan guru menerima rapor kekuatan, kelemahan, dan rekomendasi belajar. Paket mulai Rp39.000.">
+<meta property="og:title" content="AyoTKA – Tahu persis materi mana yang perlu dilatih anak">
+<meta property="og:description" content="Tryout TKA SD & SMP + rapor per materi + 3x Tryout Nasional. Paket Semester Rp149.000.">
+<meta property="og:image" content="https://ayotka.id/opengraph-image">
+<link rel="icon" id="fav" href="">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAFBFE;
+  --grid:#E6ECF7;
+  --ink:#1D3F94;
+  --ink-deep:#132B66;
+  --text:#18233F;
+  --muted:#55607A;
+  --stabilo:#FFE14A;
+  --pen:#D23A2E;
+  --ok:#1E8A55;
+  --mid:#C98A0C;
+  --line:#D9E0EE;
+  --white:#FFFFFF;
+  --display:"Bricolage Grotesque", system-ui, sans-serif;
+  --body:"Plus Jakarta Sans", system-ui, sans-serif;
+  --hand:"Caveat", cursive;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--white);color:var(--text);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+img{max-width:100%;display:block}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px;border-radius:6px}
+.wrap{max-width:1140px;margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:var(--display);color:var(--ink-deep);line-height:1.12;margin:0;letter-spacing:-.015em}
+h2{font-size:clamp(28px,4vw,42px);font-weight:800;max-width:22ch}
+h3{font-size:21px;font-weight:600}
+p{margin:0}
+.lead{color:var(--muted);font-size:18px;max-width:60ch}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:16px;text-decoration:none;border-radius:12px;padding:15px 22px;transition:transform .15s ease, background .15s ease;cursor:pointer;border:0;text-align:center}
+.btn-primary{background:var(--ink);color:#fff;box-shadow:0 3px 0 var(--ink-deep)}
+.btn-primary:hover{background:var(--ink-deep)}
+.btn-primary:active{transform:translateY(2px);box-shadow:0 1px 0 var(--ink-deep)}
+.btn-ghost{background:#fff;color:var(--ink);border:2px solid var(--ink)}
+.btn-ghost:hover{background:#EEF2FB}
+.btn small{font-weight:500;opacity:.85}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:var(--display);font-weight:800;font-size:22px;color:var(--ink-deep)}
+.brand img{height:36px;width:auto}
+.top nav{display:flex;align-items:center;gap:26px;font-weight:600;font-size:15px}
+.top nav a{text-decoration:none;color:var(--muted)}
+.top nav a:hover{color:var(--ink)}
+.top .btn{padding:10px 16px;font-size:15px}
+.top nav a.btn-primary,.top nav a.btn-primary:hover{color:#fff}
+@media (max-width:820px){.top nav .navlink{display:none}}
+
+/* hero */
+.hero{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:26px 26px;border-bottom:1px solid var(--line)}
+.hero .wrap{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;padding-top:64px;padding-bottom:72px}
+.pill{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 14px 6px 10px;font-size:14px;font-weight:600;color:var(--ink-deep);margin-bottom:22px}
+.pill i{width:9px;height:9px;border-radius:50%;background:var(--pen);box-shadow:0 0 0 4px rgba(210,58,46,.15)}
+.hero h1{font-size:clamp(34px,5.2vw,58px);font-weight:800;max-width:19ch}
+.mark{background:linear-gradient(transparent 58%,var(--stabilo) 58%,var(--stabilo) 92%,transparent 92%);padding:0 2px}
+.hero .lead{margin-top:20px}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.assure{margin-top:22px;display:flex;flex-direction:column;gap:6px;font-size:14.5px;color:var(--muted)}
+.assure span::before{content:"✓";color:var(--ok);font-weight:800;margin-right:8px}
+@media (max-width:900px){.hero .wrap{grid-template-columns:1fr;gap:44px;padding-top:40px}}
+
+/* rapor card */
+.rapor{background:#fff;border:1.5px solid #C9D3E8;border-radius:6px;box-shadow:8px 10px 0 rgba(29,63,148,.10);padding:26px 26px 22px;position:relative;transform:rotate(-.8deg);max-width:470px;justify-self:center;width:100%}
+.rapor::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--pen);opacity:.55;border-radius:6px 0 0 6px}
+.rapor-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px dashed var(--line);padding-bottom:14px;margin-bottom:16px}
+.rapor-head h3{font-size:18px}
+.rapor-head p{font-size:13.5px;color:var(--muted);margin-top:3px}
+.score{font-family:var(--display);font-weight:800;font-size:46px;line-height:1;color:var(--ink-deep);text-align:right}
+.score small{font-size:16px;color:var(--muted);font-weight:600}
+.row{display:grid;grid-template-columns:118px 1fr 34px;align-items:center;gap:12px;padding:7px 0;font-size:14.5px;font-weight:600;position:relative}
+.row b{text-align:right;font-family:var(--display);font-size:16px}
+.track{height:10px;background:#EDF1F8;border-radius:5px;overflow:hidden}
+.fill{height:100%;border-radius:5px;width:var(--v);background:var(--c);transform-origin:left;animation:grow .7s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d)}
+@keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.row.weak{color:var(--pen)}
+.circle{position:absolute;left:-12px;right:-14px;top:-9px;bottom:-9px;pointer-events:none;overflow:visible}
+.circle path{fill:none;stroke:var(--pen);stroke-width:2.4;stroke-linecap:round;stroke-dasharray:640;stroke-dashoffset:640;animation:draw .9s ease-out 1.5s forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.note{font-family:var(--hand);color:var(--pen);font-size:25px;line-height:1.05;margin:16px 0 0 4px;transform:rotate(-2deg);opacity:0;animation:appear .4s ease 2.3s forwards}
+@keyframes appear{to{opacity:1}}
+.reco{margin-top:16px;background:#FFF9D6;border-radius:6px;padding:12px 14px;font-size:14px;color:#4A4220}
+.reco strong{color:#2E2A10}
+@media (max-width:480px){.rapor{padding:20px 18px 18px;transform:none}.row{grid-template-columns:96px 1fr 28px;gap:8px;font-size:13.5px}.score{font-size:38px}.school-box .price{font-size:30px}}
+@media (prefers-reduced-motion:reduce){.fill,.circle path,.note{animation:none}.circle path{stroke-dashoffset:0}.note{opacity:1}}
+
+/* sections */
+section{padding:88px 0}
+.sec-head{display:flex;flex-direction:column;gap:14px;margin-bottom:44px}
+
+/* problem: twin */
+.twin{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.kid{border:1.5px solid var(--line);border-radius:10px;padding:22px}
+.kid header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.kid header span{font-weight:700}
+.kid header b{font-family:var(--display);font-size:26px;color:var(--ink-deep)}
+.mini{display:grid;grid-template-columns:120px 1fr;gap:10px;align-items:center;font-size:14px;padding:4px 0;color:var(--muted)}
+.mini .track{height:8px}
+.mini .fill{animation:none}
+.kid p{margin-top:14px;font-size:15px}
+.kid p em{font-style:normal;color:var(--pen);font-weight:700}
+.verdict{margin-top:28px;font-size:19px;max-width:62ch;border-left:4px solid var(--stabilo);padding-left:18px}
+@media (max-width:760px){.twin{grid-template-columns:1fr}}
+
+/* steps */
+.steps-sec{background:var(--paper)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:0;counter-reset:s;border-top:2px solid var(--ink-deep)}
+.step{padding:26px 26px 6px 0;position:relative}
+.step + .step{padding-left:26px;border-left:1px solid var(--line)}
+.step .n{font-family:var(--display);font-weight:800;font-size:44px;color:var(--ink);line-height:1;margin-bottom:14px}
+.step p{color:var(--muted);margin-top:8px;font-size:16px}
+@media (max-width:820px){.steps{grid-template-columns:1fr}.step + .step{padding-left:0;border-left:0;border-top:1px solid var(--line)}}
+
+/* receive + compare */
+.receive{display:grid;grid-template-columns:.9fr 1.1fr;gap:56px;align-items:start}
+.got{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:18px}
+.got li{display:grid;grid-template-columns:30px 1fr;gap:12px}
+.got li::before{content:"✓";width:28px;height:28px;border-radius:50%;background:#E3F3EA;color:var(--ok);font-weight:800;display:grid;place-items:center;font-size:15px}
+.got strong{display:block;color:var(--ink-deep)}
+.got span{color:var(--muted);font-size:15.5px}
+table.cmp{width:100%;border-collapse:collapse;font-size:15px;background:#fff}
+.cmp caption{text-align:left;font-weight:700;color:var(--ink-deep);margin-bottom:12px;font-size:16px}
+.cmp th,.cmp td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:center}
+.cmp th:first-child,.cmp td:first-child{text-align:left}
+.cmp thead th{font-size:14px;color:var(--muted);font-weight:600}
+.cmp thead th:last-child{color:var(--ink);font-weight:800}
+.cmp td:last-child{background:#F2F5FC;font-weight:800;color:var(--ok)}
+.cmp .no{color:#6B7488}
+.fine{font-size:14px;color:var(--muted);margin-top:14px}
+@media (max-width:900px){.receive{grid-template-columns:1fr;gap:44px}}
+
+/* pricing */
+.pricing{background:var(--ink-deep);color:#E8EDFA}
+.pricing h2{color:#fff}
+.pricing .lead{color:#B9C5E4}
+.timeline{display:grid;grid-template-columns:repeat(4,1fr);margin:6px 0 46px;position:relative}
+.timeline::before{content:"";position:absolute;left:0;right:0;top:9px;height:2px;background:#3A5299}
+.tl{position:relative;padding-top:28px;font-size:14.5px;color:#B9C5E4}
+.tl::before{content:"";position:absolute;left:0;top:2px;width:16px;height:16px;border-radius:50%;background:var(--ink-deep);border:3px solid var(--stabilo)}
+.tl.last::before{background:var(--pen);border-color:var(--pen)}
+.tl strong{display:block;color:#fff;font-size:16px}
+@media (max-width:640px){.timeline{grid-template-columns:1fr 1fr;row-gap:24px}.timeline::before{display:none}}
+.plans{display:grid;grid-template-columns:1fr 1.15fr;gap:22px;align-items:stretch}
+.plan{background:#fff;color:var(--text);border-radius:14px;padding:30px;display:flex;flex-direction:column}
+.plan h3{font-size:24px}
+.plan .for{color:var(--muted);font-size:15px;margin-top:6px}
+.price{font-family:var(--display);font-weight:800;font-size:44px;color:var(--ink-deep);margin-top:20px;line-height:1}
+.price small{font-family:var(--body);font-size:16px;font-weight:600;color:var(--muted);white-space:nowrap}
+.per{font-size:14.5px;color:var(--muted);margin-top:8px}
+.plan ul{list-style:none;padding:0;margin:22px 0 26px;display:flex;flex-direction:column;gap:11px;font-size:15.5px;flex:1}
+.plan li{padding-left:26px;position:relative}
+.plan li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:800}
+.plan li.x::before{content:"–";color:#6B7488}
+.plan li.x{color:#6B7488}
+.plan.best{border:3px solid var(--stabilo);position:relative}
+.badge{position:absolute;top:-15px;left:30px;background:var(--stabilo);color:#2E2A10;font-weight:800;font-size:14px;padding:5px 12px;border-radius:7px}
+.save{display:inline-block;margin-top:10px;background:#FDECEA;color:#C5362B;font-weight:700;font-size:14px;padding:4px 10px;border-radius:6px}
+.until{font-family:var(--hand);font-size:22px;color:var(--ink);margin-top:2px}
+.pnotes{display:flex;flex-wrap:wrap;gap:10px 28px;margin-top:28px;font-size:14.5px;color:#B9C5E4}
+.pnotes span::before{content:"✓";color:var(--stabilo);margin-right:8px;font-weight:800}
+@media (max-width:820px){.plans{grid-template-columns:1fr}.plan.best{order:-1;margin-top:10px}}
+
+/* school */
+.school .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center}
+.school-box{border:2px solid var(--ink-deep);border-radius:14px;padding:30px;background:var(--paper)}
+.school-box .price{margin-top:0;font-size:38px}
+.school-box ul{list-style:none;padding:0;margin:20px 0 24px;display:flex;flex-direction:column;gap:10px;font-size:15.5px}
+.school-box li{padding-left:26px;position:relative}
+.school-box li::before{content:"✓";position:absolute;left:0;color:var(--ok);font-weight:800}
+.mitra{margin-top:22px;font-size:15px;color:var(--muted)}
+.mitra a{color:var(--ink);font-weight:700}
+@media (max-width:900px){.school .wrap{grid-template-columns:1fr;gap:36px}}
+
+/* faq */
+.faq-sec{background:var(--paper)}
+.faq{max-width:780px}
+.faq details{border-bottom:1px solid var(--line);padding:4px 0}
+.faq summary{list-style:none;cursor:pointer;font-weight:700;font-size:17.5px;color:var(--ink-deep);padding:18px 40px 18px 0;position:relative}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";position:absolute;right:6px;top:12px;font-size:28px;font-weight:400;color:var(--ink);transition:transform .2s ease}
+.faq details[open] summary::after{transform:rotate(45deg)}
+.faq details p{color:var(--muted);padding:0 0 20px;max-width:68ch}
+
+/* final */
+.final{text-align:left}
+.final .wrap{display:flex;justify-content:space-between;align-items:center;gap:36px;flex-wrap:wrap}
+.final h2{max-width:20ch}
+.final p{color:var(--muted);margin-top:12px;max-width:52ch}
+
+footer{border-top:1px solid var(--line);padding:36px 0 110px;font-size:14.5px;color:var(--muted)}
+footer .wrap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;align-items:center}
+footer nav{display:flex;gap:20px;flex-wrap:wrap}
+footer a{text-decoration:none}
+footer a:hover{color:var(--ink)}
+@media (min-width:821px){footer{padding-bottom:40px}}
+
+/* sticky mobile cta */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:40;background:#fff;border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom));display:none;gap:10px;align-items:center;box-shadow:0 -6px 20px rgba(19,43,102,.08)}
+.dock .t{font-size:13px;line-height:1.3;color:var(--muted);flex:1}
+.dock .t b{display:block;color:var(--ink-deep);font-size:15px}
+.dock .btn{padding:12px 16px;font-size:15px}
+@media (max-width:820px){.dock{display:flex}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#" aria-label="AyoTKA beranda"><img src="data:image/png;base64,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" alt="">AyoTKA</a>
+    <nav aria-label="Navigasi utama">
+      <a class="navlink" href="#cara-kerja">Cara kerja</a>
+      <a class="navlink" href="#harga">Harga</a>
+      <a class="navlink" href="#sekolah">Untuk sekolah</a>
+      <a class="btn btn-primary" href="#harga">Pilih paket</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<!-- HERO -->
+<div class="hero">
+  <div class="wrap">
+    <div>
+      <div class="pill"><i></i>Tryout Nasional pertama dibuka Desember 2026</div>
+      <h1>Latihan TKA yang langsung menunjuk <span class="mark">materi mana</span> yang perlu dibenahi.</h1>
+      <p class="lead">Satu angka nilai tryout belum cukup untuk memutuskan apa yang harus dipelajari anak besok. AyoTKA memetakan setiap jawaban ke materinya, lalu memberi orang tua dan guru rapor berisi kekuatan, kelemahan, dan rekomendasi belajar.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://ayotka.id/registrasi?paket=semester" data-carry data-plan="semester" data-value="149000">Ambil Paket Semester <small>Rp149.000</small></a>
+        <a class="btn btn-ghost" href="#harga">Bandingkan dengan Paket Bulanan</a>
+      </div>
+      <div class="assure">
+        <span>Soal disusun mengikuti kerangka asesmen resmi Pusat Asesmen Pendidikan Kemendikdasmen</span>
+        <span>Untuk SD dan SMP: Matematika, Bahasa Indonesia, serta IPA dan Bahasa Inggris (SMP)</span>
+        <span>Masuk cukup dengan NISN dan PIN, bisa dari HP maupun komputer</span>
+      </div>
+    </div>
+
+    <figure class="rapor" aria-label="Contoh rapor tryout Matematika dengan nilai 68 dan Geometri 36">
+      <div class="rapor-head">
+        <div>
+          <h3>Rapor tryout Matematika</h3>
+          <p>Contoh: Bilal, kelas 6, percobaan ke-3</p>
+        </div>
+        <div class="score">68<small>/100</small></div>
+      </div>
+      <div class="row"><span>Pengolahan Data</span><div class="track"><div class="fill" style="--v:86%;--c:var(--ok);--d:.2s"></div></div><b>86</b></div>
+      <div class="row"><span>Bilangan</span><div class="track"><div class="fill" style="--v:84%;--c:var(--ok);--d:.35s"></div></div><b>84</b></div>
+      <div class="row"><span>Pengukuran</span><div class="track"><div class="fill" style="--v:70%;--c:var(--ok);--d:.5s"></div></div><b>70</b></div>
+      <div class="row"><span>Aljabar &amp; Pola</span><div class="track"><div class="fill" style="--v:64%;--c:var(--mid);--d:.65s"></div></div><b>64</b></div>
+      <div class="row weak"><span>Geometri</span><div class="track"><div class="fill" style="--v:36%;--c:var(--pen);--d:.8s"></div></div><b>36</b>
+        <svg class="circle" viewBox="0 0 400 50" preserveAspectRatio="none" aria-hidden="true"><path d="M30 6 C120 -2 300 0 385 10 C404 16 400 40 370 45 C260 54 90 52 20 44 C-2 40 0 14 40 5"/></svg>
+      </div>
+      <p class="note">Di sini nilainya tertahan: 6 dari 8 soal bangun ruang salah.</p>
+      <div class="reco"><strong>Rekomendasi:</strong> latihan soal cerita kubus dan balok 15 menit per hari, lalu ulang Aljabar &amp; Pola sebelum tryout berikutnya.</div>
+    </figure>
+  </div>
+</div>
+
+<!-- PROBLEM -->
+<section aria-labelledby="masalah">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="masalah">Dua anak sama-sama dapat 68. Yang perlu mereka pelajari berbeda.</h2>
+      <p class="lead">Nilai total menyembunyikan letak masalahnya. Tanpa rincian per materi, latihan tambahan sering mengulang bagian yang sudah dikuasai, sementara materi yang lemah tidak tersentuh.</p>
+    </div>
+    <div class="twin">
+      <article class="kid">
+        <header><span>Anak A</span><b>68</b></header>
+        <div class="mini"><span>Bilangan</span><div class="track"><div class="fill" style="--v:84%;--c:var(--ok)"></div></div></div>
+        <div class="mini"><span>Aljabar &amp; Pola</span><div class="track"><div class="fill" style="--v:72%;--c:var(--ok)"></div></div></div>
+        <div class="mini"><span>Geometri</span><div class="track"><div class="fill" style="--v:36%;--c:var(--pen)"></div></div></div>
+        <p>Butuh latihan <em>bangun ruang</em>. Menambah soal hitungan tidak akan menaikkan nilainya.</p>
+      </article>
+      <article class="kid">
+        <header><span>Anak B</span><b>68</b></header>
+        <div class="mini"><span>Bilangan</span><div class="track"><div class="fill" style="--v:80%;--c:var(--ok)"></div></div></div>
+        <div class="mini"><span>Aljabar &amp; Pola</span><div class="track"><div class="fill" style="--v:40%;--c:var(--pen)"></div></div></div>
+        <div class="mini"><span>Geometri</span><div class="track"><div class="fill" style="--v:78%;--c:var(--ok)"></div></div></div>
+        <p>Butuh latihan <em>pola dan persamaan</em>. Geometrinya justru sudah aman.</p>
+      </article>
+    </div>
+    <p class="verdict">AyoTKA menunjukkan perbedaan ini sejak tryout pertama, sehingga waktu belajar anak yang terbatas menjelang TKA dipakai untuk materi yang benar-benar menahan nilainya.</p>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section class="steps-sec" id="cara-kerja" aria-labelledby="cara">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="cara">Dari satu tryout sampai rencana belajar minggu ini</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Anak mengerjakan tryout</h3><p>Jumlah soal, waktu, dan tingkat kesulitan mengikuti format TKA sesuai jenjangnya. Paket latihan baru terbuka setiap hari.</p></div>
+      <div class="step"><div class="n">2</div><h3>Jawaban dipetakan ke materi</h3><p>Setiap soal punya label materinya, sehingga sistem tahu kesalahan anak menumpuk di bagian mana.</p></div>
+      <div class="step"><div class="n">3</div><h3>Rapor dan rekomendasi keluar</h3><p>Orang tua menerima ringkasan kemampuan, kelemahan yang spesifik, dan saran latihan yang bisa langsung dijalankan.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- RECEIVE + COMPARE -->
+<section aria-labelledby="terima">
+  <div class="wrap receive">
+    <div>
+      <div class="sec-head" style="margin-bottom:30px">
+        <h2 id="terima">Yang Anda terima setiap anak selesai tryout</h2>
+      </div>
+      <ul class="got">
+        <li><div><strong>Skor dan peta kompetensi</strong><span>Nilai per materi dengan tiga kategori: baik, cukup, dan perlu latihan.</span></div></li>
+        <li><div><strong>Analisis learning analytics</strong><span>Ringkasan kemampuan, kekurangan yang spesifik, dan rekomendasi belajar dalam bahasa yang mudah dipahami orang tua.</span></div></li>
+        <li><div><strong>Riwayat perkembangan</strong><span>Setiap percobaan tersimpan, jadi kemajuan dari tryout ke tryout terlihat jelas. Riwayat tetap bisa dibuka setelah langganan berakhir.</span></div></li>
+        <li><div><strong>Pembahasan soal</strong><span>Anak bisa mempelajari letak kesalahannya, lalu mengulang paket yang sudah dikerjakan kapan saja.</span></div></li>
+      </ul>
+    </div>
+    <div>
+      <table class="cmp">
+        <caption>Simulasi gratis dari pemerintah tetap layak dipakai. AyoTKA melengkapi bagian yang tidak ada di sana.</caption>
+        <thead><tr><th scope="col">Fitur</th><th scope="col">Simulasi resmi</th><th scope="col">AyoTKA</th></tr></thead>
+        <tbody>
+          <tr><td>Soal sesuai kerangka asesmen resmi</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Format soal sama dengan TKA</td><td>✓</td><td>✓</td></tr>
+          <tr><td>Rincian nilai per materi</td><td class="no">–</td><td>✓</td></tr>
+          <tr><td>Riwayat percobaan tersimpan</td><td class="no">–</td><td>✓</td></tr>
+          <tr><td>Rekomendasi materi otomatis</td><td class="no">–</td><td>✓</td></tr>
+          <tr><td>Paket latihan baru setiap hari</td><td class="no">–</td><td>✓</td></tr>
+          <tr><td>Guru memantau satu kelas sekaligus</td><td class="no">–</td><td>✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing" id="harga" aria-labelledby="paket">
+  <div class="wrap">
+    <div class="sec-head">
+      <h2 id="paket">Pilih paket sesuai jarak ke hari TKA</h2>
+      <p class="lead">TKA SD dan SMP biasanya digelar bulan April. Tryout Nasional AyoTKA dijadwalkan bertahap supaya anak bisa mengukur kemajuannya sebelum hari ujian.</p>
+    </div>
+
+    <div class="timeline" aria-label="Jadwal Tryout Nasional">
+      <div class="tl"><strong>Desember</strong>Tryout Nasional 1</div>
+      <div class="tl"><strong>Februari</strong>Tryout Nasional 2</div>
+      <div class="tl"><strong>Maret</strong>Tryout Nasional 3</div>
+      <div class="tl last"><strong>April</strong>Hari TKA</div>
+    </div>
+
+    <div class="plans">
+      <article class="plan">
+        <h3>Paket Bulanan</h3>
+        <p class="for">Untuk membangun kebiasaan latihan harian dan melihat dulu cara kerja rapornya.</p>
+        <div class="price">Rp39.000 <small>/ 30 hari</small></div>
+        <p class="per">Sekali bayar, perpanjang kapan saja bila cocok.</p>
+        <ul>
+          <li>Tryout Mandiri semua mata pelajaran, paket baru terbuka setiap hari</li>
+          <li>Skor dan peta kompetensi tanpa batas</li>
+          <li>1x analisis learning analytics per mata pelajaran</li>
+          <li class="x">Tidak termasuk Tryout Nasional</li>
+        </ul>
+        <a class="btn btn-ghost" href="https://ayotka.id/registrasi?paket=bulanan" data-carry data-plan="bulanan" data-value="39000">Pilih Paket Bulanan</a>
+      </article>
+
+      <article class="plan best">
+        <span class="badge">Paling banyak dipilih untuk persiapan TKA</span>
+        <h3>Paket Semester</h3>
+        <p class="for">Persiapan lengkap sampai musim TKA, termasuk ketiga Tryout Nasional.</p>
+        <div class="price">Rp149.000 <small>/ 180 hari</small></div>
+        <p class="per">Setara sekitar Rp24.800 per bulan.</p>
+        <span class="save">Hemat Rp85.000 dibanding 6 bulan Paket Bulanan</span>
+        <p class="until">Daftar hari ini, aktif sampai pelaksanaan TKA</p>
+        <ul>
+          <li><strong>3x Tryout Nasional</strong> per mata pelajaran (Desember, Februari, Maret)</li>
+          <li>Analisis learning analytics lengkap di setiap Tryout Nasional</li>
+          <li>Tryout Mandiri semua mata pelajaran, paket baru terbuka setiap hari</li>
+          <li>Skor dan peta kompetensi tanpa batas</li>
+          <li>1x analisis learning analytics per mata pelajaran untuk Tryout Mandiri</li>
+        </ul>
+        <a class="btn btn-primary" href="https://ayotka.id/registrasi?paket=semester" data-carry data-plan="semester" data-value="149000">Ambil Paket Semester</a>
+      </article>
+    </div>
+
+    <div class="pnotes">
+      <span>Pembayaran online sekali bayar, tanpa tagihan otomatis</span>
+      <span>Satu nomor WhatsApp orang tua bisa mendaftarkan lebih dari satu anak</span>
+      <span>Riwayat nilai tetap tersimpan setelah masa aktif habis</span>
+    </div>
+  </div>
+</section>
+
+<!-- SCHOOL -->
+<section class="school" id="sekolah" aria-labelledby="sek">
+  <div class="wrap">
+    <div>
+      <div class="sec-head" style="margin-bottom:0">
+        <h2 id="sek">Untuk sekolah dan madrasah: pantau kesiapan TKA satu angkatan</h2>
+        <p class="lead">Guru tidak perlu merekap nilai tryout satu per satu. Dashboard kelas menunjukkan materi yang lemah di tingkat rombel, sehingga jam pengayaan bisa diarahkan ke bagian yang paling dibutuhkan siswa.</p>
+      </div>
+      <p class="mitra">Mengelola bimbel atau les privat? Program mitra memberi diskon grosir hingga 30%. <a href="https://ayotka.id/registrasi/mitra" data-carry>Daftar sebagai mitra</a></p>
+    </div>
+    <div class="school-box">
+      <div class="price">Rp100–140 ribu <small>/ siswa</small></div>
+      <p class="per">Fasilitas setara Paket Semester untuk setiap siswa.</p>
+      <ul>
+        <li>3x Tryout Nasional per mata pelajaran beserta analisisnya</li>
+        <li>Dashboard dan rekap nilai per kelas untuk guru</li>
+        <li>Siswa masuk dengan kode kelas, tidak membayar sendiri</li>
+        <li>Tagihan melalui invoice resmi, dapat menggunakan Dana BOS</li>
+      </ul>
+      <a class="btn btn-primary" style="width:100%" href="https://wa.me/6282233532724?text=Halo%20AyoTKA%2C%20saya%20dari%20sekolah%20dan%20ingin%20konsultasi%20paket%20kerja%20sama%20untuk%20persiapan%20TKA." data-wa>Konsultasi paket sekolah via WhatsApp</a>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="faq-sec" aria-labelledby="tanya">
+  <div class="wrap">
+    <div class="sec-head"><h2 id="tanya">Pertanyaan yang sering diajukan orang tua</h2></div>
+    <div class="faq">
+      <details>
+        <summary>Sudah ada simulasi gratis dari pemerintah. Mengapa perlu AyoTKA?</summary>
+        <p>Simulasi resmi sangat baik untuk membiasakan anak dengan format soal, dan sebaiknya tetap dipakai. Yang tidak tersedia di sana adalah rincian per materi dan riwayat perkembangan. Ketika nilai anak tidak naik setelah beberapa kali latihan, penyebabnya biasanya latihan yang belum mengarah ke materi yang bermasalah. Bagian itulah yang dikerjakan AyoTKA.</p>
+      </details>
+      <details>
+        <summary>Apakah TKA wajib diikuti?</summary>
+        <p>TKA tidak wajib dan tidak menentukan kelulusan. Hasilnya memotret kemampuan akademik secara terstandar dan dapat menjadi salah satu pertimbangan pada jalur prestasi SPMB. Keputusan mengikuti TKA ada pada keluarga.</p>
+      </details>
+      <details>
+        <summary>Anak saya belum terbiasa memakai HP atau komputer sendiri.</summary>
+        <p>Login memakai NISN dan PIN, bukan email pribadi. Satu nomor WhatsApp orang tua dapat dipakai untuk mendaftarkan lebih dari satu anak, dan tryout bisa dikerjakan lewat HP maupun komputer.</p>
+      </details>
+      <details>
+        <summary>Bagaimana paket latihan harian dibuka?</summary>
+        <p>Paket dibuka bertahap per mata pelajaran. Setelah anak mengerjakan satu paket, paket berikutnya terbuka pukul 06.00 WIB keesokan harinya. Paket yang sudah dikerjakan dapat diulang kapan saja.</p>
+      </details>
+      <details>
+        <summary>Apa yang terjadi saat masa aktif paket habis?</summary>
+        <p>Riwayat nilai dan pembahasan tetap bisa dibuka. Yang berhenti hanya akses untuk memulai tryout baru, dan paket dapat diperpanjang kapan saja.</p>
+      </details>
+      <details>
+        <summary>Paket mana yang sebaiknya saya pilih?</summary>
+        <p>Jika anak akan mengikuti TKA tahun ini, Paket Semester lebih tepat karena mencakup ketiga Tryout Nasional dan masa aktifnya menjangkau musim TKA. Paket Bulanan cocok bila Anda ingin mencoba ritme latihan hariannya terlebih dulu.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL -->
+<section class="final" aria-labelledby="akhir">
+  <div class="wrap">
+    <div>
+      <h2 id="akhir">Masih ada waktu untuk ketiga Tryout Nasional.</h2>
+      <p>Daftar sekarang, kerjakan tryout pertama hari ini, dan lihat sendiri materi mana yang paling perlu dilatih anak Anda.</p>
+    </div>
+    <div class="cta-row" style="margin-top:0">
+      <a class="btn btn-primary" href="https://ayotka.id/registrasi?paket=semester" data-carry data-plan="semester" data-value="149000">Ambil Paket Semester <small>Rp149.000</small></a>
+      <a class="btn btn-ghost" href="https://ayotka.id/registrasi?paket=bulanan" data-carry data-plan="bulanan" data-value="39000">Paket Bulanan Rp39.000</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 AyoTKA. Tryout TKA SD dan SMP.</span>
+    <nav aria-label="Tautan footer">
+      <a href="https://wa.me/6282233532724?text=Halo%20AyoTKA%2C%20saya%20ingin%20bertanya." data-wa>WhatsApp 0822-3353-2724</a>
+      <a href="https://ayotka.id/kerangka-asesmen">Kerangka asesmen</a>
+      <a href="https://ayotka.id/kebijakan-privasi">Kebijakan privasi</a>
+      <a href="https://ayotka.id/syarat-ketentuan">Syarat &amp; ketentuan</a>
+    </nav>
+  </div>
+</footer>
+
+<div class="dock" role="region" aria-label="Pilih paket">
+  <div class="t"><b>Paket Semester Rp149.000</b>Termasuk 3x Tryout Nasional</div>
+  <a class="btn btn-primary" href="https://ayotka.id/registrasi?paket=semester" data-carry data-plan="semester" data-value="149000">Ambil paket</a>
+</div>
+
+<script>
+try{document.getElementById("fav").href=document.querySelector(".brand img").src;}catch(e){}
+/* ====== PENGATURAN IKLAN ======
+   Isi PIXEL_ID dengan ID Meta Pixel AyoTKA (Events Manager > Settings).
+   Biarkan kosong bila belum punya; halaman tetap berjalan normal. */
+var PIXEL_ID = "";
+
+(function(){
+
+  // Teruskan parameter UTM/fbclid/gclid dari iklan ke halaman pendaftaran
+  try{
+    var src = new URLSearchParams(location.search);
+    document.querySelectorAll("a[data-carry]").forEach(function(a){
+      var u = new URL(a.href);
+      src.forEach(function(v,k){ if(!u.searchParams.has(k)) u.searchParams.set(k,v); });
+      a.href = u.toString();
+    });
+  }catch(e){}
+
+  // Meta Pixel
+  if(PIXEL_ID){
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+    document,'script','https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', PIXEL_ID);
+    fbq('track','PageView');
+    fbq('track','ViewContent',{content_name:'Landing AyoTKA',content_category:'Tryout TKA'});
+  }
+  function track(ev,params){ try{ if(window.fbq) fbq('track',ev,params||{}); }catch(e){} }
+
+  document.querySelectorAll("a[data-plan]").forEach(function(a){
+    a.addEventListener("click",function(){
+      track("InitiateCheckout",{content_name:"Paket "+a.dataset.plan,value:Number(a.dataset.value),currency:"IDR"});
+    });
+  });
+  document.querySelectorAll("a[data-wa]").forEach(function(a){
+    a.addEventListener("click",function(){ track("Contact",{content_name:"WhatsApp"}); });
+  });
+})();
+</script>
+</body>
+</html>
