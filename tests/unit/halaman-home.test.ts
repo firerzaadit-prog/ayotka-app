@@ -39,8 +39,13 @@ describe("isi halaman /home", () => {
     const h = html();
     expect(h).toContain("Rp39.000");
     expect(h).toContain("Rp149.000");
-    expect(h).toContain('href="https://ayotka.id/registrasi?paket=semester"');
-    expect(h).toContain('href="https://ayotka.id/registrasi?paket=bulanan"');
+    // Semua tombol berlangganan (bulanan maupun semester: hero, kartu harga, ajakan akhir, bilah HP) langsung ke
+    // registrasi siswa mandiri; paket dipilih sesudah daftar di menu Langganan. Parameter iklan ditambahkan skrip di halaman.
+    const tombolPaket = [...h.matchAll(/<a [^>]*href="([^"]+)"[^>]*data-plan="(semester|bulanan)"/g)];
+    expect(tombolPaket.length).toBe(6);
+    expect(new Set(tombolPaket.map((m) => m[1]))).toEqual(new Set(["https://ayotka.id/registrasi/mandiri"]));
+    expect(new Set(tombolPaket.map((m) => m[2]))).toEqual(new Set(["semester", "bulanan"]));
+    expect(h).not.toContain("registrasi?paket=");
     // hemat 6 x 39.000 - 149.000 = 85.000
     expect(6 * 39_000 - 149_000).toBe(85_000);
     expect(h).toContain("Hemat Rp85.000");
@@ -51,6 +56,7 @@ describe("isi halaman /home", () => {
     expect(tujuan.length).toBeGreaterThan(5);
     const polaBerkas: Record<string, string[]> = {
       "/registrasi": ["app/(auth)/registrasi/page.tsx"],
+      "/registrasi/mandiri": ["app/(auth)/registrasi/mandiri/page.tsx"],
       "/registrasi/mitra": ["app/(auth)/registrasi/mitra/page.tsx"],
       "/kerangka-asesmen": ["app/(public)/kerangka-asesmen/page.tsx"],
       "/kebijakan-privasi": ["app/(public)/kebijakan-privasi/page.tsx"],
