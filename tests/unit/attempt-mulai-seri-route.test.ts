@@ -27,7 +27,7 @@ vi.mock("@/lib/exam/timing", () => ({ isExpired: vi.fn() }));
 vi.mock("@/lib/exam/finalize", () => ({ finalizeAttempt: vi.fn() }));
 vi.mock("@/lib/billing/entitlements", () => ({ canStartAttempt: m.canStartAttempt, getActiveEntitlement: vi.fn() }));
 vi.mock("@/lib/billing/plan-fitur", () => ({ getAiKuotaRemaining: vi.fn(), getTryOutNasionalKuotaRemaining: vi.fn() }));
-vi.mock("@/lib/billing/saldo", () => ({ getSaldo: vi.fn(), getHargaLearningAnalytics: vi.fn() }));
+vi.mock("@/lib/billing/saldo", () => ({ getSaldo: vi.fn(), getHargaLaPaket: vi.fn() }));
 vi.mock("@/lib/billing/learning-analytics", () => ({ putuskanLearningAnalytics: vi.fn() }));
 vi.mock("@/lib/exam/percobaan", () => ({ nomorPercobaanById: vi.fn() }));
 

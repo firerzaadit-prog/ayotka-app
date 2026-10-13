@@ -55,18 +55,6 @@ type Hasil = {
 /** Status Tanya Tutor AI dari server (lib/tutor/penyimpanan.ts: infoTutorHalaman). */
 type TutorInfo = { aktif: boolean; sisaHariIni: number; batasHarian: number; soalBerriwayat: string[]; hariSimpan: number };
 
-/**
- * Tiket 5.9: watermark identitas siswa di halaman pembahasan (bank soal
- * gampang bocor lewat screenshot kalau tidak ada jejak siapa yang
- * mengambilnya) - dirender sebagai background berulang, jadi ikut
- * terbawa di screenshot, bukan overlay terpisah yang gampang dihapus.
- */
-function watermarkBackground(nama: string, idSamar: string): string {
-  const escaped = `${nama} · ${idSamar}`.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="160"><text x="0" y="90" transform="rotate(-28 160 80)" font-family="sans-serif" font-size="13" fill="rgba(15,23,42,0.14)">${escaped}</text></svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
-}
-
 /** Tiket 4.10: halaman hasil - nilai, rincian benar/salah, dan pembahasan (selalu langsung tampil begitu selesai, untuk semua siswa). */
 export default function HasilPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -133,12 +121,9 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
   }
 
   return (
+    // Tanpa watermark (permintaan user, 12 Okt 2026): jejak identitas siswa kini hanya di rapor PDF
+    // (lib/pdf/rapor-renderer.ts), bukan di halaman web.
     <div className="relative mx-auto flex max-w-2xl flex-col gap-6 p-4">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 z-10"
-        style={{ backgroundImage: watermarkBackground(hasil.siswa.nama, hasil.siswa.idSamar) }}
-      />
       <PageHeader
         title={hasil.package.nama}
         description={hasil.attempt.status === "kedaluwarsa" ? "Waktu habis — disubmit otomatis." : "Selesai."}

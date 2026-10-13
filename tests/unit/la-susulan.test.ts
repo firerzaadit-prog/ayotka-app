@@ -8,7 +8,7 @@ const m = vi.hoisted(() => ({
   attemptCount: vi.fn(),
   tentukanPendanaanAttempt: vi.fn(),
   getSaldo: vi.fn(),
-  getHargaLearningAnalytics: vi.fn(),
+  getHargaLaPaket: vi.fn(),
 }));
 
 vi.mock("@/lib/db/prisma", () => ({
@@ -20,7 +20,7 @@ vi.mock("@/lib/db/prisma", () => ({
 }));
 vi.mock("@/lib/ai/settings", () => ({ getAiAutoAnalysisSettings: async () => ({ aiAutoAnalysisMaxPerSubject: 3 }) }));
 vi.mock("@/lib/billing/pendanaan-la", () => ({ tentukanPendanaanAttempt: m.tentukanPendanaanAttempt }));
-vi.mock("@/lib/billing/saldo", () => ({ getSaldo: m.getSaldo, getHargaLearningAnalytics: m.getHargaLearningAnalytics }));
+vi.mock("@/lib/billing/saldo", () => ({ getSaldo: m.getSaldo, getHargaLaPaket: m.getHargaLaPaket }));
 
 import { hitungOpsiLaSusulan } from "@/lib/billing/la-susulan";
 
@@ -43,7 +43,7 @@ beforeEach(() => {
   m.attemptCount.mockResolvedValue(0);
   m.tentukanPendanaanAttempt.mockResolvedValue({ pendanaan: "saldo", kuotaSisa: null, freeTrial: true });
   m.getSaldo.mockResolvedValue(20000);
-  m.getHargaLearningAnalytics.mockResolvedValue(9000);
+  m.getHargaLaPaket.mockResolvedValue(9000);
 });
 
 describe("hitungOpsiLaSusulan - kapan tidak tersedia", () => {
@@ -89,6 +89,14 @@ describe("hitungOpsiLaSusulan - kapan tidak tersedia", () => {
 });
 
 describe("hitungOpsiLaSusulan - dibayar saldo", () => {
+  it("harga dihitung dari PAKET percobaan itu (banyaknya soal): paket berbeda bisa berharga berbeda", async () => {
+    m.getHargaLaPaket.mockImplementation(async (id: string) => (id === "paket-besar" ? 7500 : 4500));
+    expect(await hitungOpsiLaSusulan(attempt({ packageId: "paket-kecil" }))).toMatchObject({ harga: 4500 });
+    expect(await hitungOpsiLaSusulan(attempt({ packageId: "paket-besar" }))).toMatchObject({ harga: 7500 });
+    expect(m.getHargaLaPaket).toHaveBeenCalledWith("paket-kecil");
+    expect(m.getHargaLaPaket).toHaveBeenCalledWith("paket-besar");
+  });
+
   it("saldo lebih dari harga: cukup, kurang 0", async () => {
     expect(await hitungOpsiLaSusulan(attempt())).toEqual({
       tersedia: true,

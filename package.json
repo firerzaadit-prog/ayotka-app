@@ -40,6 +40,7 @@
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
     "server-only": "^0.0.1",
+    "svg-to-pdfkit": "^0.1.8",
     "tailwind-merge": "^3.6.0",
     "zod": "^4.4.3"
   },
@@ -51,6 +52,7 @@
     "@types/pdfkit": "^0.17.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/svg-to-pdfkit": "^0.1.4",
     "autoprefixer": "^10.5.4",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.2",

@@ -356,7 +356,8 @@ function InstruksiContent() {
                 ) : (
                   <>
                     Jatah gratis {mapel} dari paketmu sudah habis, jadi memakai saldo:{" "}
-                    <b>{formatRupiah(la.harga)}</b> dipotong dari saldo kamu ({formatRupiah(la.saldo)}).
+                    <b>{formatRupiah(la.harga)}</b> dipotong dari saldo kamu ({formatRupiah(la.saldo)}). Harga mengikuti
+                    besarnya paket soal ini.
                   </>
                 )}
               </>
@@ -364,7 +365,8 @@ function InstruksiContent() {
             {akses.tipe === "gratis" && la && (
               <>
                 Paket gratis tidak termasuk Learning Analytics. Kalau diaktifkan, <b>{formatRupiah(la.harga)}</b>{" "}
-                dipotong dari saldo kredit kamu (saldo kamu: <b>{formatRupiah(la.saldo)}</b>).
+                dipotong dari saldo kredit kamu (saldo kamu: <b>{formatRupiah(la.saldo)}</b>). Harga mengikuti besarnya
+                paket soal ini.
               </>
             )}
           </div>

@@ -13,7 +13,7 @@ export default function SyaratKetentuanPage() {
     <HalamanHukum
       judul="Syarat & Ketentuan"
       pembuka="Aturan ini berlaku saat Anda memakai AyoTKA, baik sebagai siswa, orang tua, guru, admin sekolah, dinas pendidikan, maupun mitra. Dengan membuat akun atau memakai layanan, Anda dianggap setuju."
-      diperbarui="3 Oktober 2026"
+      diperbarui="12 Oktober 2026"
     >
       <Bagian nomor={1} judul="Tentang layanan">
         <p>
@@ -64,6 +64,7 @@ export default function SyaratKetentuanPage() {
             "Paket berbayar (bulanan atau semester), saldo untuk Learning Analytics tambahan, dan voucher mitra memberi akses sesuai yang tertulis saat pembelian. Harga yang berlaku adalah yang tampil di situs saat Anda membeli.",
             "Pembayaran dilakukan lewat mitra pembayaran pihak ketiga. Akses paket dapat aktif setelah pembayaran diverifikasi, dan bisa memerlukan waktu bila verifikasi dilakukan manual.",
             "Sekolah yang bekerja sama memperoleh akses bagi siswanya sesuai kesepakatan tertulis dengan sekolah, termasuk jumlah kursi dan masa berlakunya.",
+            "Saldo kredit hanya dipakai untuk membeli Learning Analytics tambahan di AyoTKA. Saldo tidak dapat ditarik tunai, ditransfer ke pengguna lain, atau diuangkan kembali. Bila sebuah analisis gagal diproses, saldo yang terpotong untuk analisis itu dikembalikan otomatis ke saldo Anda.",
             "Pengembalian dana ditangani kasus per kasus. Hubungi kami dengan bukti pembayaran.",
           ]}
         />

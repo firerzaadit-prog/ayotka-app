@@ -24,11 +24,12 @@ vi.mock("@/lib/db/prisma", () => ({
     aiAnalysis: { upsert: m.upsert },
   },
 }));
-vi.mock("@/lib/ai/gemini", () => ({ generateAnalisis: m.generate, MODEL_NAME: "model-uji" }));
+vi.mock("@/lib/ai/gemini", () => ({ generateAnalisisDenganPemakaian: m.generate, MODEL_NAME: "model-uji" }));
 
 import { buildAnalitikSekolah } from "@/lib/analytics/sekolah";
 import { buildAnalitikGlobal } from "@/lib/analytics/global";
 import { runAnalisisAi } from "@/lib/ai/analyze";
+import { taksirBebanAi } from "@/lib/billing/beban-ai";
 import type { Attempt } from "@prisma/client";
 
 const SD = { nama: "Matematika", jenjang: "SD" };
@@ -115,7 +116,7 @@ describe("Learning Analytics - prompt AI memakai nama elemen Kerangka Asesmen", 
 
   beforeEach(() => {
     m.siswa.mockResolvedValue({ nama: "Siswa", userId: "u1" });
-    m.generate.mockResolvedValue({ ringkasan: "ok" });
+    m.generate.mockResolvedValue({ hasil: { ringkasan: "ok" }, pemakaian: { tokenMasuk: 4321, tokenKeluar: 765 } });
     m.upsert.mockResolvedValue({});
   });
 
@@ -184,6 +185,57 @@ describe("Learning Analytics - prompt AI memakai nama elemen Kerangka Asesmen", 
     m.jawaban.mockResolvedValue([]);
     await runAnalisisAi(attempt);
     expect(m.upsert.mock.calls[0]![0].create.versiPrompt).toBe("2026-10-v8");
+  });
+
+  it("analisis tersimpan mencatat token riil dan taksiran beban AI soal yang sama (dasar kalibrasi harga LA)", async () => {
+    m.paket.mockResolvedValue({ nama: "Paket SD", jenjang: "SD", subject: { nama: "Matematika" } });
+    m.skor.mockResolvedValue([]);
+    m.jawaban.mockResolvedValue([soal("Data dan Ketidakpastian"), soal("Data dan Ketidakpastian")]);
+    await runAnalisisAi(attempt);
+    const { create, update } = m.upsert.mock.calls[0]![0];
+    expect(create).toMatchObject({ tokenMasuk: 4321, tokenKeluar: 765 });
+    expect(update).toMatchObject({ tokenMasuk: 4321, tokenKeluar: 765 });
+    // Taksiran = taksirBebanAi atas soal yang sama: tetap + 2 soal ('Soal diagram batang', tanpa opsi/pembahasan).
+    const diharapkan = taksirBebanAi([
+      { teks: "Soal diagram batang", pembahasan: null, opsi: [] },
+      { teks: "Soal diagram batang", pembahasan: null, opsi: [] },
+    ]);
+    expect(create.taksiranTokenMasuk).toBe(diharapkan);
+    expect(update.taksiranTokenMasuk).toBe(diharapkan);
+  });
+
+  it("taksiran memasukkan pilihan jawaban DAN pernyataan soal kategori (bukan hanya salah satunya)", async () => {
+    m.paket.mockResolvedValue({ nama: "Paket SD", jenjang: "SD", subject: { nama: "Matematika" } });
+    m.skor.mockResolvedValue([]);
+    const dasar = soal("Data dan Ketidakpastian");
+    m.jawaban.mockResolvedValue([
+      {
+        ...dasar,
+        question: {
+          ...dasar.question,
+          options: [{ id: "o1", teks: "Pilihan panjang satu yang cukup panjang", isCorrect: true }],
+          statements: [{ id: "s1", teks: "Pernyataan kategori yang juga cukup panjang sekali", correctCategoryId: "c1" }],
+          categories: [{ id: "c1", label: "Benar" }],
+        },
+      },
+    ]);
+    await runAnalisisAi(attempt);
+    const { create } = m.upsert.mock.calls[0]![0];
+    const hanyaPilihan = taksirBebanAi([{ teks: "Soal diagram batang", pembahasan: null, opsi: ["Pilihan panjang satu yang cukup panjang"] }]);
+    const keduanya = taksirBebanAi([
+      { teks: "Soal diagram batang", pembahasan: null, opsi: ["Pilihan panjang satu yang cukup panjang", "Pernyataan kategori yang juga cukup panjang sekali"] },
+    ]);
+    expect(keduanya).not.toBe(hanyaPilihan);
+    expect(create.taksiranTokenMasuk).toBe(keduanya);
+  });
+
+  it("API tak melaporkan token: kolom token dicatat kosong (null), analisis tetap tersimpan", async () => {
+    m.paket.mockResolvedValue({ nama: "Paket SD", jenjang: "SD", subject: { nama: "Matematika" } });
+    m.skor.mockResolvedValue([]);
+    m.jawaban.mockResolvedValue([]);
+    m.generate.mockResolvedValue({ hasil: { ringkasan: "ok" }, pemakaian: { tokenMasuk: null, tokenKeluar: null } });
+    await runAnalisisAi(attempt);
+    expect(m.upsert.mock.calls[0]![0].create).toMatchObject({ tokenMasuk: null, tokenKeluar: null, ringkasan: "ok" });
   });
 
   it("SMP Matematika: nama elemen tak berubah", async () => {

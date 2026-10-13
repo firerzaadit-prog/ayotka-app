@@ -1,6 +1,7 @@
 import "server-only";
 import type { PrismaClient } from "@prisma/client";
 import { filterMulai, type RentangWaktu } from "@/lib/analytics/sekolah";
+import { tentukanJenisTryOut } from "@/lib/hasil-tryout/jenis";
 
 export interface SkorEntry {
   dayaSerap: number;
@@ -40,6 +41,7 @@ export async function ambilBreakdownKategoriSekolah(
     select: {
       id: true,
       studentId: true,
+      assignmentId: true,
       package: {
         select: {
           ownerType: true,
@@ -114,19 +116,11 @@ export async function ambilBreakdownKategoriSekolah(
   };
 
   for (const a of attempts) {
-    const ownerType = a.package.ownerType;
-    const kategori = a.package.kategori;
-
-    // Tentukan kategori pengerjaan
-    const targetKeys: Array<"mandiri" | "sekolah" | "nasional"> = [];
-    if (ownerType === "sekolah") {
-      targetKeys.push("sekolah");
-    } else if (kategori === "nasional") {
-      targetKeys.push("nasional");
-    } else {
-      // Default try out individual/pusat mandiri
-      targetKeys.push("mandiri");
-    }
+    // Satu aturan jenis dengan rapor dan peringkat (lib/hasil-tryout/jenis.ts): nasional, sekolah (penugasan sekolah atau
+    // paket milik sekolah), selain itu mandiri.
+    const targetKeys: Array<"mandiri" | "sekolah" | "nasional"> = [
+      tentukanJenisTryOut({ kategori: a.package.kategori, assignmentId: a.assignmentId, ownerType: a.package.ownerType }),
+    ];
 
     const targets = targetKeys.map((k) => buckets[k]);
     targets.push(buckets.gabungan);

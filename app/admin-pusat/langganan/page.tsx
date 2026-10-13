@@ -12,6 +12,7 @@ import { TableSkeleton } from "@/components/ui/skeleton";
 import { IconWallet } from "@/components/ui/empty-state-icons";
 import { useToast } from "@/components/ui/toast";
 import { useDialog } from "@/components/ui/dialog";
+import { HargaLaPengaturan } from "@/components/billing/harga-la-pengaturan";
 
 type PlanFitur = { aiKuotaPerMapel: number; tryOutNasionalKuotaPerMapel: number };
 
@@ -79,14 +80,6 @@ export default function LanggananSettingsPage() {
   const [fiturDrafts, setFiturDrafts] = useState<Record<string, PlanFitur>>({});
   const [savingFiturId, setSavingFiturId] = useState<string | null>(null);
 
-  const [hargaLa, setHargaLa] = useState("");
-  const [hargaLaSaving, setHargaLaSaving] = useState(false);
-  const [hargaLaSaved, setHargaLaSaved] = useState(false);
-
-  const [marginLa, setMarginLa] = useState("");
-  const [marginLaSaving, setMarginLaSaving] = useState(false);
-  const [marginLaSaved, setMarginLaSaved] = useState(false);
-
   const [tiers, setTiers] = useState<VoucherTier[] | null>(null);
   const [showTierForm, setShowTierForm] = useState(false);
   const [tierForm, setTierForm] = useState(emptyTierForm);
@@ -98,23 +91,17 @@ export default function LanggananSettingsPage() {
   useEffect(() => {
     let ignore = false;
     (async () => {
-      const [planRes, bankRes, walletRes, tierRes] = await Promise.all([
+      const [planRes, bankRes, tierRes] = await Promise.all([
         fetch("/api/admin-pusat/plans"),
         fetch("/api/admin-pusat/bank-accounts"),
-        fetch("/api/admin-pusat/wallet-settings"),
         fetch("/api/admin-pusat/voucher-price-tiers"),
       ]);
       const planData = await planRes.json().catch(() => null);
       const bankData = await bankRes.json().catch(() => null);
-      const walletData = await walletRes.json().catch(() => null);
       const tierData = await tierRes.json().catch(() => null);
       if (!ignore) {
         if (planRes.ok) setPlans(planData.plans ?? []);
         if (bankRes.ok) setAccounts(bankData.bankAccounts ?? []);
-        if (walletRes.ok) {
-          setHargaLa(String(walletData.hargaLearningAnalytics));
-          setMarginLa(String(walletData.marginLearningAnalyticsPersen ?? 20));
-        }
         if (tierRes.ok) setTiers(tierData.tiers ?? []);
       }
     })();
@@ -174,32 +161,6 @@ export default function LanggananSettingsPage() {
       });
       setRefreshKey((k) => k + 1);
     }
-  }
-
-  async function handleSaveHargaLa(e: FormEvent) {
-    e.preventDefault();
-    setHargaLaSaving(true);
-    setHargaLaSaved(false);
-    const res = await fetch("/api/admin-pusat/wallet-settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ hargaLearningAnalytics: Number(hargaLa) }),
-    });
-    setHargaLaSaving(false);
-    if (res.ok) setHargaLaSaved(true);
-  }
-
-  async function handleSaveMarginLa(e: FormEvent) {
-    e.preventDefault();
-    setMarginLaSaving(true);
-    setMarginLaSaved(false);
-    const res = await fetch("/api/admin-pusat/wallet-settings", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ marginLearningAnalyticsPersen: Number(marginLa) }),
-    });
-    setMarginLaSaving(false);
-    if (res.ok) setMarginLaSaved(true);
   }
 
   async function handleTierSubmit(e: FormEvent) {
@@ -512,70 +473,8 @@ export default function LanggananSettingsPage() {
         )}
       </section>
 
-      {/* ─── Harga Learning Analytics ─── */}
-      <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Harga Learning Analytics Tambahan</h2>
-          <p className="mt-0.5 text-sm text-slate-500">
-            Harga jual satu Learning Analytics tambahan (didebit dari saldo wallet siswa) begitu jatah gratis
-            dari plan sudah habis.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-6">
-          <form onSubmit={handleSaveHargaLa} className="flex items-end gap-3">
-            <div>
-              <Label htmlFor="hargaLa">Harga Dasar (Rp)</Label>
-              <Input
-                id="hargaLa"
-                type="number"
-                min={0}
-                required
-                className="w-40"
-                value={hargaLa}
-                onChange={(e) => {
-                  setHargaLa(e.target.value);
-                  setHargaLaSaved(false);
-                }}
-              />
-            </div>
-            <Button type="submit" disabled={hargaLaSaving}>
-              {hargaLaSaving ? "Menyimpan..." : "Simpan"}
-            </Button>
-            {hargaLaSaved && <span className="text-sm text-emerald-600">Tersimpan.</span>}
-          </form>
-          <form onSubmit={handleSaveMarginLa} className="flex items-end gap-3">
-            <div>
-              <Label htmlFor="marginLa">Margin Keuntungan (%)</Label>
-              <Input
-                id="marginLa"
-                type="number"
-                min={0}
-                max={100}
-                required
-                className="w-24"
-                value={marginLa}
-                onChange={(e) => {
-                  setMarginLa(e.target.value);
-                  setMarginLaSaved(false);
-                }}
-              />
-            </div>
-            <Button type="submit" disabled={marginLaSaving}>
-              {marginLaSaving ? "Menyimpan..." : "Simpan margin"}
-            </Button>
-            {marginLaSaved && <span className="text-sm text-emerald-600">Tersimpan.</span>}
-          </form>
-          {hargaLa && marginLa && (
-            <p className="text-sm text-slate-500">
-              Harga akhir ke siswa:{" "}
-              <strong className="text-slate-800">
-                Rp{Math.ceil((Number(hargaLa) * (1 + Number(marginLa) / 100)) / 100) * 100 || 0}
-              </strong>{" "}
-              (harga dasar + {marginLa}% margin)
-            </p>
-          )}
-        </div>
-      </section>
+      {/* ─── Harga Learning Analytics (mengikuti beban AI paket) ─── */}
+      <HargaLaPengaturan />
 
       {/* ─── Diskon Grosir Mitra ─── */}
       <section className="flex flex-col gap-4">

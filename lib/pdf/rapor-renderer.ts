@@ -5,8 +5,27 @@ import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color
 import type { LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
 import { COLOR, setupFonts, type PdfFonts } from "@/lib/pdf/pdf-umum";
 import { X0, buatPenulis, gambarDaftarFokus, gambarKelompok } from "@/lib/pdf/indikator-gambar";
+import { ambilBerkasGambar, ambilGambarRaster, siapkanMedia } from "@/lib/pdf/gambar-pdf";
+import {
+  TINGGI_KEPALA,
+  gambarBlokAnalisis,
+  gambarJudulBagian,
+  gambarKartuIdentitas,
+  gambarKepala,
+  gambarLegendaTingkat,
+  gambarMedia,
+  gambarRingkasan,
+  gambarTabelHierarki,
+  potongTeks,
+  type KotakRingkasan,
+  type SelIdentitas,
+} from "@/lib/pdf/rapor-komponen";
+import { LABEL_JENIS_TRYOUT, rentangWaktuPengerjaan, type IdentitasRapor } from "@/lib/exam/jenis-tryout";
+import { parseQuestionMedia } from "@/lib/soal/media-types";
+import { formatWIB, formatWIBDate, formatWIBHariTanggal } from "@/lib/utils/datetime";
 
 type Hasil = Awaited<ReturnType<typeof buildHasil>>;
+type PerSoal = Hasil["perSoal"][number];
 type AiAnalysisDetail = {
   ringkasan?: string;
   /** Field lama (sebelum 2026-09-v7), tidak lagi ditampilkan - lihat lib/ai/version.ts. */
@@ -17,6 +36,7 @@ type AiAnalysisDetail = {
   polaKesalahan?: string;
   rekomendasi?: string[];
 } | null;
+type AiAnalysisRecord = { detailJson: AiAnalysisDetail; generatedAt?: Date | string | null } | null;
 
 const FORMAT_LABEL: Record<string, string> = {
   pg: "PG",
@@ -24,14 +44,11 @@ const FORMAT_LABEL: Record<string, string> = {
   pg_kategori: "PG Kategori",
 };
 
+const asalSitus = () => process.env.NEXT_PUBLIC_APP_URL ?? null;
+
+/** Berkas mentah dari alamat (dipakai untuk logo). null bila gagal; tidak pernah melempar. */
 export async function fetchImageBuffer(url: string): Promise<Buffer | null> {
-  try {
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
-  } catch {
-    return null;
-  }
+  return ambilBerkasGambar(url, { asalSitus: asalSitus() });
 }
 
 type Align = "center" | "justify" | "left" | "right";
@@ -95,18 +112,27 @@ async function renderSegmentWithImages(
     }
 
     const url = match[1] as string;
-    const buffer = await fetchImageBuffer(url);
+    // Hanya PNG/JPEG yang bisa dipasang pdfkit; bentuk lain (WebP, GIF) diubah dulu, dan yang tak bisa diubah dilewati
+    // dengan keterangan - dulu gambar WebP membuat seluruh rapor gagal dibuat.
+    const buffer = await ambilGambarRaster(url, { asalSitus: asalSitus() });
+    let terpasang = false;
     if (buffer) {
       // doc.image() tidak auto-pindah halaman seperti .text() - kalau tidak
       // cukup ruang, gambar digambar apa adanya lalu terpotong rata batas
       // bawah halaman. Cek dulu terhadap tinggi maksimum yang dipakai fit[].
       const maxImageHeight = 250;
-      if (doc.y + maxImageHeight > doc.page.height - doc.page.margins.bottom) {
+      if (doc.y + maxImageHeight > doc.page.height - 62) {
         doc.addPage();
       }
-      doc.image(buffer, { fit: [options.width, maxImageHeight], align: "center" });
-      doc.moveDown(0.4);
-    } else {
+      try {
+        doc.image(buffer, { fit: [options.width, maxImageHeight], align: "center" });
+        doc.moveDown(0.4);
+        terpasang = true;
+      } catch {
+        terpasang = false;
+      }
+    }
+    if (!terpasang) {
       doc.fillColor(COLOR.danger).text("[Gambar gagal dimuat]", options);
       doc.fillColor(options.color ?? COLOR.body);
       doc.moveDown(0.4);
@@ -149,7 +175,8 @@ function competencyChartHeight(count: number): number {
 
 /**
  * Grafik batang horizontal 3 warna per Elemen (gridline + sumbu 0-100%) -
- * Bagian 8.7 brief. Ambang warna SAMA persis dengan versi web (lihat
+ * Bagian 8.7 brief. Dipakai hanya bila hierarki kompetensi tidak ada (data lama), sama seperti halaman web yang
+ * jatuh ke grafik batang. Ambang warna SAMA persis dengan versi web (lihat
  * lib/exam/competency-color.ts) supaya siswa tidak melihat warna berbeda
  * untuk persentase yang sama di dua tempat. Digambar sebagai satu blok atom
  * (bukan loop per-baris dengan addPage() sendiri-sendiri) dan setiap teks
@@ -212,19 +239,19 @@ function drawCompetencyChart(
   return axisY + 16;
 }
 
-/** Watermark identitas siswa diulang di seluruh halaman - jejak anti-bocor
- * dokumen (rapor PDF adalah artefak paling gampang disebarluaskan, jadi versi
- * cetak/download ini justru paling butuh proteksi ini, sama seperti yang
- * sudah dipasang di halaman web hasil - Tiket 5.9). */
+/**
+ * Watermark identitas siswa diulang di seluruh halaman - jejak anti-bocor dokumen (rapor PDF adalah artefak paling
+ * gampang disebarluaskan, jadi versi cetak/download ini justru paling butuh proteksi ini). Sejak 12 Okt 2026 watermark HANYA
+ * ada di PDF (halaman web tidak lagi memakainya). Digambar di langkah AKHIR untuk setiap halaman (di atas isi, sangat
+ * tipis) supaya tetap terlihat di atas kartu dan pita berlatar penuh.
+ */
 function drawWatermark(doc: PDFKit.PDFDocument, label: string, fonts: PdfFonts) {
   // doc.save()/restore() cuma menyimpan graphics state (rotasi, opacity, dst) -
   // BUKAN posisi kursor doc.x/doc.y. Tiap doc.text() dalam loop ubin di bawah
   // ikut menggeser doc.x/doc.y ke titik ubin terakhir (jauh di luar halaman,
-  // dalam ruang koordinat yang sudah dirotasi). Watermark ini digambar ulang
-  // tiap ada halaman baru (event "pageAdded") - kalau posisi kursor yang rusak
-  // ini dibiarkan, panggilan .text() berikutnya di konten asli mengira halaman
-  // sudah meluap dan menambah halaman baru lagi, yang memicu watermark digambar
-  // ulang lagi, dst - satu blok konten bisa menghasilkan puluhan halaman kosong.
+  // dalam ruang koordinat yang sudah dirotasi). Kursor yang rusak itu pernah membuat panggilan .text() berikutnya
+  // mengira halaman sudah meluap dan menambah halaman baru lagi, lalu menggambar watermark lagi, dst - satu blok konten
+  // menghasilkan puluhan halaman kosong. Karena itu posisi kursor disimpan dan dikembalikan.
   const savedX = doc.x;
   const savedY = doc.y;
   doc.save();
@@ -233,7 +260,8 @@ function drawWatermark(doc: PDFKit.PDFDocument, label: string, fonts: PdfFonts) 
   // dari save()/restore(), jadi font yang dipakai di sini menjadi font aktif
   // untuk teks pertama di halaman baru - harus konsisten dengan isi rapor.
   doc.fontSize(9).font(fonts.regular).fillColor(COLOR.ink).opacity(0.06);
-  const tileW = 190;
+  // Lebar ubin mengikuti panjang teks: nama yang sangat panjang tidak boleh bertumpuk dengan ubin di sebelahnya.
+  const tileW = Math.max(190, Math.ceil(doc.widthOfString(label)) + 50);
   const tileH = 95;
   const pad = 160;
   for (let ty = -pad; ty < doc.page.height + pad; ty += tileH) {
@@ -247,18 +275,21 @@ function drawWatermark(doc: PDFKit.PDFDocument, label: string, fonts: PdfFonts) 
   doc.y = savedY;
 }
 
-function drawPageNumber(doc: PDFKit.PDFDocument, page: number) {
+/** Garis dan nomor halaman di dasar tiap halaman: "AyoTKA · Rapor Hasil Ujian · {nama}" di kiri, "Halaman N dari M" di kanan. */
+function gambarFooter(doc: PDFKit.PDFDocument, fonts: PdfFonts, nomor: number, total: number, namaSiswa: string) {
   // Teks ini sengaja diletakkan di dalam zona margin bawah (30pt dari tepi).
   // pdfkit menganggap posisi di dalam margin sebagai "konten meluap" dan diam-diam
   // menambah halaman baru kosong kalau margins.bottom tidak dinolkan dulu -
   // trik standar pdfkit untuk header/footer di area margin.
   const originalBottomMargin = doc.page.margins.bottom;
   doc.page.margins.bottom = 0;
-  doc.fontSize(8).fillColor(COLOR.faint)
-    .text(`AyoTKA · Rapor Hasil Ujian · Halaman ${page}`, 0, doc.page.height - 30, {
-      width: doc.page.width,
-      align: "center",
-    });
+  const H = doc.page.height;
+  const W = doc.page.width;
+  doc.lineWidth(0.5).moveTo(X0, H - 40).lineTo(W - X0, H - 40).strokeColor(COLOR.border).stroke();
+  doc.font(fonts.regular).fontSize(fonts.sz(7.5)).fillColor(COLOR.faint);
+  // Kiri: judul dan nama (nama panjang dipotong supaya tetap satu baris); kanan: nomor halaman.
+  doc.text(`AyoTKA · Rapor Hasil Ujian · ${potongTeks(namaSiswa, 34)}`, X0, H - 32, { width: W - 2 * X0 - 110, align: "left" });
+  doc.text(`Halaman ${nomor} dari ${total}`, W - X0 - 100, H - 32, { width: 100, align: "right" });
   doc.page.margins.bottom = originalBottomMargin;
 }
 
@@ -270,8 +301,7 @@ function gambarDayaSerapIndikator(doc: PDFKit.PDFDocument, laporan: LaporanIndik
   const { toText, tulis, pastikanMuat, dot } = buatPenulis(doc, fonts);
 
   pastikanMuat(120);
-  tulis("Daya Serap per Indikator", X0, doc.y, contentWidth, 14, COLOR.ink, true);
-  doc.moveDown(0.3);
+  gambarJudulBagian(doc, fonts, "Daya Serap per Indikator");
   tulis(toText(`${laporan.mapel} ${dot} ${laporan.label.join(" > ")}`), X0, doc.y, contentWidth, 8.5, COLOR.muted);
   doc.moveDown(0.15);
   const cakupan =
@@ -298,76 +328,303 @@ function gambarDayaSerapIndikator(doc: PDFKit.PDFDocument, laporan: LaporanIndik
 }
 
 /**
+ * Satu soal pada bagian Rincian Jawaban, urutannya sama dengan halaman web (components/hasil/rincian-jawaban.tsx):
+ * kepala (nomor, format, Benar/Salah), stimulus, teks soal, gambar (diagram dan foto), pilihan jawaban dengan penanda
+ * jawaban siswa dan kunci, baris kategori, lalu pembahasan. Keterangan gambar sengaja TIDAK dicetak (seperti di web).
+ * Diekspor agar tata letak per soal bisa diuji dari berbagai posisi awal pada halaman (tests/unit/rapor-pdf-blok-utuh.test.ts).
+ */
+export async function gambarSoal(doc: PDFKit.PDFDocument, fonts: PdfFonts, s: PerSoal, nomor: number, tampilkanKunci: boolean) {
+  const { toText, tinggi, tulis, pastikanMuat } = buatPenulis(doc, fonts);
+  const CW = doc.page.width - 2 * X0;
+  const benar = (s.skor ?? 0) >= s.skorMaks;
+  const jumlahHalaman = () => doc.bufferedPageRange().count;
+
+  // --- kepala soal ---
+  // Kepala tidak boleh tertinggal sendirian di dasar halaman: harus muat bersama isi awalnya.
+  pastikanMuat(120);
+  const yKepala = doc.y;
+  const tinggiKepala = 22;
+  doc.roundedRect(X0, yKepala, CW, tinggiKepala, 5).fill("#f1f5f9");
+  const judul = `Soal ${nomor}`;
+  doc.font(fonts.bold).fontSize(fonts.sz(10));
+  const lebarJudul = doc.widthOfString(judul);
+  tulis(judul, X0 + 10, yKepala + 6, lebarJudul + 8, 10, COLOR.ink, true);
+  tulis(`·  ${FORMAT_LABEL[s.format] ?? s.format}`, X0 + 10 + lebarJudul + 8, yKepala + 7, 200, 8.5, COLOR.faint);
+  const teksLencana = benar ? "Benar" : "Salah";
+  doc.font(fonts.bold).fontSize(fonts.sz(9));
+  const lebarLencana = doc.widthOfString(teksLencana) + 16;
+  drawBadge(doc, teksLencana, X0 + CW - 8 - lebarLencana, yKepala + 2.5, benar ? "success" : "danger", fonts);
+  doc.x = X0;
+  doc.y = yKepala + tinggiKepala + 8;
+
+  // --- stimulus ---
+  if (s.stimulus && s.stimulus.konten?.trim()) {
+    const yMulai = doc.y;
+    const halamanAwal = jumlahHalaman();
+    const judulStimulus = s.stimulus.judul?.trim();
+    if (judulStimulus) {
+      const teksJudul = `Stimulus: ${toText(judulStimulus)}`;
+      tulis(teksJudul, X0 + 12, yMulai, CW - 12, 8.5, COLOR.muted, true);
+      doc.y = yMulai + tinggi(teksJudul, 8.5, CW - 12, true) + 4;
+    }
+    doc.x = X0 + 12;
+    doc.font(fonts.regular).fontSize(fonts.sz(9.5));
+    await renderTextWithImages(doc, s.stimulus.konten, { width: CW - 12, color: COLOR.body }, fonts);
+    // Batang di kiri hanya digambar bila seluruh stimulus ada di satu halaman.
+    if (jumlahHalaman() === halamanAwal) doc.roundedRect(X0, yMulai, 2.5, Math.max(6, doc.y - yMulai - 2), 1).fill("#c7d2fe");
+    doc.x = X0;
+    doc.y += 8;
+  }
+
+  // --- teks soal ---
+  doc.x = X0;
+  doc.font(fonts.regular).fontSize(fonts.sz(10));
+  await renderTextWithImages(doc, s.teks, { width: CW, color: COLOR.ink }, fonts);
+  doc.moveDown(0.2);
+
+  // --- gambar soal (diagram SVG dan foto), sama dengan yang tampil di web ---
+  const media = parseQuestionMedia(s.media);
+  if (media) {
+    for (const item of media.items) {
+      gambarMedia(doc, fonts, await siapkanMedia(item, { asalSitus: asalSitus() }));
+    }
+  }
+
+  if (!tampilkanKunci) {
+    doc.x = X0;
+    doc.moveDown(0.8);
+    return;
+  }
+
+  // --- pilihan jawaban (PG dan PG kompleks) ---
+  // s.options dan s.statements SELALU array (bisa kosong []), tidak pernah undefined - lihat lib/exam/hasil.ts. Array
+  // kosong itu truthy di JS, jadi cek panjang eksplisit; kalau tidak, kedua blok ini sama-sama tergambar untuk tiap soal.
+  if (s.options && s.options.length > 0) {
+    const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
+    const selectedIds = new Set<string>(
+      s.format === "pg" ? (jawaban?.option_id ? [jawaban.option_id] : []) : (jawaban?.option_ids ?? []),
+    );
+    const tick = fonts.unicode ? "✓" : "[v]";
+    const cross = fonts.unicode ? "✗" : "[x]";
+    const lebarPenanda = 112;
+
+    // Ukur semua pilihan DULU supaya kelompok pilihan yang tidak terlalu tinggi tidak terpotong antar halaman.
+    const barisOpsi = s.options.map((opt) => {
+      const dipilih = selectedIds.has(opt.id);
+      let penanda = "";
+      let warna: string = COLOR.body;
+      let latar: string | null = null;
+      if (dipilih && opt.isCorrect) {
+        penanda = `${tick} Jawaban siswa (benar)`;
+        warna = COLOR.success;
+        latar = COLOR.successBg;
+      } else if (dipilih) {
+        penanda = `${cross} Jawaban siswa (salah)`;
+        warna = COLOR.danger;
+        latar = COLOR.dangerBg;
+      } else if (opt.isCorrect) {
+        penanda = `${tick} Kunci jawaban`;
+        warna = COLOR.success;
+        latar = COLOR.successBg;
+      }
+      const teksOpsi = `${opt.label}. ${opt.teks}`;
+      const bergambar = /!\[.*?\]\(.*?\)/.test(teksOpsi);
+      const teks = toText(teksOpsi);
+      const h = bergambar ? 0 : Math.max(18, tinggi(teks, 9.5, penanda ? CW - 16 - lebarPenanda : CW - 16) + 8);
+      return { teksOpsi, teks, penanda, warna, latar, bergambar, h };
+    });
+    const adaOpsiBergambar = barisOpsi.some((o) => o.bergambar);
+    const totalOpsi = 14 + barisOpsi.reduce((n, o) => n + o.h + 2, 0) + 6;
+    pastikanMuat(!adaOpsiBergambar && totalOpsi <= 320 ? totalOpsi : 40);
+    // Posisi berikutnya dihitung dari y judul, bukan dari doc.y sesudah menulis: doc.text menggeser doc.y setinggi teksnya,
+    // sehingga "doc.y += 14" membuat blok ~9pt lebih tinggi dari yang diukur di atas dan opsi terakhir bisa terlempar sendirian.
+    const yJudulOpsi = doc.y;
+    tulis("Pilihan jawaban", X0, yJudulOpsi, CW, 8.5, COLOR.muted, true);
+    doc.y = yJudulOpsi + 14;
+
+    for (const o of barisOpsi) {
+      if (o.bergambar) {
+        // Pilihan bergambar: dialirkan apa adanya (gambar tidak bisa dibingkai dengan tinggi yang diketahui di muka).
+        doc.x = X0 + 8;
+        doc.font(fonts.regular).fontSize(fonts.sz(9.5));
+        await renderTextWithImages(doc, `${o.teksOpsi}${o.penanda ? `   ${o.penanda}` : ""}`, { width: CW - 16, color: o.warna }, fonts);
+        doc.x = X0;
+        continue;
+      }
+      pastikanMuat(o.h + 3);
+      const y = doc.y;
+      if (o.latar) doc.roundedRect(X0, y, CW, o.h, 4).fill(o.latar);
+      tulis(o.teks, X0 + 8, y + 4, o.penanda ? CW - 16 - lebarPenanda : CW - 16, 9.5, o.warna);
+      if (o.penanda) tulis(o.penanda, X0 + CW - 8 - lebarPenanda, y + 5.5, lebarPenanda, 7.5, o.warna, true, "right");
+      doc.x = X0;
+      doc.y = y + o.h + 2;
+    }
+    doc.y += 6;
+  }
+
+  // --- soal kategori (PG kategori) ---
+  if (s.statements && s.statements.length > 0) {
+    // Nilai di jawabanJson untuk format pg_kategori adalah categoryId (UUID), BUKAN label - harus di-resolve lewat
+    // s.categories dulu, sama seperti halaman web. Versi sebelumnya membandingkan categoryId mentah dengan
+    // correctLabel sehingga soal pg_kategori selalu tertandai salah di rapor PDF dan menampilkan UUID mentah.
+    const pilihanSiswa =
+      typeof s.jawabanJson === "object" && s.jawabanJson !== null && !Array.isArray(s.jawabanJson)
+        ? (s.jawabanJson as Record<string, string>)
+        : {};
+    const teksKategori = s.categories && s.categories.length > 0 ? `Pilihan kategori: ${s.categories.map((c) => c.label).join("  /  ")}` : null;
+    const hKategori = teksKategori ? tinggi(teksKategori, 8.5, CW) + 4 : 0;
+    const barisPernyataan = s.statements.map((st) => {
+      const categoryId = pilihanSiswa[st.id];
+      const siswaJawab = categoryId ? (s.categories?.find((c) => c.id === categoryId)?.label ?? "Kosong") : "Kosong";
+      const benarBaris = siswaJawab === st.correctLabel;
+      const teksPernyataan = `- ${toText(st.teks)}`;
+      const keterangan = `Siswa: ${siswaJawab}${benarBaris ? " (benar)" : ` (Kunci: ${st.correctLabel})`}`;
+      const hP = tinggi(teksPernyataan, 9.5, CW - 8);
+      const hK = tinggi(keterangan, 9, CW - 20);
+      return { teksPernyataan, keterangan, benarBaris, hP, hK };
+    });
+    // Tiap baris di bawah memeriksa ruang setinggi hP + hK + 8 (jarak antar baris 6 + cadangan 2): total harus memuat cadangan itu.
+    const totalKategori = 13 + hKategori + barisPernyataan.reduce((n, b) => n + b.hP + b.hK + 6, 0) + 2;
+    pastikanMuat(totalKategori <= 320 ? totalKategori : 46);
+    const yJudulKategori = doc.y;
+    tulis("Kunci & Jawaban Siswa", X0, yJudulKategori, CW, 8.5, COLOR.muted, true);
+    let yKategori = yJudulKategori + 13;
+    if (teksKategori) {
+      tulis(teksKategori, X0, yKategori, CW, 8.5, COLOR.muted);
+      yKategori += hKategori;
+    }
+    doc.y = yKategori;
+    for (const b of barisPernyataan) {
+      pastikanMuat(b.hP + b.hK + 8);
+      const y = doc.y;
+      tulis(b.teksPernyataan, X0 + 8, y, CW - 8, 9.5, COLOR.body);
+      tulis(b.keterangan, X0 + 20, y + b.hP + 1, CW - 20, 9, b.benarBaris ? COLOR.success : COLOR.danger, true);
+      doc.x = X0;
+      doc.y = y + b.hP + b.hK + 6;
+    }
+  }
+
+  // --- pembahasan ---
+  if (s.pembahasan?.trim()) {
+    doc.moveDown(0.3);
+    const adaGambar = /!\[.*?\]\(.*?\)/.test(s.pembahasan);
+    const teks = toText(s.pembahasan.replace(/\s+\n/g, "\n"));
+    const lebar = CW - 22;
+    const hTeks = adaGambar ? 0 : tinggi(teks, 9.5, lebar);
+    const kapasitas = doc.page.height - 62 - 48;
+    if (!adaGambar && hTeks + 30 <= kapasitas * 0.9) {
+      // Kotak pembahasan: dibingkai bila muat dalam satu halaman, dan tidak dipotong antar halaman.
+      pastikanMuat(hTeks + 30);
+      const y = doc.y;
+      doc.roundedRect(X0, y, CW, hTeks + 28, 6).fillAndStroke(COLOR.cardBg, COLOR.border);
+      doc.roundedRect(X0, y, 3.5, hTeks + 28, 1.5).fill(COLOR.primaryFrom);
+      tulis("Pembahasan", X0 + 14, y + 8, lebar, 9, COLOR.primaryFrom, true);
+      tulis(teks, X0 + 14, y + 22, lebar, 9.5, COLOR.muted);
+      doc.x = X0;
+      doc.y = y + hTeks + 28 + 4;
+    } else {
+      pastikanMuat(40);
+      const yJudulPembahasan = doc.y;
+      tulis("Pembahasan", X0, yJudulPembahasan, CW, 9, COLOR.primaryFrom, true);
+      doc.y = yJudulPembahasan + 14;
+      doc.x = X0;
+      doc.font(fonts.regular).fontSize(fonts.sz(9.5));
+      await renderTextWithImages(doc, s.pembahasan, { width: CW, color: COLOR.muted }, fonts);
+    }
+  }
+
+  doc.x = X0;
+  doc.moveDown(0.9);
+  const yGaris = doc.y;
+  if (yGaris < doc.page.height - 62) doc.rect(X0, yGaris, CW, 0.6).fill(COLOR.border);
+  doc.y = yGaris + 14;
+}
+
+/** Awal-akhir 'Dianalisis pada ...' untuk bagian Learning Analytics; null bila tanggalnya tidak ada atau tidak sah. */
+function tanggalAnalisis(nilai: Date | string | null | undefined): string | null {
+  if (!nilai) return null;
+  const tanggal = typeof nilai === "string" ? new Date(nilai) : nilai;
+  return Number.isNaN(tanggal.getTime()) ? null : formatWIB(tanggal, "d MMMM yyyy HH.mm");
+}
+
+/**
  * Render seluruh isi rapor ke PDFDocument yang sudah dibuat pemanggil (route
  * yang menangani auth/DB, atau skrip uji visual dengan data tiruan). Dipisah
  * dari route supaya bisa diuji dengan data mock tanpa perlu DB/sesi asli.
+ *
+ * Susunannya mengikuti halaman web rapor (app/siswa/(shell)/hasil/[id]/page.tsx): nilai (tanpa peringkat: lihat catatan di
+ * bawah), Peta Kompetensi, Daya Serap per Indikator, Analisis Learning Analytics, lalu Rincian Jawaban. Ditambah kepala dan
+ * kartu identitas (nama, asal sekolah, jenis Try Out, kode soal, tanggal ujian) yang hanya ada di PDF.
+ * `identitas` boleh kosong (pemanggil lama): bagian yang tidak diketahui ditulis "-".
  */
 export async function renderRaporPdf(
   doc: PDFKit.PDFDocument,
   hasil: Hasil,
-  aiAnalysis: { detailJson: AiAnalysisDetail } | null,
+  aiAnalysis: AiAnalysisRecord,
   logoBuffer: Buffer | null,
+  identitas: IdentitasRapor | null = null,
 ) {
   const contentWidth = doc.page.width - 96;
   const watermarkLabel = `${hasil.siswa.nama} · ${hasil.siswa.idSamar}`;
   const fonts = setupFonts(doc);
   doc.font(fonts.regular);
 
-  drawWatermark(doc, watermarkLabel, fonts);
-  doc.on("pageAdded", () => {
-    drawWatermark(doc, watermarkLabel, fonts);
+  const mapelJenjang = identitas ? [identitas.mataPelajaran, identitas.jenjang].filter(Boolean).join(" · ") : "";
+
+  // Informasi dokumen (judul di tab pembaca PDF, properti berkas).
+  doc.info.Title = `Rapor Hasil Ujian - ${potongTeks(hasil.siswa.nama, 80)}`;
+  doc.info.Author = "AyoTKA";
+  doc.info.Creator = "AyoTKA";
+  doc.info.Subject = potongTeks(hasil.package.nama, 120);
+
+  // --- KEPALA ---
+  gambarKepala(doc, fonts, {
+    logo: logoBuffer,
+    jenisLabel: identitas ? LABEL_JENIS_TRYOUT[identitas.jenisTryOut] : null,
+    subjudul: mapelJenjang || null,
+    dicetak: formatWIBDate(new Date()).replace(/ WIB$/, ""),
   });
 
-  // --- HEADER: gradien indigo->violet, logo, judul, identitas ---
-  const headerH = 132;
-  const gradient = doc.linearGradient(0, 0, doc.page.width, headerH);
-  gradient.stop(0, COLOR.primaryFrom).stop(1, COLOR.primaryTo);
-  doc.rect(0, 0, doc.page.width, headerH).fill(gradient);
-
-  if (logoBuffer) {
-    try {
-      doc.image(logoBuffer, 48, 34, { width: 34, height: 34, fit: [34, 34] });
-    } catch {
-      // Format tidak didukung pdfkit - lanjut tanpa logo, jangan gagalkan seluruh rapor.
-    }
-  }
-  doc.fillColor("#ffffff").fontSize(fonts.sz(11)).font(fonts.bold).text("AyoTKA", 90, 40);
-  doc.fillColor("#ffffff").fontSize(fonts.sz(20)).font(fonts.bold).text("Rapor Hasil Ujian", 48, 62);
-  doc.font(fonts.regular);
-
-  doc.fontSize(fonts.sz(10)).fillColor("#e0e7ff").text(hasil.package.nama, 48, 48, { align: "right", width: contentWidth });
-  doc.fillColor("#c7d2fe").text(hasil.siswa.nama, { align: "right", width: contentWidth });
-  doc.fillColor("#c7d2fe").fontSize(fonts.sz(9)).text(hasil.siswa.idSamar, { align: "right", width: contentWidth });
-
-  doc.y = headerH + 24;
+  // --- IDENTITAS ---
+  const mulai = identitas?.mulaiAt ?? hasil.attempt.mulaiAt;
+  const selesai = identitas?.selesaiAt ?? hasil.attempt.selesaiAt ?? null;
+  const sel: SelIdentitas[] = [
+    { label: "Nama Siswa", nilai: hasil.siswa.nama, sub: hasil.siswa.idSamar ? `ID Peserta ${hasil.siswa.idSamar}` : null },
+    { label: "Asal Sekolah", nilai: identitas?.asalSekolah ?? "-" },
+    { label: "Jenis Try Out", nilai: identitas ? LABEL_JENIS_TRYOUT[identitas.jenisTryOut] : "-" },
+    { label: "Mata Pelajaran", nilai: mapelJenjang || "-" },
+    { label: "Nama Paket", nilai: hasil.package.nama },
+    { label: "Kode Soal", nilai: identitas?.kodeSoal ?? "-" },
+    { label: "Tanggal Ujian", nilai: mulai instanceof Date && !Number.isNaN(mulai.getTime()) ? formatWIBHariTanggal(mulai) : "-" },
+    { label: "Waktu Pengerjaan", nilai: mulai instanceof Date ? rentangWaktuPengerjaan(mulai, selesai) : "-" },
+  ];
+  let y = gambarKartuIdentitas(doc, fonts, TINGGI_KEPALA + 16, sel);
 
   // --- RINGKASAN NILAI ---
-  const summaryY = doc.y;
-  const summaryH = 74;
-  doc.roundedRect(48, summaryY, contentWidth, summaryH, 10).fill(COLOR.cardBg).stroke(COLOR.border);
-
-  doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text("NILAI AKHIR", 68, summaryY + 16);
-  doc.fontSize(fonts.sz(30)).font(fonts.bold).fillColor(COLOR.primaryFrom)
-    .text(hasil.attempt.skorAkhir?.toFixed(1) ?? "-", 68, summaryY + 30);
-  doc.font(fonts.regular);
-
   const totalBenar = hasil.perSoal.filter((s) => (s.skor ?? 0) >= s.skorMaks).length;
-  const statCol2X = 68 + 150;
-  doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text("JAWABAN BENAR", statCol2X, summaryY + 16);
-  doc.fontSize(fonts.sz(16)).font(fonts.bold).fillColor(COLOR.ink)
-    .text(`${totalBenar} / ${hasil.perSoal.length}`, statCol2X, summaryY + 32);
-  doc.font(fonts.regular);
-
-  const statCol3X = statCol2X + 150;
-  const statusLabel =
-    hasil.attempt.status === "kedaluwarsa" ? "Waktu habis (auto-submit)" : "Selesai";
-  doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text("STATUS", statCol3X, summaryY + 16);
-  doc.fontSize(fonts.sz(11)).font(fonts.bold).fillColor(COLOR.ink).text(statusLabel, statCol3X, summaryY + 34, {
-    width: contentWidth - (statCol3X - 48) - 20,
-  });
-  doc.font(fonts.regular);
-
-  doc.y = summaryY + summaryH + 10;
+  const totalSoal = hasil.perSoal.length;
+  const naivePct = totalSoal > 0 ? (totalBenar / totalSoal) * 100 : 0;
+  const kotak: KotakRingkasan[] = [
+    {
+      label: "Nilai Akhir",
+      nilai: hasil.attempt.skorAkhir != null ? hasil.attempt.skorAkhir.toFixed(0) : "-",
+      sub: "dari 100",
+      warna: COLOR.primaryFrom,
+      utama: true,
+    },
+    { label: "Jawaban Benar", nilai: `${totalBenar} / ${totalSoal}`, sub: `${naivePct.toFixed(0)}% soal benar`, warna: COLOR.ink },
+    {
+      label: "Status",
+      nilai: hasil.attempt.status === "kedaluwarsa" ? "Waktu habis" : "Selesai",
+      sub: hasil.attempt.status === "kedaluwarsa" ? "dikumpulkan otomatis" : "dikumpulkan",
+      warna: hasil.attempt.status === "kedaluwarsa" ? COLOR.warnText : COLOR.success,
+    },
+  ];
+  // Peringkat sengaja TIDAK dicetak di PDF (permintaan user, 13 Okt 2026): peringkat berubah-ubah seiring peserta lain
+  // menyelesaikan try out, sedangkan PDF adalah potret tetap yang bisa dipegang berbulan-bulan dan akan berbeda dari angka
+  // di web. Peringkat Try Out Nasional tetap tampil hidup di halaman hasil (web); nama peserta lain tidak pernah dicetak.
+  y = gambarRingkasan(doc, fonts, y + 14, kotak);
+  doc.y = y + 10;
 
   // "Nilai Akhir" adalah skor tertimbang (tiap soal punya bobot sendiri,
   // penjumlahan skor/skor-maks × 100 - lihat lib/exam/scoring.ts), BUKAN
@@ -375,7 +632,6 @@ export async function renderRaporPdf(
   // di sebelahnya. Kalau bobot antar soal seragam kedua angka ini otomatis
   // sama, tapi kalau tidak, angkanya bisa terpaut cukup jauh dan terlihat
   // seperti salah hitung padahal bukan - beri catatan hanya saat itu terjadi.
-  const naivePct = hasil.perSoal.length > 0 ? (totalBenar / hasil.perSoal.length) * 100 : 0;
   if (Math.abs(naivePct - (hasil.attempt.skorAkhir ?? 0)) > 1) {
     doc.fontSize(fonts.sz(8)).fillColor(COLOR.faint).text(
       "Catatan: Nilai Akhir adalah skor tertimbang (tiap soal bisa punya bobot berbeda), bukan sekadar persentase jumlah soal benar.",
@@ -385,238 +641,72 @@ export async function renderRaporPdf(
     );
     doc.moveDown(0.6);
   }
-  doc.moveDown(0.8);
+  doc.x = X0;
+  doc.y += 14;
 
   // --- PETA KOMPETENSI ---
   if (hasil.elemenScores.length > 0) {
-    const chartH = competencyChartHeight(hasil.elemenScores.length);
-    // Chart digambar sebagai satu blok - kalau tidak cukup muat di sisa
-    // halaman ini, pindah halaman DULU (bukan di tengah-tengah menggambar).
-    if (doc.y + 44 + chartH > doc.page.height - 48) doc.addPage();
-
-    doc.fontSize(fonts.sz(14)).font(fonts.bold).fillColor(COLOR.ink).text("Peta Kompetensi", 48, doc.y);
-    doc.font(fonts.regular);
-    doc.moveDown(0.8);
-
-    doc.y = drawCompetencyChart(doc, hasil.elemenScores, 48, doc.y, contentWidth, fonts);
-
-    // Legenda: "●" dan "≥" tidak ada di font default (WinAnsi) - dulu tampil
-    // sebagai "%Ï Baik ("e70%)". Di mode cadangan diganti padanan ASCII.
-    const dot = fonts.unicode ? "●" : "•";
-    const gte = fonts.unicode ? "≥" : ">=";
-    const legendY = doc.y;
-    doc.fontSize(fonts.sz(7.5)).fillColor(COMPETENCY_TIER_HEX.baik).text(`${dot} Baik (${gte}70%)`, 48, legendY, { continued: true, lineBreak: false });
-    doc.fillColor(COMPETENCY_TIER_HEX.cukup).text(`   ${dot} Cukup (50-69%)`, { continued: true, lineBreak: false });
-    doc.fillColor(COMPETENCY_TIER_HEX.kurang).text(`   ${dot} Perlu latihan (<50%)`, { lineBreak: false });
-    doc.y = legendY + 14;
-    doc.moveDown(0.6);
+    const adaHierarki = Boolean(hasil.hierarkiKompetensi && hasil.hierarkiKompetensi.length > 0);
+    gambarJudulBagian(doc, fonts, "Peta Kompetensi", adaHierarki ? "Capaianmu pada percobaan ini, per Elemen › Subelemen › Kompetensi." : null);
+    if (adaHierarki) {
+      gambarTabelHierarki(doc, fonts, hasil.hierarkiKompetensi!);
+    } else {
+      const chartH = competencyChartHeight(hasil.elemenScores.length);
+      // Chart digambar sebagai satu blok - kalau tidak cukup muat di sisa halaman ini, pindah halaman DULU.
+      if (doc.y + chartH > doc.page.height - 62) doc.addPage();
+      doc.y = drawCompetencyChart(doc, hasil.elemenScores, 48, doc.y, contentWidth, fonts);
+    }
+    gambarLegendaTingkat(doc, fonts);
+    doc.y += 4;
   }
 
   // --- DAYA SERAP PER INDIKATOR (hanya bila ada soal berindikator resmi) ---
   if (hasil.indikator) {
     gambarDayaSerapIndikator(doc, hasil.indikator, fonts, contentWidth);
+    doc.x = X0;
+    doc.y += 10;
   }
 
   // --- ANALISIS LEARNING ANALYTICS ---
   const analysis = aiAnalysis?.detailJson ?? null;
   if (analysis) {
-    if (doc.y > doc.page.height - 220) doc.addPage();
-
-    doc.fontSize(fonts.sz(14)).font(fonts.bold).fillColor(COLOR.ink).text("Analisis Learning Analytics", 48, doc.y);
-    doc.font(fonts.regular);
-    doc.moveDown(0.4);
-
-    const accentY = doc.y;
-    doc.rect(48, accentY, contentWidth, 3).fill(COLOR.primaryFrom);
-    doc.y = accentY + 14;
-
-    doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Ringkasan Kemampuan");
-    doc.font(fonts.regular).fontSize(fonts.sz(9.5)).fillColor(COLOR.body).text(analysis.ringkasan || "-", {
-      width: contentWidth,
-      align: "justify",
-    });
-    doc.moveDown(0.7);
-
+    gambarJudulBagian(doc, fonts, "Analisis Learning Analytics", tanggalAnalisis(aiAnalysis?.generatedAt) ? `Dianalisis pada ${tanggalAnalisis(aiAnalysis?.generatedAt)}` : null);
+    gambarBlokAnalisis(doc, fonts, { judul: "Ringkasan Kemampuan", warna: COLOR.primaryFrom, paragraf: [analysis.ringkasan || "-"] });
     const kelebihan = analysis.kelebihanSiswa || analysis.levelKognitif;
-    if (kelebihan) {
-      doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Kelebihan Siswa");
-      doc.font(fonts.regular).fontSize(fonts.sz(9.5)).fillColor(COLOR.body)
-        .text(kelebihan, { width: contentWidth, align: "justify" });
-      doc.moveDown(0.7);
-    }
-
+    if (kelebihan) gambarBlokAnalisis(doc, fonts, { judul: "Kelebihan Siswa", warna: COLOR.success, paragraf: [kelebihan] });
     const kekurangan = analysis.kekuranganSiswa || analysis.polaKesalahan;
-    if (kekurangan) {
-      doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Kekurangan Siswa");
-      doc.font(fonts.regular).fontSize(fonts.sz(9.5)).fillColor(COLOR.body)
-        .text(kekurangan, { width: contentWidth, align: "justify" });
-      doc.moveDown(0.7);
-    }
-
+    if (kekurangan) gambarBlokAnalisis(doc, fonts, { judul: "Kekurangan Siswa", warna: COLOR.danger, paragraf: [kekurangan] });
     if (analysis.rekomendasi && analysis.rekomendasi.length > 0) {
-      doc.fontSize(fonts.sz(10.5)).font(fonts.bold).fillColor(COLOR.ink).text("Rekomendasi Belajar");
-      doc.font(fonts.regular);
-      doc.moveDown(0.2);
-      for (const rec of analysis.rekomendasi) {
-        doc.fontSize(fonts.sz(9.5)).fillColor(COLOR.body).text(`•  ${rec}`, { width: contentWidth, align: "justify" });
-      }
+      gambarBlokAnalisis(doc, fonts, { judul: "Rekomendasi Belajar", warna: COLOR.warnText, daftar: analysis.rekomendasi });
     }
-
-    doc.moveDown(0.6);
-    doc.fontSize(fonts.sz(8)).fillColor(COLOR.faint)
-      .text("Analisis ini dibuat otomatis oleh AI sebagai alat bantu belajar, bukan penilaian final.", {
-        align: "center",
-        width: contentWidth,
-      });
-    doc.moveDown(1.5);
+    const { tulis, pastikanMuat } = buatPenulis(doc, fonts);
+    pastikanMuat(24);
+    tulis("Analisis Learning Analytics ini dibuat otomatis oleh AI sebagai alat bantu belajar, bukan penilaian final.", X0, doc.y, contentWidth, 8, COLOR.faint, false, "center");
+    doc.x = X0;
+    doc.y += 24;
   }
 
   // --- RINCIAN JAWABAN ---
   doc.addPage();
-  doc.fontSize(fonts.sz(14)).font(fonts.bold).fillColor(COLOR.ink).text("Rincian Jawaban", 48, 48);
-  doc.font(fonts.regular);
-  doc.moveDown(0.6);
-
+  gambarJudulBagian(
+    doc,
+    fonts,
+    "Rincian Jawaban",
+    totalSoal > 0 ? `${totalSoal} soal · ${totalBenar} benar · ${totalSoal - totalBenar} salah` : null,
+  );
+  if (totalSoal === 0) {
+    const { tulis } = buatPenulis(doc, fonts);
+    tulis("Tidak ada soal pada percobaan ini.", X0, doc.y, contentWidth, 9, COLOR.muted);
+  }
   for (let i = 0; i < hasil.perSoal.length; i++) {
-    const s = hasil.perSoal[i]!;
-    const benar = (s.skor ?? 0) >= s.skorMaks;
-
-    if (doc.y > doc.page.height - 150) doc.addPage();
-
-    // Y diambil eksplisit sebelum menggambar heading - teks dengan lineBreak:false
-    // (dipakai untuk heading "Soal N · Format" dan drawBadge) tidak memajukan
-    // doc.x/doc.y secara dapat diprediksi seperti teks alur normal. Kalau
-    // panggilan berikutnya (isi soal) mengandalkan doc.x/doc.y apa adanya
-    // sesudah itu, hasilnya bisa tumpang tindih (Y nyangkut di baris yang sama)
-    // atau ke-wrap jadi kolom sempit (X nyangkut dekat tepi kanan bekas badge).
-    const headingY = doc.y;
-    doc.fontSize(fonts.sz(11)).font(fonts.bold).fillColor(COLOR.ink)
-      .text(`Soal ${i + 1}`, 48, headingY, { continued: true, lineBreak: false });
-    doc.font(fonts.regular).fillColor(COLOR.faint)
-      .text(`  ·  ${FORMAT_LABEL[s.format] ?? s.format}`, { continued: false, lineBreak: false });
-    drawBadge(doc, benar ? "Benar" : "Salah", doc.page.width - 48 - 60, headingY - 3, benar ? "success" : "danger", fonts);
-    doc.x = 48;
-    doc.y = headingY + 24;
-
-    await renderTextWithImages(doc, s.teks, { width: contentWidth, color: COLOR.body }, fonts);
-    doc.moveDown(0.3);
-
-    if (hasil.canShowPembahasan) {
-      // s.options dan s.statements SELALU array (bisa kosong []), tidak pernah
-      // undefined - lihat lib/exam/hasil.ts. Array kosong itu truthy di JS,
-      // jadi cek panjang eksplisit; kalau tidak, kedua blok ini sama-sama
-      // renders untuk tiap soal (mis. soal pg_kategori ikut menampilkan
-      // "Jawaban Siswa:"/"Kunci Jawaban:" kosong dari cabang options, dan
-      // soal pg/pg_kompleks ikut menampilkan "Kunci & Jawaban Siswa:" kosong
-      // dari cabang statements).
-      if (s.options && s.options.length > 0) {
-        const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
-        const selectedIds = new Set<string>(
-          s.format === "pg" ? (jawaban?.option_id ? [jawaban.option_id] : []) : (jawaban?.option_ids ?? []),
-        );
-
-        // Semua pilihan dicetak lengkap (A, B, C, D, ...) seperti di layar,
-        // bukan cuma yang dipilih siswa dan kuncinya - versi lama membuat
-        // rapor tidak bisa dibaca sebagai soal utuh (pilihan lain yang
-        // menjadi pengecoh tidak kelihatan). Penanda di ujung baris:
-        // hijau = benar (dipilih benar / kunci yang terlewat), merah =
-        // pilihan siswa yang salah, tanpa warna = pilihan lain.
-        const tick = fonts.unicode ? "✓" : "[v]";
-        const cross = fonts.unicode ? "✗" : "[x]";
-
-        doc.fontSize(fonts.sz(9.5)).font(fonts.bold).fillColor(COLOR.ink).text("Pilihan jawaban:");
-        doc.font(fonts.regular);
-        for (const opt of s.options) {
-          const dipilih = selectedIds.has(opt.id);
-          let marker = "";
-          let color: string = COLOR.body;
-          if (dipilih && opt.isCorrect) {
-            marker = `   ${tick} Jawaban siswa (benar)`;
-            color = COLOR.success;
-          } else if (dipilih) {
-            marker = `   ${cross} Jawaban siswa (salah)`;
-            color = COLOR.danger;
-          } else if (opt.isCorrect) {
-            marker = `   ${tick} Kunci jawaban`;
-            color = COLOR.success;
-          }
-          await renderTextWithImages(
-            doc,
-            `${opt.label}. ${opt.teks}${marker}`,
-            { width: contentWidth, color },
-            fonts,
-          );
-        }
-
-        // Ringkasan satu baris untuk dibaca sekilas.
-        const allOptions = s.options;
-        const labelsOf = (pred: (o: (typeof allOptions)[number]) => boolean) =>
-          allOptions.filter(pred).map((o) => o.label).join(", ");
-        const dipilihLabel = labelsOf((o) => selectedIds.has(o.id));
-        const kunciLabel = labelsOf((o) => o.isCorrect);
-        doc.moveDown(0.1);
-        doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text(
-          `Jawaban siswa: ${dipilihLabel || "tidak dijawab"}   ·   Kunci: ${kunciLabel || "-"}`,
-          { width: contentWidth },
-        );
-      }
-
-      if (s.statements && s.statements.length > 0) {
-        // Nilai di jawabanJson untuk format pg_kategori adalah categoryId (UUID),
-        // BUKAN label - harus di-resolve lewat s.categories dulu, sama seperti
-        // halaman web (app/siswa/hasil/[id]/page.tsx). Versi sebelumnya
-        // membandingkan categoryId mentah langsung dengan correctLabel (string
-        // pendek seperti "Benar"/"Salah"), yang tidak akan pernah cocok -
-        // membuat soal pg_kategori selalu tertandai salah di rapor PDF
-        // walaupun jawabannya benar, dan menampilkan UUID mentah alih-alih
-        // nama kategori yang bisa dibaca.
-        const studentChoices =
-          typeof s.jawabanJson === "object" && s.jawabanJson !== null && !Array.isArray(s.jawabanJson)
-            ? (s.jawabanJson as Record<string, string>)
-            : {};
-
-        doc.fontSize(fonts.sz(9.5)).font(fonts.bold).fillColor(COLOR.ink).text("Kunci & Jawaban Siswa:");
-        doc.font(fonts.regular);
-        if (s.categories && s.categories.length > 0) {
-          doc.fontSize(fonts.sz(9)).fillColor(COLOR.muted).text(
-            `Pilihan kategori: ${s.categories.map((c) => c.label).join("  /  ")}`,
-            { width: contentWidth },
-          );
-        }
-        for (const st of s.statements) {
-          const categoryId = studentChoices[st.id];
-          const siswaJawab = categoryId
-            ? (s.categories?.find((c) => c.id === categoryId)?.label ?? "Kosong")
-            : "Kosong";
-          const isCorrect = siswaJawab === st.correctLabel;
-
-          doc.fontSize(fonts.sz(9.5)).fillColor(COLOR.body).text(
-            `- ${latexToPlainText(st.teks, { unicode: fonts.unicode })}`,
-            { width: contentWidth },
-          );
-          doc.fillColor(isCorrect ? COLOR.success : COLOR.danger)
-            .text(`  Siswa: ${siswaJawab}${isCorrect ? " (benar)" : ` (Kunci: ${st.correctLabel})`}`, {
-              width: contentWidth,
-            });
-        }
-      }
-
-      if (s.pembahasan) {
-        doc.moveDown(0.4);
-        doc.fontSize(fonts.sz(9.5)).font(fonts.bold).fillColor(COLOR.ink).text("Pembahasan:");
-        doc.font(fonts.regular);
-        await renderTextWithImages(doc, s.pembahasan, { width: contentWidth, color: COLOR.muted }, fonts);
-      }
-    }
-
-    doc.moveDown(0.8);
-    doc.rect(48, doc.y, contentWidth, 1).fill(COLOR.border);
-    doc.moveDown(1);
+    await gambarSoal(doc, fonts, hasil.perSoal[i]!, i + 1, Boolean(hasil.canShowPembahasan));
   }
 
+  // --- LANGKAH AKHIR: watermark (hanya di PDF) dan footer di setiap halaman ---
   const range = doc.bufferedPageRange();
   for (let i = 0; i < range.count; i++) {
     doc.switchToPage(range.start + i);
-    drawPageNumber(doc, i + 1);
+    drawWatermark(doc, watermarkLabel, fonts);
+    gambarFooter(doc, fonts, i + 1, range.count, hasil.siswa.nama);
   }
 }

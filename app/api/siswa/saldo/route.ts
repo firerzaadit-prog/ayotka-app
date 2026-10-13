@@ -3,7 +3,8 @@ import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { createSnapTransaction } from "@/lib/billing/midtrans";
-import { getSaldo, getHargaLearningAnalytics } from "@/lib/billing/saldo";
+import { getSaldo, getKonfigHargaLA } from "@/lib/billing/saldo";
+import { rentangHargaLA } from "@/lib/billing/harga-la";
 import { emailUntukCheckout } from "@/lib/billing/email-pembayaran";
 import { saldoTopupSchema, SALDO_TOPUP_DENOMINASI } from "@/lib/validations/saldo";
 import {
@@ -33,9 +34,9 @@ export async function GET() {
     return NextResponse.json({ error: "Profil siswa tidak ditemukan." }, { status: 404 });
   }
 
-  const [saldo, hargaLearningAnalytics, riwayat] = await Promise.all([
+  const [saldo, konfigHargaLA, riwayat] = await Promise.all([
     getSaldo(student.id),
-    getHargaLearningAnalytics(),
+    getKonfigHargaLA(),
     prisma.saldoTransaction.findMany({
       where: { studentId: student.id, status: { not: "pending" } },
       orderBy: { createdAt: "desc" },
@@ -68,7 +69,12 @@ export async function GET() {
     saldo,
     /** Email yang dipakai di checkout affiliate.id (email akun, atau alamat pembayaran khusus akun NISN), untuk petunjuk di halaman. */
     email: emailCheckout,
-    hargaLearningAnalytics,
+    // Harga Learning Analytics tambahan mengikuti beban AI paket (Rp min sampai Rp maks); harga pastinya
+    // tampil di halaman petunjuk ujian dan di kartu Learning Analytics hasil ujian. hargaLearningAnalytics (= harga
+    // termurah) hanya dipertahankan untuk halaman Wallet lama yang masih terbuka di peramban saat versi baru dipasang.
+    hargaLaMin: rentangHargaLA(konfigHargaLA).min,
+    hargaLaMaks: rentangHargaLA(konfigHargaLA).maks,
+    hargaLearningAnalytics: rentangHargaLA(konfigHargaLA).min,
     denominasi: affiliateTopup
       ? SALDO_TOPUP_DENOMINASI.filter((n) => Boolean(affiliateTopup[n]))
       : SALDO_TOPUP_DENOMINASI,

@@ -11,7 +11,7 @@ const m = vi.hoisted(() => ({
   getAiKuotaRemaining: vi.fn(),
   debitSaldoUntukAnalisis: vi.fn(),
   kembalikanSaldoAnalisis: vi.fn(),
-  getHargaLearningAnalytics: vi.fn(),
+  getHargaLaPaket: vi.fn(),
   wasAttemptFreeTrial: vi.fn(),
   finishProcessing: vi.fn(),
   setLastError: vi.fn(),
@@ -35,7 +35,7 @@ vi.mock("@/lib/billing/plan-fitur", () => ({ getAiKuotaRemaining: m.getAiKuotaRe
 vi.mock("@/lib/billing/saldo", () => ({
   debitSaldoUntukAnalisis: m.debitSaldoUntukAnalisis,
   kembalikanSaldoAnalisis: m.kembalikanSaldoAnalisis,
-  getHargaLearningAnalytics: m.getHargaLearningAnalytics,
+  getHargaLaPaket: m.getHargaLaPaket,
 }));
 vi.mock("@/lib/billing/entitlements", () => ({ wasAttemptFreeTrial: m.wasAttemptFreeTrial }));
 vi.mock("@/lib/utils/rate-limited-dispatch", () => ({ runWithRateLimit: vi.fn() }));
@@ -49,7 +49,7 @@ beforeEach(() => {
   m.attemptFindUnique.mockResolvedValue(ATTEMPT);
   m.attemptCount.mockResolvedValue(0);
   m.packageFindUnique.mockResolvedValue({ subjectId: "mat", kategori: "mandiri", subject: { nama: "Matematika" } });
-  m.getHargaLearningAnalytics.mockResolvedValue(9000);
+  m.getHargaLaPaket.mockResolvedValue(9000);
   m.debitSaldoUntukAnalisis.mockResolvedValue(true);
   m.kembalikanSaldoAnalisis.mockResolvedValue(undefined);
   m.runAnalisisAi.mockResolvedValue({});
@@ -68,6 +68,8 @@ describe("prosesSatuAnalisis - pendanaan Learning Analytics", () => {
     expect(hasil).toBe("selesai");
     expect(m.getAiKuotaRemaining).not.toHaveBeenCalled();
     expect(m.debitSaldoUntukAnalisis).toHaveBeenCalledWith(expect.objectContaining({ harga: 9000, studentId: "siswa-1" }));
+    // harga dihitung dari PAKET percobaan ini (banyaknya soal), bukan angka tunggal
+    expect(m.getHargaLaPaket).toHaveBeenCalledWith("paket-1");
     expect(m.runAnalisisAi).toHaveBeenCalledWith(ATTEMPT, "saldo");
     expect(m.kembalikanSaldoAnalisis).not.toHaveBeenCalled();
   });

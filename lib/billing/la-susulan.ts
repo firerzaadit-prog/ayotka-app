@@ -5,7 +5,7 @@ import { isProcessing } from "@/lib/ai/analysis-guard";
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota } from "@/lib/ai/auto-trigger-quota";
 import { tentukanPendanaanAttempt } from "@/lib/billing/pendanaan-la";
-import { getHargaLearningAnalytics, getSaldo } from "@/lib/billing/saldo";
+import { getHargaLaPaket, getSaldo } from "@/lib/billing/saldo";
 import type { OpsiLaSusulan } from "@/lib/billing/learning-analytics";
 
 /**
@@ -48,6 +48,6 @@ export async function hitungOpsiLaSusulan(attempt: Attempt): Promise<OpsiLaSusul
     };
   }
 
-  const [saldo, harga] = await Promise.all([getSaldo(attempt.studentId), getHargaLearningAnalytics()]);
+  const [saldo, harga] = await Promise.all([getSaldo(attempt.studentId), getHargaLaPaket(attempt.packageId)]);
   return { tersedia: true, pendanaan: "saldo", harga, saldo, cukup: saldo >= harga, kurang: Math.max(0, harga - saldo) };
 }

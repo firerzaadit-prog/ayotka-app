@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db/prisma";
 import { KESIAPAN_SUBJECTS, ambilSkorTerbaikPerSiswaMapel, ringkasKesiapan } from "@/lib/analytics/kesiapan";
 import { klasifikasiKesiapan, type KategoriKesiapan } from "@/lib/exam/scoring";
 import { namaElemenTampil, type ElemenDenganMapel } from "@/lib/content/label-elemen";
+import { whereJenisPercobaan, type FilterJenis } from "@/lib/hasil-tryout/jenis";
 
 /**
  * Tiket 5.7/5.8: agregasi analitik admin sekolah, dipakai bersama oleh
@@ -80,17 +81,12 @@ function toRankingList(map: Map<string, StudentAgg>) {
     .sort((a, b) => b.rataRata - a.rataRata);
 }
 
-import type { Prisma } from "@prisma/client";
-
-export type FilterKategoriUjian = "semua" | "sekolah" | "nasional" | "mandiri";
-
-export function filterKategoriUjianToWhere(kat?: FilterKategoriUjian | null): Prisma.PackageWhereInput {
-  if (!kat || kat === "semua") return {};
-  if (kat === "sekolah") return { ownerType: "sekolah" };
-  if (kat === "nasional") return { ownerType: "pusat", kategori: "nasional" };
-  if (kat === "mandiri") return { ownerType: "pusat", kategori: "mandiri" };
-  return {};
-}
+/**
+ * Jenis try out untuk filter analitik (mandiri, sekolah, nasional). Satu aturan dengan rapor, peringkat, dan label di PDF:
+ * lihat lib/hasil-tryout/jenis.ts (jenis melekat pada percobaan, bukan hanya pada kepemilikan paket, karena sekolah
+ * menjadwalkan paket pusat).
+ */
+export type FilterKategoriUjian = FilterJenis;
 
 export async function buildAnalitikSekolah(
   schoolId: string,
@@ -100,10 +96,8 @@ export async function buildAnalitikSekolah(
     where: {
       status: { in: ["selesai", "kedaluwarsa"] },
       student: { schoolId, jalur: "A", deletedAt: null },
-      package: {
-        ...(filter.subjectId ? { subjectId: filter.subjectId } : {}),
-        ...filterKategoriUjianToWhere(filter.kategoriUjian),
-      },
+      package: filter.subjectId ? { subjectId: filter.subjectId } : {},
+      ...whereJenisPercobaan(filter.kategoriUjian),
       ...filterMulai(filter),
     },
     select: {
@@ -188,10 +182,8 @@ export async function buildKesiapanSekolah(
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
       student: { schoolId, jalur: "A", deletedAt: null },
-      package: { 
-        subject: { nama: { in: [...KESIAPAN_SUBJECTS] } },
-        ...filterKategoriUjianToWhere(filter?.kategoriUjian)
-      },
+      package: { subject: { nama: { in: [...KESIAPAN_SUBJECTS] } } },
+      ...whereJenisPercobaan(filter?.kategoriUjian),
       ...filterMulai(filter),
     },
     select: {
@@ -237,10 +229,8 @@ export async function buildDaftarSiswaKesiapanSekolah(
       status: { in: ["selesai", "kedaluwarsa"] },
       skorAkhir: { not: null },
       student: { schoolId, jalur: "A", deletedAt: null },
-      package: { 
-        subject: { nama: filter.subjectNama },
-        ...filterKategoriUjianToWhere(filter.kategoriUjian)
-      },
+      package: { subject: { nama: filter.subjectNama } },
+      ...whereJenisPercobaan(filter.kategoriUjian),
       ...filterMulai(filter),
     },
     select: {

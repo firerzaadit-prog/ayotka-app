@@ -55,6 +55,46 @@ describe("generateAnalisis retry/backoff", () => {
     vi.unstubAllEnvs();
   });
 
+  it("generateAnalisisDenganPemakaian: mengembalikan token masukan dan keluaran (kandidat + berpikir) dari usageMetadata", async () => {
+    const { generateAnalisisDenganPemakaian } = await import("@/lib/ai/gemini");
+    generateContentMock.mockResolvedValueOnce({
+      text: JSON.stringify(validPayload),
+      usageMetadata: { promptTokenCount: 6543, candidatesTokenCount: 700, thoughtsTokenCount: 120, totalTokenCount: 7363 },
+    });
+
+    const r = await generateAnalisisDenganPemakaian("prompt");
+    expect(r.hasil.ringkasan).toBe("Ringkasan.");
+    expect(r.pemakaian).toEqual({ tokenMasuk: 6543, tokenKeluar: 820 });
+  });
+
+  it("generateAnalisisDenganPemakaian: hanya memakai pemakaian panggilan yang berhasil (percobaan gagal tak dihitung)", async () => {
+    const { generateAnalisisDenganPemakaian } = await import("@/lib/ai/gemini");
+    generateContentMock
+      .mockResolvedValueOnce({ text: "bukan json", usageMetadata: { promptTokenCount: 9999, candidatesTokenCount: 9999 } })
+      .mockResolvedValueOnce({ text: JSON.stringify(validPayload), usageMetadata: { promptTokenCount: 100, candidatesTokenCount: 50 } });
+
+    const p = generateAnalisisDenganPemakaian("prompt");
+    await vi.advanceTimersByTimeAsync(10_000);
+    const r = await p;
+    expect(r.pemakaian).toEqual({ tokenMasuk: 100, tokenKeluar: 50 });
+  });
+
+  it("generateAnalisisDenganPemakaian: tanpa usageMetadata -> token kosong (null), hasil tetap dikembalikan", async () => {
+    const { generateAnalisisDenganPemakaian } = await import("@/lib/ai/gemini");
+    generateContentMock.mockResolvedValueOnce({ text: JSON.stringify(validPayload) });
+
+    const r = await generateAnalisisDenganPemakaian("prompt");
+    expect(r.pemakaian).toEqual({ tokenMasuk: null, tokenKeluar: null });
+  });
+
+  it("bacaPemakaianToken: angka tidak sah (negatif, NaN, bukan angka) dibaca null; pecahan dibulatkan", async () => {
+    const { bacaPemakaianToken } = await import("@/lib/ai/gemini");
+    expect(bacaPemakaianToken(undefined)).toEqual({ tokenMasuk: null, tokenKeluar: null });
+    expect(bacaPemakaianToken({ promptTokenCount: -5, candidatesTokenCount: Number.NaN })).toEqual({ tokenMasuk: null, tokenKeluar: null });
+    expect(bacaPemakaianToken({ promptTokenCount: 10.6, thoughtsTokenCount: 3 })).toEqual({ tokenMasuk: 11, tokenKeluar: 3 });
+    expect(bacaPemakaianToken({ candidatesTokenCount: 0 })).toEqual({ tokenMasuk: null, tokenKeluar: 0 });
+  });
+
   it("berhasil di percobaan pertama tanpa retry", async () => {
     const { generateAnalisis } = await import("@/lib/ai/gemini");
     generateContentMock.mockResolvedValueOnce({ text: JSON.stringify(validPayload) });

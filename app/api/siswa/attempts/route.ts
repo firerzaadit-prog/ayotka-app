@@ -10,7 +10,7 @@ import { isExpired } from "@/lib/exam/timing";
 import { finalizeAttempt } from "@/lib/exam/finalize";
 import { canStartAttempt, getActiveEntitlement, type AccessCheckResult } from "@/lib/billing/entitlements";
 import { getAiKuotaRemaining, getTryOutNasionalKuotaRemaining } from "@/lib/billing/plan-fitur";
-import { getSaldo, getHargaLearningAnalytics } from "@/lib/billing/saldo";
+import { getSaldo, getHargaLaPaket } from "@/lib/billing/saldo";
 import { putuskanLearningAnalytics, type TipeAkses } from "@/lib/billing/learning-analytics";
 import { nomorPercobaanById } from "@/lib/exam/percobaan";
 import { z } from "zod";
@@ -360,8 +360,9 @@ export async function POST(request: Request) {
     const tipe: TipeAkses = isSchoolSeat ? "sekolah" : hasIndividualEntitlement ? "langganan" : "gratis";
     const kuota = tipe === "langganan" ? await getAiKuotaRemaining(student.id, fullPackage.subjectId) : null;
     const butuhSaldo = tipe === "gratis" || (tipe === "langganan" && !(kuota && kuota.sisa > 0));
+    // Harga mengikuti taksiran beban AI isi paket (lib/billing/beban-ai.ts): sama dengan yang ditampilkan sebelum ujian dan yang ditagih nanti.
     const [saldo, harga] = butuhSaldo
-      ? await Promise.all([getSaldo(student.id), getHargaLearningAnalytics()])
+      ? await Promise.all([getSaldo(student.id), getHargaLaPaket(fullPackage.id)])
       : [0, 0];
 
     const putusan = putuskanLearningAnalytics({ tipe, kuotaSisa: kuota?.sisa ?? null, saldo, harga });

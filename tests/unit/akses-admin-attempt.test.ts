@@ -27,6 +27,7 @@ vi.mock("@/lib/db/prisma", () => ({
 vi.mock("@/lib/exam/timing", () => ({ isExpired: () => false, getRemainingSeconds: () => 100 }));
 vi.mock("@/lib/exam/finalize", () => ({ finalizeAttempt: m.finalize }));
 vi.mock("@/lib/exam/hasil", () => ({ buildHasil: m.buildHasil }));
+vi.mock("@/lib/pdf/logo", () => ({ muatLogoPdf: vi.fn(async () => null) }));
 vi.mock("@/lib/pdf/rapor-renderer", () => ({ renderRaporPdf: vi.fn(), fetchImageBuffer: vi.fn() }));
 vi.mock("@/lib/ai/analyze", () => ({ runAnalisisAi: vi.fn() }));
 vi.mock("@/lib/ai/analysis-guard", () => ({

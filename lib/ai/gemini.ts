@@ -10,6 +10,22 @@ const BACKOFF_MS = [10_000, 20_000, 40_000];
 
 class InvalidAiResponseError extends Error {}
 
+/** Pemakaian token dari respons Gemini (usageMetadata); null bila API tidak melaporkannya. */
+export type PemakaianToken = { tokenMasuk: number | null; tokenKeluar: number | null };
+
+const angkaAtauNull = (n: unknown): number | null => (typeof n === "number" && Number.isFinite(n) && n >= 0 ? Math.round(n) : null);
+
+/**
+ * Token masukan = promptTokenCount. Token keluaran = kandidat + token "berpikir" (thoughtsTokenCount), karena Gemini
+ * menagih keduanya sebagai keluaran. Dipakai untuk membandingkan pemakaian riil dengan taksiran beban AI (harga LA).
+ */
+export function bacaPemakaianToken(meta: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } | undefined | null): PemakaianToken {
+  const masuk = angkaAtauNull(meta?.promptTokenCount);
+  const kandidat = angkaAtauNull(meta?.candidatesTokenCount);
+  const berpikir = angkaAtauNull(meta?.thoughtsTokenCount);
+  return { tokenMasuk: masuk, tokenKeluar: kandidat === null && berpikir === null ? null : (kandidat ?? 0) + (berpikir ?? 0) };
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -27,6 +43,14 @@ function isRetriable(err: unknown): boolean {
  * yang jujur, BUKAN ditelan diam-diam jadi hasil kosong.
  */
 export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
+  return (await generateAnalisisDenganPemakaian(prompt)).hasil;
+}
+
+/**
+ * Sama dengan generateAnalisis, tetapi juga mengembalikan pemakaian token panggilan yang BERHASIL (percobaan yang gagal dan
+ * diulang tidak dihitung, supaya angkanya sebanding dengan satu prompt). Dipakai lib/ai/analyze.ts untuk mencatatnya.
+ */
+export async function generateAnalisisDenganPemakaian(prompt: string): Promise<{ hasil: AnalisisAi; pemakaian: PemakaianToken }> {
   const { apiKey, model } = await getResolvedAiConfig();
   if (!apiKey) {
     throw new Error(
@@ -71,7 +95,7 @@ export async function generateAnalisis(prompt: string): Promise<AnalisisAi> {
         throw new InvalidAiResponseError(`Respons AI tidak sesuai skema: ${result.error.message}`);
       }
 
-      return result.data;
+      return { hasil: result.data, pemakaian: bacaPemakaianToken(response.usageMetadata) };
     } catch (err) {
       lastError = err;
       if (err instanceof ApiError && err.status >= 500) pakaiSkema = false;

@@ -810,14 +810,19 @@ enum AnalisisSumber {
 }
 
 model AiAnalysis {
-  id          String         @id @default(uuid()) @db.Uuid
-  attemptId   String         @unique @map("attempt_id") @db.Uuid
-  versiPrompt String         @map("versi_prompt")
-  model       String
-  ringkasan   String
-  detailJson  Json           @map("detail_json")
-  sumber      AnalisisSumber @default(kuota)
-  generatedAt DateTime       @default(now()) @map("generated_at")
+  id                 String         @id @default(uuid()) @db.Uuid
+  attemptId          String         @unique @map("attempt_id") @db.Uuid
+  versiPrompt        String         @map("versi_prompt")
+  model              String
+  ringkasan          String
+  detailJson         Json           @map("detail_json")
+  sumber             AnalisisSumber @default(kuota)
+  /// Pemakaian token riil dari respons Gemini (usageMetadata); null untuk analisis lama atau bila API tidak melaporkannya.
+  tokenMasuk         Int?           @map("token_masuk")
+  tokenKeluar        Int?           @map("token_keluar")
+  /// Taksiran beban AI paket (lib/billing/beban-ai.ts) saat analisis dibuat, untuk dibandingkan dengan tokenMasuk.
+  taksiranTokenMasuk Int?           @map("taksiran_token_masuk")
+  generatedAt        DateTime       @default(now()) @map("generated_at")
 
   attempt Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 
@@ -880,13 +885,11 @@ model AppSetting {
   /// queue-worker.ts) - untuk lonjakan Try Out Nasional, butuh cron per menit
   /// (Vercel Pro) & CRON_SECRET. Diatur admin pusat di halaman Analisis AI Gagal.
   aiAnalysisMode                String @default("langsung") @map("ai_analysis_mode")
-  /// Bagian D/G (permintaan user): harga jual satu Learning Analytics
-  /// tambahan (di luar jatah plan), didebit dari saldo siswa - lihat
-  /// lib/billing/saldo.ts. Admin pusat atur lewat halaman Wallet/Saldo.
+  /// USANG sejak 12 Okt 2026: harga Learning Analytics tambahan kini mengikuti beban AI paket dan diatur di
+  /// tabel harga_la_pengaturan (lib/billing/harga-la.ts). Kolom ini dan margin di bawah tidak dibaca lagi; dibiarkan
+  /// supaya tidak ada migrasi yang menghapus data.
   hargaLearningAnalytics        Int    @default(7500) @map("harga_learning_analytics")
-  /// Bagian D (permintaan user): margin keuntungan per transaksi Learning
-  /// Analytics tambahan — dipakai lib/billing/margin.ts saat menghitung
-  /// harga jual ke siswa. Default 20% (siswa bayar 120% dari harga dasar).
+  /// USANG sejak 12 Okt 2026 (lihat hargaLearningAnalytics di atas).
   marginLearningAnalyticsPersen Int    @default(20) @map("margin_learning_analytics_persen")
 
   // Pengaturan AI (Google Gemini)
@@ -920,6 +923,22 @@ model AppSetting {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")
+}
+
+/// Pengaturan harga Learning Analytics (LA) tambahan yang mengikuti beban AI paket (permintaan user, 12-13 Okt 2026):
+/// beban = taksiran token masukan prompt analisis (lib/billing/beban-ai.ts). Beban <= bebanRingan dihargai hargaMin,
+/// beban >= bebanBerat dihargai hargaMaks, di antaranya naik lurus dibulatkan Rp500 - lihat lib/billing/harga-la.ts. Satu baris (id "global"), diatur admin pusat di halaman Paket &
+/// Rekening. Sengaja TABEL SENDIRI (bukan kolom app_settings): kode yang membacanya tetap jalan dengan nilai bawaan walau
+/// migrasi belum diterapkan (lib/billing/saldo.ts), dan app_settings yang dipakai banyak fitur tidak ikut terganggu.
+model HargaLaPengaturan {
+  id          String   @id @default("global")
+  hargaMin    Int      @default(4500) @map("harga_min")
+  hargaMaks   Int      @default(7500) @map("harga_maks")
+  bebanRingan Int      @default(6500) @map("beban_ringan")
+  bebanBerat  Int      @default(13500) @map("beban_berat")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("harga_la_pengaturan")
 }
 
 /// Profil akun dinas pendidikan: menyimpan nama, instansi, dan wilayah

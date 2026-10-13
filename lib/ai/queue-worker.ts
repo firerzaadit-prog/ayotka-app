@@ -4,7 +4,7 @@ import { runAnalisisAi } from "@/lib/ai/analyze";
 import { tryStartProcessing, finishProcessing, setLastError, STALE_MS } from "@/lib/ai/analysis-guard";
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota } from "@/lib/ai/auto-trigger-quota";
-import { debitSaldoUntukAnalisis, getHargaLearningAnalytics, kembalikanSaldoAnalisis } from "@/lib/billing/saldo";
+import { debitSaldoUntukAnalisis, getHargaLaPaket, kembalikanSaldoAnalisis } from "@/lib/billing/saldo";
 import { tentukanPendanaanAttempt } from "@/lib/billing/pendanaan-la";
 import { runWithRateLimit } from "@/lib/utils/rate-limited-dispatch";
 import type { AnalisisSumber } from "@prisma/client";
@@ -79,7 +79,8 @@ export async function prosesSatuAnalisis(attemptId: string): Promise<HasilProses
     // untuk mengembalikan saldo kalau analisisnya gagal di bawah.
     let hargaDidebit: number | null = null;
     if (dana.pendanaan === "saldo") {
-      const harga = await getHargaLearningAnalytics();
+      // Harga mengikuti beban AI paket (lib/billing/harga-la.ts): sama dengan yang ditampilkan sebelum ujian.
+      const harga = await getHargaLaPaket(attempt.packageId);
       const debited = await debitSaldoUntukAnalisis({
         studentId: attempt.studentId,
         attemptId: attempt.id,

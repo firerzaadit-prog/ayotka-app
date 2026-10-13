@@ -98,6 +98,15 @@ export default async function AdminSekolahDashboardPage() {
         <Link href="/admin-sekolah/ujian" className={buttonClassName("secondary")}>
           Try Out Sekolah
         </Link>
+        <Link href="/admin-sekolah/rapor" className={buttonClassName("secondary")}>
+          Rapor Siswa
+        </Link>
+        <Link href="/admin-sekolah/peringkat" className={buttonClassName("secondary")}>
+          Peringkat Siswa
+        </Link>
+        <Link href="/admin-sekolah/paket" className={buttonClassName("secondary")}>
+          Performa Paket
+        </Link>
       </div>
     </div>
   );

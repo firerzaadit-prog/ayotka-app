@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
-import { generateAnalisis, MODEL_NAME } from "@/lib/ai/gemini";
+import { generateAnalisisDenganPemakaian, MODEL_NAME } from "@/lib/ai/gemini";
+import { taksirBebanAi } from "@/lib/billing/beban-ai";
 import { buildAnalisisPrompt } from "@/lib/ai/prompt";
 import { PROMPT_VERSION } from "@/lib/ai/version";
 import { mataPelajaranFromSubjectNama, renderKerangkaAsesmenRingkas } from "@/lib/content/kerangka-asesmen";
@@ -202,7 +203,21 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
     })),
   });
 
-  const hasil = await generateAnalisis(prompt);
+  const { hasil, pemakaian } = await generateAnalisisDenganPemakaian(prompt);
+
+  // Pemakaian token riil + taksiran beban AI untuk soal yang sama (rumus yang menentukan harga LA), dicatat supaya admin pusat
+  // bisa membandingkannya dan menyetel batas harga (Paket & Rekening). Hanya catatan: tidak memengaruhi hasil analisis.
+  const catatanToken = {
+    tokenMasuk: pemakaian.tokenMasuk,
+    tokenKeluar: pemakaian.tokenKeluar,
+    taksiranTokenMasuk: taksirBebanAi(
+      answers.map((a) => ({
+        teks: a.question.teks,
+        pembahasan: a.question.pembahasan,
+        opsi: [...a.question.options.map((o) => o.teks), ...a.question.statements.map((s) => s.teks)],
+      })),
+    ),
+  };
 
   await prisma.aiAnalysis.upsert({
     where: { attemptId: attempt.id },
@@ -213,6 +228,7 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
       ringkasan: hasil.ringkasan,
       detailJson: hasil,
       sumber,
+      ...catatanToken,
     },
     update: {
       versiPrompt: PROMPT_VERSION,
@@ -221,6 +237,7 @@ export async function runAnalisisAi(attempt: Attempt, sumber: "kuota" | "saldo" 
       ringkasan: hasil.ringkasan,
       detailJson: hasil,
       generatedAt: new Date(),
+      ...catatanToken,
     },
   });
   return hasil;

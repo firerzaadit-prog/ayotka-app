@@ -1,6 +1,7 @@
 import "server-only";
 import type { PrismaClient } from "@prisma/client";
-import { filterMulai, type RentangWaktu, type FilterKategoriUjian, filterKategoriUjianToWhere } from "@/lib/analytics/sekolah";
+import { filterMulai, type RentangWaktu, type FilterKategoriUjian } from "@/lib/analytics/sekolah";
+import { whereJenisPercobaan } from "@/lib/hasil-tryout/jenis";
 import { periodeBulanWIB } from "@/lib/utils/datetime";
 import type { FilterWilayah } from "@/lib/wilayah/cakupan";
 import {
@@ -53,7 +54,7 @@ export async function daftarMapelLaporan(db: PrismaClient, schoolId: string, ren
     where: {
       status: { in: [...statusSelesai] },
       student: { schoolId, jalur: "A", deletedAt: null },
-      package: filterKategoriUjianToWhere(kategoriUjian),
+      ...whereJenisPercobaan(kategoriUjian),
       ...filterMulai(rentang),
     },
     select: {
@@ -125,10 +126,8 @@ export async function bangunLaporanIndikatorSekolah(
     where: {
       status: { in: [...statusSelesai] },
       student: { schoolId, jalur: "A", deletedAt: null },
-      package: { 
-        subjectId,
-        ...filterKategoriUjianToWhere(opsi?.kategoriUjian),
-      },
+      package: { subjectId },
+      ...whereJenisPercobaan(opsi?.kategoriUjian),
       ...filterMulai(rentang),
     },
     select: { id: true, studentId: true, packageId: true, mulaiAt: true, student: { select: { nama: true, nisn: true } } },

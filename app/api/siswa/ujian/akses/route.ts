@@ -41,6 +41,8 @@ export async function GET(request: Request) {
 
   let info: Record<string, unknown> | null = null;
   let subject: { id: string; nama: string } | null = null;
+  // Paket yang dimaksud (untuk harga Learning Analytics, yang mengikuti beban AI paket ini).
+  let paketIdUntukHarga: string | null = null;
 
   if (packageId) {
     const options = await getSelfSelectPackagesFor(student, { includeUpcoming: true });
@@ -53,6 +55,7 @@ export async function GET(request: Request) {
         options.filter((p) => p.subjectId === paket.subjectId && p.kategori === "mandiri"),
       );
       subject = { id: paket.subject.id, nama: paket.subject.nama };
+      paketIdUntukHarga = paket.id;
       info = {
         nama: paket.nama,
         jumlahSoal: paket.jumlahSoal,
@@ -70,6 +73,7 @@ export async function GET(request: Request) {
     const penugasan = aktif.find((a) => a.id === assignmentId);
     if (penugasan) {
       subject = { id: penugasan.package.subject.id, nama: penugasan.package.subject.nama };
+      paketIdUntukHarga = penugasan.packageId;
       info = {
         nama: penugasan.package.nama,
         jumlahSoal: penugasan.package.jumlahSoal,
@@ -83,7 +87,7 @@ export async function GET(request: Request) {
     }
   }
 
-  if (!info || !subject) {
+  if (!info || !subject || !paketIdUntukHarga) {
     return NextResponse.json({ error: "Ujian tidak ditemukan." }, { status: 404 });
   }
 
@@ -105,6 +109,6 @@ export async function GET(request: Request) {
     mulaiAt: a.mulaiAt,
   }));
 
-  const ringkasan = await getRingkasanAksesUjian(student, subject);
+  const ringkasan = await getRingkasanAksesUjian(student, subject, paketIdUntukHarga);
   return NextResponse.json({ ...ringkasan, info, riwayat }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db/prisma";
-import { computeHargaLA } from "@/lib/billing/margin";
+import { taksirBebanAi, type SoalUntukTaksiran } from "@/lib/billing/beban-ai";
+import { KONFIG_HARGA_LA_BAWAAN, hitungHargaLA, perbaikiKonfigHargaLA, type KonfigHargaLA } from "@/lib/billing/harga-la";
 
 /** Saldo = SUM(jumlah) baris berstatus "berhasil" - dihitung langsung, bukan kolom terpisah yang bisa drift. */
 export async function getSaldo(studentId: string): Promise<number> {
@@ -75,13 +76,64 @@ export async function kembalikanSaldoAnalisis(params: {
   });
 }
 
-/** Harga jual satu Learning Analytics tambahan (harga dasar + margin), diatur admin pusat. */
-export async function getHargaLearningAnalytics(): Promise<number> {
-  const settings = await prisma.appSetting.upsert({
+/** Galat Prisma "tabel tidak ada" (P2021): migrasi harga_la_dinamis belum diterapkan di database ini. */
+export function tabelHargaLaBelumAda(err: unknown): boolean {
+  return typeof err === "object" && err !== null && (err as { code?: unknown }).code === "P2021";
+}
+
+let sudahMemperingatkanTabelBelumAda = false;
+
+/**
+ * Pengaturan harga Learning Analytics tambahan (admin pusat: Paket & Rekening). Tanpa baris, atau bila tabelnya belum
+ * ada karena migrasi belum diterapkan, dipakai nilai bawaan (Rp4.500-Rp7.500) supaya pembayaran tidak ikut macet.
+ * Galat lain (mis. database terputus) sengaja dilempar: lebih baik gagal daripada menagih dengan harga yang salah.
+ */
+export async function getKonfigHargaLA(): Promise<KonfigHargaLA> {
+  try {
+    const baris = await prisma.hargaLaPengaturan.findUnique({ where: { id: "global" } });
+    return baris ? perbaikiKonfigHargaLA(baris) : { ...KONFIG_HARGA_LA_BAWAAN };
+  } catch (err) {
+    if (!tabelHargaLaBelumAda(err)) throw err;
+    if (!sudahMemperingatkanTabelBelumAda) {
+      sudahMemperingatkanTabelBelumAda = true;
+      console.warn("[harga-la] tabel harga_la_pengaturan belum ada (migrasi 20261012150000_harga_la_dinamis belum diterapkan): memakai harga bawaan.");
+    }
+    return { ...KONFIG_HARGA_LA_BAWAAN };
+  }
+}
+
+/** Simpan pengaturan harga (sudah divalidasi pemanggil lewat validasiKonfigHargaLA). */
+export async function simpanKonfigHargaLA(konfig: KonfigHargaLA): Promise<KonfigHargaLA> {
+  const baris = await prisma.hargaLaPengaturan.upsert({
     where: { id: "global" },
-    create: { id: "global" },
-    update: {},
+    create: { id: "global", ...konfig },
+    update: { ...konfig },
   });
-  const marginPersen = settings.marginLearningAnalyticsPersen ?? 0;
-  return computeHargaLA(settings.hargaLearningAnalytics, marginPersen);
+  return perbaikiKonfigHargaLA(baris);
+}
+
+/**
+ * Taksiran beban AI satu Learning Analytics untuk SEBUAH paket (lib/billing/beban-ai.ts), dihitung dari isi soal yang
+ * benar-benar ada di paket (soal yang belum dihapus) - persis soal yang masuk ke setiap percobaan dan dianalisis AI.
+ */
+export async function getBebanAiPaket(packageId: string): Promise<number> {
+  const soal = await prisma.question.findMany({
+    where: { packageId, deletedAt: null },
+    select: { teks: true, pembahasan: true, options: { select: { teks: true } }, statements: { select: { teks: true } } },
+  });
+  const untukTaksiran: SoalUntukTaksiran[] = soal.map((q) => ({
+    teks: q.teks,
+    pembahasan: q.pembahasan,
+    opsi: [...q.options.map((o) => o.teks), ...q.statements.map((s) => s.teks)],
+  }));
+  return taksirBebanAi(untukTaksiran);
+}
+
+/**
+ * Harga satu Learning Analytics tambahan untuk SEBUAH paket: dari taksiran beban AI isi paket (getBebanAiPaket) dan
+ * pengaturan admin. Paket yang sama selalu berharga sama, jadi angka yang tampil sebelum ujian = angka yang ditagih sesudahnya.
+ */
+export async function getHargaLaPaket(packageId: string): Promise<number> {
+  const [konfig, beban] = await Promise.all([getKonfigHargaLA(), getBebanAiPaket(packageId)]);
+  return hitungHargaLA(beban, konfig);
 }

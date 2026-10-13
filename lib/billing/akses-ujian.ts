@@ -2,7 +2,7 @@ import "server-only";
 import type { Student } from "@prisma/client";
 import { getActiveEntitlement, hasUsedFreeTrial, kursiSekolahTersedia } from "@/lib/billing/entitlements";
 import { getAiKuotaRemaining } from "@/lib/billing/plan-fitur";
-import { getHargaLearningAnalytics, getSaldo } from "@/lib/billing/saldo";
+import { getHargaLaPaket, getSaldo } from "@/lib/billing/saldo";
 import type { TipeAkses } from "@/lib/billing/learning-analytics";
 
 export type RingkasanAksesUjian = {
@@ -40,6 +40,8 @@ export async function getTipeAkses(student: Student): Promise<TipeAkses> {
 export async function getRingkasanAksesUjian(
   student: Student,
   subject: { id: string; nama: string },
+  /** Paket yang akan dikerjakan: harga Learning Analytics mengikuti beban AI paket ini. */
+  packageId: string,
 ): Promise<RingkasanAksesUjian> {
   const tipe = await getTipeAkses(student);
 
@@ -50,7 +52,7 @@ export async function getRingkasanAksesUjian(
 
   const [saldo, harga, kuota] = await Promise.all([
     getSaldo(student.id),
-    getHargaLearningAnalytics(),
+    getHargaLaPaket(packageId),
     tipe === "langganan" ? getAiKuotaRemaining(student.id, subject.id) : Promise.resolve(null),
   ]);
 

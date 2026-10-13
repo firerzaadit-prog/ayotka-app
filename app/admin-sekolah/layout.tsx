@@ -51,6 +51,9 @@ export default async function AdminSekolahLayout({
           <SidebarLink href="/admin-sekolah/dashboard">Dashboard</SidebarLink>
           <SidebarLink href="/admin-sekolah/siswa">Siswa</SidebarLink>
           <SidebarLink href="/admin-sekolah/ujian">Try Out Sekolah</SidebarLink>
+          <SidebarLink href="/admin-sekolah/rapor">Rapor Siswa</SidebarLink>
+          <SidebarLink href="/admin-sekolah/peringkat">Peringkat Siswa</SidebarLink>
+          <SidebarLink href="/admin-sekolah/paket">Performa Paket</SidebarLink>
           <SidebarLink href="/admin-sekolah/analitik">Analitik</SidebarLink>
           <SidebarLink href="/admin-sekolah/laporan-indikator">Laporan Daya Serap</SidebarLink>
           <SidebarLink href="/admin-sekolah/periode-baru">Periode Baru</SidebarLink>

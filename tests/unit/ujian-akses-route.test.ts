@@ -138,7 +138,8 @@ describe("GET /api/siswa/ujian/akses - data ujian + akses dalam satu permintaan"
     expect(body.tipe).toBe("gratis");
     expect(body.jatahGratis).toEqual({ terpakai: false });
     expect(body.learningAnalytics).toEqual(RINGKASAN.learningAnalytics);
-    expect(m.getRingkasanAksesUjian).toHaveBeenCalledWith(STUDENT, { id: "mat", nama: "Matematika" });
+    // ringkasan diminta untuk PAKET yang dipilih: harga Learning Analytics mengikuti banyaknya soal pada paket itu
+    expect(m.getRingkasanAksesUjian).toHaveBeenCalledWith(STUDENT, { id: "mat", nama: "Matematika" }, "paket-a");
   });
 
   it("paket yang TIDAK ada di daftar siswa (mis. khusus sekolah lain) -> 404, bukan bocor datanya", async () => {
@@ -174,6 +175,7 @@ describe("GET /api/siswa/ujian/akses - data ujian + akses dalam satu permintaan"
     m.getActiveAssignmentsFor.mockResolvedValue([
       {
         id: "asg-1",
+        packageId: "paket-penugasan",
         selesai: new Date("2026-10-10T00:00:00Z"),
         package: { nama: "UTS Matematika", jumlahSoal: 20, durasiMenit: 60, subject: { id: "mat", nama: "Matematika" } },
       },
@@ -190,6 +192,8 @@ describe("GET /api/siswa/ujian/akses - data ujian + akses dalam satu permintaan"
       statusSeri: { terkunci: false },
     });
     expect(m.getSelfSelectPackagesFor).not.toHaveBeenCalled();
+    // paket milik penugasan itu yang dipakai untuk harga Learning Analytics
+    expect(m.getRingkasanAksesUjian).toHaveBeenCalledWith(STUDENT, { id: "mat", nama: "Matematika" }, "paket-penugasan");
   });
 
   it("penugasan yang tidak aktif/bukan milik sekolahnya -> 404", async () => {

@@ -5,10 +5,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const m = vi.hoisted(() => ({ requireRole: vi.fn(), studentFind: vi.fn(), riwayat: vi.fn(), getSaldo: vi.fn(), harga: vi.fn() }));
+const m = vi.hoisted(() => ({ requireRole: vi.fn(), studentFind: vi.fn(), riwayat: vi.fn(), getSaldo: vi.fn(), konfig: vi.fn() }));
 vi.mock("@/lib/auth/session", () => ({ requireRole: m.requireRole }));
 vi.mock("@/lib/db/prisma", () => ({ prisma: { student: { findFirst: m.studentFind }, saldoTransaction: { findMany: m.riwayat } } }));
-vi.mock("@/lib/billing/saldo", () => ({ getSaldo: m.getSaldo, getHargaLearningAnalytics: m.harga }));
+vi.mock("@/lib/billing/saldo", () => ({ getSaldo: m.getSaldo, getKonfigHargaLA: m.konfig }));
 vi.mock("@/lib/billing/midtrans", () => ({ createSnapTransaction: vi.fn() }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn(), getClientIp: () => "1.2.3.4" }));
 
@@ -90,7 +90,7 @@ describe("GET /api/siswa/saldo", () => {
     m.requireRole.mockResolvedValue({ id: "user-1", email: "budi@example.com" });
     m.studentFind.mockResolvedValue({ id: "siswa-1", nama: "Budi" });
     m.getSaldo.mockResolvedValue(0);
-    m.harga.mockResolvedValue(9000);
+    m.konfig.mockResolvedValue({ hargaMin: 4500, hargaMaks: 7500, bebanRingan: 6500, bebanBerat: 13500 });
     m.riwayat.mockResolvedValue([]);
   });
 
@@ -98,6 +98,13 @@ describe("GET /api/siswa/saldo", () => {
     const res = await saldoGet();
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ email: "budi@example.com", saldo: 0 });
+  });
+
+  it("harga Learning Analytics dikirim sebagai RENTANG menurut beban AI paket (termurah dan termahal), plus harga lama untuk halaman yang masih terbuka", async () => {
+    const badan = await (await saldoGet()).json();
+    expect(badan).toMatchObject({ hargaLaMin: 4_500, hargaLaMaks: 7_500, hargaLearningAnalytics: 4_500 });
+    m.konfig.mockResolvedValue({ hargaMin: 5_000, hargaMaks: 6_000, bebanRingan: 3000, bebanBerat: 9000 });
+    expect(await (await saldoGet()).json()).toMatchObject({ hargaLaMin: 5_000, hargaLaMaks: 6_000 });
   });
 
   it("tautan bayar langsung ke halaman CHECKOUT dan membawa email akun (bukan halaman produk), tanpa nama siswa", async () => {

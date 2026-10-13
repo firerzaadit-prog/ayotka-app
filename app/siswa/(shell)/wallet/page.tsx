@@ -10,6 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { TableContainer, Table, Thead, Th, Td, Tr } from "@/components/ui/table";
 import { PageSkeleton } from "@/components/ui/skeleton";
+import { teksHargaLA } from "@/lib/billing/harga-la-tampilan";
 import { PetunjukEmailAffiliate } from "@/components/billing/petunjuk-email-affiliate";
 
 type Riwayat = {
@@ -24,6 +25,10 @@ type Riwayat = {
 type SaldoData = {
   saldo: number;
   email?: string;
+  /** Harga Learning Analytics tambahan mengikuti beban AI paket: termurah dan termahal. */
+  hargaLaMin?: number;
+  hargaLaMaks?: number;
+  /** Lama (= harga termurah); dipakai bila server belum mengirim rentang di atas. */
   hargaLearningAnalytics: number;
   denominasi: number[];
   /** "affiliate" = top-up lewat tautan affiliate.id + konfirmasi admin via WhatsApp (sementara, lihat lib/billing/pembayaran-affiliate.ts). */
@@ -120,13 +125,18 @@ export default function WalletPage() {
       <Card className="text-center">
         <p className="text-sm text-slate-500">Saldo kamu</p>
         <p className="text-4xl font-bold text-slate-900">{formatRupiah(data.saldo)}</p>
-        <p className="mt-2 text-xs text-slate-400">
-          Satu Learning Analytics tambahan = {formatRupiah(data.hargaLearningAnalytics)}
+        <p className="mt-2 text-xs text-slate-400" data-harga-la>
+          {teksHargaLA(data)}
+        </p>
+        <p className="mt-2 text-xs text-slate-500" data-keterangan-saldo-tunai>
+          Saldo hanya untuk membeli Learning Analytics di AyoTKA dan <b>tidak dapat ditarik tunai</b>, ditransfer, atau
+          diuangkan kembali.
         </p>
       </Card>
 
       <Card className="flex flex-col gap-3">
         <p className="text-sm font-medium text-slate-700">Top-up saldo</p>
+        <p className="-mt-1 text-xs text-slate-500">Saldo yang sudah diisi tidak dapat ditarik tunai.</p>
         {data.paymentMode === "affiliate" && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-900">
             <p className="font-semibold text-emerald-950">⚡ Top-up Otomatis via affiliate.id</p>

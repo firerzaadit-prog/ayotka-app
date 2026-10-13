@@ -13,9 +13,9 @@ import { bangunHierarkiKompetensi } from "@/lib/exam/hierarki-kompetensi";
 import { urutanHierarkiResmi } from "@/lib/indikator/hierarki-resmi";
 
 /**
- * Tiket 5.9: ID separuh disamarkan untuk watermark - cukup untuk dilacak
- * balik oleh admin kalau ada kebocoran soal, tapi tidak menampilkan NISN
- * penuh ke siapa pun yang melihat/screenshot halaman.
+ * Tiket 5.9: ID separuh disamarkan untuk watermark rapor PDF (halaman web tidak lagi memakai watermark sejak 12 Okt
+ * 2026) - cukup untuk dilacak balik oleh admin kalau ada kebocoran soal, tapi tidak menampilkan NISN penuh ke siapa
+ * pun yang memegang berkas.
  */
 function maskIdentifier(nisn: string | null, attemptId: string): string {
   if (nisn && nisn.length >= 5) {

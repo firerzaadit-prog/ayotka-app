@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
-import { getAiAutoAnalysisSettings, setHargaLearningAnalytics, setMarginLearningAnalytics } from "@/lib/ai/settings";
+import { KONFIG_HARGA_LA_BAWAAN, validasiKonfigHargaLA } from "@/lib/billing/harga-la";
+import { muatKalibrasiAi } from "@/lib/billing/kalibrasi-ai";
+import { getKonfigHargaLA, simpanKonfigHargaLA, tabelHargaLaBelumAda } from "@/lib/billing/saldo";
 
-/** Bagian D/G (permintaan user): harga jual & margin Learning Analytics tambahan - admin pusat atur di halaman Paket & Rekening. */
+/**
+ * Harga Learning Analytics tambahan yang mengikuti beban AI paket (permintaan user, 12-13 Okt 2026): admin pusat
+ * mengatur harga minimum, harga maksimum, dan dua batas beban AI (token masukan) di Paket & Rekening. Aturan hitungnya ada di
+ * lib/billing/harga-la.ts. GET juga memuat ringkasan pemakaian token nyata (lib/billing/kalibrasi-ai.ts) untuk menyetel batas.
+ * Menggantikan pengaturan lama "harga dasar + margin" (kolom lama di app_settings tidak dibaca lagi).
+ */
 export async function GET() {
   try {
     await requireRole("admin_pusat");
@@ -12,17 +18,9 @@ export async function GET() {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
-  const settings = await getAiAutoAnalysisSettings();
-  return NextResponse.json({
-    hargaLearningAnalytics: settings.hargaLearningAnalytics,
-    marginLearningAnalyticsPersen: settings.marginLearningAnalyticsPersen,
-  });
+  const [konfig, kalibrasi] = await Promise.all([getKonfigHargaLA(), muatKalibrasiAi()]);
+  return NextResponse.json({ konfig, bawaan: KONFIG_HARGA_LA_BAWAAN, kalibrasi }, { headers: { "Cache-Control": "no-store" } });
 }
-
-const patchSchema = z.object({
-  hargaLearningAnalytics: z.coerce.number().int().min(0, "Harga tidak boleh negatif").optional(),
-  marginLearningAnalyticsPersen: z.coerce.number().int().min(0, "Margin tidak boleh negatif").max(100, "Margin maks 100%").optional(),
-});
 
 export async function PATCH(request: Request) {
   let user;
@@ -33,37 +31,34 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const parsed = patchSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: parsed.error.issues[0]?.message ?? "Data tidak valid." },
-      { status: 400 },
-    );
+  const hasil = validasiKonfigHargaLA(body);
+  if (!hasil.ok) {
+    return NextResponse.json({ error: hasil.error }, { status: 400 });
   }
 
-  const before = await getAiAutoAnalysisSettings();
-
-  let after = before;
-  if (parsed.data.hargaLearningAnalytics !== undefined) {
-    after = await setHargaLearningAnalytics(parsed.data.hargaLearningAnalytics);
-  }
-  if (parsed.data.marginLearningAnalyticsPersen !== undefined) {
-    after = await setMarginLearningAnalytics(parsed.data.marginLearningAnalyticsPersen);
+  const sebelum = await getKonfigHargaLA();
+  let sesudah;
+  try {
+    sesudah = await simpanKonfigHargaLA(hasil.konfig);
+  } catch (err) {
+    if (tabelHargaLaBelumAda(err)) {
+      return NextResponse.json(
+        { error: "Pengaturan harga belum bisa disimpan: migrasi database untuk fitur ini belum diterapkan. Hubungi pengembang." },
+        { status: 503 },
+      );
+    }
+    throw err;
   }
 
   await logAudit({
     userId: user.id,
     aksi: "update",
-    entitas: "app_settings",
-    entitasId: after.id,
-    before: { hargaLearningAnalytics: before.hargaLearningAnalytics, marginLearningAnalyticsPersen: before.marginLearningAnalyticsPersen },
-    after: { hargaLearningAnalytics: after.hargaLearningAnalytics, marginLearningAnalyticsPersen: after.marginLearningAnalyticsPersen },
+    entitas: "harga_la_pengaturan",
+    entitasId: "global",
+    before: sebelum,
+    after: sesudah,
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({
-    hargaLearningAnalytics: after.hargaLearningAnalytics,
-    marginLearningAnalyticsPersen: after.marginLearningAnalyticsPersen,
-  });
+  return NextResponse.json({ konfig: sesudah });
 }
-

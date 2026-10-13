@@ -6,6 +6,9 @@ import { resolveSchoolId } from "@/lib/schools/scope";
 import { bisaDikelolaAdmin } from "@/lib/students/kelolaan";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
 import { buildHasil } from "@/lib/exam/hasil";
+import { muatIdentitasRapor } from "@/lib/exam/identitas-rapor";
+import { namaBerkasRapor } from "@/lib/pdf/nama-berkas";
+import { muatLogoPdf } from "@/lib/pdf/logo";
 import { fetchImageBuffer, renderRaporPdf } from "@/lib/pdf/rapor-renderer";
 import type { Attempt } from "@prisma/client";
 
@@ -77,8 +80,16 @@ export async function GET(_request: Request, { params }: RouteParams) {
       ? null
       : await prisma.aiAnalysis.findUnique({ where: { attemptId: attempt.id } });
 
+  // Logo dari disk dulu; alamat publik hanya cadangan (server tidak selalu bisa memanggil alamatnya sendiri).
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  const logoBuffer = appUrl ? await fetchImageBuffer(`${appUrl}/logo.png`) : null;
+  const logoBuffer = (await muatLogoPdf()) ?? (appUrl ? await fetchImageBuffer(`${appUrl}/logo.png`) : null);
+
+  // Identitas di kepala rapor (asal sekolah, jenis Try Out, kode soal, tanggal ujian). Gagal memuatnya tidak boleh
+  // menggagalkan rapor: bagian itu lalu ditulis "-".
+  const identitas = await muatIdentitasRapor(attempt).catch((err) => {
+    console.error(`[rapor] gagal memuat identitas rapor untuk attempt ${attempt.id}:`, err);
+    return null;
+  });
 
   const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true });
   const chunks: Buffer[] = [];
@@ -92,6 +103,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     hasil,
     aiAnalysis as unknown as Parameters<typeof renderRaporPdf>[2],
     logoBuffer,
+    identitas,
   );
 
   doc.end();
@@ -100,7 +112,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="rapor-${hasil.siswa.nama.replace(/\s+/g, "-")}.pdf"`,
+      "Content-Disposition": `attachment; filename="${namaBerkasRapor(hasil.siswa.nama, identitas?.jenisTryOut ?? null, attempt.mulaiAt)}"`,
       // PDF dirender ulang dari DB tiap request (termasuk aiAnalysis terbaru) -
       // no-store supaya klik "Unduh Rapor" lagi tidak disajikan dari cache
       // browser dengan analisis AI yang sudah usang.
