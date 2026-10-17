@@ -23,7 +23,6 @@ vi.mock("@/lib/supabase/admin", () => ({
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn(), getClientIp: () => "1.2.3.4" }));
 vi.mock("@/lib/rate-limit", () => ({ checkRateLimit: () => true }));
 vi.mock("@/lib/utils/generate-code", () => ({ generateReadableCode: () => "KODE1234" }));
-vi.mock("@/lib/students/create", () => ({ generateUniqueStudentReferralCode: async () => "REF123" }));
 vi.mock("@/lib/registrasi/referral", () => ({ resolveKodeReferral: vi.fn() }));
 vi.mock("@/lib/billing/vouchers", () => ({ activateVoucher: vi.fn(), VoucherSudahDipakaiError: class extends Error {} }));
 vi.mock("@/lib/email/konfirmasi", () => ({ kirimEmailKonfirmasi: vi.fn(), pesanEmailBelumTerkirim: vi.fn() }));

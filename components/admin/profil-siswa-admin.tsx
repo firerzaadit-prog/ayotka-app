@@ -21,7 +21,6 @@ export type ProfilSiswaAdmin = {
   waKontak: string | null;
   /** Email kontak akun NISN (terpisah dari email login); null bila belum ada. */
   emailKontak: { alamat: string; terverifikasi: boolean } | null;
-  referralCode: string;
   /** Terakhir masuk (ISO); null = belum pernah / tidak ada akun. */
   terakhirMasuk: string | null;
   keanggotaan: Keanggotaan;
@@ -101,9 +100,6 @@ export function ProfilSiswaAdminCard({ profil: p, aksi }: { profil: ProfilSiswaA
             </Badge>
           </Baris>
         )}
-        <Baris label="Kode referral">
-          <span className="font-mono text-xs">{p.referralCode}</span>
-        </Baris>
       </dl>
     </Card>
   );

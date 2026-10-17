@@ -63,15 +63,8 @@ describe("resolveKodeReferral", () => {
     expect(await resolveKodeReferral("AB12CD34EF")).toMatchObject({ tipe: "voucher", status: "used" });
   });
 
-  it("kode teman -> tipe siswa (tanpa membocorkan identitas)", async () => {
-    student.findUnique.mockResolvedValue({ id: "s1" });
-    expect(await resolveKodeReferral("XY99ZZ")).toEqual({ tipe: "siswa", studentId: "s1" });
-  });
-
-  it("kalau kembar (data lama), kode teman didahulukan seperti perilaku sebelumnya", async () => {
-    student.findUnique.mockResolvedValue({ id: "s1" });
-    voucher.findUnique.mockResolvedValue(VOUCHER_ROW);
-    expect((await resolveKodeReferral("SAMA11"))?.tipe).toBe("siswa");
+  it("kode teman / non-voucher -> null (kode referral antar-siswa sudah dihapus)", async () => {
+    expect(await resolveKodeReferral("XY99ZZ")).toBeNull();
   });
 
   it("kode tak dikenal atau bentuknya salah -> null, dan bentuk salah tidak menyentuh database", async () => {

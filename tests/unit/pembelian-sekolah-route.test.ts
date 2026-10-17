@@ -52,7 +52,7 @@ import { GET, POST } from "@/app/api/siswa/checkout/route";
 import { POST as REDEEM } from "@/app/api/siswa/vouchers/redeem/route";
 
 const PLAN_ID = "11111111-1111-4111-8111-111111111111";
-const SISWA_A = { id: "siswa-a", userId: "user-1", jalur: "A", schoolId: "sek-1", deletedAt: null, lulusAt: null, nama: "Budi", referralCode: "REF1", referredByStudentId: null, school: { nama: "SMP 1" } };
+const SISWA_A = { id: "siswa-a", userId: "user-1", jalur: "A", schoolId: "sek-1", deletedAt: null, lulusAt: null, nama: "Budi", referredByStudentId: null, school: { nama: "SMP 1" } };
 const post = (body: unknown) => new Request("http://localhost/x", { method: "POST", body: JSON.stringify(body) });
 
 beforeEach(() => {

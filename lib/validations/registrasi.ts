@@ -48,7 +48,7 @@ export const daftarMandiriSchema = z
     asalSekolahProvinsi: wilayahSekolahFields.provinsi,
     asalSekolahKabupatenKota: wilayahSekolahFields.kabupatenKota,
     asalSekolahStatus: wilayahSekolahFields.statusSekolah,
-    /** Opsional - kode referral siswa lain, mengisi Student.referredByStudentId (Bagian 6.4). */
+    /** Opsional - kode voucher dari mitra. */
     kodeReferral: z.string().trim().optional().or(z.literal("")),
   })
   .refine(

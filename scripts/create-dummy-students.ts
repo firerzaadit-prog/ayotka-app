@@ -166,7 +166,6 @@ async function main() {
         jalur: "B",
         claimStatus: "sudah_klaim",
         status: "active",
-        referralCode: generateReadableCode(6),
       },
     });
   }
@@ -220,7 +219,6 @@ async function main() {
         jalur: "B",
         claimStatus: "sudah_klaim",
         status: "active",
-        referralCode: generateReadableCode(6),
       },
     });
   }
@@ -281,7 +279,6 @@ async function main() {
         jalur: "A",
         claimStatus: "sudah_klaim",
         status: "active",
-        referralCode: generateReadableCode(6),
       },
     });
   } else {

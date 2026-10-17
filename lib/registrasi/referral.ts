@@ -3,45 +3,37 @@ import type { VoucherStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { bentukKodeValid, normalizeKodeReferral } from "@/lib/registrasi/referral-format";
 
-export type HasilReferral =
-  | { tipe: "siswa"; studentId: string }
-  | {
-      tipe: "voucher";
-      voucherId: string;
-      status: VoucherStatus;
-      planId: string;
-      planNama: string;
-      durasiHari: number | null;
-      partnerId: string;
-      mitraNama: string;
-    };
+export type HasilReferral = {
+  tipe: "voucher";
+  voucherId: string;
+  status: VoucherStatus;
+  planId: string;
+  planNama: string;
+  durasiHari: number | null;
+  partnerId: string;
+  mitraNama: string;
+};
 
 /**
- * Cari pemilik sebuah kode di kolom kode pendaftaran mandiri. Ada dua jenis kode:
- *  - kode referral teman (siswa), dan
- *  - kode VOUCHER dari mitra: satu kode per voucher, jadi tiap siswa mendapat kode yang berbeda.
- * Kode teman didahulukan (perilaku lama); bentuk keduanya berbeda (6 vs 10 karakter) jadi bentrok
- * hanya mungkin untuk data lama.
+ * Cari pemilik sebuah kode di kolom kode pendaftaran mandiri.
+ * Kode yang diterima hanya kode VOUCHER dari mitra (satu kode per voucher).
+ * Kode referral antar-siswa sudah dihapus (17 Okt 2026).
  */
 export async function resolveKodeReferral(raw: string): Promise<HasilReferral | null> {
   const kode = normalizeKodeReferral(raw);
   if (!bentukKodeValid(kode)) return null;
 
-  const [siswa, voucher] = await Promise.all([
-    prisma.student.findUnique({ where: { referralCode: kode }, select: { id: true } }),
-    prisma.voucher.findUnique({
-      where: { code: kode },
-      select: {
-        id: true,
-        status: true,
-        planId: true,
-        partnerId: true,
-        plan: { select: { nama: true, durasiHari: true } },
-        partner: { select: { nama: true } },
-      },
-    }),
-  ]);
-  if (siswa) return { tipe: "siswa", studentId: siswa.id };
+  const voucher = await prisma.voucher.findUnique({
+    where: { code: kode },
+    select: {
+      id: true,
+      status: true,
+      planId: true,
+      partnerId: true,
+      plan: { select: { nama: true, durasiHari: true } },
+      partner: { select: { nama: true } },
+    },
+  });
   if (voucher) {
     return {
       tipe: "voucher",

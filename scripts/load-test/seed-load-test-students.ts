@@ -147,7 +147,6 @@ async function main() {
                 jalur: "A",
                 claimStatus: "sudah_klaim",
                 status: "active",
-                referralCode: generateReadableCode(6),
               },
             }),
           ]);

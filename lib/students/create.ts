@@ -34,19 +34,6 @@ async function generateUniqueClaimToken(): Promise<string> {
   throw new Error("Gagal membuat kode klaim unik, coba lagi.");
 }
 
-/** Kode referral siswa (dibagikan ke calon siswa baru) - wajib diisi setiap Student baru dibuat. */
-export async function generateUniqueStudentReferralCode(): Promise<string> {
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const code = generateReadableCode(6);
-    // Kolom kode referral di pendaftaran menerima kode siswa maupun mitra, jadi kode tidak boleh kembar antar keduanya.
-    const [siswa, mitra] = await Promise.all([
-      prisma.student.findUnique({ where: { referralCode: code } }),
-      prisma.partner.findUnique({ where: { referralCode: code } }),
-    ]);
-    if (!siswa && !mitra) return code;
-  }
-  throw new Error("Gagal membuat kode referral unik, coba lagi.");
-}
 
 /**
  * Kursi terpakai = siswa Jalur A terdaftar yang belum dihapus dan belum ditandai lulus (alumni tidak memakan kursi). Satu definisi ini
@@ -112,10 +99,7 @@ export async function createStudent(params: {
   nisn?: string;
   tanggalLahir?: Date;
 }) {
-  const [claimToken, referralCode] = await Promise.all([
-    generateUniqueClaimToken(),
-    generateUniqueStudentReferralCode(),
-  ]);
+  const claimToken = await generateUniqueClaimToken();
   return prisma.student.create({
     data: {
       schoolId: params.schoolId,
@@ -125,7 +109,6 @@ export async function createStudent(params: {
       tanggalLahir: params.tanggalLahir ?? null,
       jalur: "A",
       claimToken,
-      referralCode,
       claimStatus: "belum_klaim",
       status: "pending",
     },

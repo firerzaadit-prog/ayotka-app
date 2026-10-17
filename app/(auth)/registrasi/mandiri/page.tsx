@@ -31,7 +31,7 @@ function RegistrasiMandiriForm() {
   // (jadi tidak perlu di-reset saat isian berubah, dan hasil lama tidak pernah menempel di kode baru).
   const [cekKode, setCekKode] = useState<{
     kode: string;
-    tipe: "voucher" | "siswa" | null;
+    tipe: "voucher" | null;
     status?: "unused" | "used" | "expired" | "void";
     paket?: string;
     mitra?: string;
@@ -106,7 +106,7 @@ function RegistrasiMandiriForm() {
         const res = await fetch(`/api/registrasi/cek-referral?kode=${encodeURIComponent(kodeBersih)}`);
         if (!res.ok) return;
         const json = (await res.json()) as {
-          tipe: "voucher" | "siswa" | null;
+          tipe: "voucher" | null;
           status?: "unused" | "used" | "expired" | "void";
           paket?: string;
           mitra?: string;
@@ -313,7 +313,7 @@ function RegistrasiMandiriForm() {
       </div>
 
       <div>
-        <Label htmlFor="kodeReferral">Kode voucher mitra / kode referral (opsional)</Label>
+        <Label htmlFor="kodeReferral">Kode voucher mitra (opsional)</Label>
         <Input
           id="kodeReferral"
           placeholder="Contoh: AB12CD34EF"
@@ -340,9 +340,6 @@ function RegistrasiMandiriForm() {
               Kode voucher ini sudah tidak berlaku. Minta kode baru ke mitramu.
             </p>
           )}
-          {hasilCek?.tipe === "siswa" && (
-            <p className="font-medium text-emerald-700">Kode referral temanmu dikenali.</p>
-          )}
           {hasilCek && hasilCek.tipe === null && (
             <p className="font-medium text-amber-700">
               Kode ini tidak dikenali. Periksa lagi penulisannya, atau kosongkan kolom ini kalau kamu tidak punya kode.
@@ -350,9 +347,8 @@ function RegistrasiMandiriForm() {
           )}
           <p className={`leading-relaxed text-slate-500 ${hasilCek ? "mt-1" : ""}`}>
             Dapat kode voucher dari mitra (sekolah atau lembaga yang bekerja sama dengan AyoTKA)? Tulis kodenya di
-            sini: akunmu langsung berlangganan tanpa bayar, dan tiap kode hanya bisa dipakai satu siswa. Kode referral
-            dari temanmu juga bisa diisi di kolom ini. Kalau sudah punya akun, kode voucher bisa ditukar di menu
-            Langganan &amp; Voucher.
+            sini: akunmu langsung berlangganan tanpa bayar, dan tiap kode hanya bisa dipakai satu siswa. Kalau sudah
+            punya akun, kode voucher bisa ditukar di menu Langganan &amp; Voucher.
           </p>
         </div>
       </div>

@@ -31,7 +31,6 @@ type CheckoutData = {
   /** "affiliate" = bayar lewat tautan affiliate.id + aktivasi manual admin (sementara, lihat lib/billing/pembayaran-affiliate.ts). */
   paymentMode: "affiliate" | "midtrans";
   affiliatePlans: Record<string, { url: string; waUrl: string }> | null;
-  referralCode: string;
   entitlement: Entitlement | null;
   plans: Plan[];
   pendingInvoiceId: string | null;
@@ -53,18 +52,7 @@ export default function LanggananSiswaPage() {
   const [data, setData] = useState<CheckoutData | null>(null);
   const [submittingPlanId, setSubmittingPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [sukses, setSukses] = useState(false);
-
-  async function handleCopyReferral(code: string) {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard API tidak tersedia - kode tetap terlihat untuk disalin manual.
-    }
-  }
 
   async function refreshData() {
     const res = await fetch("/api/siswa/checkout");
@@ -137,20 +125,7 @@ export default function LanggananSiswaPage() {
           </Alert>
         )}
 
-        <Card>
-          <p className="text-sm text-slate-500">Kode referral kamu</p>
-          <p className="mt-1 text-sm text-slate-600">
-            Bagikan ke temanmu yang daftar mandiri — mereka dapat diskon 30% untuk pembelian pertama.
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="rounded-md bg-slate-100 px-3 py-1.5 font-mono text-sm font-semibold text-slate-900">
-              {data.referralCode}
-            </span>
-            <Button variant="secondary" onClick={() => handleCopyReferral(data.referralCode)}>
-              {copied ? "Disalin!" : "Salin kode"}
-            </Button>
-          </div>
-        </Card>
+
       </div>
     );
   }
@@ -390,20 +365,6 @@ export default function LanggananSiswaPage() {
         )}
       </section>
 
-      <Card>
-        <p className="text-sm text-slate-500">Kode referral kamu</p>
-        <p className="mt-1 text-sm text-slate-600">
-          Bagikan ke temanmu yang daftar mandiri — mereka dapat diskon 30% untuk pembelian pertama.
-        </p>
-        <div className="mt-2 flex items-center gap-2">
-          <span className="rounded-md bg-slate-100 px-3 py-1.5 font-mono text-sm font-semibold text-slate-900">
-            {data.referralCode}
-          </span>
-          <Button variant="secondary" onClick={() => handleCopyReferral(data.referralCode)}>
-            {copied ? "Disalin!" : "Salin kode"}
-          </Button>
-        </div>
-      </Card>
     </div>
   );
 }

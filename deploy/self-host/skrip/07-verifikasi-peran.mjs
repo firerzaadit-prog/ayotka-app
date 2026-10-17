@@ -122,7 +122,7 @@ try {
   const siswaU = await buatAuth("siswa", "siswa");
   const namaSiswa = `QA-TEST Siswa Verifikasi ${cap}`;
   const siswa = await prisma.student.create({
-    data: { userId: siswaU.id, jenjang: "SMP", nama: namaSiswa, jalur: "B", claimStatus: "sudah_klaim", status: "active", referralCode: `QV${crypto.randomBytes(5).toString("hex")}` },
+    data: { userId: siswaU.id, jenjang: "SMP", nama: namaSiswa, jalur: "B", claimStatus: "sudah_klaim", status: "active" },
   });
   state.studentId = siswa.id;
   PERAN.push({ nama: "siswa", akun: siswaU, home: "/siswa/dashboard", label: namaSiswa });

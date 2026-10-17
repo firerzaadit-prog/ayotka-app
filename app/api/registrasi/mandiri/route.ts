@@ -4,7 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { generateReadableCode } from "@/lib/utils/generate-code";
-import { generateUniqueStudentReferralCode } from "@/lib/students/create";
 import { resolveKodeReferral } from "@/lib/registrasi/referral";
 import { activateVoucher, VoucherSudahDipakaiError } from "@/lib/billing/vouchers";
 import { daftarMandiriSchema } from "@/lib/validations/registrasi";
@@ -122,16 +121,15 @@ export async function POST(request: Request) {
     }
   }
 
-  // Kolom kode opsional: kode referral teman ATAU kode voucher dari mitra (satu kode per voucher).
+  // Kolom kode opsional: kode voucher dari mitra (satu kode per voucher).
   // Kode yang tidak dikenali/salah ketik tidak memblokir pendaftaran (halaman pendaftaran sudah
   // memperingatkan lewat /api/registrasi/cek-referral). Sebaliknya kode voucher yang DIKENALI tapi
   // sudah tidak bisa dipakai ditolak dengan jelas: siswa mengira akan gratis, jangan didaftarkan
   // diam-diam tanpa akses.
-  let referredByStudentId: string | null = null;
+  const referredByStudentId: string | null = null;
   let voucherUntukDiaktifkan: Extract<NonNullable<Awaited<ReturnType<typeof resolveKodeReferral>>>, { tipe: "voucher" }> | null = null;
   if (data.kodeReferral && data.kodeReferral.trim().length > 0) {
     const hasil = await resolveKodeReferral(data.kodeReferral);
-    if (hasil?.tipe === "siswa") referredByStudentId = hasil.studentId;
     if (hasil?.tipe === "voucher") {
       if (hasil.status !== "unused") {
         return NextResponse.json(
@@ -147,7 +145,6 @@ export async function POST(request: Request) {
       voucherUntukDiaktifkan = hasil;
     }
   }
-  const newReferralCode = await generateUniqueStudentReferralCode();
 
   const supabaseAdmin = createAdminClient();
 
@@ -209,7 +206,6 @@ export async function POST(request: Request) {
           // Langsung aktif: akses try out diatur entitlement/langganan, bukan
           // persetujuan admin (status "pending" tidak menahan apa pun di login).
           status: "active",
-          referralCode: newReferralCode,
           referredByStudentId,
         },
       });

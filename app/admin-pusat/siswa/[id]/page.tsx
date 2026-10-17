@@ -87,7 +87,6 @@ export default async function DetailSiswaPage({ params }: { params: Promise<{ id
             lulusAt: student.lulusAt ? student.lulusAt.toISOString() : null,
             waKontak: student.waKontak,
             emailKontak: ringkasEmailKontak(student),
-            referralCode: student.referralCode,
             terakhirMasuk: akun?.lastLoginAt ? akun.lastLoginAt.toISOString() : null,
             keanggotaan,
             saldo,
