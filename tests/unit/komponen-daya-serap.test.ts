@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { BarisUraian, DayaSerapIndikator } from "@/components/hasil/daya-serap-indikator";
+import { BarisUraian, DayaSerapIndikator, ringkasanSoal } from "@/components/hasil/daya-serap-indikator";
 import { hitungLaporanSiswa, type InfoIndikator, type JawabanBerindikator } from "@/lib/indikator/daya-serap";
 
 const mat = (n: number, o: Partial<InfoIndikator> = {}): InfoIndikator => ({
@@ -40,7 +40,10 @@ describe("komponen DayaSerapIndikator (rapor siswa di web)", () => {
     expect(h).toContain("Aljabar");
     expect(h).toContain("Di atas rerata nasional");
     expect(h).toContain("Perlu penguatan");
-    expect(h).toContain("Rerata nasional 30,0%");
+    // rujukan nasional dan selisih kini di kolom/baris yang sama dengan skornya (tidak ada tabel ringkasan terpisah)
+    expect(h).toContain("30,0%");
+    expect(h).toContain("+70,0 poin");
+    expect(h).toContain("-55,0 poin");
     expect(h).toContain("nasional 80,0%");
     expect(h).toContain("Indikator mat 1 (1)");
     expect(h).toContain("Prioritas belajar");
@@ -96,6 +99,123 @@ describe("komponen DayaSerapIndikator (rapor siswa di web)", () => {
   });
 });
 
+/** Baris tabel pada tingkat hierarki tertentu (data-level). */
+const barisTingkat = (isi: string, tingkat: number) =>
+  [...isi.matchAll(new RegExp(`<tr [^>]*data-level="${tingkat}"[^>]*>[\\s\\S]*?</tr>`, "g"))].map((m) => m[0]);
+
+describe("ringkasanSoal (keterangan jumlah soal di bawah skor)", () => {
+  it.each<[string, { jmlSoal?: number; skor?: number; skorMaks?: number }, string | null]>([
+    ["bobot sama: skor = jumlah benar", { jmlSoal: 12, skor: 10, skorMaks: 12 }, "10/12 benar"],
+    ["semua benar", { jmlSoal: 3, skor: 3, skorMaks: 3 }, "3/3 benar"],
+    ["semua salah", { jmlSoal: 2, skor: 0, skorMaks: 2 }, "0/2 benar"],
+    ["bobot berbeda: jumlah benar tak bisa diturunkan, cukup jumlah soal", { jmlSoal: 3, skor: 3, skorMaks: 4 }, "3 soal"],
+    ["skor pecahan: tidak mengaku 'benar'", { jmlSoal: 2, skor: 1.5, skorMaks: 2 }, "2 soal"],
+    ["tanpa skor (indikator resmi yang belum diuji)", { jmlSoal: 2 }, "2 soal"],
+    ["tanpa soal: tidak ada keterangan", { jmlSoal: 0, skor: 0, skorMaks: 0 }, null],
+    ["jumlah soal tidak ada: tidak ada keterangan", {}, null],
+  ])("%s", (_nama, row, harapan) => {
+    expect(ringkasanSoal(row)).toBe(harapan);
+  });
+});
+
+// Permintaan user (17 Okt 2026): Peta Kompetensi, Ringkasan Capaian per Elemen, Tabel Hierarki, dan Tampilan Akordion
+// dijadikan SATU tabel supaya siswa mudah membacanya. Semua informasi lama harus tetap ada di tabel itu.
+describe("satu tabel capaian (hierarki + skor + rujukan nasional + selisih)", () => {
+  const jawaban = () => [...ulang(mat(1, { nilaiNasional: 30 }), 4, 4), ...ulang(mat(3, { nilaiNasional: 80 }), 4, 1)];
+  const h = () => html(jawaban());
+
+  it("hanya ada satu tabel dan tidak ada lagi tabel ringkasan, akordion, atau pengalih tampilan", () => {
+    const isi = h();
+    expect(isi.match(/<table/g)).toHaveLength(1);
+    expect(isi).not.toContain("Ringkasan Capaian per");
+    expect(isi).not.toContain("Tampilan Akordion");
+    expect(isi).not.toContain("Tabel Hierarki Resmi");
+    expect(isi).not.toContain("Tabel Hierarki Daya Serap Kemendikdasmen");
+    expect(isi).not.toContain("STATUS CAPAIAN");
+  });
+
+  it("tiga kolom: Hierarki, Skor kamu, Rujukan nasional; selisih ditumpuk di bawah angka nasional (bukan kolom sendiri)", () => {
+    const kepala = h().match(/<thead>[\s\S]*?<\/thead>/)![0];
+    const kolom = [...kepala.matchAll(/<th [^>]*>([^<]*)<\/th>/g)].map((m) => m[1]!.trim());
+    expect(kolom).toEqual(["Hierarki", "Skor kamu", "Rujukan nasional"]);
+  });
+
+  it("baris Elemen membawa status dibanding rerata nasional, skor, jumlah soal, dan selisihnya", () => {
+    const [bilangan, aljabar] = barisTingkat(h(), 1);
+    expect(bilangan).toContain("Bilangan");
+    expect(bilangan).toContain("Di atas rerata nasional");
+    expect(bilangan).toContain("100,0%");
+    expect(bilangan).toContain("4/4 benar");
+    expect(bilangan).toContain("+70,0 poin");
+    expect(aljabar).toContain("Aljabar");
+    expect(aljabar).toContain("Perlu penguatan");
+    expect(aljabar).toContain("1/4 benar");
+    expect(aljabar).toContain("-55,0 poin");
+  });
+
+  it("jumlah benar tampil di semua tingkat seperti Peta Kompetensi lama (x/y benar), termasuk baris indikator", () => {
+    const isi = html([...ulang(mat(1), 5, 3), ...ulang(mat(2), 2, 2)]);
+    expect(barisTingkat(isi, 1)[0]).toContain("5/7 benar");
+    expect(barisTingkat(isi, 2)[0]).toContain("5/7 benar");
+    expect(isi).toContain("3/5 benar");
+    expect(isi).toContain("2/2 benar");
+  });
+
+  it("selisih baris Elemen = selisih resmi kelompok (hanya indikator yang punya pembanding), bukan skor dikurang nasional kasar", () => {
+    // mat(1) punya pembanding 40 dan dijawab benar semua; mat(2) tanpa pembanding dan salah semua. Skor kelompok Bilangan
+    // 50%, nasional 40%: hitungan kasar "skor - nasional" = +10,0 poin, tetapi selisih resmi hanya pada indikator yang
+    // punya pembanding (100% - 40% = +60,0 poin). Tabel ringkasan lama memakai angka resmi; baris Elemen juga.
+    const laporan = hitungLaporanSiswa([...ulang(mat(1, { nilaiNasional: 40 }), 3, 3), ...ulang(mat(2, { nilaiNasional: null }), 3, 0)])!;
+    expect(laporan.kelompok[0]!.dayaSerap).toBeCloseTo(50);
+    expect(laporan.kelompok[0]!.selisih).toBeCloseTo(60);
+    const [bilangan] = barisTingkat(renderToStaticMarkup(createElement(DayaSerapIndikator, { laporan })), 1);
+    expect(bilangan).toContain("+60,0 poin");
+    expect(bilangan).not.toContain("+10,0 poin");
+  });
+
+  it("HP: rujukan nasional dan selisih ikut tampil di bawah skor (kolom ketiga hanya mulai layar sm)", () => {
+    const [bilangan] = barisTingkat(h(), 1);
+    expect(bilangan).toMatch(/sm:hidden[^>]*>Nasional 30,0%/);
+    expect(h()).toContain("sm:table-cell");
+  });
+
+  it("Elemen dengan soal terlalu sedikit: tidak dibandingkan (tanpa angka nasional dan selisih), dengan penjelasannya", () => {
+    const [bilangan] = barisTingkat(html([...ulang(mat(1), 2, 2)]), 1);
+    expect(bilangan).toContain("Data belum cukup");
+    expect(bilangan).toContain("Baru 2 soal; butuh minimal 3 soal untuk dibandingkan.");
+    expect(bilangan).not.toContain("poin");
+    expect(bilangan).not.toMatch(/Nasional \d/);
+  });
+
+  it("Bahasa Indonesia: tiga tingkat, tetap satu tabel, tanpa kata Elemen/Subelemen", () => {
+    const isi = html([...ulang(bin(1), 4, 4), ...ulang(bin(2), 4, 1)]);
+    expect(isi.match(/<table/g)).toHaveLength(1);
+    expect(barisTingkat(isi, 1).length).toBeGreaterThan(0);
+    expect(barisTingkat(isi, 4)).toHaveLength(0);
+    expect(isi).not.toMatch(/Elemen|Subelemen/);
+  });
+
+  it("filter 'Hanya yang Diuji' dan 'Semua Indikator Resmi' ada dan menyebut jumlahnya", () => {
+    const isi = h();
+    expect(isi).toMatch(/aria-pressed="true"[^>]*>Hanya yang Diuji \(2\)</);
+    expect(isi).toMatch(/aria-pressed="false"[^>]*>Semua Indikator Resmi \(\d+\)</);
+  });
+
+  it("legenda warna ada di bawah tabel", () => {
+    const isi = h();
+    expect(isi).toContain("Baik (≥70%)");
+    expect(isi).toContain("Cukup (50-69%)");
+    expect(isi).toContain("Perlu latihan (&lt;50%)");
+  });
+
+  it("kalimat sumber rujukan nasional hanya sekali (tidak diulang di bawah tiap bagian)", () => {
+    const isi = h();
+    expect(isi.split("Rujukan nasional berdasarkan data hasil TKA tahun ajaran 2025/2026.").length - 1).toBe(1);
+    expect(isi.match(/data-catatan-rujukan-nasional/g)).toHaveLength(1);
+    expect(isi.indexOf("data-catatan-rujukan-nasional")).toBeGreaterThan(isi.indexOf("</table>"));
+  });
+});
+
 describe("Prioritas belajar & Kekuatanmu = fitur berbayar (tampilkanFokus)", () => {
   const jawaban = () => [...ulang(mat(1, { nilaiNasional: 30 }), 4, 4), ...ulang(mat(3, { nilaiNasional: 80 }), 4, 1)];
   const render = (tampilkanFokus?: boolean) =>
@@ -121,7 +241,7 @@ describe("Prioritas belajar & Kekuatanmu = fitur berbayar (tampilkanFokus)", () 
 
   it("false: bagian lain laporan tetap utuh (tabel hierarki, rerata nasional, catatan sumber)", () => {
     const h = render(false);
-    expect(h).toContain("Tabel Hierarki Daya Serap Kemendikdasmen");
+    expect(h).toContain("data-tabel-capaian");
     expect(h).toContain("Indikator mat 1 (1)");
     expect(h).toContain("nasional 80,0%");
     expect(h).toContain("Rujukan nasional berdasarkan data hasil TKA tahun ajaran 2025/2026.");

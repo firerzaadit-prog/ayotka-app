@@ -194,10 +194,36 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
 
       {hasil.ranking && <RankingBoardCard ranking={hasil.ranking} />}
 
-      {hasil.elemenScores.length > 0 && (
+      {/* Satu kartu, satu tabel (permintaan user, 17 Okt 2026): Peta Kompetensi, ringkasan per elemen, tabel hierarki, dan
+          tampilan akordion dulu empat bagian yang mengulang angka yang sama. Bila ada indikator resmi, tabelnya dipakai
+          (hierarki resmi + rujukan nasional); peta lama hanya jadi cadangan bila tak ada indikator, atau laci kecil
+          bila sebagian soal belum punya indikator resmi (peta itu menghitung SEMUA soal). */}
+      {(hasil.indikator || hasil.elemenScores.length > 0) && (
         <Card>
           <h2 className="mb-1 text-lg font-semibold text-slate-900">Peta Kompetensi</h2>
-          {hasil.hierarkiKompetensi && hasil.hierarkiKompetensi.length > 0 ? (
+          {hasil.indikator ? (
+            <>
+              <div className="mt-3">
+                <DayaSerapIndikator laporan={hasil.indikator} tampilkanFokus={fokusDibukaSesi || hasil.fokusBelajarDibuka !== false} />
+              </div>
+              {hasil.indikator.soalTercakup < hasil.indikator.soalTotal &&
+                hasil.hierarkiKompetensi &&
+                hasil.hierarkiKompetensi.length > 0 && (
+                  <details className="mt-5 rounded-xl border border-slate-200" data-peta-semua-soal>
+                    <summary className="cursor-pointer rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                      Lihat capaian untuk semua {hasil.indikator.soalTotal} soal
+                    </summary>
+                    <div className="px-4 pb-4">
+                      <p className="mb-3 text-xs text-slate-500">
+                        Tabel di atas hanya menghitung soal yang sudah punya indikator resmi. Di sini semua soal ikut
+                        dihitung, dikelompokkan menurut kompetensi pada soalnya.
+                      </p>
+                      <HierarkiKompetensiTabel baris={hasil.hierarkiKompetensi} />
+                    </div>
+                  </details>
+                )}
+            </>
+          ) : hasil.hierarkiKompetensi && hasil.hierarkiKompetensi.length > 0 ? (
             <>
               <p className="mb-4 text-xs text-slate-500">
                 Capaianmu pada percobaan ini, per Elemen › Subelemen › Kompetensi.
@@ -209,13 +235,6 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
               <PetaKompetensiChart scores={hasil.elemenScores} />
             </div>
           )}
-        </Card>
-      )}
-
-      {hasil.indikator && (
-        <Card>
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Daya Serap per Indikator</h2>
-          <DayaSerapIndikator laporan={hasil.indikator} tampilkanFokus={fokusDibukaSesi || hasil.fokusBelajarDibuka !== false} />
         </Card>
       )}
 

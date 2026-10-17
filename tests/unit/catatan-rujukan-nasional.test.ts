@@ -39,24 +39,15 @@ describe("catatan sumber rujukan nasional", () => {
     expect(h).toContain("mt-2");
   });
 
-  it("rapor siswa (web): catatan muncul tepat di bawah tabel Ringkasan dan di bawah Tabel Hierarki", () => {
+  it("rapor siswa (web): satu tabel capaian, satu catatan tepat di bawahnya (kalimat sumber tidak diulang)", () => {
     const laporan = hitungLaporanSiswa([...ulang(mat(1, { nilaiNasional: 30 }), 4, 4), ...ulang(mat(3, { nilaiNasional: 80 }), 4, 1)])!;
     const h = renderToStaticMarkup(createElement(DayaSerapIndikator, { laporan }));
 
-    // dua tabel => dua catatan bertanda; kalimat penutup (cara membaca) memuatnya sebagai teks biasa lagi
-    expect((h.match(/data-catatan-rujukan-nasional/g) ?? []).length).toBe(2);
-    expect(h.split(CATATAN_RUJUKAN_NASIONAL).length - 1).toBe(3);
-
-    const posRingkasan = h.indexOf("Ringkasan Capaian per Elemen");
-    const posTabel1Tutup = h.indexOf("</table>", posRingkasan);
-    const posCatatan1 = h.indexOf("data-catatan-rujukan-nasional", posRingkasan);
-    const posHierarki = h.indexOf("Tabel Hierarki Daya Serap Kemendikdasmen");
-    const posTabel2Tutup = h.indexOf("</table>", posHierarki);
-    const posCatatan2 = h.indexOf("data-catatan-rujukan-nasional", posCatatan1 + 1);
-    expect(posRingkasan).toBeGreaterThan(-1);
-    expect(posCatatan1).toBeGreaterThan(posTabel1Tutup);
-    expect(posCatatan1).toBeLessThan(posHierarki);
-    expect(posCatatan2).toBeGreaterThan(posTabel2Tutup);
+    // Sejak 17 Okt 2026 hanya ada satu tabel (permintaan user), jadi satu catatan bertanda dan kalimatnya sekali saja.
+    expect(h.match(/<table/g)).toHaveLength(1);
+    expect((h.match(/data-catatan-rujukan-nasional/g) ?? []).length).toBe(1);
+    expect(h.split(CATATAN_RUJUKAN_NASIONAL).length - 1).toBe(1);
+    expect(h.indexOf("data-catatan-rujukan-nasional")).toBeGreaterThan(h.indexOf("</table>"));
   });
 
   // Pagar untuk tampilan baru: setiap berkas yang menyajikan rerata nasional wajib memakai catatan/kalimat bakunya.

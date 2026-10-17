@@ -11,19 +11,30 @@ const sumber = readFileSync(join(process.cwd(), "app/siswa/(shell)/hasil/[id]/pa
 const pos = (potongan: string) => sumber.indexOf(potongan);
 
 describe("urutan bagian halaman hasil siswa", () => {
-  it("Learning Analytics persis setelah kartu percobaan dan sebelum peringkat, peta kompetensi, daya serap, rincian", () => {
+  it("Learning Analytics persis setelah kartu percobaan dan sebelum peringkat, peta kompetensi, rincian", () => {
     const percobaan = pos("<RiwayatPercobaanCard");
     const la = pos("<LearningAnalyticsSiswa");
     const peringkat = pos("<RankingBoardCard");
     const peta = pos("Peta Kompetensi</h2>");
-    const dayaSerap = pos("Daya Serap per Indikator</h2>");
     const rincian = pos("Rincian Jawaban</h2>");
-    for (const [nama, p] of Object.entries({ percobaan, la, peringkat, peta, dayaSerap, rincian })) expect(p, nama).toBeGreaterThan(-1);
+    for (const [nama, p] of Object.entries({ percobaan, la, peringkat, peta, rincian })) expect(p, nama).toBeGreaterThan(-1);
     expect(percobaan).toBeLessThan(la);
     expect(la).toBeLessThan(peringkat);
     expect(peringkat).toBeLessThan(peta);
-    expect(peta).toBeLessThan(dayaSerap);
-    expect(dayaSerap).toBeLessThan(rincian);
+    expect(peta).toBeLessThan(rincian);
+  });
+
+  // Permintaan user (17 Okt 2026): Peta Kompetensi dan Daya Serap per Indikator dijadikan satu kartu dengan satu tabel.
+  it("Peta Kompetensi dan Daya Serap per Indikator satu kartu: satu judul, tabel resmi bila ada indikator, peta lama hanya cadangan", () => {
+    expect(sumber.match(/Peta Kompetensi<\/h2>/g)).toHaveLength(1);
+    expect(sumber).not.toContain("Daya Serap per Indikator</h2>");
+    // satu-satunya kartu capaian: tabel resmi dulu, peta lama hanya di cabang tanpa indikator atau di laci semua soal
+    const kartu = sumber.slice(pos("Peta Kompetensi</h2>") - 200, pos("Rincian Jawaban</h2>"));
+    expect(kartu.indexOf("<DayaSerapIndikator")).toBeGreaterThan(-1);
+    expect(kartu.indexOf("<DayaSerapIndikator")).toBeLessThan(kartu.indexOf("<HierarkiKompetensiTabel"));
+    expect(kartu).toContain("hasil.indikator.soalTercakup < hasil.indikator.soalTotal");
+    expect(kartu).toContain("data-peta-semua-soal");
+    expect(kartu.match(/<Card/g)).toHaveLength(1);
   });
 
   it("hanya satu kartu Learning Analytics di halaman (tidak ada salinan lama di bagian bawah)", () => {
