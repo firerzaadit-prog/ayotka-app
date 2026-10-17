@@ -27,6 +27,7 @@ import {
 import { LABEL_JENIS_TRYOUT, rentangWaktuPengerjaan, type IdentitasRapor } from "@/lib/exam/jenis-tryout";
 import { parseQuestionMedia } from "@/lib/soal/media-types";
 import { formatWIB, formatWIBDate, formatWIBHariTanggal } from "@/lib/utils/datetime";
+import { applyReadabilityBreaks, parseBlocks } from "@/lib/markdown/parse-blocks";
 
 type Hasil = Awaited<ReturnType<typeof buildHasil>>;
 type PerSoal = Hasil["perSoal"][number];
@@ -79,6 +80,136 @@ function splitAlignment(text: string): { text: string; align?: Align }[] {
   return segments.map((s) => ({ ...s, text: s.text.replace(/\[\/?(left|center|right|justify)\]/gi, "") }));
 }
 
+async function renderPdfTable(
+  doc: PDFKit.PDFDocument,
+  header: string[],
+  rows: string[][],
+  tableWidth: number,
+  fonts: PdfFonts,
+) {
+  const toText = (t: string) => latexToPlainText(t, { unicode: fonts.unicode });
+  const numCols = Math.max(header.length, ...rows.map((r) => r.length));
+  if (numCols === 0) return;
+
+  const padX = 6;
+  const padY = 5;
+  const minColW = 35;
+  const startX = doc.x;
+
+  // 1. Hitung lebar alami kolom berdasarkan teks sel terpanjang
+  const naturalWidths: number[] = [];
+  for (let c = 0; c < numCols; c++) {
+    let maxW = 0;
+    const hText = toText(header[c] ?? "");
+    doc.font(fonts.bold).fontSize(fonts.sz(8.5));
+    maxW = Math.max(maxW, doc.widthOfString(hText));
+
+    doc.font(fonts.regular).fontSize(fonts.sz(8.5));
+    for (const r of rows) {
+      const cText = toText(r[c] ?? "");
+      maxW = Math.max(maxW, doc.widthOfString(cText));
+    }
+    naturalWidths.push(Math.max(minColW, maxW + padX * 2));
+  }
+
+  // 2. Proporsikan lebar tiap kolom sehingga tepat mengisi tableWidth
+  const totalNat = naturalWidths.reduce((a, b) => a + b, 0);
+  const colWidths = naturalWidths.map((w) => (w / totalNat) * tableWidth);
+
+  // Helper pengukur tinggi baris
+  const ukurBaris = (cells: string[], isHeader: boolean) => {
+    doc.font(isHeader ? fonts.bold : fonts.regular).fontSize(fonts.sz(8.5));
+    let maxH = 12;
+    for (let c = 0; c < numCols; c++) {
+      const txt = toText(cells[c] ?? "");
+      const w = colWidths[c]! - padX * 2;
+      const h = doc.heightOfString(txt, { width: w });
+      if (h > maxH) maxH = h;
+    }
+    return maxH + padY * 2;
+  };
+
+  const headerH = header.length > 0 ? ukurBaris(header, true) : 0;
+  const firstRowH = rows.length > 0 ? ukurBaris(rows[0]!, false) : 0;
+
+  // Beri sedikit ruang vertikal sebelum tabel
+  doc.y += 4;
+
+  // Pastikan setidaknya header dan baris pertama muat, jika tidak buat halaman baru
+  if (doc.y + headerH + firstRowH > doc.page.height - 62) {
+    doc.addPage();
+  }
+
+  // Helper penggambar baris header
+  const gambarHeader = (y: number, h: number) => {
+    doc.rect(startX, y, tableWidth, h).fill("#f1f5f9");
+    doc.lineWidth(0.75).moveTo(startX, y + h).lineTo(startX + tableWidth, y + h).strokeColor("#cbd5e1").stroke();
+    doc.lineWidth(0.5).moveTo(startX, y).lineTo(startX + tableWidth, y).strokeColor("#cbd5e1").stroke();
+
+    let curX = startX;
+    doc.font(fonts.bold).fontSize(fonts.sz(8.5)).fillColor("#1e293b");
+    for (let c = 0; c < numCols; c++) {
+      const txt = toText(header[c] ?? "");
+      const w = colWidths[c]!;
+      if (c > 0) {
+        doc.lineWidth(0.5).moveTo(curX, y).lineTo(curX, y + h).strokeColor("#e2e8f0").stroke();
+      }
+      doc.text(txt, curX + padX, y + padY, { width: w - padX * 2, lineBreak: true });
+      curX += w;
+    }
+    doc.lineWidth(0.5).moveTo(startX, y).lineTo(startX, y + h).strokeColor("#cbd5e1").stroke();
+    doc.lineWidth(0.5).moveTo(startX + tableWidth, y).lineTo(startX + tableWidth, y + h).strokeColor("#cbd5e1").stroke();
+  };
+
+  let curY = doc.y;
+  if (header.length > 0) {
+    gambarHeader(curY, headerH);
+    curY += headerH;
+  }
+
+  // Gambar baris data
+  for (let r = 0; r < rows.length; r++) {
+    const rowCells = rows[r]!;
+    const rowH = ukurBaris(rowCells, false);
+
+    // Bila tidak muat di halaman ini, pindah halaman dan ulangi header
+    if (curY + rowH > doc.page.height - 62) {
+      doc.addPage();
+      curY = doc.y;
+      if (header.length > 0) {
+        gambarHeader(curY, headerH);
+        curY += headerH;
+      }
+    }
+
+    const bg = r % 2 === 0 ? "#ffffff" : "#f8fafc";
+    doc.rect(startX, curY, tableWidth, rowH).fill(bg);
+    doc.lineWidth(0.5).moveTo(startX, curY + rowH).lineTo(startX + tableWidth, curY + rowH).strokeColor("#e2e8f0").stroke();
+
+    let curX = startX;
+    doc.font(fonts.regular).fontSize(fonts.sz(8.5)).fillColor("#334155");
+    for (let c = 0; c < numCols; c++) {
+      const txt = toText(rowCells[c] ?? "");
+      const w = colWidths[c]!;
+      if (c > 0) {
+        doc.lineWidth(0.5).moveTo(curX, curY).lineTo(curX, curY + rowH).strokeColor("#e2e8f0").stroke();
+      }
+      doc.text(txt, curX + padX, curY + padY, { width: w - padX * 2, lineBreak: true });
+      curX += w;
+    }
+
+    doc.lineWidth(0.5).moveTo(startX, curY).lineTo(startX, curY + rowH).strokeColor("#cbd5e1").stroke();
+    doc.lineWidth(0.5).moveTo(startX + tableWidth, curY).lineTo(startX + tableWidth, curY + rowH).strokeColor("#cbd5e1").stroke();
+
+    curY += rowH;
+  }
+
+  // Garis penutup bawah tabel
+  doc.lineWidth(0.75).moveTo(startX, curY).lineTo(startX + tableWidth, curY).strokeColor("#cbd5e1").stroke();
+  doc.y = curY + 6;
+  doc.x = startX;
+}
+
 async function renderTextWithImages(
   doc: PDFKit.PDFDocument,
   text: string | null | undefined,
@@ -86,13 +217,74 @@ async function renderTextWithImages(
   fonts: PdfFonts,
 ) {
   if (!text) return;
-  for (const segment of splitAlignment(text)) {
-    await renderSegmentWithImages(
-      doc,
-      segment.text,
-      { ...options, align: segment.align ?? options.align },
-      fonts,
-    );
+  const blocks = parseBlocks(applyReadabilityBreaks(text));
+  const toText = (t: string) => latexToPlainText(t, { unicode: fonts.unicode });
+  const startX = doc.x;
+
+  for (const block of blocks) {
+    switch (block.type) {
+      case "heading": {
+        const headingText = toText(block.text);
+        const sz = block.level === 1 ? 11 : block.level === 2 ? 10 : 9.5;
+        const mt = block.level <= 2 ? 7 : 5;
+        const mb = 3;
+        doc.font(fonts.bold).fontSize(fonts.sz(sz));
+        const h = doc.heightOfString(headingText, { width: options.width });
+        if (doc.y + mt + h + mb > doc.page.height - 62) {
+          doc.addPage();
+        } else {
+          doc.y += mt;
+        }
+        doc.fillColor("#0f172a").text(headingText, startX, doc.y, {
+          width: options.width,
+          align: options.align ?? "left",
+        });
+        doc.y += mb;
+        break;
+      }
+      case "table": {
+        await renderPdfTable(doc, block.header, block.rows, options.width, fonts);
+        break;
+      }
+      case "bullet": {
+        for (const item of block.items) {
+          const itemText = toText(item);
+          const bulletSymbol = fonts.unicode ? "•" : "-";
+          const indent = 14;
+          doc.font(fonts.regular).fontSize(fonts.sz(9.5));
+          const h = doc.heightOfString(itemText, { width: options.width - indent });
+          if (doc.y + h + 2 > doc.page.height - 62) {
+            doc.addPage();
+          }
+          const curY = doc.y;
+          doc.fillColor(COLOR.faint).text(bulletSymbol, startX, curY, { lineBreak: false });
+          doc.fillColor(options.color ?? COLOR.body).text(itemText, startX + indent, curY, {
+            width: options.width - indent,
+          });
+          doc.y = curY + h + 2;
+        }
+        doc.y += 3;
+        break;
+      }
+      case "hr": {
+        if (doc.y + 10 > doc.page.height - 62) doc.addPage();
+        const yHr = doc.y + 4;
+        doc.lineWidth(0.5).moveTo(startX, yHr).lineTo(startX + options.width, yHr).strokeColor(COLOR.border).stroke();
+        doc.y = yHr + 6;
+        break;
+      }
+      case "paragraph": {
+        for (const segment of splitAlignment(block.text)) {
+          await renderSegmentWithImages(
+            doc,
+            segment.text,
+            { ...options, align: segment.align ?? options.align },
+            fonts,
+          );
+        }
+        break;
+      }
+    }
   }
 }
 
@@ -107,39 +299,35 @@ async function renderSegmentWithImages(
   const regex = /!\[.*?\]\((.*?)\)/g;
   let lastIndex = 0;
   let match;
+  const startX = doc.x;
 
   while ((match = regex.exec(text)) !== null) {
     const preText = text.substring(lastIndex, match.index);
     if (preText.trim()) {
-      doc.text(toText(preText), options);
-      doc.moveDown(0.4);
+      doc.text(toText(preText), startX, doc.y, options);
+      doc.moveDown(0.3);
     }
 
     const url = match[1] as string;
-    // Hanya PNG/JPEG yang bisa dipasang pdfkit; bentuk lain (WebP, GIF) diubah dulu, dan yang tak bisa diubah dilewati
-    // dengan keterangan - dulu gambar WebP membuat seluruh rapor gagal dibuat.
     const buffer = await ambilGambarRaster(url, { asalSitus: asalSitus() });
     let terpasang = false;
     if (buffer) {
-      // doc.image() tidak auto-pindah halaman seperti .text() - kalau tidak
-      // cukup ruang, gambar digambar apa adanya lalu terpotong rata batas
-      // bawah halaman. Cek dulu terhadap tinggi maksimum yang dipakai fit[].
       const maxImageHeight = 250;
       if (doc.y + maxImageHeight > doc.page.height - 62) {
         doc.addPage();
       }
       try {
         doc.image(buffer, { fit: [options.width, maxImageHeight], align: "center" });
-        doc.moveDown(0.4);
+        doc.moveDown(0.3);
         terpasang = true;
       } catch {
         terpasang = false;
       }
     }
     if (!terpasang) {
-      doc.fillColor(COLOR.danger).text("[Gambar gagal dimuat]", options);
+      doc.fillColor(COLOR.danger).text("[Gambar gagal dimuat]", startX, doc.y, options);
       doc.fillColor(options.color ?? COLOR.body);
-      doc.moveDown(0.4);
+      doc.moveDown(0.3);
     }
 
     lastIndex = regex.lastIndex;
@@ -147,8 +335,8 @@ async function renderSegmentWithImages(
 
   const postText = text.substring(lastIndex);
   if (postText.trim()) {
-    doc.text(toText(postText), options);
-    doc.moveDown(0.4);
+    doc.text(toText(postText), startX, doc.y, options);
+    doc.moveDown(0.3);
   }
 }
 
@@ -733,11 +921,12 @@ export async function gambarSoal(doc: PDFKit.PDFDocument, fonts: PdfFonts, s: Pe
   if (s.pembahasan?.trim()) {
     doc.moveDown(0.3);
     const adaGambar = /!\[.*?\]\(.*?\)/.test(s.pembahasan);
+    const adaTabelAtauHeading = /\|.*\||#{1,6}\s+/.test(s.pembahasan);
     const teks = toText(s.pembahasan.replace(/\s+\n/g, "\n"));
     const lebar = CW - 22;
-    const hTeks = adaGambar ? 0 : tinggi(teks, 9.5, lebar);
+    const hTeks = adaGambar || adaTabelAtauHeading ? 0 : tinggi(teks, 9.5, lebar);
     const kapasitas = doc.page.height - 62 - 48;
-    if (!adaGambar && hTeks + 30 <= kapasitas * 0.9) {
+    if (!adaGambar && !adaTabelAtauHeading && hTeks + 30 <= kapasitas * 0.9) {
       // Kotak pembahasan: dibingkai bila muat dalam satu halaman, dan tidak dipotong antar halaman.
       pastikanMuat(hTeks + 30);
       const y = doc.y;
