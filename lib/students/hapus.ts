@@ -123,7 +123,15 @@ export async function hapusSiswaMassal(
 
       // Dengan riwayat: simpan sebagai arsip, bebaskan NISN + kode klaim + tautan akun.
       if (idArsip.length > 0) {
-        const bebasIdentitas = { status: "nonaktif" as const, nisn: null, claimToken: null, userId: null };
+        // Email kontak (akun NISN) ikut dikosongkan: data pribadi tidak perlu tersisa di baris arsip.
+        const bebasIdentitas = {
+          status: "nonaktif" as const,
+          nisn: null,
+          claimToken: null,
+          userId: null,
+          emailKontak: null,
+          emailKontakVerifiedAt: null,
+        };
         // Waktu hapus asli dipertahankan untuk siswa yang sudah pernah di-soft-delete (pembersihan data lama).
         await tx.student.updateMany({
           where: { id: { in: idArsip }, deletedAt: null },
@@ -150,7 +158,7 @@ export async function hapusSiswaMassal(
 export function ringkasanAuditHapus(mode: "permanen" | "arsip") {
   return mode === "permanen"
     ? { dihapusPermanen: true }
-    : { diarsipkan: true, status: "nonaktif", nisn: null, claimToken: null, userId: null };
+    : { diarsipkan: true, status: "nonaktif", nisn: null, claimToken: null, userId: null, emailKontak: null, emailKontakVerifiedAt: null };
 }
 
 /** Hapus satu siswa. Melempar GagalHapusAkunLoginError (tanpa mengubah data) kalau akun loginnya gagal dihapus. */

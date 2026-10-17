@@ -3,6 +3,7 @@ import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color
 import type { BarisIndikatorSekolah } from "@/lib/indikator/daya-serap";
 import type { DataLaporanSekolah } from "@/lib/indikator/laporan-sekolah";
 import { MIN_SEKOLAH_PEMBANDING } from "@/lib/indikator/pembanding";
+import { CATATAN_RUJUKAN_NASIONAL } from "@/lib/indikator/sumber-nasional";
 import { WARNA_VONIS, formatPersen, formatSelisih } from "@/lib/indikator/tampilan";
 import { NAMA_LEVEL, type JenisWawasan } from "@/lib/indikator/wawasan";
 import { labelPeriodeBulan } from "@/lib/utils/datetime";
@@ -116,7 +117,7 @@ export async function renderLaporanSekolahPdf(
   } else {
     // ---- Cara membaca ----
     const catatan =
-      "Daya serap = skor yang diperoleh dibagi skor maksimum pada indikator, dari percobaan PERTAMA tiap siswa pada tiap paket. Rerata nasional dari portal resmi daya serap TKA Kemendikdasmen adalah rujukan; vonis hanya diberikan di tingkat kelompok. Alumni tetap dihitung.";
+      `Daya serap = skor yang diperoleh dibagi skor maksimum pada indikator, dari percobaan PERTAMA tiap siswa pada tiap paket. Rerata nasional dari portal resmi daya serap TKA Kemendikdasmen adalah rujukan. ${CATATAN_RUJUKAN_NASIONAL} Vonis hanya diberikan di tingkat kelompok. Alumni tetap dihitung.`;
     tulis(catatan, X0, doc.y, contentWidth, 7.5, COLOR.faint);
     doc.y += tinggi(catatan, 7.5, contentWidth) + 12;
 

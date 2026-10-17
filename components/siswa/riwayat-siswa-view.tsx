@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -52,12 +53,15 @@ export function RiwayatSiswaView({
   hasilByAttempt,
   backHref,
   backLabel,
+  profilSlot,
 }: {
   student: StudentRiwayat;
   kesiapanPerMapel: KesiapanSiswaPerMapel[];
   hasilByAttempt: Map<string, Awaited<ReturnType<typeof buildHasil>>>;
   backHref: string;
   backLabel: string;
+  /** Konten di bawah judul, sebelum kesiapan dan riwayat (admin pusat: kartu profil + tombol Hapus pengguna). */
+  profilSlot?: ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -74,6 +78,8 @@ export function RiwayatSiswaView({
           description={`NISN: ${student.nisn || "-"} • ${JALUR_LABEL[student.jalur] || student.jalur} • Sekolah: ${student.school?.nama || "Siswa Mandiri"}`}
         />
       </div>
+
+      {profilSlot}
 
       <div className="flex flex-col gap-3">
         <div>

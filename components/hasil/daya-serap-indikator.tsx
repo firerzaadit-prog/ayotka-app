@@ -16,6 +16,8 @@ import {
   type MapelKey,
 } from "@/lib/indikator/hierarki-resmi";
 import { TableProperties, ListTree } from "lucide-react";
+import { CatatanRujukanNasional } from "@/components/hasil/catatan-rujukan-nasional";
+import { CATATAN_RUJUKAN_NASIONAL } from "@/lib/indikator/sumber-nasional";
 
 /** Keterangan tambahan per baris (mis. "12 siswa") di laporan sekolah; null = tidak ada. */
 export type Tambahan<B extends BarisIndikator> = (b: B) => string | null;
@@ -485,6 +487,7 @@ export function TabelHierarkiResmiSiswa({
             </tbody>
           </table>
         </div>
+        <CatatanRujukanNasional className="mt-2" />
       </div>
 
       {/* 2. TABEL HIERARKI DAYA SERAP RESMI KEMENDIKDASMEN */}
@@ -651,6 +654,7 @@ export function TabelHierarkiResmiSiswa({
             </tbody>
           </table>
         </div>
+        <CatatanRujukanNasional className="border-t border-slate-100 bg-slate-50/50 px-4 py-2.5" />
       </div>
     </div>
   );
@@ -662,7 +666,17 @@ export function TabelHierarkiResmiSiswa({
  * Rerata nasional per indikator adalah RUJUKAN; vonis ("di atas rerata nasional" / "perlu penguatan") disajikan
  * di tingkat kelompok karena beberapa soal per indikator terlalu sedikit untuk disimpulkan.
  */
-export function DayaSerapIndikator({ laporan }: { laporan: LaporanIndikatorSiswa }) {
+export function DayaSerapIndikator({
+  laporan,
+  tampilkanFokus = true,
+}: {
+  laporan: LaporanIndikatorSiswa;
+  /**
+   * false menyembunyikan kartu "Prioritas belajar" dan "Kekuatanmu": keduanya fitur berbayar, terbuka hanya bila siswa
+   * punya jatah atau saldo Learning Analytics (lib/billing/fokus-belajar.ts). Bagian lain laporan tetap tampil.
+   */
+  tampilkanFokus?: boolean;
+}) {
   const [modeTampilan, setModeTampilan] = useState<"hierarki" | "akordion">("hierarki");
   const cakupanSebagian = laporan.soalTercakup < laporan.soalTotal;
 
@@ -723,29 +737,32 @@ export function DayaSerapIndikator({ laporan }: { laporan: LaporanIndikatorSiswa
           {laporan.kelompok.map((k) => (
             <KelompokDetail key={k.nama} label0={laporan.label[0]!} k={k} />
           ))}
+          <CatatanRujukanNasional />
         </div>
       )}
 
-      {/* 3. Kartu Fokus: Prioritas Belajar & Kekuatanmu */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <DaftarFokus
-          judul="Prioritas belajar"
-          deskripsi="Indikator dengan daya serap terendah: mulai remedial dari sini."
-          baris={laporan.terlemah}
-          kosong="Semua indikator sudah dikuasai penuh."
-        />
-        <DaftarFokus
-          judul="Kekuatanmu"
-          deskripsi="Indikator dengan daya serap tertinggi."
-          baris={laporan.terkuat}
-          kosong="Belum ada indikator yang menonjol."
-        />
-      </div>
+      {/* 3. Kartu Fokus: Prioritas Belajar & Kekuatanmu (fitur berbayar: hanya bila tampilkanFokus) */}
+      {tampilkanFokus && (
+        <div className="grid gap-3 sm:grid-cols-2" data-kartu-fokus>
+          <DaftarFokus
+            judul="Prioritas belajar"
+            deskripsi="Indikator dengan daya serap terendah: mulai remedial dari sini."
+            baris={laporan.terlemah}
+            kosong="Semua indikator sudah dikuasai penuh."
+          />
+          <DaftarFokus
+            judul="Kekuatanmu"
+            deskripsi="Indikator dengan daya serap tertinggi."
+            baris={laporan.terkuat}
+            kosong="Belum ada indikator yang menonjol."
+          />
+        </div>
+      )}
 
       {/* 4. Catatan Keterangan Resmi Pusmendik */}
       <p className="text-xs text-slate-400 leading-relaxed">
         Daya serap = skor yang kamu peroleh dibagi skor maksimum pada indikator itu. Rerata nasional dari portal resmi daya serap
-        TKA Kemendikdasmen dipakai sebagai pembanding.
+        TKA Kemendikdasmen dipakai sebagai pembanding. {CATATAN_RUJUKAN_NASIONAL}
       </p>
     </div>
   );

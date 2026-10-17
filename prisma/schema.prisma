@@ -249,6 +249,25 @@ model SchoolInvoice {
   @@map("school_invoices")
 }
 
+/// Invoice yang diterbitkan lewat Pembuat Invoice di Admin Pusat: penerima dan rincian bebas (bukan dari data sekolah),
+/// banyak baris, PPN opsional. Fungsi utamanya sebagai BUKU NOMOR: nomor di sini tidak akan dipakai lagi oleh invoice
+/// sekolah (lib/billing/nomor-terpakai.ts membaca kedua tabel) dan sebaliknya. `data` menyimpan isian formulir yang sudah
+/// divalidasi supaya PDF-nya bisa diunduh ulang persis sama dan dipakai lagi sebagai dasar invoice berikutnya.
+model InvoiceBebas {
+  id             String               @id @default(uuid()) @db.Uuid
+  nomorInvoice   String               @unique @map("nomor_invoice")
+  penerima       String
+  totalAmount    Int                  @map("total_amount")
+  status         StatusInvoiceSekolah @default(menunggu_pembayaran)
+  tanggalInvoice DateTime             @map("tanggal_invoice")
+  data           Json
+  dibuatOlehId   String?              @map("dibuat_oleh_id") @db.Uuid
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("invoice_bebas")
+}
+
 enum Jenjang {
   SD
   SMP
@@ -383,6 +402,12 @@ model Student {
   /// Alumni: ditandai lulus oleh admin sekolah. Berbeda dari dihapus - siswa tetap ada (login, riwayat, nilai, dan
   /// analitik sekolah tetap), tetapi tidak memakan kursi sekolah dan tidak bisa mendapat kursi baru.
   lulusAt             DateTime?     @map("lulus_at")
+  /// Email kontak akun yang masuk dengan NISN (email loginnya sintetis `{nisn}@nisn.ayotka.id` dan tidak punya kotak
+  /// surat). Dipakai untuk lupa password lewat NISN, pemberitahuan keamanan, dan bukti pembayaran - BUKAN identitas
+  /// login. Hanya yang sudah diverifikasi (emailKontakVerifiedAt) dipakai mengirim hal sensitif. Boleh sama antar siswa
+  /// (kakak-adik berbagi email orang tua). Dikosongkan saat siswa diarsipkan (lib/students/hapus.ts).
+  emailKontak           String?   @map("email_kontak")
+  emailKontakVerifiedAt DateTime? @map("email_kontak_verified_at")
 
   user              User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   school            School?            @relation(fields: [schoolId], references: [id], onDelete: Restrict)

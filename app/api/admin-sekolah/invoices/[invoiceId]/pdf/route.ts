@@ -1,11 +1,9 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { NextResponse } from "next/server";
-import PDFDocument from "pdfkit";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
-import { renderInvoiceSekolahPdf } from "@/lib/pdf/invoice-sekolah-renderer";
+import { buatPdfInvoiceSekolah } from "@/lib/pdf/invoice-sekolah-renderer";
+import { namaBerkasInvoice } from "@/lib/pdf/invoice-identitas";
 
 export async function GET(
   request: Request,
@@ -42,35 +40,17 @@ export async function GET(
     orderBy: { namaBank: "asc" },
   });
 
-  const logo = await readFile(path.join(process.cwd(), "public", "logo.png")).catch(() => null);
-
-  const doc = new PDFDocument({ size: "A4", margin: 40, bufferPages: true });
-  const chunks: Buffer[] = [];
-  doc.on("data", (c: Buffer) => chunks.push(c));
-  const finishPromise = new Promise<Buffer>((resolve) =>
-    doc.on("end", () => resolve(Buffer.concat(chunks))),
-  );
-
-  await renderInvoiceSekolahPdf(
-    doc,
-    {
-      invoice,
-      school: invoice.school,
-      periode: invoice.periode,
-      bankAccount,
-    },
-    logo,
-  );
-  doc.end();
-
-  const pdf = await finishPromise;
-  const safeNumber = invoice.nomorInvoice.replace(/[^a-zA-Z0-9_-]/g, "-");
-  const filename = `invoice-${safeNumber}.pdf`;
+  const pdf = await buatPdfInvoiceSekolah({
+    invoice,
+    school: invoice.school,
+    periode: invoice.periode,
+    bankAccount,
+  });
 
   return new NextResponse(new Uint8Array(pdf), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Disposition": `attachment; filename="${namaBerkasInvoice(invoice.nomorInvoice, invoice.school.nama)}"`,
       "Cache-Control": "no-store",
     },
   });

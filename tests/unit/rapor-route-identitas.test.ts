@@ -11,12 +11,15 @@ const m = vi.hoisted(() => ({
   renderRapor: vi.fn(),
   fetchLogo: vi.fn(),
   logoDisk: vi.fn(),
+  fokus: vi.fn(),
+  attemptFindUnique: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({ requireRole: m.requireRole }));
 vi.mock("@/lib/schools/scope", () => ({ resolveSchoolId: vi.fn() }));
 vi.mock("@/lib/students/kelolaan", () => ({ bisaDikelolaAdmin: vi.fn() }));
-vi.mock("@/lib/db/prisma", () => ({ prisma: { aiAnalysis: { findUnique: m.aiFindUnique }, attempt: { findUnique: vi.fn() } } }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { aiAnalysis: { findUnique: m.aiFindUnique }, attempt: { findUnique: m.attemptFindUnique } } }));
+vi.mock("@/lib/billing/fokus-belajar", () => ({ hitungFokusBelajarDibuka: m.fokus }));
 vi.mock("@/lib/exam/attempt-access", () => ({ loadOwnedAttempt: m.loadOwnedAttempt }));
 vi.mock("@/lib/exam/hasil", () => ({ buildHasil: m.buildHasil }));
 vi.mock("@/lib/exam/identitas-rapor", () => ({ muatIdentitasRapor: m.muatIdentitas }));
@@ -43,6 +46,7 @@ beforeEach(() => {
   });
   m.fetchLogo.mockResolvedValue(null);
   m.logoDisk.mockResolvedValue(null);
+  m.fokus.mockResolvedValue(true);
 });
 
 describe("GET /api/siswa/attempts/[id]/rapor - identitas dan nama berkas", () => {
@@ -116,5 +120,32 @@ describe("GET /api/siswa/attempts/[id]/rapor - identitas dan nama berkas", () =>
     await minta();
     expect(m.aiFindUnique).not.toHaveBeenCalled();
     expect(m.renderRapor.mock.calls[0]![2]).toBeNull();
+  });
+});
+
+describe("GET /api/siswa/attempts/[id]/rapor - Prioritas belajar & Kekuatan (fitur berbayar)", () => {
+  it("siswa tanpa jatah/saldo Learning Analytics: PDF dirender tanpa bagian itu, putusan dihitung dari percobaan siswa itu", async () => {
+    m.fokus.mockResolvedValue(false);
+    const res = await minta();
+    expect(res.status).toBe(200);
+    expect(m.fokus).toHaveBeenCalledTimes(1);
+    expect(m.fokus).toHaveBeenCalledWith(expect.objectContaining({ id: "att-1" }));
+    expect(m.renderRapor.mock.calls[0]![5]).toEqual({ tampilkanFokus: false });
+  });
+
+  it("siswa yang berhak (jatah/saldo/analisis ada): bagian itu ikut dicetak", async () => {
+    m.fokus.mockResolvedValue(true);
+    await minta();
+    expect(m.renderRapor.mock.calls[0]![5]).toEqual({ tampilkanFokus: true });
+  });
+
+  it("admin pusat mengunduh rapor siswa: tidak digerbang dan saldo siswa tidak dibaca", async () => {
+    m.requireRole.mockResolvedValue({ id: "admin-1", role: "admin_pusat" });
+    m.attemptFindUnique.mockResolvedValue({ id: "att-1", status: "selesai", mulaiAt: MULAI, selesaiAt: null, student: { id: "s-1" } });
+    m.fokus.mockResolvedValue(false); // andaikan siswanya tak berhak: tetap tidak dipakai untuk admin
+    const res = await minta();
+    expect(res.status).toBe(200);
+    expect(m.fokus).not.toHaveBeenCalled();
+    expect(m.renderRapor.mock.calls[0]![5]).toEqual({ tampilkanFokus: true });
   });
 });

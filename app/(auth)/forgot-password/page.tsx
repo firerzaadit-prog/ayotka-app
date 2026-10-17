@@ -140,23 +140,42 @@ function ForgotPasswordContent() {
           Lupa Password{portalConfig ? ` ${portalConfig.label}` : ""}
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Masukkan alamat email yang terdaftar pada akun Anda. Kami akan mengirimkan tautan konfirmasi untuk mengatur ulang password.
+          {portalConfig
+            ? "Masukkan alamat email yang terdaftar pada akun Anda. Kami akan mengirimkan tautan konfirmasi untuk mengatur ulang password."
+            : "Masukkan email yang kamu pakai untuk masuk, atau NISN-mu bila kamu masuk dengan NISN. Kami akan mengirimkan tautan untuk mengatur ulang password."}
         </p>
       </div>
 
       {error && <Alert variant="danger">{error}</Alert>}
 
       <div>
-        <Label htmlFor="email">Alamat Email</Label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="email"
-          required
-          placeholder="nama@email.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <Label htmlFor="email">{portalConfig ? "Alamat Email" : "Email atau NISN"}</Label>
+        {portalConfig ? (
+          <Input
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            placeholder="nama@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        ) : (
+          // Teks biasa (bukan type=email) supaya NISN berupa angka tidak ditolak peramban; bentuknya diperiksa server.
+          <Input
+            id="email"
+            type="text"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            autoComplete="username"
+            required
+            placeholder="nama@email.com atau NISN 10 digit"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        )}
       </div>
 
       <Button type="submit" disabled={loading} className="w-full">
@@ -164,11 +183,13 @@ function ForgotPasswordContent() {
       </Button>
 
       {!portalConfig && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
-          <p className="font-medium">Masuk memakai NISN dan tidak punya email?</p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900" data-info-lupa-nisn>
+          <p className="font-medium">Masuk memakai NISN?</p>
           <p className="mt-1">
-            Link tidak bisa dikirim karena akunmu tidak punya alamat email. Minta guru atau admin sekolahmu untuk
-            mereset kata sandi, lalu masuk lagi dengan NISN dan kata sandi barumu.
+            Ketik NISN-mu di kolom di atas. Tautan dikirim ke <b>email kontak</b> yang sudah kamu daftarkan dan verifikasi di
+            halaman Profil. Belum punya email kontak? Minta guru atau admin sekolahmu untuk mereset kata sandi, lalu masuk
+            lagi dengan NISN dan kata sandi barumu. Setelah masuk, pasang email kontak di halaman Profil supaya lain kali
+            bisa mengatur ulang sendiri.
           </p>
         </div>
       )}

@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { requireRole } from "@/lib/auth/session";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { schoolInvoiceCreateSchema } from "@/lib/validations/school-invoice";
 import { generateNomorInvoiceSekolah } from "@/lib/billing/school-invoice";
+
+/** Berapa kali nomor invoice dicoba ulang bila bentrok dengan pembuat invoice lain pada saat yang sama. */
+const BATAS_PERCOBAAN_NOMOR = 4;
 
 export async function GET(
   request: Request,
@@ -56,31 +60,45 @@ export async function POST(
   const { jumlahSiswa, hargaPerSiswa, jatuhTempo, keterangan, bankTujuan, catatan, periodeId, status, dibayarAt } = parsed.data;
   const subtotal = jumlahSiswa * hargaPerSiswa;
   const totalAmount = subtotal;
-  const nomorInvoice = await generateNomorInvoiceSekolah();
 
   const isLunas = status === "lunas";
 
-  const invoice = await prisma.schoolInvoice.create({
-    data: {
-      schoolId,
-      nomorInvoice,
-      jumlahSiswa,
-      hargaPerSiswa,
-      subtotal,
-      totalAmount,
-      status: status ?? "menunggu_pembayaran",
-      dibayarAt: isLunas ? (dibayarAt ? new Date(dibayarAt) : new Date()) : null,
-      jatuhTempo: new Date(jatuhTempo),
-      keterangan: keterangan?.trim() || null,
-      bankTujuan: bankTujuan?.trim() || null,
-      catatan: catatan?.trim() || null,
-      periodeId: periodeId || null,
-      dibuatOlehId: user.id,
-    },
-    include: {
-      periode: { select: { nama: true, mulai: true, berakhir: true } },
-    },
-  });
+  // Dua admin yang membuat invoice di saat yang sama bisa mendapat nomor yang sama; kolom nomorInvoice unik, jadi
+  // benturan itu hanya mengulang pengambilan nomor (nomor baru dihitung dari data terbaru), bukan menjadi galat 500.
+  let invoice;
+  for (let percobaan = 1; ; percobaan++) {
+    const nomorInvoice = await generateNomorInvoiceSekolah();
+    try {
+      invoice = await prisma.schoolInvoice.create({
+        data: {
+          schoolId,
+          nomorInvoice,
+          jumlahSiswa,
+          hargaPerSiswa,
+          subtotal,
+          totalAmount,
+          status: status ?? "menunggu_pembayaran",
+          dibayarAt: isLunas ? (dibayarAt ? new Date(dibayarAt) : new Date()) : null,
+          jatuhTempo: new Date(jatuhTempo),
+          keterangan: keterangan?.trim() || null,
+          bankTujuan: bankTujuan?.trim() || null,
+          catatan: catatan?.trim() || null,
+          periodeId: periodeId || null,
+          dibuatOlehId: user.id,
+        },
+        include: {
+          periode: { select: { nama: true, mulai: true, berakhir: true } },
+        },
+      });
+      break;
+    } catch (error) {
+      const benturanNomor = error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
+      if (!benturanNomor) throw error;
+      if (percobaan >= BATAS_PERCOBAAN_NOMOR) {
+        return NextResponse.json({ error: "Nomor invoice sedang dipakai bersamaan. Silakan coba lagi." }, { status: 503 });
+      }
+    }
+  }
 
   await logAudit({
     userId: user.id,

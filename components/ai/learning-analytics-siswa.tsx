@@ -16,11 +16,17 @@ export function LearningAnalyticsSiswa({
   attemptId,
   laSusulan,
   onAnalisisSiap,
+  onOpsiBerubah,
 }: {
   attemptId: string;
   laSusulan: OpsiLaSusulan | null;
   /** Dipanggil setiap kali panel melaporkan hasil analisis sudah ada (halaman memakainya untuk mengaktifkan Tanya Tutor AI). */
   onAnalisisSiap?: () => void;
+  /**
+   * Dipanggil setiap kali opsi dimuat ulang dari server (mis. saldo baru diisi di tab lain): halaman memakainya untuk
+   * membuka kartu "Prioritas belajar" begitu siswa punya jatah/saldo Learning Analytics, tanpa muat ulang halaman.
+   */
+  onOpsiBerubah?: (opsi: OpsiLaSusulan) => void;
 }) {
   const [opsi, setOpsi] = useState<OpsiLaSusulan | null>(laSusulan);
   const [fase, setFase] = useState<"kartu" | "panel">(laSusulan?.tersedia ? "kartu" : "panel");
@@ -29,9 +35,11 @@ export function LearningAnalyticsSiswa({
   const dipesanRef = useRef(false);
   // Ref supaya callback yang berubah tiap render tidak mengubah saatStatus (yang diteruskan ke panel).
   const onAnalisisSiapRef = useRef(onAnalisisSiap);
+  const onOpsiBerubahRef = useRef(onOpsiBerubah);
   useEffect(() => {
     onAnalisisSiapRef.current = onAnalisisSiap;
-  }, [onAnalisisSiap]);
+    onOpsiBerubahRef.current = onOpsiBerubah;
+  }, [onAnalisisSiap, onOpsiBerubah]);
 
   const muatOpsi = useCallback(async (): Promise<OpsiLaSusulan | null> => {
     try {
@@ -45,7 +53,10 @@ export function LearningAnalyticsSiswa({
 
   const segarkan = useCallback(async () => {
     const baru = await muatOpsi();
-    if (baru) setOpsi(baru);
+    if (baru) {
+      setOpsi(baru);
+      onOpsiBerubahRef.current?.(baru);
+    }
   }, [muatOpsi]);
 
   // Siswa mengisi saldo di tab/halaman lain lalu kembali: angka saldo dan tombol ikut diperbarui.
@@ -77,6 +88,7 @@ export function LearningAnalyticsSiswa({
       const baru = await muatOpsi();
       if (baru?.tersedia) {
         setOpsi(baru);
+        onOpsiBerubahRef.current?.(baru);
         setCatatan(
           status === "error"
             ? "Analisis belum berhasil diproses. Saldo atau jatah yang dipakai sudah dikembalikan, kamu bisa mencobanya lagi."

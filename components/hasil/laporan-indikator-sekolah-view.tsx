@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { DaftarFokus, KelompokDetail } from "@/components/hasil/daya-serap-indikator";
+import { CatatanRujukanNasional } from "@/components/hasil/catatan-rujukan-nasional";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { AnalisisAiSekolahPanel } from "@/components/ai/analisis-sekolah-panel";
@@ -481,6 +482,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
                     />
                   ))}
                 </div>
+                <CatatanRujukanNasional className="mt-3" />
               </Card>
             )}
           </div>
@@ -555,6 +557,7 @@ export function LaporanIndikatorSekolahView({ schoolId }: { schoolId?: string })
                   tambahan={tambahanNasional}
                 />
               </div>
+              <CatatanRujukanNasional className="mt-2" />
             </div>
           )}
 

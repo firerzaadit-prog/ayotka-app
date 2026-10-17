@@ -35,3 +35,9 @@ export function terbilang(nominal: number): string {
 
   return `${hitung(n).trim()} Rupiah`;
 }
+
+/** Terbilang berbentuk kalimat biasa: huruf awal kapital, sisanya kecil ("Tujuh juta tiga ratus delapan puluh ribu rupiah"). */
+export function terbilangKalimat(nominal: number): string {
+  const t = terbilang(nominal);
+  return t.charAt(0) + t.slice(1).toLowerCase();
+}

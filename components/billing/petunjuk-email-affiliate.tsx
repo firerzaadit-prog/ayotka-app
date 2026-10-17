@@ -52,8 +52,9 @@ export function PetunjukEmailAffiliate({ email, untuk }: { email: string | null 
       {khusus && (
         <>
           {" "}
-          Akunmu masuk memakai NISN, jadi alamat ini khusus untuk pembayaran dan tidak menerima email: bukti pembayaran tidak dikirim ke email,
-          tetapi {hasil} masuk otomatis dan terlihat di halaman ini.
+          Akunmu masuk memakai NISN, jadi alamat ini khusus untuk pembayaran dan tidak menerima email: bukti pembayaran dari affiliate.id tidak
+          sampai ke kamu, tetapi {hasil} masuk otomatis dan terlihat di halaman ini. Pasang <b>email kontak</b> di halaman Profil (dan
+          verifikasi) bila ingin menerima bukti pembayaran dari AyoTKA.
         </>
       )}
     </>

@@ -111,11 +111,26 @@ describe("hapusSiswaMassal - dengan riwayat diarsipkan, identitasnya dibebaskan"
 
     const [belumDihapus, sudahDihapus] = tx.student.updateMany.mock.calls.map((c) => c[0] as { where: object; data: Record<string, unknown> });
     expect(belumDihapus!.where).toEqual({ id: { in: ["s1"] }, deletedAt: null });
-    expect(belumDihapus!.data).toMatchObject({ status: "nonaktif", nisn: null, claimToken: null, userId: null });
+    // Email kontak (akun NISN) ikut dikosongkan: data pribadi tidak tersisa di baris arsip.
+    expect(belumDihapus!.data).toMatchObject({
+      status: "nonaktif",
+      nisn: null,
+      claimToken: null,
+      userId: null,
+      emailKontak: null,
+      emailKontakVerifiedAt: null,
+    });
     expect(belumDihapus!.data.deletedAt).toBeInstanceOf(Date);
     // Siswa yang sudah pernah di-soft-delete (pembersihan data lama): waktu hapus asli tidak ditimpa.
     expect(sudahDihapus!.where).toEqual({ id: { in: ["s1"] }, deletedAt: { not: null } });
-    expect(sudahDihapus!.data).toEqual({ status: "nonaktif", nisn: null, claimToken: null, userId: null });
+    expect(sudahDihapus!.data).toEqual({
+      status: "nonaktif",
+      nisn: null,
+      claimToken: null,
+      userId: null,
+      emailKontak: null,
+      emailKontakVerifiedAt: null,
+    });
   });
 
   it("kursi sekolah (school_seat) bukan riwayat: pemeriksaan langganan mengecualikannya", async () => {
@@ -200,7 +215,7 @@ describe("hapusSiswa (satu siswa) membungkus jalur massal", () => {
 describe("ringkasanAuditHapus", () => {
   it("membedakan hapus permanen dan arsip", () => {
     expect(ringkasanAuditHapus("permanen")).toEqual({ dihapusPermanen: true });
-    expect(ringkasanAuditHapus("arsip")).toMatchObject({ diarsipkan: true, nisn: null, claimToken: null, userId: null });
+    expect(ringkasanAuditHapus("arsip")).toMatchObject({ diarsipkan: true, nisn: null, claimToken: null, userId: null, emailKontak: null });
   });
 });
 

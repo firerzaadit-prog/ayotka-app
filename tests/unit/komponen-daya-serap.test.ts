@@ -96,6 +96,38 @@ describe("komponen DayaSerapIndikator (rapor siswa di web)", () => {
   });
 });
 
+describe("Prioritas belajar & Kekuatanmu = fitur berbayar (tampilkanFokus)", () => {
+  const jawaban = () => [...ulang(mat(1, { nilaiNasional: 30 }), 4, 4), ...ulang(mat(3, { nilaiNasional: 80 }), 4, 1)];
+  const render = (tampilkanFokus?: boolean) =>
+    renderToStaticMarkup(createElement(DayaSerapIndikator, { laporan: hitungLaporanSiswa(jawaban())!, tampilkanFokus }));
+
+  it("bawaan dan true: kedua kartu tampil", () => {
+    for (const h of [render(), render(true)]) {
+      expect(h).toContain("data-kartu-fokus");
+      expect(h).toContain("Prioritas belajar");
+      expect(h).toContain("Kekuatanmu");
+    }
+  });
+
+  it("false: kedua kartu hilang sama sekali (judul, deskripsi, dan pesan kosongnya)", () => {
+    const h = render(false);
+    expect(h).not.toContain("data-kartu-fokus");
+    expect(h).not.toContain("Prioritas belajar");
+    expect(h).not.toContain("Kekuatanmu");
+    expect(h).not.toContain("mulai remedial dari sini");
+    expect(h).not.toContain("Semua indikator sudah dikuasai penuh.");
+    expect(h).not.toContain("Belum ada indikator yang menonjol.");
+  });
+
+  it("false: bagian lain laporan tetap utuh (tabel hierarki, rerata nasional, catatan sumber)", () => {
+    const h = render(false);
+    expect(h).toContain("Tabel Hierarki Daya Serap Kemendikdasmen");
+    expect(h).toContain("Indikator mat 1 (1)");
+    expect(h).toContain("nasional 80,0%");
+    expect(h).toContain("Rujukan nasional berdasarkan data hasil TKA tahun ajaran 2025/2026.");
+  });
+});
+
 describe("nomor urut indikator resmi tidak ditampilkan (terbaca seperti nomor soal)", () => {
   it("tampilan bawaan (tabel hierarki + kartu fokus): tidak ada lencana #n atau 'Kode Indikator Resmi', kalimat indikator tetap tampil", () => {
     const h = html([...ulang(mat(1), 4, 4), ...ulang(mat(2), 3, 1), ...ulang(mat(3), 2, 2), ...ulang(mat(4), 2, 0)]);

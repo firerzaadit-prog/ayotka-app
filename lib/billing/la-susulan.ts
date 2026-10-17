@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db/prisma";
 import { isProcessing } from "@/lib/ai/analysis-guard";
 import { getAiAutoAnalysisSettings } from "@/lib/ai/settings";
 import { hasReachedAutoAnalysisQuota } from "@/lib/ai/auto-trigger-quota";
+import { kursiSekolahTersedia } from "@/lib/billing/entitlements";
 import { tentukanPendanaanAttempt } from "@/lib/billing/pendanaan-la";
 import { getHargaLaPaket, getSaldo } from "@/lib/billing/saldo";
 import type { OpsiLaSusulan } from "@/lib/billing/learning-analytics";
@@ -49,5 +50,22 @@ export async function hitungOpsiLaSusulan(attempt: Attempt): Promise<OpsiLaSusul
   }
 
   const [saldo, harga] = await Promise.all([getSaldo(attempt.studentId), getHargaLaPaket(attempt.packageId)]);
-  return { tersedia: true, pendanaan: "saldo", harga, saldo, cukup: saldo >= harga, kurang: Math.max(0, harga - saldo) };
+  const cukup = saldo >= harga;
+  const dasar = { tersedia: true, pendanaan: "saldo", harga, saldo, cukup, kurang: Math.max(0, harga - saldo) } as const;
+  if (cukup) return dasar;
+  // Saldo kurang: kartu menawarkan paket berbayar lebih dulu, kecuali sekolah sedang menanggung akses siswa ini.
+  return { ...dasar, bisaBeliPaket: await bisaBeliPaketPribadi(attempt.studentId) };
+}
+
+/**
+ * Siswa boleh membeli paket pribadi selama kursi sekolah tidak sedang menanggungnya - aturan yang sama dengan halaman
+ * Langganan (app/api/siswa/checkout: ditanggungSekolah). Siswa mandiri (Jalur B) selalu boleh.
+ */
+async function bisaBeliPaketPribadi(studentId: string): Promise<boolean> {
+  const siswa = await prisma.student.findUnique({
+    where: { id: studentId },
+    select: { id: true, schoolId: true, jalur: true, deletedAt: true, lulusAt: true },
+  });
+  if (!siswa) return true;
+  return !(await kursiSekolahTersedia(siswa));
 }

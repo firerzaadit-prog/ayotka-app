@@ -62,6 +62,8 @@ describe("PetunjukEmailAffiliate", () => {
     expect(t).toContain("otomatis terisi di formulir checkout dan terkunci");
     expect(t).toContain("tidak menerima email");
     expect(t).toContain("saldo masuk otomatis dan terlihat di halaman ini");
+    // jalan keluar untuk menerima bukti pembayaran: email kontak di halaman Profil
+    expect(t).toContain("Pasang email kontak di halaman Profil");
     expect(t).not.toContain("WhatsApp");
     expect(h).toContain(">Salin<");
     expect(teks(render({ email: "budi@example.com", untuk: "saldo" }))).not.toContain("tidak menerima email");

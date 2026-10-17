@@ -20,7 +20,7 @@ export default function KebijakanPrivasiPage() {
     <HalamanHukum
       judul="Kebijakan Privasi"
       pembuka="AyoTKA melayani siswa SD dan SMP, jadi kami menjaga data dengan hati-hati. Halaman ini menjelaskan data apa yang kami simpan, untuk apa, dan siapa yang dapat melihatnya."
-      diperbarui="7 Oktober 2026"
+      diperbarui="16 Oktober 2026"
     >
       <Bagian nomor={1} judul="Siapa yang mengelola AyoTKA">
         <p>
@@ -36,7 +36,10 @@ export default function KebijakanPrivasiPage() {
             <>
               <strong>Data akun:</strong> nama, alamat surel (atau NISN bagi siswa yang mendaftar tanpa surel), dan kata
               sandi. Kata sandi disimpan dalam bentuk sandi satu arah oleh sistem autentikasi kami, sehingga kami
-              tidak dapat membacanya.
+              tidak dapat membacanya. Siswa yang masuk dengan NISN dapat menambahkan <strong>surel kontak</strong>{" "}
+              (opsional, milik siswa atau orang tua) untuk mengatur ulang kata sandi sendiri dan menerima bukti
+              pembayaran. Surel kontak baru dipakai setelah diverifikasi lewat tautan yang dikirim ke alamat itu, dan
+              dapat dilepas siswa kapan saja.
             </>,
             <>
               <strong>Data siswa:</strong> NISN, tanggal lahir, jenjang (SD/SMP), dan sekolah. Untuk siswa yang
@@ -76,7 +79,7 @@ export default function KebijakanPrivasiPage() {
             "Membuat Learning Analytics (analisis belajar) dengan bantuan kecerdasan buatan (lihat bagian 5).",
             "Menyediakan Tanya Tutor AI: tanya-jawab tentang soal di halaman pembahasan (lihat bagian 5).",
             "Mengelola akun, langganan, dan dukungan pelanggan.",
-            "Mengirim surel layanan: konfirmasi pendaftaran, atur ulang kata sandi, dan pengingat masa langganan sekolah.",
+            "Mengirim surel layanan: konfirmasi pendaftaran, atur ulang kata sandi, pemberitahuan perubahan akun, bukti pembayaran, dan pengingat masa langganan sekolah.",
             "Menjaga keamanan, mencegah kecurangan, dan menyelidiki penyalahgunaan.",
             "Memahami pemakaian layanan secara gabungan agar dapat diperbaiki.",
           ]}
@@ -92,6 +95,7 @@ export default function KebijakanPrivasiPage() {
             "Admin Sekolah melihat siswa di sekolahnya sendiri, termasuk nama, NISN, dan hasil ujian.",
             "Dinas Pendidikan memiliki akses hanya-baca untuk sekolah di wilayahnya, berupa statistik dan daftar capaian siswa.",
             "Mitra (reseller voucher) tidak dapat melihat identitas siswa. Mitra hanya melihat voucher dan komisi miliknya.",
+            "Surel kontak siswa yang masuk dengan NISN hanya dapat dilihat siswa itu sendiri dan pengelola AyoTKA; Admin Sekolah tidak melihatnya.",
             "Pengelola AyoTKA mengakses data seperlunya untuk operasional, dukungan, dan keamanan.",
           ]}
         />

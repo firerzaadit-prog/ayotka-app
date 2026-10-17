@@ -8,6 +8,7 @@ import {
   type SkorKategoriTryOut,
 } from "@/lib/indikator/hierarki-resmi";
 import { formatPersen } from "@/lib/indikator/tampilan";
+import { CatatanRujukanNasional } from "@/components/hasil/catatan-rujukan-nasional";
 import {
   BarChart3,
   BookOpen,
@@ -449,6 +450,7 @@ export function KemendikdasmenDayaSerapView({
                 </tbody>
               </table>
             </div>
+            {showNasional && <CatatanRujukanNasional className="border-t border-slate-100 bg-slate-50/50 px-4 py-2.5" />}
           </div>
         </div>
       )}
@@ -496,6 +498,7 @@ export function KemendikdasmenDayaSerapView({
                 </tbody>
               </table>
             </div>
+            <CatatanRujukanNasional className="mt-2" />
           </div>
 
           {/* Grafik Batang Perbandingan Capaian */}
@@ -573,6 +576,7 @@ export function KemendikdasmenDayaSerapView({
                 </div>
               ))}
             </div>
+            <CatatanRujukanNasional className="mt-4" />
           </div>
         </div>
       )}

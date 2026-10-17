@@ -45,6 +45,32 @@ describe("LaSusulanCard", () => {
     expect(html).not.toContain("<button");
   });
 
+  it("saldo kurang: paket berbayar ditawarkan LEBIH DULU (tombol utama), isi saldo menjadi pilihan kedua", () => {
+    for (const bisaBeliPaket of [true, undefined]) {
+      const html = render({ tersedia: true, pendanaan: "saldo", harga: 9000, saldo: 0, cukup: false, kurang: 9000, bisaBeliPaket });
+      const posPaket = html.indexOf("Lihat paket berbayar");
+      const posSaldo = html.indexOf("Isi saldo");
+      expect(posPaket).toBeGreaterThan(-1);
+      expect(posSaldo).toBeGreaterThan(posPaket);
+      expect(html).toMatch(/<a[^>]*href="\/siswa\/langganan"[^>]*>Lihat paket berbayar<\/a>/);
+      expect(html).toContain("paket berbayar");
+    }
+  });
+
+  it("saldo kurang tetapi sekolah menanggung akses siswa: hanya isi saldo (halaman Langganan tidak bisa dipakai membeli)", () => {
+    const html = render({ tersedia: true, pendanaan: "saldo", harga: 9000, saldo: 0, cukup: false, kurang: 9000, bisaBeliPaket: false });
+    expect(html).toContain("Isi saldo");
+    expect(html).not.toContain("/siswa/langganan");
+    expect(html).not.toContain("paket berbayar");
+    expect(html).toContain(`/siswa/wallet?kembali=${encodeURIComponent(`/siswa/hasil/${ID}`)}`);
+  });
+
+  it("saldo cukup: tidak ada tawaran paket berbayar sama sekali", () => {
+    const html = render({ tersedia: true, pendanaan: "saldo", harga: 9000, saldo: 20000, cukup: true, kurang: 0 });
+    expect(html).not.toContain("paket berbayar");
+    expect(html).not.toContain("/siswa/langganan");
+  });
+
   it("jalur kembali yang dibuat kartu lolos validasi halaman Wallet", () => {
     const html = render({ tersedia: true, pendanaan: "saldo", harga: 9000, saldo: 0, cukup: false, kurang: 9000 });
     const href = html.match(/href="\/siswa\/wallet\?kembali=([^"]+)"/)?.[1];

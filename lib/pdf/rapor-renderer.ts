@@ -3,6 +3,7 @@ import type { buildHasil } from "@/lib/exam/hasil";
 import { latexToPlainText } from "@/lib/pdf/latex-to-text";
 import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color";
 import type { LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
+import { CATATAN_RUJUKAN_NASIONAL } from "@/lib/indikator/sumber-nasional";
 import { COLOR, setupFonts, type PdfFonts } from "@/lib/pdf/pdf-umum";
 import { X0, buatPenulis, gambarDaftarFokus, gambarKelompok } from "@/lib/pdf/indikator-gambar";
 import { ambilBerkasGambar, ambilGambarRaster, siapkanMedia } from "@/lib/pdf/gambar-pdf";
@@ -297,7 +298,13 @@ function gambarFooter(doc: PDFKit.PDFDocument, fonts: PdfFonts, nomor: number, t
  * Bagian "Daya Serap per Indikator" (standar Kemendikdasmen) di rapor siswa. Seluruh penggambaran kelompok dan daftar
  * dipakai bersama laporan sekolah (lib/pdf/indikator-gambar.ts) yang menjaga aturan gambar PDF AyoTKA.
  */
-function gambarDayaSerapIndikator(doc: PDFKit.PDFDocument, laporan: LaporanIndikatorSiswa, fonts: PdfFonts, contentWidth: number) {
+function gambarDayaSerapIndikator(
+  doc: PDFKit.PDFDocument,
+  laporan: LaporanIndikatorSiswa,
+  fonts: PdfFonts,
+  contentWidth: number,
+  tampilkanFokus: boolean,
+) {
   const { toText, tulis, pastikanMuat, dot } = buatPenulis(doc, fonts);
 
   pastikanMuat(120);
@@ -312,7 +319,7 @@ function gambarDayaSerapIndikator(doc: PDFKit.PDFDocument, laporan: LaporanIndik
   doc.moveDown(0.15);
   // Catatan cara membaca ditaruh di PENGANTAR (bukan di akhir): catatan di akhir pernah terlempar sendirian ke halaman baru.
   tulis(
-    "Daya serap = skor yang diperoleh dibagi skor maksimum pada indikator itu. Rerata nasional dari portal resmi daya serap TKA Kemendikdasmen dipakai sebagai pembanding; vonis hanya diberikan di tingkat kelompok.",
+    `Daya serap = skor yang diperoleh dibagi skor maksimum pada indikator itu. Rerata nasional dari portal resmi daya serap TKA Kemendikdasmen dipakai sebagai pembanding. ${CATATAN_RUJUKAN_NASIONAL} Vonis hanya diberikan di tingkat kelompok.`,
     X0,
     doc.y,
     contentWidth,
@@ -322,8 +329,11 @@ function gambarDayaSerapIndikator(doc: PDFKit.PDFDocument, laporan: LaporanIndik
   doc.moveDown(0.8);
 
   gambarKelompok(doc, fonts, contentWidth, laporan.label, laporan.kelompok);
-  gambarDaftarFokus(doc, fonts, contentWidth, "Prioritas belajar", "Indikator dengan daya serap terendah: mulai remedial dari sini.", laporan.terlemah, "Semua indikator sudah dikuasai penuh.");
-  gambarDaftarFokus(doc, fonts, contentWidth, "Kekuatan", "Indikator dengan daya serap tertinggi.", laporan.terkuat, "Belum ada indikator yang menonjol.");
+  // "Prioritas belajar" dan "Kekuatan" termasuk fitur berbayar: hanya digambar bila diizinkan (sama dengan halaman web).
+  if (tampilkanFokus) {
+    gambarDaftarFokus(doc, fonts, contentWidth, "Prioritas belajar", "Indikator dengan daya serap terendah: mulai remedial dari sini.", laporan.terlemah, "Semua indikator sudah dikuasai penuh.");
+    gambarDaftarFokus(doc, fonts, contentWidth, "Kekuatan", "Indikator dengan daya serap tertinggi.", laporan.terkuat, "Belum ada indikator yang menonjol.");
+  }
   doc.font(fonts.regular);
 }
 
@@ -556,6 +566,8 @@ function tanggalAnalisis(nilai: Date | string | null | undefined): string | null
  * bawah), Peta Kompetensi, Daya Serap per Indikator, Analisis Learning Analytics, lalu Rincian Jawaban. Ditambah kepala dan
  * kartu identitas (nama, asal sekolah, jenis Try Out, kode soal, tanggal ujian) yang hanya ada di PDF.
  * `identitas` boleh kosong (pemanggil lama): bagian yang tidak diketahui ditulis "-".
+ * `opsi.tampilkanFokus` (bawaan true): false menyembunyikan "Prioritas belajar" dan "Kekuatan" (fitur berbayar, lihat
+ * lib/billing/fokus-belajar.ts); bagian lain rapor tidak berubah.
  */
 export async function renderRaporPdf(
   doc: PDFKit.PDFDocument,
@@ -563,6 +575,7 @@ export async function renderRaporPdf(
   aiAnalysis: AiAnalysisRecord,
   logoBuffer: Buffer | null,
   identitas: IdentitasRapor | null = null,
+  opsi: { tampilkanFokus?: boolean } = {},
 ) {
   const contentWidth = doc.page.width - 96;
   const watermarkLabel = `${hasil.siswa.nama} · ${hasil.siswa.idSamar}`;
@@ -662,7 +675,7 @@ export async function renderRaporPdf(
 
   // --- DAYA SERAP PER INDIKATOR (hanya bila ada soal berindikator resmi) ---
   if (hasil.indikator) {
-    gambarDayaSerapIndikator(doc, hasil.indikator, fonts, contentWidth);
+    gambarDayaSerapIndikator(doc, hasil.indikator, fonts, contentWidth, opsi.tampilkanFokus !== false);
     doc.x = X0;
     doc.y += 10;
   }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button, buttonClassName } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
@@ -48,6 +49,7 @@ const SUMBER_LABEL: Record<Entitlement["source"], string> = {
 
 /** Jalur A (siswa individu, Bagian 5 dokumen rencana): checkout lewat Midtrans Snap. */
 export default function LanggananSiswaPage() {
+  const router = useRouter();
   const [data, setData] = useState<CheckoutData | null>(null);
   const [submittingPlanId, setSubmittingPlanId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -208,8 +210,14 @@ export default function LanggananSiswaPage() {
         )}
       </Card>
 
-      {/* Form Tukar Kode Voucher Mitra di Posisi Utama */}
-      <VoucherRedeemCard onSuccess={refreshData} />
+      {/* Form Tukar Kode Voucher Mitra di Posisi Utama. router.refresh() memuat ulang bagian server supaya lencana
+          keanggotaan di pojok kanan atas ikut berubah tanpa muat ulang halaman. */}
+      <VoucherRedeemCard
+        onSuccess={async () => {
+          await refreshData();
+          router.refresh();
+        }}
+      />
 
       {data.pendingInvoiceId && (
         <Alert variant="warning">

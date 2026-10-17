@@ -5,6 +5,7 @@ import { requireRole, type CurrentUser } from "@/lib/auth/session";
 import { resolveSchoolId } from "@/lib/schools/scope";
 import { bisaDikelolaAdmin } from "@/lib/students/kelolaan";
 import { loadOwnedAttempt } from "@/lib/exam/attempt-access";
+import { hitungFokusBelajarDibuka } from "@/lib/billing/fokus-belajar";
 import { buildHasil } from "@/lib/exam/hasil";
 import { muatIdentitasRapor } from "@/lib/exam/identitas-rapor";
 import { namaBerkasRapor } from "@/lib/pdf/nama-berkas";
@@ -98,12 +99,18 @@ export async function GET(_request: Request, { params }: RouteParams) {
     doc.on("end", () => resolve(Buffer.concat(chunks)));
   });
 
+  // "Prioritas belajar" dan "Kekuatan" termasuk fitur berbayar: PDF yang diunduh siswa sendiri mengikuti halaman web
+  // (terbuka hanya bila ada jatah/saldo Learning Analytics, lib/billing/fokus-belajar.ts). Admin sekolah/pusat yang
+  // mengunduh rapor siswanya tidak digerbang, dan saldo siswa tidak dibaca dalam kasus itu.
+  const tampilkanFokus = user.role === "siswa" ? await hitungFokusBelajarDibuka(attempt) : true;
+
   await renderRaporPdf(
     doc,
     hasil,
     aiAnalysis as unknown as Parameters<typeof renderRaporPdf>[2],
     logoBuffer,
     identitas,
+    { tampilkanFokus },
   );
 
   doc.end();

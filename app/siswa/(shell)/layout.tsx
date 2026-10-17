@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db/prisma";
 import { pilihNamaAkun } from "@/lib/auth/nama-akun";
+import { getKeanggotaanSiswa } from "@/lib/billing/keanggotaan";
+import { formatWIBDate } from "@/lib/utils/datetime";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SidebarSection, SidebarLink } from "@/components/layout/sidebar-nav";
 
@@ -18,7 +20,7 @@ export default async function SiswaLayout({ children }: { children: React.ReactN
   // A sekolah mana, atau memang siswa mandiri.
   const student = await prisma.student.findFirst({
     where: { userId: user.id },
-    select: { nama: true, jalur: true, school: { select: { nama: true } } },
+    select: { id: true, nama: true, jalur: true, schoolId: true, deletedAt: true, lulusAt: true, school: { select: { nama: true } } },
   });
   const title =
     student?.jalur === "B"
@@ -27,11 +29,28 @@ export default async function SiswaLayout({ children }: { children: React.ReactN
         ? `Siswa ${student.school.nama} (Kerja Sama)`
         : "Siswa";
 
+  // Lencana keanggotaan di pojok kanan atas: Member Gratis / Bulanan / Semester (/ Sekolah untuk siswa Jalur A yang
+  // ditanggung sekolah). Tanpa profil siswa tidak ada lencana.
+  const keanggotaan = student ? await getKeanggotaanSiswa(student) : null;
+
   return (
     <DashboardShell
       title={title}
       akun={pilihNamaAkun(user.email, student?.nama)}
       akunDetail={user.email}
+      akunHref="/siswa/profil"
+      lencana={
+        keanggotaan
+          ? {
+              jenis: keanggotaan.jenis,
+              label: keanggotaan.label,
+              keterangan: keanggotaan.berlakuSampai
+                ? `Berlaku sampai ${formatWIBDate(keanggotaan.berlakuSampai)}`
+                : "Lihat paket langganan",
+              href: "/siswa/langganan",
+            }
+          : undefined
+      }
       nav={
         <SidebarSection>
           <SidebarLink href="/siswa/dashboard">Dashboard</SidebarLink>
@@ -43,6 +62,8 @@ export default async function SiswaLayout({ children }: { children: React.ReactN
           <SidebarLink href="/siswa/riwayat">Riwayat</SidebarLink>
           <SidebarLink href="/siswa/langganan">Langganan &amp; Voucher</SidebarLink>
           <SidebarLink href="/siswa/wallet">Wallet / Saldo</SidebarLink>
+          <SidebarLink href="/siswa/pembayaran">Riwayat Pembayaran</SidebarLink>
+          <SidebarLink href="/siswa/profil">Profil Saya</SidebarLink>
         </SidebarSection>
       }
     >

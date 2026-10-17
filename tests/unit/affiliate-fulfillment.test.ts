@@ -82,6 +82,8 @@ vi.mock("@/lib/db/prisma", () => {
     },
   };
 });
+const struk = vi.hoisted(() => vi.fn(async (..._args: unknown[]): Promise<boolean | null> => null));
+vi.mock("@/lib/email/struk-pembayaran", () => ({ kirimStrukKeEmailKontak: struk }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: async (a: Record<string, unknown>) => void s.audit.push(a) }));
 vi.mock("@/lib/billing/kredit-pribadi", () => ({ SUMBER_KREDIT_PRIBADI: ["invoice", "voucher"], selaraskanKreditSiswaAman: vi.fn(async () => undefined) }));
 
@@ -108,6 +110,8 @@ beforeEach(() => {
   ];
   s.gagalBuatSaldo = null;
   s.urut = 0;
+  struk.mockReset();
+  struk.mockResolvedValue(null);
 });
 
 const catatan = (entitas: string) => s.audit.filter((a) => a.entitas === entitas);
@@ -422,5 +426,58 @@ describe("processAffiliateFulfillment: alamat pembayaran khusus akun NISN", () =
   it("email biasa tetap dicari lewat email seperti semula (alamat khusus tidak mengubah jalur lama)", async () => {
     const r = await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "AFF-BIASA", productId: T25 });
     expect(r).toMatchObject({ ok: true, studentName: "Budi" });
+  });
+});
+
+describe("struk pembayaran ke email kontak (akun NISN)", () => {
+  it("top-up berhasil: struk diminta sekali dengan siswa dan nominalnya", async () => {
+    const r = await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-1", productId: T25 });
+    expect(r).toMatchObject({ ok: true, type: "topup" });
+    expect(struk).toHaveBeenCalledTimes(1);
+    expect(struk).toHaveBeenCalledWith(expect.objectContaining({ id: "siswa-1", nama: "Budi" }), { jenis: "topup", nominal: 25_000 });
+  });
+
+  it("langganan berhasil: struk diminta dengan nama paket, harga, dan tanggal berakhir yang sama dengan hak akses yang dibuat", async () => {
+    const r = await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-2", productId: BULANAN });
+    expect(r).toMatchObject({ ok: true, type: "langganan", planName: "Paket Bulanan" });
+    expect(struk).toHaveBeenCalledTimes(1);
+    const [siswa, ringkasan] = struk.mock.calls[0] as [{ id: string }, { jenis: string; namaPaket: string; harga: number; berlakuSampai: Date }];
+    expect(siswa.id).toBe("siswa-1");
+    expect(ringkasan).toMatchObject({ jenis: "langganan", namaPaket: "Paket Bulanan", harga: 59_000 });
+    expect(ringkasan.berlakuSampai).toEqual(s.entitlement[0]!.endsAt);
+  });
+
+  it("order yang sama diulang (idempotent) dan dugaan panggilan ganda: struk TIDAK dikirim lagi", async () => {
+    await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-3", productId: T25 });
+    await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-3", productId: T25 });
+    await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-4", productId: T25 }); // nomor order beda, nominal sama, dalam 5 menit
+    expect(struk).toHaveBeenCalledTimes(1);
+
+    await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-5", productId: BULANAN });
+    await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-5", productId: BULANAN });
+    await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-6", productId: BULANAN });
+    expect(struk).toHaveBeenCalledTimes(2);
+  });
+
+  it("pembayaran yang ditolak (siswa tidak ada, produk tidak dikenal, paket tidak ada): tidak ada struk", async () => {
+    await processAffiliateFulfillment({ email: "tidak-ada@example.com", orderRef: "STRUK-7", productId: T25 });
+    await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-8", productId: "produk-asing" });
+    s.plan = [];
+    await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-9", productId: BULANAN });
+    expect(struk).not.toHaveBeenCalled();
+  });
+
+  it("struk gagal total (menolak): pembayaran tetap berhasil dan tidak ada galat yang lolos", async () => {
+    struk.mockRejectedValue(new Error("SMTP mati"));
+    const r = await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-10", productId: T25 });
+    expect(r).toMatchObject({ ok: true, type: "topup" });
+    expect(s.saldo).toHaveLength(1);
+    await new Promise((selesai) => setTimeout(selesai, 0)); // beri kesempatan penolakan diproses: tidak boleh menjadi unhandled rejection
+  });
+
+  it("struk tidak ditunggu: pembayaran selesai walau pengiriman struk belum kembali", async () => {
+    struk.mockReturnValue(new Promise<boolean | null>(() => {})); // tidak pernah selesai
+    const r = await processAffiliateFulfillment({ email: "budi@example.com", orderRef: "STRUK-11", productId: BULANAN });
+    expect(r).toMatchObject({ ok: true, type: "langganan" });
   });
 });

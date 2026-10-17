@@ -54,6 +54,7 @@ export default async function AdminPusatLayout({
             <SidebarLink href="/admin-pusat/langganan">Paket &amp; Rekening</SidebarLink>
             <SidebarLink href="/admin-pusat/mitra">Mitra &amp; Voucher</SidebarLink>
             <SidebarLink href="/admin-pusat/verifikasi-pembayaran">Verifikasi Pembayaran</SidebarLink>
+            <SidebarLink href="/admin-pusat/pembuat-invoice">Pembuat Invoice</SidebarLink>
             <SidebarLink href="/admin-pusat/pendapatan">Pendapatan</SidebarLink>
           </SidebarSection>
 

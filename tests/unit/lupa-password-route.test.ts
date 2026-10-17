@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const m = vi.hoisted(() => ({
   findFirst: vi.fn(),
+  studentFindFirst: vi.fn(),
   generateLink: vi.fn(),
   resetPasswordForEmail: vi.fn(),
   kirimEmail: vi.fn(),
@@ -22,7 +23,7 @@ vi.mock("next/server", async (importOriginal) => {
     },
   };
 });
-vi.mock("@/lib/db/prisma", () => ({ prisma: { user: { findFirst: m.findFirst } } }));
+vi.mock("@/lib/db/prisma", () => ({ prisma: { user: { findFirst: m.findFirst }, student: { findFirst: m.studentFindFirst } } }));
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({ auth: { admin: { generateLink: m.generateLink }, resetPasswordForEmail: m.resetPasswordForEmail } }),
 }));
@@ -64,9 +65,10 @@ beforeEach(() => {
   vi.stubEnv("NODE_ENV", "production");
   vi.stubEnv("NEXT_PUBLIC_APP_URL", PUBLIK);
   m.nanti.length = 0;
-  for (const f of [m.findFirst, m.generateLink, m.resetPasswordForEmail, m.kirimEmail, m.rate]) f.mockReset();
+  for (const f of [m.findFirst, m.studentFindFirst, m.generateLink, m.resetPasswordForEmail, m.kirimEmail, m.rate]) f.mockReset();
   m.rate.mockReturnValue(true);
   m.findFirst.mockResolvedValue(akun());
+  m.studentFindFirst.mockResolvedValue(null);
   m.generateLink.mockResolvedValue({ data: { properties: { hashed_token: HASH } }, error: null });
   m.resetPasswordForEmail.mockResolvedValue({});
   m.kirimEmail.mockResolvedValue({ ok: true, lewat: "resend" });
@@ -181,6 +183,117 @@ describe("POST /api/auth/forgot-password", () => {
 
   it("di produksi tautan reset (rahasia) tidak pernah ditulis ke log", async () => {
     await minta("a@b.co");
+    await jalankanTertunda();
+    const semuaLog = [...log.log.mock.calls, ...log.warn.mock.calls, ...log.error.mock.calls].map((c) => c.map(String).join(" ")).join(" | ");
+    expect(semuaLog).not.toContain(HASH);
+  });
+});
+
+describe("POST /api/auth/forgot-password - lewat NISN (email kontak)", () => {
+  const PESAN_NISN =
+    "Jika NISN itu punya email kontak yang sudah diverifikasi, tautan atur ulang password sudah dikirim ke email kontak tersebut. Cek kotak masuk atau folder spam dalam beberapa menit. Belum punya email kontak? Minta admin sekolahmu untuk mereset password.";
+  const NISN = "3155213156";
+  const siswaNisn = (o: Record<string, unknown> = {}) => ({
+    nama: "SITI AMINAH",
+    nisn: NISN,
+    emailKontak: "ortu.siti@gmail.com",
+    emailKontakVerifiedAt: new Date("2026-10-10T00:00:00Z"),
+    user: { email: `${NISN}@nisn.ayotka.id`, status: "aktif" },
+    ...o,
+  });
+
+  it("NISN dengan email kontak terverifikasi: tautan reset akun NISN dikirim ke EMAIL KONTAK, bukan ke email sintetis", async () => {
+    m.studentFindFirst.mockResolvedValue(siswaNisn());
+    const res = await minta(NISN);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, message: PESAN_NISN });
+    expect(m.kirimEmail).not.toHaveBeenCalled(); // setelah respons (after)
+    await jalankanTertunda();
+
+    // pencarian lewat NISN pada siswa yang belum dihapus; tidak memakai pencarian akun lewat email
+    expect(m.studentFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { nisn: NISN, deletedAt: null } }));
+    expect(m.findFirst).not.toHaveBeenCalled();
+    // tautan pemulihan dibuat untuk email LOGIN akun (sintetis), tetapi dikirim ke email kontak
+    expect(m.generateLink).toHaveBeenCalledWith({ type: "recovery", email: `${NISN}@nisn.ayotka.id` });
+    expect(m.kirimEmail).toHaveBeenCalledTimes(1);
+    const kirim = m.kirimEmail.mock.calls[0]![0] as { to: string; subject: string; html: string };
+    expect(kirim.to).toBe("ortu.siti@gmail.com");
+    expect(kirim.subject).toBe("Konfirmasi Atur Ulang Password Akun Siswa AyoTKA");
+    const tautan = `${PUBLIK}/api/auth/confirm?token_hash=${HASH}&type=recovery&next=%2Freset-password`;
+    expect(kirim.html.split(`href="${tautan}"`)).toHaveLength(3);
+    expect(kirim.html).toContain("<strong>SITI AMINAH</strong>");
+    // NISN hanya tampil tersamar; email sintetis tidak pernah tampil
+    expect(kirim.html).toContain("NISN ******3156");
+    expect(kirim.html).not.toContain(NISN);
+    expect(kirim.html).not.toContain("nisn.ayotka.id");
+  });
+
+  it("jawaban SAMA untuk semua NISN: tidak dikenal, tanpa email kontak, kontak belum terverifikasi, akun nonaktif, akun beremail sungguhan, tanpa akun", async () => {
+    const kasus = [
+      null,
+      siswaNisn({ emailKontak: null, emailKontakVerifiedAt: null }),
+      siswaNisn({ emailKontakVerifiedAt: null }),
+      siswaNisn({ user: { email: `${NISN}@nisn.ayotka.id`, status: "nonaktif" } }),
+      siswaNisn({ user: { email: "siti@gmail.com", status: "aktif" } }),
+      siswaNisn({ user: null }),
+    ];
+    for (const [i, siswa] of kasus.entries()) {
+      m.studentFindFirst.mockResolvedValue(siswa);
+      const res = await minta(NISN);
+      expect(res.status, `kasus ${i}`).toBe(200);
+      expect(await res.json(), `kasus ${i}`).toEqual({ ok: true, message: PESAN_NISN });
+    }
+    await jalankanTertunda();
+    expect(m.generateLink).not.toHaveBeenCalled();
+    expect(m.kirimEmail).not.toHaveBeenCalled();
+  });
+
+  it("gagal kirim ke email kontak: tidak mencoba cadangan bawaan Supabase (email sintetis tidak punya kotak surat)", async () => {
+    m.studentFindFirst.mockResolvedValue(siswaNisn());
+    m.kirimEmail.mockResolvedValue({ ok: false, error: "kuota habis", kuotaHabis: true, kode: "resend-429" });
+    const res = await minta(NISN);
+    expect(res.status).toBe(200);
+    await jalankanTertunda();
+    expect(m.kirimEmail).toHaveBeenCalledTimes(1);
+    expect(m.resetPasswordForEmail).not.toHaveBeenCalled();
+  });
+
+  it("tautan gagal dibuat: tidak ada email dan tidak ada galat ke pengguna", async () => {
+    m.studentFindFirst.mockResolvedValue(siswaNisn());
+    m.generateLink.mockResolvedValue({ data: { properties: null }, error: { message: "boom" } });
+    expect((await minta(NISN)).status).toBe(200);
+    await jalankanTertunda();
+    expect(m.kirimEmail).not.toHaveBeenCalled();
+  });
+
+  it("dibatasi per IP dan per NISN (bukan per email); terlalu banyak -> 429 tanpa mencari siswa", async () => {
+    await minta(NISN);
+    const kunci = m.rate.mock.calls.map((c) => c[0]);
+    expect(kunci).toContain("lupa-password:ip:1.2.3.4");
+    expect(kunci).toContain(`lupa-password:nisn:${NISN}`);
+
+    m.rate.mockReturnValue(false);
+    m.studentFindFirst.mockClear();
+    expect((await minta(NISN)).status).toBe(429);
+    expect(m.studentFindFirst).not.toHaveBeenCalled();
+  });
+
+  it.each(["123456789", "12345678901", "12345 67890", "31552131a6"])("'%s' bukan NISN dan bukan email: 400, tidak mencari siswa maupun akun", async (masukan) => {
+    const res = await minta(masukan);
+    expect(res.status).toBe(400);
+    expect(m.studentFindFirst).not.toHaveBeenCalled();
+    expect(m.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("jalur email biasa tidak berubah: tidak menyentuh pencarian siswa", async () => {
+    await minta("firerza.praditya@students.um.ac.id");
+    expect(m.studentFindFirst).not.toHaveBeenCalled();
+    expect(m.findFirst).toHaveBeenCalledTimes(1);
+  });
+
+  it("di produksi tautan reset akun NISN tidak ditulis ke log", async () => {
+    m.studentFindFirst.mockResolvedValue(siswaNisn());
+    await minta(NISN);
     await jalankanTertunda();
     const semuaLog = [...log.log.mock.calls, ...log.warn.mock.calls, ...log.error.mock.calls].map((c) => c.map(String).join(" ")).join(" | ");
     expect(semuaLog).not.toContain(HASH);

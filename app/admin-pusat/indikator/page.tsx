@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { PageSkeleton } from "@/components/ui/skeleton";
 import { Table, TableContainer, Td, Th, Thead, Tr } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
+import { CatatanRujukanNasional } from "@/components/hasil/catatan-rujukan-nasional";
 import { formatWIBHariTanggalJam } from "@/lib/utils/datetime";
 
 type MapelRingkas = { jenjang: string; namaMapel: string; jumlah: number; adaNilaiNasional: number; rerataNasional: number | null };
@@ -209,6 +210,7 @@ export default function IndikatorResmiPage() {
             bisa dicocokkan.
           </Alert>
         )}
+        {adaMaster && <CatatanRujukanNasional className="mt-2" />}
         <p className="mt-2 text-xs text-slate-500">SMA tersimpan di master tetapi belum dipakai (AyoTKA belum punya mapel SMA).</p>
       </Card>
 

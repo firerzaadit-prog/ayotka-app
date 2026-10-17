@@ -29,6 +29,8 @@ type StudentRow = {
   id: string;
   nama: string;
   nisn: string | null;
+  /** Email sungguhan (null untuk akun yang masuk dengan NISN atau yang belum punya akun). */
+  email: string | null;
   jalur: "A" | "B";
   claimStatus: "belum_klaim" | "sudah_klaim";
   status: "pending" | "active" | "nonaktif";
@@ -64,10 +66,14 @@ export default function SemuaSiswaPage() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [refreshKey, setRefreshKey] = useState(0);
   const pilihan = usePilihan();
-  const hapusMassal = useHapusMassal(() => {
-    pilihan.kosongkan();
-    setRefreshKey((k) => k + 1);
-  });
+  // Admin pusat menghapus lewat rutenya sendiri: berlaku untuk Jalur A dan Jalur B (mandiri).
+  const hapusMassal = useHapusMassal(
+    () => {
+      pilihan.kosongkan();
+      setRefreshKey((k) => k + 1);
+    },
+    { endpoint: "/api/admin-pusat/siswa/hapus-massal" },
+  );
 
   const [showForm, setShowForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -138,34 +144,46 @@ export default function SemuaSiswaPage() {
     setRefreshKey((k) => k + 1);
   }
 
-  async function handleDelete(id: string, namaSiswa: string) {
+  async function handleDelete(s: StudentRow) {
+    const mandiri = s.jalur === "B";
     const ok = await confirm({
-      title: `Hapus siswa "${namaSiswa}"?`,
-      description:
-        "Data siswa dan akun loginnya dihapus, NISN-nya bisa ditambahkan lagi. Kalau siswa sudah pernah mengerjakan ujian, riwayat nilainya tetap tersimpan.",
+      title: `Hapus pengguna "${s.nama}"?`,
+      description: mandiri
+        ? "Akun login siswa mandiri ini dihapus permanen: ia tidak bisa masuk lagi dan emailnya bisa dipakai mendaftar ulang. Kalau ia sudah pernah mengerjakan ujian atau punya pembayaran/saldo, riwayatnya tetap tersimpan sebagai arsip. Tindakan ini tidak bisa dibatalkan."
+        : "Data siswa dan akun loginnya dihapus, NISN-nya bisa ditambahkan lagi. Kalau siswa sudah pernah mengerjakan ujian, riwayat nilainya tetap tersimpan.",
+      confirmLabel: "Ya, hapus pengguna",
       danger: true,
     });
     if (!ok) return;
-    const res = await fetch(`/api/admin-sekolah/siswa/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/admin-pusat/siswa/${s.id}`, { method: "DELETE" });
     const data = await res.json().catch(() => null);
     if (res.ok) {
+      toast.success(`Pengguna "${s.nama}" dihapus.`);
       setRefreshKey((k) => k + 1);
     } else {
-      toast.error(data?.error ?? "Gagal menghapus siswa.");
+      toast.error(data?.error ?? "Gagal menghapus pengguna.");
     }
   }
 
-  const filteredStudents = (students ?? []).filter((s) =>
-    search.trim() ? s.nama.toLowerCase().includes(search.trim().toLowerCase()) : true,
-  );
+  // Pencarian mencocokkan nama, email, atau NISN.
+  const filteredStudents = (students ?? []).filter((s) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return [s.nama, s.email, s.nisn].some((nilai) => nilai?.toLowerCase().includes(q));
+  });
   const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
   const pageStudents = filteredStudents.slice((page - 1) * pageSize, page * pageSize);
-  // Hanya siswa Jalur A (terikat sekolah) yang bisa dihapus lewat sini; Jalur B tidak punya kotak centang.
-  const bisaDihapus = (s: StudentRow) => s.jalur === "A" && s.school != null;
-  const idSemua = filteredStudents.filter(bisaDihapus).map((s) => s.id);
-  const idHalaman = pageStudents.filter(bisaDihapus).map((s) => s.id);
+  // Semua pengguna (Jalur A dan Jalur B) bisa dicentang dan dihapus oleh admin pusat.
+  const idSemua = filteredStudents.map((s) => s.id);
+  const idHalaman = pageStudents.map((s) => s.id);
   // Yang dihapus hanya yang dicentang DAN masih tampil menurut filter saat ini - jumlah di bilah = jumlah yang dihapus.
   const terpilih = idSemua.filter((id) => pilihan.dipilih.has(id));
+  // Siswa mandiri (Jalur B) adalah pelanggan: pilihan yang memuatnya diberi peringatan tersendiri di dialog hapus massal.
+  const jumlahMandiriTerpilih = filteredStudents.filter((s) => s.jalur === "B" && pilihan.dipilih.has(s.id)).length;
+  const catatanMandiriTerpilih =
+    jumlahMandiriTerpilih > 0
+      ? `Termasuk ${jumlahMandiriTerpilih} siswa mandiri (Jalur B): akun login mereka dihapus permanen, mereka tidak bisa masuk lagi, dan paket atau saldo yang masih aktif ikut tidak bisa dipakai.`
+      : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -236,10 +254,10 @@ export default function SemuaSiswaPage() {
           </select>
         </div>
         <div className="w-56">
-          <Label htmlFor="searchNama">Cari nama</Label>
+          <Label htmlFor="searchNama">Cari nama / email / NISN</Label>
           <Input
             id="searchNama"
-            placeholder="Ketik nama siswa..."
+            placeholder="Ketik nama, email, atau NISN..."
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);
@@ -301,7 +319,7 @@ export default function SemuaSiswaPage() {
         </form>
       )}
 
-      {students === null && <TableSkeleton columns={7} />}
+      {students === null && <TableSkeleton columns={8} />}
       {students?.length === 0 && (
         <EmptyState
           icon={<IconUsers />}
@@ -313,7 +331,7 @@ export default function SemuaSiswaPage() {
         <EmptyState
           icon={<IconSearch />}
           title="Tidak ditemukan"
-          description={`Tidak ada siswa dengan nama yang cocok dengan "${search}".`}
+          description={`Tidak ada siswa yang cocok dengan "${search}".`}
         />
       )}
 
@@ -325,7 +343,7 @@ export default function SemuaSiswaPage() {
           sedangHapus={hapusMassal.sedangHapus}
           onPilihSemua={() => pilihan.aturBanyak(idSemua, true)}
           onBatal={pilihan.kosongkan}
-          onHapus={() => hapusMassal.hapus(terpilih)}
+          onHapus={() => hapusMassal.hapus(terpilih, catatanMandiriTerpilih)}
         />
         <TableContainer>
           <Table>
@@ -339,6 +357,7 @@ export default function SemuaSiswaPage() {
                   />
                 </Th>
                 <Th>Nama</Th>
+                <Th>Akun</Th>
                 <Th>Sekolah</Th>
                 <Th>Jalur</Th>
                 <Th>Klaim</Th>
@@ -350,27 +369,34 @@ export default function SemuaSiswaPage() {
               {pageStudents.map((s) => (
                 <Tr key={s.id} className={pilihan.dipilih.has(s.id) ? "bg-indigo-50/40" : undefined}>
                   <Td className="w-10">
-                    {bisaDihapus(s) && (
-                      <input
-                        type="checkbox"
-                        aria-label={`Pilih ${s.nama}`}
-                        className="accent-indigo-600"
-                        checked={pilihan.dipilih.has(s.id)}
-                        onChange={() => pilihan.toggle(s.id)}
-                      />
-                    )}
+                    <input
+                      type="checkbox"
+                      aria-label={`Pilih ${s.nama}`}
+                      className="accent-indigo-600"
+                      checked={pilihan.dipilih.has(s.id)}
+                      onChange={() => pilihan.toggle(s.id)}
+                    />
                   </Td>
                   <Td className="font-medium">
                     <Link href={`/admin-pusat/siswa/${s.id}`} className="text-indigo-600 hover:text-indigo-800 hover:underline">
                       {s.nama}
                     </Link>
                   </Td>
+                  <Td className="text-xs text-slate-600" data-sel-akun>
+                    {s.email ?? (s.nisn ? `NISN ${s.nisn}` : "-")}
+                  </Td>
                   <Td>{s.school?.nama ?? "-"}</Td>
                   <Td>{JALUR_LABEL[s.jalur]}</Td>
                   <Td>{CLAIM_LABEL[s.claimStatus]}</Td>
                   <Td>{s.lulusAt ? "Alumni" : STATUS_LABEL[s.status]}</Td>
-                  <Td className="text-right">
-                    {bisaDihapus(s) && s.claimStatus === "sudah_klaim" && (
+                  <Td className="whitespace-nowrap text-right">
+                    <Link
+                      href={`/admin-pusat/siswa/${s.id}`}
+                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-indigo-600 transition-colors hover:bg-indigo-50 hover:text-indigo-800"
+                    >
+                      Profil
+                    </Link>
+                    {s.jalur === "A" && s.school != null && s.claimStatus === "sudah_klaim" && (
                       <button
                         onClick={() =>
                           resetPassword({
@@ -384,14 +410,12 @@ export default function SemuaSiswaPage() {
                         Reset password
                       </button>
                     )}
-                    {bisaDihapus(s) && (
-                      <button
-                        onClick={() => handleDelete(s.id, s.nama)}
-                        className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
-                      >
-                        Hapus
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleDelete(s)}
+                      className="rounded-lg px-2.5 py-1 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                    >
+                      Hapus
+                    </button>
                   </Td>
                 </Tr>
               ))}

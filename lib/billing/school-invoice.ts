@@ -1,32 +1,17 @@
-import { prisma } from "@/lib/db/prisma";
 import { formatInTimeZone } from "date-fns-tz";
+import { awalanNomorInvoice } from "@/lib/billing/nomor-invoice";
+import { nomorBerikutnyaUntukAwalan } from "@/lib/billing/nomor-terpakai";
 
 /**
- * Generate nomor invoice unik dengan format INV/TKA/YYYYMM/XXXX
- * Contoh: INV/TKA/202610/0001
+ * Nomor invoice unik berikutnya untuk bulan ini (WIB): INV/AYOTKA/{tahun}/{bulan romawi}/{urut 3 digit}, mis.
+ * INV/AYOTKA/2026/X/002 (aturan format di lib/billing/nomor-invoice.ts). Urutannya dibagi dengan invoice yang diterbitkan
+ * lewat Pembuat Invoice Admin Pusat (lib/billing/nomor-terpakai.ts). Dua pembuat invoice yang bersamaan bisa mendapat nomor
+ * yang sama; kolom nomorInvoice unik, jadi penyimpan (rute pembuatan invoice) mengulang dari sini bila terjadi benturan.
  */
-export async function generateNomorInvoiceSekolah(): Promise<string> {
-  const now = new Date();
-  const yearMonth = formatInTimeZone(now, "Asia/Jakarta", "yyyyMM");
-  const prefix = `INV/TKA/${yearMonth}`;
-
-  const lastInvoice = await prisma.schoolInvoice.findFirst({
-    where: { nomorInvoice: { startsWith: prefix } },
-    orderBy: { nomorInvoice: "desc" },
-    select: { nomorInvoice: true },
-  });
-
-  let nextSeq = 1;
-  if (lastInvoice?.nomorInvoice) {
-    const parts = lastInvoice.nomorInvoice.split("/");
-    const lastSeq = parseInt(parts[parts.length - 1] ?? "0", 10);
-    if (!Number.isNaN(lastSeq)) {
-      nextSeq = lastSeq + 1;
-    }
-  }
-
-  const seqPadded = String(nextSeq).padStart(4, "0");
-  return `${prefix}/${seqPadded}`;
+export async function generateNomorInvoiceSekolah(now: Date = new Date()): Promise<string> {
+  const tahun = Number(formatInTimeZone(now, "Asia/Jakarta", "yyyy"));
+  const bulan = Number(formatInTimeZone(now, "Asia/Jakarta", "M"));
+  return (await nomorBerikutnyaUntukAwalan(awalanNomorInvoice(tahun, bulan))).nomor;
 }
 
 export function formatRupiah(value: number): string {

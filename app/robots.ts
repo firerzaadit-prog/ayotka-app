@@ -21,6 +21,7 @@ export default function robots(): MetadataRoute.Robots {
         "/admin-sekolah/",
         "/reset-password",
         "/konfirmasi",
+        "/verifikasi-email-kontak",
       ],
     },
     sitemap: `${APP_URL}/sitemap.xml`,

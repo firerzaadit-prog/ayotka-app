@@ -4,7 +4,6 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import KebijakanPrivasiPage from "@/app/(public)/kebijakan-privasi/page";
-import { HARI_SIMPAN_RIWAYAT } from "@/lib/tutor/konstanta";
 
 // Kebijakan Privasi harus mencerminkan perilaku sistem yang sebenarnya (aturan di berkas halamannya). Tes ini menjaga
 // agar keterangan percakapan Tanya Tutor AI tidak hilang atau menyimpang dari angka yang sebenarnya dipakai.
@@ -33,7 +32,15 @@ describe("Kebijakan Privasi - Tanya Tutor AI", () => {
 
 
   it("tanggal pembaruan memuat tanggal perubahan ini", () => {
-    expect(teks).toContain("7 Oktober 2026");
+    expect(teks).toContain("16 Oktober 2026");
+  });
+
+  it("menyebut surel kontak akun NISN: opsional, dipakai setelah verifikasi, bisa dilepas, tidak terlihat Admin Sekolah", () => {
+    expect(teks).toContain("surel kontak");
+    expect(teks).toMatch(/baru dipakai setelah diverifikasi/);
+    expect(teks).toMatch(/dapat dilepas siswa kapan saja/);
+    expect(teks).toMatch(/Admin Sekolah tidak melihatnya/);
+    expect(teks).toMatch(/bukti pembayaran/);
   });
 
   it("menyebut hak siswa menghapus percakapan sendiri (di data yang dikumpulkan dan di hak atas data) dan jatah harian tak kembali", () => {

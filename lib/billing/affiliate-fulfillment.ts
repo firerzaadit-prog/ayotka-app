@@ -4,6 +4,7 @@ import { SUMBER_KREDIT_PRIBADI, selaraskanKreditSiswaAman } from "@/lib/billing/
 import { jenisDariKode, type JenisProduk } from "@/lib/billing/affiliate-produk";
 import { ringkasDataDiterima } from "@/lib/billing/affiliate-data";
 import { studentIdDariEmailPembayaran } from "@/lib/billing/email-pembayaran";
+import { kirimStrukKeEmailKontak } from "@/lib/email/struk-pembayaran";
 
 export type { JenisProduk };
 
@@ -292,6 +293,10 @@ export async function processAffiliateFulfillment(
       },
     });
 
+    // Struk ke email kontak akun NISN (yang email loginnya tidak bisa menerima apa pun). Tidak ditunggu dan tidak pernah
+    // melempar: struk hanya tambahan, tidak boleh memperlambat atau menggagalkan pembayaran yang sudah masuk.
+    void kirimStrukKeEmailKontak(student, { jenis: "topup", nominal }).catch(() => undefined);
+
     return {
       ok: true,
       message: `Top-up saldo ${nominal} berhasil ditambahkan ke ${student.nama}.`,
@@ -422,6 +427,11 @@ export async function processAffiliateFulfillment(
       rawPayload: payload.rawPayload,
     },
   });
+
+  // Struk ke email kontak akun NISN (lihat catatan di cabang top-up).
+  void kirimStrukKeEmailKontak(student, { jenis: "langganan", namaPaket: plan.nama, harga: plan.harga, berlakuSampai: endsAt }).catch(
+    () => undefined,
+  );
 
   return {
     ok: true,

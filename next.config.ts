@@ -21,6 +21,13 @@ const nextConfig: NextConfig = {
     "/api/siswa/attempts/\\[id\\]/rapor": ["./lib/pdf/fonts/**/*"],
     // Laporan daya serap sekolah (PDF) memakai font yang sama (lib/pdf/pdf-umum.ts).
     "/api/admin-sekolah/laporan-indikator/pdf": ["./lib/pdf/fonts/**/*"],
+    // Invoice sekolah (PDF): font + gambar desain (logo, tanda tangan, stempel, logo MaleTech-RG) dibaca lewat fs.
+    "/api/admin-pusat/schools/\\[id\\]/invoices/\\[invoiceId\\]/pdf": ["./lib/pdf/fonts/**/*", "./lib/pdf/assets/**/*"],
+    "/api/admin-sekolah/invoices/\\[invoiceId\\]/pdf": ["./lib/pdf/fonts/**/*", "./lib/pdf/assets/**/*"],
+    // Pembuat Invoice Admin Pusat: pratinjau, terbitkan, dan unduh ulang memakai renderer dan aset yang sama.
+    "/api/admin-pusat/invoice-bebas": ["./lib/pdf/fonts/**/*", "./lib/pdf/assets/**/*"],
+    "/api/admin-pusat/invoice-bebas/pratinjau": ["./lib/pdf/fonts/**/*", "./lib/pdf/assets/**/*"],
+    "/api/admin-pusat/invoice-bebas/\\[id\\]/pdf": ["./lib/pdf/fonts/**/*", "./lib/pdf/assets/**/*"],
   },
   images: {
     remotePatterns: supabaseHostname

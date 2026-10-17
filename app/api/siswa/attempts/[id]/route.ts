@@ -6,6 +6,7 @@ import { getRemainingSeconds } from "@/lib/exam/timing";
 import { shuffleWithSeed } from "@/lib/exam/shuffle";
 import { buildHasil } from "@/lib/exam/hasil";
 import { hitungOpsiLaSusulan } from "@/lib/billing/la-susulan";
+import { hitungFokusBelajarDibuka } from "@/lib/billing/fokus-belajar";
 import { infoTutorHalaman } from "@/lib/tutor/penyimpanan";
 import { checkAndClaimSession } from "@/lib/exam/session-guard";
 import { susunRiwayatPercobaan } from "@/lib/exam/percobaan";
@@ -72,7 +73,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Keterangan gambar tidak ikut ke siswa (bisa menyebut jawabannya); buildHasil sendiri dibiarkan utuh karena juga
     // dipakai halaman admin dan rapor PDF.
     const perSoal = hasil.perSoal.map((s) => ({ ...s, media: mediaTanpaKeterangan(s.media) }));
-    return NextResponse.json({ ...hasil, perSoal, laSusulan, tutorAi, percobaan: susunRiwayatPercobaan(attemptsPaket, attempt.id) });
+    // "Prioritas belajar" dan "Kekuatanmu" termasuk fitur berbayar: tampil hanya bila ada jatah/saldo Learning Analytics
+    // (lib/billing/fokus-belajar.ts). Dihitung dari opsi yang sudah ada di atas, tanpa kueri tambahan pada kasus umum.
+    const fokusBelajarDibuka = await hitungFokusBelajarDibuka(attempt, laSusulan);
+    return NextResponse.json({
+      ...hasil,
+      perSoal,
+      laSusulan,
+      tutorAi,
+      fokusBelajarDibuka,
+      percobaan: susunRiwayatPercobaan(attemptsPaket, attempt.id),
+    });
   }
 
   // Tiket 4.13: satu sesi aktif per attempt - tab/device lain yang masih

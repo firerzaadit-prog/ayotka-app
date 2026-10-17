@@ -116,6 +116,42 @@ const QUICK_LINKS = [
       />
     ),
   },
+  {
+    href: "/siswa/pembayaran",
+    id: "link-riwayat-pembayaran",
+    title: "Riwayat Pembayaran",
+    description: "Pembelian paket, top-up saldo, dan voucher yang pernah kamu pakai.",
+    badge: null,
+    badgeColor: "",
+    iconColor: "bg-slate-50 text-slate-600",
+    icon: (
+      <path
+        d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
+  {
+    href: "/siswa/profil",
+    id: "link-profil",
+    title: "Profil Saya",
+    description: "Ubah nama, email, nomor WhatsApp, dan password akunmu.",
+    badge: null,
+    badgeColor: "",
+    iconColor: "bg-slate-50 text-slate-600",
+    icon: (
+      <path
+        d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    ),
+  },
 ];
 
 export default async function SiswaDashboardPage() {

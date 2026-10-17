@@ -8,13 +8,16 @@ import { HAPUS_MASSAL_MAKS } from "@/lib/students/batas";
 
 type HasilHapusMassal = { dihapus: number; diarsipkan: number; gagal: number; tidakDitemukan: number };
 
+/** Rute hapus massal milik admin sekolah (hanya siswa Jalur A di sekolahnya). Admin pusat memakai rutenya sendiri. */
+export const ENDPOINT_HAPUS_MASSAL_SEKOLAH = "/api/admin-sekolah/siswa/hapus-massal";
+
 /** Kirim bertahap (maks HAPUS_MASSAL_MAKS per permintaan). Bagian yang gagal dikirim dihitung sebagai `gagal`. */
-export async function kirimHapusMassal(ids: string[]): Promise<HasilHapusMassal> {
+export async function kirimHapusMassal(ids: string[], endpoint: string = ENDPOINT_HAPUS_MASSAL_SEKOLAH): Promise<HasilHapusMassal> {
   const total: HasilHapusMassal = { dihapus: 0, diarsipkan: 0, gagal: 0, tidakDitemukan: 0 };
   for (let i = 0; i < ids.length; i += HAPUS_MASSAL_MAKS) {
     const bagian = ids.slice(i, i + HAPUS_MASSAL_MAKS);
     try {
-      const res = await fetch("/api/admin-sekolah/siswa/hapus-massal", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids: bagian }),
@@ -65,18 +68,23 @@ export function usePilihan() {
   return { dipilih, toggle, aturBanyak, kosongkan };
 }
 
-/** Konfirmasi, kirim, lalu tampilkan ringkasan hasil. `onSelesai` dipanggil setelahnya (muat ulang daftar, kosongkan centang). */
-export function useHapusMassal(onSelesai: () => void) {
+/**
+ * Konfirmasi, kirim, lalu tampilkan ringkasan hasil. `onSelesai` dipanggil setelahnya (muat ulang daftar, kosongkan centang).
+ * `opsi.endpoint` mengganti rute tujuan (admin pusat: /api/admin-pusat/siswa/hapus-massal, termasuk siswa mandiri).
+ */
+export function useHapusMassal(onSelesai: () => void, opsi?: { endpoint?: string }) {
   const toast = useToast();
   const { confirm } = useDialog();
   const [sedangHapus, setSedangHapus] = useState(false);
 
-  async function hapus(ids: string[]) {
+  /** `catatan` (opsional) ditambahkan ke penjelasan dialog, mis. peringatan bahwa pilihan memuat siswa mandiri yang berbayar. */
+  async function hapus(ids: string[], catatan?: string) {
     if (ids.length === 0 || sedangHapus) return;
     const ok = await confirm({
       title: `Hapus ${ids.length} siswa terpilih?`,
       description:
-        "Data siswa dan akun loginnya dihapus, NISN-nya bisa ditambahkan lagi. Siswa yang sudah pernah mengerjakan ujian tetap menyimpan riwayat nilainya. Tindakan ini tidak bisa dibatalkan.",
+        "Data siswa dan akun loginnya dihapus, NISN-nya bisa ditambahkan lagi. Siswa yang sudah pernah mengerjakan ujian tetap menyimpan riwayat nilainya. Tindakan ini tidak bisa dibatalkan." +
+        (catatan ? `\n\n${catatan}` : ""),
       confirmLabel: `Ya, hapus ${ids.length} siswa`,
       danger: true,
     });
@@ -84,7 +92,7 @@ export function useHapusMassal(onSelesai: () => void) {
 
     setSedangHapus(true);
     try {
-      const hasil = await kirimHapusMassal(ids);
+      const hasil = await kirimHapusMassal(ids, opsi?.endpoint);
       const berhasil = hasil.dihapus + hasil.diarsipkan;
       if (berhasil > 0) toast.success(`${berhasil} siswa berhasil dihapus.`);
       if (hasil.gagal > 0) {

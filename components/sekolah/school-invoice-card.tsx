@@ -83,7 +83,8 @@ export function SchoolInvoiceCard() {
     // Buka file PDF via anchor tag agar browser men-trigger download
     const link = document.createElement("a");
     link.href = `/api/admin-sekolah/invoices/${invoice.id}/pdf`;
-    link.download = `invoice-${invoice.nomorInvoice.replace(/[^a-zA-Z0-9_-]/g, "-")}.pdf`;
+    // Atribut kosong = nama berkas dari server ("Invoice INV-AYOTKA-2026-X-001 - Nama Sekolah.pdf"), bukan nama bawaan klien.
+    link.download = "";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

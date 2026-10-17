@@ -13,7 +13,7 @@ import { HierarkiKompetensiTabel } from "@/components/hasil/hierarki-kompetensi-
 import type { BarisHierarkiKompetensi } from "@/lib/exam/hierarki-kompetensi";
 import { DayaSerapIndikator } from "@/components/hasil/daya-serap-indikator";
 import type { LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
-import type { OpsiLaSusulan } from "@/lib/billing/learning-analytics";
+import { bisaLihatFokusBelajar, type OpsiLaSusulan } from "@/lib/billing/learning-analytics";
 import { RankingBoardCard } from "@/components/hasil/ranking-board";
 import { RiwayatPercobaanCard } from "@/components/hasil/riwayat-percobaan-card";
 import type { PercobaanItem } from "@/lib/exam/percobaan";
@@ -48,6 +48,11 @@ type Hasil = {
   indikator?: LaporanIndikatorSiswa | null;
   /** Opsi menjalankan Learning Analytics susulan (null bila server gagal menghitungnya: kartu tidak ditampilkan). */
   laSusulan?: OpsiLaSusulan | null;
+  /**
+   * "Prioritas belajar" dan "Kekuatanmu" termasuk fitur berbayar: false = siswa tidak punya jatah maupun saldo Learning
+   * Analytics, kedua kartu disembunyikan. Tidak ada pada respons server lama: dianggap terbuka.
+   */
+  fokusBelajarDibuka?: boolean;
   /** Status Tanya Tutor AI untuk percobaan ini (null bila server gagal menghitungnya: tombol Tutor tidak muncul). */
   tutorAi?: TutorInfo | null;
 };
@@ -113,6 +118,17 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
     }
   }, [id]);
 
+  // Kartu fokus terbuka lebih awal di sesi ini bila analisisnya selesai atau siswa baru punya jatah/saldo (mis. mengisi
+  // saldo di tab lain). Sifatnya searah: sekali terbuka tidak ditutup lagi, supaya tidak berkedip saat saldo terpakai.
+  const [fokusDibukaSesi, setFokusDibukaSesi] = useState(false);
+  const saatAnalisisSiap = useCallback(() => {
+    setFokusDibukaSesi(true);
+    void segarkanTutor();
+  }, [segarkanTutor]);
+  const saatOpsiBerubah = useCallback((opsi: OpsiLaSusulan) => {
+    if (bisaLihatFokusBelajar(opsi)) setFokusDibukaSesi(true);
+  }, []);
+
   if (error) {
     return <p className="p-6 text-sm text-rose-700">{error}</p>;
   }
@@ -167,6 +183,15 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
 
       <RiwayatPercobaanCard items={hasil.percobaan ?? []} />
 
+      {/* Learning Analytics tepat di bawah "Percobaan pada Paket Ini" (permintaan user, 16 Okt 2026): analisis AI
+          jadi hal pertama yang terlihat setelah nilai, sebelum peringkat dan peta kompetensi. */}
+      <LearningAnalyticsSiswa
+        attemptId={id}
+        laSusulan={hasil.laSusulan ?? null}
+        onAnalisisSiap={saatAnalisisSiap}
+        onOpsiBerubah={saatOpsiBerubah}
+      />
+
       {hasil.ranking && <RankingBoardCard ranking={hasil.ranking} />}
 
       {hasil.elemenScores.length > 0 && (
@@ -190,11 +215,9 @@ export default function HasilPage({ params }: { params: Promise<{ id: string }> 
       {hasil.indikator && (
         <Card>
           <h2 className="mb-4 text-lg font-semibold text-slate-900">Daya Serap per Indikator</h2>
-          <DayaSerapIndikator laporan={hasil.indikator} />
+          <DayaSerapIndikator laporan={hasil.indikator} tampilkanFokus={fokusDibukaSesi || hasil.fokusBelajarDibuka !== false} />
         </Card>
       )}
-
-      <LearningAnalyticsSiswa attemptId={id} laSusulan={hasil.laSusulan ?? null} onAnalisisSiap={segarkanTutor} />
 
       <div
         className="select-none"

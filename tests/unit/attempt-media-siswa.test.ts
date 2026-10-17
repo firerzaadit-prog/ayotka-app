@@ -14,9 +14,11 @@ const m = vi.hoisted(() => ({
   packageFind: vi.fn(),
   questionFindMany: vi.fn(),
   answerFindMany: vi.fn(),
+  fokus: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/session", () => ({ requireRole: m.requireRole }));
+vi.mock("@/lib/billing/fokus-belajar", () => ({ hitungFokusBelajarDibuka: m.fokus }));
 vi.mock("@/lib/exam/attempt-access", () => ({
   loadOwnedAttempt: m.loadOwnedAttempt,
   sanitizeAttemptForClient: (a: { id: string; status: string }) => ({ id: a.id, status: a.status }),
@@ -64,6 +66,7 @@ beforeEach(() => {
   m.attemptFindMany.mockResolvedValue([]);
   m.hitungOpsi.mockResolvedValue(null);
   m.infoTutor.mockResolvedValue(null);
+  m.fokus.mockResolvedValue(true);
 });
 
 describe("GET /api/siswa/attempts/[id]: keterangan gambar tidak sampai ke siswa", () => {
@@ -134,6 +137,42 @@ describe("GET /api/siswa/attempts/[id]: keterangan gambar tidak sampai ke siswa"
     const badan = await (await minta()).json();
     expect(JSON.stringify(badan)).not.toContain(KUNCI_BOCOR);
     expect(parseQuestionMedia(badan.perSoal[0].media)!.items).toHaveLength(2);
+  });
+
+  it("fitur berbayar: respons hasil memuat fokusBelajarDibuka dari helper, dihitung dari opsi Learning Analytics yang sama", async () => {
+    m.loadOwnedAttempt.mockResolvedValue(attempt("selesai"));
+    m.buildHasil.mockResolvedValue({ perSoal: [] });
+    const opsi = { tersedia: true, pendanaan: "saldo", harga: 5500, saldo: 0, cukup: false, kurang: 5500 };
+    m.hitungOpsi.mockResolvedValue(opsi);
+
+    m.fokus.mockResolvedValue(false);
+    const tertutup = await (await minta()).json();
+    expect(tertutup.fokusBelajarDibuka).toBe(false);
+    expect(tertutup.laSusulan).toEqual(opsi);
+    expect(m.fokus).toHaveBeenCalledTimes(1);
+    expect(m.fokus).toHaveBeenCalledWith(expect.objectContaining({ id: "att-1" }), opsi);
+
+    m.fokus.mockResolvedValue(true);
+    expect((await (await minta()).json()).fokusBelajarDibuka).toBe(true);
+  });
+
+  it("opsi gagal dihitung (null): helper tetap dipanggil dengan null dan hasil tetap tampil", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    m.loadOwnedAttempt.mockResolvedValue(attempt("selesai"));
+    m.buildHasil.mockResolvedValue({ perSoal: [] });
+    m.hitungOpsi.mockRejectedValue(new Error("DB putus"));
+    const badan = await (await minta()).json();
+    expect(badan.laSusulan).toBeNull();
+    expect(m.fokus).toHaveBeenCalledWith(expect.anything(), null);
+    expect(badan.fokusBelajarDibuka).toBe(true);
+  });
+
+  it("ujian berjalan atau dijeda: tidak menghitung fokus belajar sama sekali", async () => {
+    m.loadOwnedAttempt.mockResolvedValue(attempt("paused"));
+    await minta("tab-1");
+    m.loadOwnedAttempt.mockResolvedValue(attempt("berjalan"));
+    await minta();
+    expect(m.fokus).not.toHaveBeenCalled();
   });
 
   it("tanpa tabToken atau saat dijeda: tidak ada soal sama sekali (perilaku lama tidak berubah)", async () => {

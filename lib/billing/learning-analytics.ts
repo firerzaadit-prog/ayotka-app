@@ -65,7 +65,28 @@ export type OpsiLaSusulan =
       cukup: boolean;
       /** harga - saldo bila saldo kurang, selain itu 0. */
       kurang: number;
+      /**
+       * Hanya diisi bila saldo kurang. false = akses siswa sedang ditanggung sekolah, jadi paket pribadi tidak bisa dibeli
+       * (halaman Langganan hanya memuat info sekolah) dan kartu cuma menawarkan isi saldo. Tidak ada = anggap bisa beli paket.
+       */
+      bisaBeliPaket?: boolean;
     };
+
+/**
+ * "Prioritas belajar" dan "Kekuatanmu" (daftar indikator terlemah dan terkuat di halaman hasil dan rapor PDF siswa)
+ * termasuk fitur berbayar (permintaan user, 16 Okt 2026): terbuka hanya bila siswa bisa memakai Learning Analytics untuk
+ * percobaan ini, yaitu analisisnya sudah ada/sedang diproses (sudah dibayar), Try Out Nasional (dibundel), jatah paket
+ * masih ada, atau saldo cukup untuk satu analisis. Tanpa jatah dan tanpa saldo, kedua kartu tidak ditampilkan.
+ * Opsi yang tidak diketahui (null/undefined: server gagal menghitungnya) dianggap terbuka, supaya gangguan sesaat tidak
+ * menyembunyikan fitur dari siswa yang berhak; yang tertutup salah hanya mengurangi satu bagian halaman, bukan nilai.
+ * Akses yang ditanggung sekolah ditambahkan di server (lib/billing/fokus-belajar.ts), karena butuh data siswa.
+ */
+export function bisaLihatFokusBelajar(opsi: OpsiLaSusulan | null | undefined): boolean {
+  if (!opsi) return true;
+  if (!opsi.tersedia) return opsi.alasan !== "belum_selesai";
+  if (opsi.pendanaan === "kuota") return !opsi.batasTercapai;
+  return opsi.cukup;
+}
 
 export function putuskanLearningAnalytics(input: {
   tipe: TipeAkses;

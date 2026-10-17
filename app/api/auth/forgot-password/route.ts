@@ -6,9 +6,14 @@ import { kirimEmail } from "@/lib/email/kirim";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/audit/log";
 import { escapeHtml } from "@/lib/utils/escape-html";
+import { emailKontakTerverifikasi, labelNisnTersamar } from "@/lib/siswa/email-kontak";
 
+// Kolom boleh berisi email ATAU NISN (10 digit angka, sama seperti halaman masuk). Nama kolom tetap `email` supaya
+// halaman lama yang masih terbuka di peramban tetap bisa mengirim.
+const NISN = /^\d{10}$/;
+const emailSchema = z.string().email("Format email tidak valid.");
 const forgotPasswordSchema = z.object({
-  email: z.string().trim().toLowerCase().email("Format email tidak valid."),
+  email: z.string().trim().toLowerCase().min(1, "Format email tidak valid.").max(254, "Format email tidak valid."),
 });
 
 // Satu pesan untuk semua kasus (terdaftar, tidak terdaftar, nonaktif, gagal
@@ -17,8 +22,13 @@ const forgotPasswordSchema = z.object({
 const PESAN_UMUM =
   "Jika email tersebut terdaftar di AyoTKA, tautan atur ulang password sudah dikirim. Cek kotak masuk atau folder spam dalam beberapa menit.";
 
+// Sama untuk SEMUA NISN (ada atau tidak, punya email kontak atau tidak): tidak membuka NISN mana yang punya akun.
+const PESAN_UMUM_NISN =
+  "Jika NISN itu punya email kontak yang sudah diverifikasi, tautan atur ulang password sudah dikirim ke email kontak tersebut. Cek kotak masuk atau folder spam dalam beberapa menit. Belum punya email kontak? Minta admin sekolahmu untuk mereset password.";
+
 // Akun yang masuk dengan NISN memakai email sintetis ({nisn}@nisn.ayotka.id) yang tidak punya kotak surat. Mengirim ke
-// sana hanya menghasilkan email terpental (merusak reputasi pengirim), jadi dilewati; pesan ke pengguna tetap sama.
+// sana hanya menghasilkan email terpental (merusak reputasi pengirim), jadi tautan akun NISN dikirim ke EMAIL KONTAK-nya
+// (terverifikasi, lib/siswa/email-kontak.ts) lewat jalur NISN di bawah; pesan ke pengguna tetap sama.
 const EMAIL_SINTETIS = /@nisn\.ayotka\.id$/i;
 
 const ROLE_LABEL: Record<string, string> = {
@@ -40,21 +50,31 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const cleanEmail = parsed.data.email;
+  const masukan = parsed.data.email;
+  const lewatNisn = NISN.test(masukan);
+  if (!lewatNisn && !emailSchema.safeParse(masukan).success) {
+    return NextResponse.json({ error: "Format email tidak valid." }, { status: 400 });
+  }
+  const cleanEmail = masukan;
   const ip = getClientIp(request) ?? "unknown";
 
-  // Dibatasi per IP dan per email (sama seperti kirim ulang konfirmasi) supaya
+  // Dibatasi per IP dan per email/NISN (sama seperti kirim ulang konfirmasi) supaya
   // tidak bisa dipakai membanjiri kotak masuk orang lain atau menghabiskan
   // kuota email kita. Batas per email berlaku sama untuk email terdaftar
   // maupun tidak, jadi tidak membocorkan apa-apa.
   if (
     !checkRateLimit(`lupa-password:ip:${ip}`, 10, 10 * 60_000) ||
-    !checkRateLimit(`lupa-password:email:${cleanEmail}`, 3, 10 * 60_000)
+    !checkRateLimit(`lupa-password:${lewatNisn ? "nisn" : "email"}:${cleanEmail}`, 3, 10 * 60_000)
   ) {
     return NextResponse.json(
       { error: "Terlalu banyak permintaan atur ulang password. Coba lagi beberapa menit lagi." },
       { status: 429 },
     );
+  }
+
+  if (lewatNisn) {
+    await prosesLupaPasswordNisn(cleanEmail, request);
+    return NextResponse.json({ ok: true, message: PESAN_UMUM_NISN });
   }
 
   // Tidak peka huruf besar/kecil: baris lama bisa tersimpan dengan huruf kapital.
@@ -80,19 +100,73 @@ export async function POST(request: NextRequest) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
     // Dikirim setelah respons: waktu respons jadi sama untuk email terdaftar
     // maupun tidak, jadi lamanya pun tidak membocorkan apa-apa.
-    after(() => kirimTautanReset({ email: user.email, nama, roleLabel: ROLE_LABEL[user.role] ?? "Pengguna", appUrl }));
+    after(() =>
+      kirimTautanReset({
+        kepada: user.email,
+        emailAkun: user.email,
+        tampilanAkun: user.email,
+        nama,
+        roleLabel: ROLE_LABEL[user.role] ?? "Pengguna",
+        appUrl,
+      }),
+    );
   }
 
   return NextResponse.json({ ok: true, message: PESAN_UMUM });
 }
 
-async function kirimTautanReset(params: { email: string; nama: string; roleLabel: string; appUrl: string }) {
-  const { email, nama, roleLabel, appUrl } = params;
+/**
+ * Lupa password lewat NISN: tautan dikirim ke EMAIL KONTAK siswa yang sudah diverifikasi (bukan ke email login yang
+ * sintetis). Tanpa email kontak terverifikasi, akun nonaktif, atau NISN tidak dikenal: tidak ada yang dikirim dan
+ * jawaban ke pengguna tetap sama. Hanya akun yang benar-benar masuk dengan NISN (email login sintetis) yang diproses.
+ */
+async function prosesLupaPasswordNisn(nisn: string, request: NextRequest) {
+  const siswa = await prisma.student.findFirst({
+    where: { nisn, deletedAt: null },
+    select: {
+      nama: true,
+      nisn: true,
+      emailKontak: true,
+      emailKontakVerifiedAt: true,
+      user: { select: { email: true, status: true } },
+    },
+  });
+  const kontak = siswa ? emailKontakTerverifikasi(siswa) : null;
+  if (!siswa || !kontak || !siswa.user) return;
+  if (siswa.user.status === "nonaktif" || !EMAIL_SINTETIS.test(siswa.user.email)) return;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+  const emailAkun = siswa.user.email;
+  after(() =>
+    kirimTautanReset({
+      kepada: kontak,
+      emailAkun,
+      tampilanAkun: labelNisnTersamar(siswa.nisn),
+      nama: siswa.nama,
+      roleLabel: "Siswa",
+      appUrl,
+    }),
+  );
+}
+
+/**
+ * Membuat tautan pemulihan untuk `emailAkun` (email login di layanan autentikasi) dan mengirimkannya ke `kepada`.
+ * Keduanya sama untuk akun biasa; untuk akun NISN `kepada` adalah email kontak dan `tampilanAkun` NISN yang disamarkan.
+ */
+async function kirimTautanReset(params: {
+  kepada: string;
+  emailAkun: string;
+  tampilanAkun: string;
+  nama: string;
+  roleLabel: string;
+  appUrl: string;
+}) {
+  const { kepada, emailAkun, tampilanAkun, nama, roleLabel, appUrl } = params;
   const supabaseAdmin = createAdminClient();
 
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
-    email,
+    email: emailAkun,
   });
 
   if (linkError || !linkData.properties?.hashed_token) {
@@ -120,7 +194,7 @@ async function kirimTautanReset(params: { email: string; nama: string; roleLabel
         Halo <strong>${escapeHtml(nama)}</strong>,
       </p>
       <p style="font-size: 14px; line-height: 1.6; color: #334155; margin: 0 0 24px 0;">
-        Kami menerima permintaan untuk mengatur ulang password akun <strong>${roleLabel}</strong> AyoTKA Anda (${escapeHtml(email)}). Klik tombol konfirmasi di bawah untuk membuat password baru:
+        Kami menerima permintaan untuk mengatur ulang password akun <strong>${roleLabel}</strong> AyoTKA Anda (${escapeHtml(tampilanAkun)}). Klik tombol konfirmasi di bawah untuk membuat password baru:
       </p>
       <div style="text-align: center; margin: 32px 0;">
         <a href="${confirmUrl.toString()}" style="display: inline-block; background: #4f46e5; color: #ffffff; padding: 14px 32px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 10px; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);">
@@ -147,21 +221,24 @@ async function kirimTautanReset(params: { email: string; nama: string; roleLabel
   // yang cuma membaca env - padahal kunci Resend bisa datang dari Pengaturan
   // Sistem (database), jadi email reset tidak terkirim kalau cuma diisi di sana.
   const emailResult = await kirimEmail({
-    to: email,
+    to: kepada,
     subject: `Konfirmasi Atur Ulang Password Akun ${roleLabel} AyoTKA`,
     html: emailHtml,
   });
   if (!emailResult.ok) {
     console.warn(`Gagal mengirim email reset password [${emailResult.kode}]:`, emailResult.error);
-    // Fallback terakhir: jika semua penyedia gagal, coba mekanisme built-in Supabase
-    await supabaseAdmin.auth
-      .resetPasswordForEmail(email, {
-        redirectTo: `${appUrl}/api/auth/confirm?next=/reset-password`,
-      })
-      .catch((err) => console.warn("Supabase reset fallback error:", err));
+    // Fallback terakhir: jika semua penyedia gagal, coba mekanisme built-in Supabase. Hanya untuk akun yang email
+    // loginnya = tujuan kirim: email login sintetis akun NISN tidak punya kotak surat, jadi tidak ada gunanya mencoba.
+    if (kepada === emailAkun) {
+      await supabaseAdmin.auth
+        .resetPasswordForEmail(emailAkun, {
+          redirectTo: `${appUrl}/api/auth/confirm?next=/reset-password`,
+        })
+        .catch((err) => console.warn("Supabase reset fallback error:", err));
+    }
   }
 
   if (process.env.NODE_ENV !== "production") {
-    console.log(`[RESET PASSWORD LINK for ${email}]:`, confirmUrl.toString());
+    console.log(`[RESET PASSWORD LINK for ${kepada}]:`, confirmUrl.toString());
   }
 }

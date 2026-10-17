@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { PersetujuanDaftar } from "@/components/auth/persetujuan-daftar";
@@ -10,6 +10,7 @@ import { KirimUlangKonfirmasi } from "@/components/auth/kirim-ulang-konfirmasi";
 import { bentukKodeValid, normalizeKodeReferral } from "@/lib/registrasi/referral-format";
 import { PilihStatusSekolah, PilihWilayah } from "@/components/wilayah/pilih-wilayah";
 import { labelStatusSekolah } from "@/lib/wilayah";
+import { bentukDataAsalSekolah, perluLengkapiSekolahBaru, rapikanNamaSekolah } from "@/lib/registrasi/asal-sekolah";
 
 type SchoolOption = {
   id: string;
@@ -37,23 +38,59 @@ function RegistrasiMandiriForm() {
   } | null>(null);
   const kodeBersih = normalizeKodeReferral(kodeReferral);
 
+  // Satu kolom "Asal sekolah": yang dipilih dari daftar dipakai sebagai sekolah terdaftar; bila tidak ada yang dipilih,
+  // nama yang diketik langsung dipakai sebagai sekolah baru (tanpa tombol tambahan) dan kota/kabupaten + negeri/swasta
+  // muncul otomatis di bawahnya. Lihat namaSekolahDiketik / pakaiNamaDiketik di bawah.
   const [sekolahQuery, setSekolahQuery] = useState("");
   const [sekolahHasil, setSekolahHasil] = useState<SchoolOption[]>([]);
   const [selectedSekolah, setSelectedSekolah] = useState<SchoolOption | null>(null);
-  const [tidakAdaDiDaftar, setTidakAdaDiDaftar] = useState(false);
-  const [asalSekolahManual, setAsalSekolahManual] = useState("");
   const [asalProvinsi, setAsalProvinsi] = useState("");
   const [asalKabupatenKota, setAsalKabupatenKota] = useState("");
   const [asalStatus, setAsalStatus] = useState("");
   const [sudahMencari, setSudahMencari] = useState(false);
+  // Pencarian ditunda sebentar dan jawaban yang sudah basi (diketik lagi sebelum jawaban datang) dibuang, supaya daftar
+  // tidak melompat ke hasil kata yang lebih lama.
+  const urutanCariRef = useRef(0);
+  const timerCariRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timerCariRef.current) clearTimeout(timerCariRef.current);
+    },
+    [],
+  );
+
+  function cariSekolah(nilai: string, jenjangDipakai: "SD" | "SMP") {
+    if (timerCariRef.current) clearTimeout(timerCariRef.current);
+    const urutan = ++urutanCariRef.current;
+    if (nilai.trim().length < 3) {
+      setSekolahHasil([]);
+      setSudahMencari(false);
+      return;
+    }
+    timerCariRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/registrasi/cari-sekolah?q=${encodeURIComponent(nilai)}&jenjang=${jenjangDipakai}`);
+        const data = await res.json().catch(() => null);
+        if (urutan !== urutanCariRef.current) return;
+        if (res.ok && data) {
+          setSekolahHasil(data.schools ?? []);
+          setSudahMencari(true);
+        }
+      } catch {
+        // Pencarian hanya bantuan: pendaftaran tetap bisa dengan nama sekolah yang diketik.
+      }
+    }, 250);
+  }
 
   function handleGantiJenjang(nilai: "SD" | "SMP") {
     setJenjang(nilai);
-    // Sekolah terpilih milik jenjang sebelumnya tidak berlaku lagi.
+    // Sekolah terpilih milik jenjang sebelumnya tidak berlaku lagi; teks yang diketik dipertahankan dan dicari ulang
+    // untuk jenjang baru.
     setSelectedSekolah(null);
-    setSekolahQuery("");
     setSekolahHasil([]);
     setSudahMencari(false);
+    cariSekolah(sekolahQuery, nilai);
   }
 
   const [error, setError] = useState<string | null>(null);
@@ -84,58 +121,60 @@ function RegistrasiMandiriForm() {
 
   const hasilCek = cekKode && cekKode.kode === kodeBersih ? cekKode : null;
 
-  async function handleCariSekolah(value: string) {
+  function handleCariSekolah(value: string) {
     setSekolahQuery(value);
     setSelectedSekolah(null);
-    if (value.trim().length < 3) {
-      setSekolahHasil([]);
-      setSudahMencari(false);
-      return;
-    }
-    const res = await fetch(
-      `/api/registrasi/cari-sekolah?q=${encodeURIComponent(value)}&jenjang=${jenjang}`,
-    );
-    const data = await res.json();
-    if (res.ok) {
-      setSekolahHasil(data.schools ?? []);
-      setSudahMencari(true);
-    }
+    cariSekolah(value, jenjang);
   }
+
+  // Nama yang diketik, dirapikan (spasi ganda dibuang). Dipakai sebagai nama sekolah bila tidak ada yang dipilih dari daftar.
+  const namaSekolahDiketik = rapikanNamaSekolah(sekolahQuery);
+  const pakaiNamaDiketik = perluLengkapiSekolahBaru(selectedSekolah?.id ?? null, sekolahQuery);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!tidakAdaDiDaftar && !selectedSekolah) {
-      setError("Pilih sekolahmu dari daftar yang muncul, atau klik \"Sekolahku tidak ada di daftar\" lalu ketik namanya.");
+    if (loading) return;
+
+    // Tanpa sekolah yang dipilih dari daftar, nama yang diketik langsung dipakai (tanpa tombol tambahan).
+    const asal = bentukDataAsalSekolah({
+      dipilihId: selectedSekolah?.id ?? null,
+      teksDiketik: sekolahQuery,
+      provinsi: asalProvinsi,
+      kabupatenKota: asalKabupatenKota,
+      status: asalStatus,
+    });
+    if (!asal.ok) {
+      setError(asal.error);
       return;
     }
     setLoading(true);
 
-    const res = await fetch("/api/registrasi/mandiri", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        nama,
-        email,
-        password,
-        jenjang,
-        asalSekolahId: !tidakAdaDiDaftar ? selectedSekolah?.id : "",
-        asalSekolahManual: tidakAdaDiDaftar ? asalSekolahManual : "",
-        asalSekolahProvinsi: tidakAdaDiDaftar ? asalProvinsi : "",
-        asalSekolahKabupatenKota: tidakAdaDiDaftar ? asalKabupatenKota : "",
-        asalSekolahStatus: tidakAdaDiDaftar ? asalStatus : "",
-        kodeReferral,
-      }),
-    });
-    const data = await res.json();
-    setLoading(false);
-
-    if (!res.ok) {
-      setError(data.error ?? "Gagal mendaftar.");
-      return;
+    try {
+      const res = await fetch("/api/registrasi/mandiri", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nama,
+          email,
+          password,
+          jenjang,
+          ...asal.data,
+          kodeReferral,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setError(data?.error ?? "Gagal mendaftar. Coba lagi sebentar lagi.");
+        return;
+      }
+      setEmailPesan(data?.emailTerkirim === false ? (data?.pesan ?? "Email konfirmasi belum terkirim.") : null);
+      setDone(true);
+    } catch {
+      setError("Koneksi bermasalah. Periksa internetmu lalu coba lagi.");
+    } finally {
+      setLoading(false);
     }
-    setEmailPesan(data.emailTerkirim === false ? (data.pesan ?? "Email konfirmasi belum terkirim.") : null);
-    setDone(true);
   }
 
   if (done) {
@@ -206,59 +245,54 @@ function RegistrasiMandiriForm() {
         </p>
       </div>
 
-      {!tidakAdaDiDaftar ? (
-        <div>
-          <Label htmlFor="asalSekolah">Asal sekolah</Label>
-          <Input id="asalSekolah" value={sekolahQuery} onChange={(e) => handleCariSekolah(e.target.value)} />
-          {sekolahHasil.length > 0 && (
-            <div className="mt-1 flex flex-col gap-1 rounded-md border border-slate-200">
-              {sekolahHasil.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedSekolah(s);
-                    setSekolahQuery(s.nama);
-                    setSekolahHasil([]);
-                  }}
-                  className="px-3 py-2 text-left text-sm hover:bg-slate-50"
-                >
-                  {s.nama}
-                  {(s.kabupatenKota || s.statusSekolah) && (
-                    <span className="block text-xs text-slate-500">
-                      {[s.kabupatenKota, s.statusSekolah ? labelStatusSekolah(s.statusSekolah) : null].filter(Boolean).join(" · ")}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-          {sudahMencari && sekolahHasil.length === 0 && !selectedSekolah && (
-            <p className="mt-2 text-sm text-amber-700">Sekolah dengan nama itu belum ada di daftar kami.</p>
-          )}
-          <button
-            type="button"
-            onClick={() => setTidakAdaDiDaftar(true)}
-            className="mt-2 w-full rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5 text-left text-sm font-semibold text-indigo-700 hover:bg-indigo-100"
-          >
-            Sekolahku tidak ada di daftar &rarr; ketik nama sekolahku sendiri
-          </button>
-          <p className="mt-1 text-xs text-slate-500">Langsung bisa dipakai, tanpa menunggu verifikasi admin.</p>
-        </div>
-      ) : (
-        <div>
-          <Label htmlFor="asalSekolahManual">Nama sekolahmu</Label>
-          <Input
-            id="asalSekolahManual"
-            required
-            value={asalSekolahManual}
-            onChange={(e) => setAsalSekolahManual(e.target.value)}
-          />
-          <p className="mt-1 text-xs text-slate-500">
-            Ketik nama lengkap sekolahmu, mis. &quot;{jenjang === "SD" ? "SD Negeri 1 Kediri" : "SMP Negeri 1 Kediri"}&quot;.
-            Langsung bisa dipakai, tanpa menunggu verifikasi admin.
-          </p>
-          <div className="mt-3 flex flex-col gap-3">
+      <div>
+        <Label htmlFor="asalSekolah">Asal sekolah</Label>
+        <Input
+          id="asalSekolah"
+          required
+          minLength={3}
+          maxLength={120}
+          autoComplete="off"
+          aria-describedby="asalSekolahInfo"
+          value={sekolahQuery}
+          onChange={(e) => handleCariSekolah(e.target.value)}
+        />
+        {sekolahHasil.length > 0 && !selectedSekolah && (
+          <div className="mt-1 flex flex-col gap-1 rounded-md border border-slate-200" data-daftar-sekolah>
+            {sekolahHasil.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setSelectedSekolah(s);
+                  setSekolahQuery(s.nama);
+                  setSekolahHasil([]);
+                }}
+                className="px-3 py-2 text-left text-sm hover:bg-slate-50"
+              >
+                {s.nama}
+                {(s.kabupatenKota || s.statusSekolah) && (
+                  <span className="block text-xs text-slate-500">
+                    {[s.kabupatenKota, s.statusSekolah ? labelStatusSekolah(s.statusSekolah) : null].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+        <p id="asalSekolahInfo" className="mt-1 text-xs text-slate-500" data-info-asal-sekolah>
+          {selectedSekolah
+            ? "Sekolah dipilih dari daftar."
+            : "Ketik nama sekolahmu lalu pilih dari daftar yang muncul. Kalau sekolahmu tidak ada di daftar, tidak perlu menekan apa pun: nama yang kamu ketik langsung dipakai dan akunmu langsung bisa dipakai."}
+        </p>
+
+        {pakaiNamaDiketik && (
+          <div className="mt-3 flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3" data-blok-sekolah-baru>
+            <p className="text-sm text-slate-700">
+              {sudahMencari && sekolahHasil.length === 0 ? "Sekolah itu belum ada di daftar kami. " : "Tidak memilih dari daftar? "}
+              <span className="font-semibold text-slate-900">&quot;{namaSekolahDiketik}&quot;</span> akan dipakai sebagai asal sekolahmu. Lengkapi dua isian di bawah ini
+              lalu langsung daftar; tanpa menunggu verifikasi admin.
+            </p>
             <PilihWilayah
               idAwalan="asalSekolah"
               provinsi={asalProvinsi}
@@ -275,15 +309,8 @@ function RegistrasiMandiriForm() {
             />
             <PilihStatusSekolah id="asalSekolahStatus" value={asalStatus} onChange={setAsalStatus} wajib label="Sekolahmu negeri atau swasta?" />
           </div>
-          <button
-            type="button"
-            onClick={() => setTidakAdaDiDaftar(false)}
-            className="mt-2 text-sm font-medium text-indigo-600 hover:underline"
-          >
-            &larr; Cari sekolahku dari daftar lagi
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div>
         <Label htmlFor="kodeReferral">Kode voucher mitra / kode referral (opsional)</Label>

@@ -224,7 +224,8 @@ export function SchoolInvoicePanel({
     setDownloadingId(inv.id);
     const link = document.createElement("a");
     link.href = `/api/admin-pusat/schools/${schoolId}/invoices/${inv.id}/pdf`;
-    link.download = `invoice-${inv.nomorInvoice.replace(/[^a-zA-Z0-9_-]/g, "-")}.pdf`;
+    // Atribut kosong = nama berkas dari server ("Invoice INV-AYOTKA-2026-X-001 - Nama Sekolah.pdf"), bukan nama bawaan klien.
+    link.download = "";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

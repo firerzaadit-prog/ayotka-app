@@ -4,12 +4,19 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { klikDiTautan } from "@/lib/ui/tutup-laci";
+import { LencanaKeanggotaan, type DataLencana } from "@/components/layout/lencana-keanggotaan";
+
+const KELAS_PIL_AKUN =
+  "flex min-w-0 items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 shadow-xs sm:px-3";
 
 export function DashboardShell({
   title,
   akun,
   akunDetail,
+  akunHref,
+  lencana,
   nav,
   banner,
   awalTerbuka = false,
@@ -20,6 +27,10 @@ export function DashboardShell({
   akun: string;
   /** Keterangan saat kursor diarahkan ke label akun (mis. email akun), supaya akun tetap bisa dikenali. */
   akunDetail?: string;
+  /** Bila diisi, label akun menjadi tautan (siswa: halaman Profil). */
+  akunHref?: string;
+  /** Lencana keanggotaan di samping label akun (hanya siswa: Member Gratis/Bulanan/Semester/Sekolah). */
+  lencana?: DataLencana;
   nav?: ReactNode;
   banner?: ReactNode;
   /** Hanya untuk pratinjau/tes: membuka laci menu HP sejak render pertama. */
@@ -44,6 +55,15 @@ export function DashboardShell({
     router.push("/login");
     router.refresh();
   }
+
+  const isiPilAkun = (
+    <>
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
+      <span className="min-w-0 max-w-[10rem] truncate sm:max-w-[16rem]" title={akunDetail ?? akun}>
+        {akun}
+      </span>
+    </>
+  );
 
   const brand = (
     <div className="flex min-h-16 shrink-0 items-center justify-between border-b border-slate-100 bg-white px-5 py-2">
@@ -152,12 +172,19 @@ export function DashboardShell({
             </div>
           </div>
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-            <div className="flex min-w-0 items-center gap-2 rounded-full border border-slate-200/80 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 shadow-xs sm:px-3">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 ring-2 ring-emerald-200" />
-              <span className="min-w-0 max-w-[10rem] truncate sm:max-w-[16rem]" title={akunDetail ?? akun}>
-                {akun}
-              </span>
-            </div>
+            {lencana && <LencanaKeanggotaan lencana={lencana} />}
+            {akunHref ? (
+              <Link
+                href={akunHref}
+                data-akun-tautan
+                aria-label={`Profil ${akun}`}
+                className={`${KELAS_PIL_AKUN} transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700`}
+              >
+                {isiPilAkun}
+              </Link>
+            ) : (
+              <div className={KELAS_PIL_AKUN}>{isiPilAkun}</div>
+            )}
             <button
               onClick={handleLogout}
               className="shrink-0 rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition-all hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"

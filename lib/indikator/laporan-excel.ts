@@ -4,6 +4,7 @@ import { labelPeriodeBulan } from "@/lib/utils/datetime";
 import { LABEL_VONIS, type BarisIndikator, type BarisIndikatorSekolah } from "./daya-serap";
 import type { DataLaporanSekolah } from "./laporan-sekolah";
 import { MIN_SEKOLAH_PEMBANDING } from "./pembanding";
+import { CATATAN_RUJUKAN_NASIONAL } from "./sumber-nasional";
 import { NAMA_LEVEL } from "./wawasan";
 
 /**
@@ -78,7 +79,7 @@ export async function bangunExcelLaporanSekolah(data: DataLaporanSekolah, period
   }
   tambah(
     "Cara membaca",
-    "Daya serap = skor diperoleh / skor maksimum x 100. Rerata nasional dari portal resmi daya serap TKA Kemendikdasmen adalah rujukan; vonis hanya diberikan per kelompok.",
+    `Daya serap = skor diperoleh / skor maksimum x 100. Rerata nasional dari portal resmi daya serap TKA Kemendikdasmen adalah rujukan. ${CATATAN_RUJUKAN_NASIONAL} Vonis hanya diberikan per kelompok.`,
   );
   ringkasan.getColumn(2).alignment = { wrapText: true, vertical: "top" };
 

@@ -112,6 +112,11 @@ describe("laporan sekolah", () => {
     expect(teks).not.toContain("Ketidakpastian");
   });
 
+  it("PDF laporan sekolah menuliskan sumber rujukan nasional: data hasil TKA tahun ajaran 2025/2026", async () => {
+    const teks = await kumpulkanTeks((doc) => renderLaporanSekolahPdf(doc, dataSekolah(), "Semua waktu", null));
+    expect(teks).toContain("Rujukan nasional berdasarkan data hasil TKA tahun ajaran 2025/2026.");
+  });
+
   it("Excel: lembar Per Kelompok dan Per Indikator memakai 'Data'; tidak ada sel berisi 'Ketidakpastian'", async () => {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load((await bangunExcelLaporanSekolah(dataSekolah(), "Semua waktu")) as never);

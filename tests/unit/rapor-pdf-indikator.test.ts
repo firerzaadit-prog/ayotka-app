@@ -62,7 +62,7 @@ const hasilDasar = (indikator: ReturnType<typeof hitungLaporanSiswa> | undefined
 });
 
 /** Render ke PDF sungguhan (pdfkit murni JS) dan kembalikan semua teks yang digambar + jumlah halaman. */
-async function render(hasil: ReturnType<typeof hasilDasar>) {
+async function render(hasil: ReturnType<typeof hasilDasar>, opsi?: { tampilkanFokus?: boolean }) {
   const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true });
   const teks: string[] = [];
   const asli = doc.text.bind(doc);
@@ -73,7 +73,7 @@ async function render(hasil: ReturnType<typeof hasilDasar>) {
   const potongan: Buffer[] = [];
   doc.on("data", (c: Buffer) => potongan.push(c));
   const selesai = new Promise<void>((r) => doc.on("end", () => r()));
-  await renderRaporPdf(doc, hasil as never, null, null);
+  await renderRaporPdf(doc, hasil as never, null, null, null, opsi);
   const halaman = doc.bufferedPageRange().count;
   doc.end();
   await selesai;
@@ -99,6 +99,35 @@ describe("PDF rapor: Daya Serap per Indikator", () => {
     expect(r.gabung).toContain("Prioritas belajar");
     expect(r.gabung).toContain("Kekuatan");
     expect(r.gabung).toMatch(/Di atas rerata nasional|Perlu penguatan|Setara rerata nasional/);
+  });
+
+  it("fitur berbayar: tampilkanFokus=false menghilangkan Prioritas belajar & Kekuatan, bagian lain utuh; bawaan tetap mencetaknya", async () => {
+    const jw: JawabanBerindikator[] = [];
+    for (let n = 1; n <= 12; n++) for (let k = 0; k < 3; k++) jw.push(jawab(mat(n), (n + k) % 3 === 0 ? 0 : 1));
+    const lap = hitungLaporanSiswa(jw)!;
+
+    const tertutup = await render(hasilDasar(lap), { tampilkanFokus: false });
+    expect(tertutup.pdf.subarray(0, 5).toString()).toBe("%PDF-");
+    expect(tertutup.gabung).not.toContain("Prioritas belajar");
+    expect(tertutup.gabung).not.toContain("Kekuatan");
+    expect(tertutup.gabung).not.toContain("mulai remedial dari sini");
+    expect(tertutup.gabung).toContain("Daya Serap per Indikator");
+    expect(tertutup.gabung).toContain("Elemen: Bilangan");
+    expect(tertutup.gabung).toContain("Menyelesaikan masalah kontekstual nomor 1 (1)");
+    expect(tertutup.gabung).toContain("Rincian Jawaban");
+
+    for (const opsi of [undefined, {}, { tampilkanFokus: true }]) {
+      const terbuka = await render(hasilDasar(lap), opsi);
+      expect(terbuka.gabung).toContain("Prioritas belajar");
+      expect(terbuka.gabung).toContain("Kekuatan");
+    }
+  });
+
+  it("rapor PDF menuliskan sumber rujukan nasional: data hasil TKA tahun ajaran 2025/2026", async () => {
+    const jw: JawabanBerindikator[] = [];
+    for (let n = 1; n <= 10; n++) for (let k = 0; k < 2; k++) jw.push(jawab(mat(n), (n + k) % 3 === 0 ? 0 : 1));
+    const r = await render(hasilDasar(hitungLaporanSiswa(jw)!));
+    expect(r.gabung).toContain("Rujukan nasional berdasarkan data hasil TKA tahun ajaran 2025/2026.");
   });
 
   it("Bahasa Indonesia: 3 tingkat dan TIDAK PERNAH menampilkan label Elemen atau Subelemen (aturan Pusmendik)", async () => {

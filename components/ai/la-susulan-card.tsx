@@ -143,16 +143,27 @@ export function LaSusulanCard({
           <>
             <p className="max-w-sm text-sm text-slate-700">
               Learning Analytics untuk ujian ini <b>{formatRupiah(opsi.harga)}</b>. Saldo kamu {formatRupiah(opsi.saldo)}
-              , kurang <b>{formatRupiah(opsi.kurang)}</b>. Isi saldo dulu; setelah saldo masuk, kembali ke halaman ini
-              untuk menjalankannya.
+              , kurang <b>{formatRupiah(opsi.kurang)}</b>.{" "}
+              {opsi.bisaBeliPaket === false
+                ? "Isi saldo dulu; setelah saldo masuk, kembali ke halaman ini untuk menjalankannya."
+                : "Ambil paket berbayar (sudah termasuk jatah Learning Analytics tiap mata pelajaran), atau isi saldo untuk membayar satuan lalu kembali ke halaman ini."}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2">
-              <Link href={`/siswa/wallet?kembali=${kembali}`} className={buttonClassName("primary")}>
-                Isi saldo
-              </Link>
-              <Link href="/siswa/langganan" className={buttonClassName("secondary")}>
-                Berlangganan
-              </Link>
+              {opsi.bisaBeliPaket === false ? (
+                <Link href={`/siswa/wallet?kembali=${kembali}`} className={buttonClassName("primary")}>
+                  Isi saldo
+                </Link>
+              ) : (
+                <>
+                  {/* Paket berbayar lebih dulu: siswa yang belum punya jatah/saldo Learning Analytics diarahkan ke sana. */}
+                  <Link href="/siswa/langganan" className={buttonClassName("primary")}>
+                    Lihat paket berbayar
+                  </Link>
+                  <Link href={`/siswa/wallet?kembali=${kembali}`} className={buttonClassName("secondary")}>
+                    Isi saldo
+                  </Link>
+                </>
+              )}
             </div>
           </>
         )}

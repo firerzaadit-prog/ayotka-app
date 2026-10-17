@@ -78,6 +78,16 @@ describe("bangunExcelLaporanSekolah", () => {
     expect(peta.get("Daya serap keseluruhan (%)")).toBe(60); // (3 + 9) / 20
   });
 
+  it("ringkasan 'Cara membaca' menuliskan sumber rujukan nasional: data hasil TKA tahun ajaran 2025/2026", async () => {
+    const d = data(kelas(mat(1), 5));
+    const ws = (await baca(await bangunExcelLaporanSekolah(d, "x"))).getWorksheet("Ringkasan")!;
+    let cara = "";
+    ws.eachRow((r) => {
+      if (String(r.getCell(1).value) === "Cara membaca") cara = String(r.getCell(2).value);
+    });
+    expect(cara).toContain("Rujukan nasional berdasarkan data hasil TKA tahun ajaran 2025/2026.");
+  });
+
   it("angka disimpan sebagai ANGKA (bukan teks) dan dibulatkan satu desimal", async () => {
     const d = data(kelas(mat(1, { nilaiNasional: 33.333 }), 1)); // 10% vs 33,333
     const ws = (await baca(await bangunExcelLaporanSekolah(d, "x"))).getWorksheet("Per Indikator")!;
