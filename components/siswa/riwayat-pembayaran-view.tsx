@@ -110,16 +110,20 @@ export function RiwayatPembayaranView({
         </Alert>
       )}
 
-      <Card className="flex flex-wrap items-center justify-between gap-3">
+      <Card className="flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
         <div>
-          <p className="text-xs font-medium text-slate-500">Saldo saat ini</p>
-          <p className="mt-0.5 text-2xl font-bold text-slate-900" data-saldo-saat-ini>
+          <p className="font-mono text-xs font-bold uppercase tracking-wider text-slate-400">Saldo Saat Ini</p>
+          <p className="mt-1 text-3xl font-black tracking-tight text-slate-900" data-saldo-saat-ini>
             {saldo < 0 ? "-" : ""}
             {rupiah(saldo)}
           </p>
         </div>
-        <Link href="/siswa/wallet" className={buttonClassName("secondary")}>
-          Isi saldo
+        <Link
+          href="/siswa/wallet"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-colors"
+        >
+          <span>Isi Saldo</span>
+          <span aria-hidden="true">→</span>
         </Link>
       </Card>
 
@@ -133,10 +137,10 @@ export function RiwayatPembayaranView({
               setSaring(s.kunci);
               setTampil(PER_HALAMAN);
             }}
-            className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all duration-150 ${
               saring === s.kunci
-                ? "border-indigo-600 bg-indigo-600 text-white"
-                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                ? "bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-500/20"
+                : "border border-slate-200/90 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50/80 hover:text-slate-900"
             }`}
           >
             {s.label}

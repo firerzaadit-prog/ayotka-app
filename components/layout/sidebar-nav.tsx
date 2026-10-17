@@ -18,7 +18,7 @@ export function SidebarSection({ label, children }: { label?: string; children: 
   );
 }
 
-function SidebarLinkInner({ href, children }: { href: string; children: ReactNode }) {
+function SidebarLinkInner({ href, icon, children }: { href: string; icon?: ReactNode; children: ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -40,33 +40,53 @@ function SidebarLinkInner({ href, children }: { href: string; children: ReactNod
     <Link
       href={href}
       className={cn(
-        "group flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium transition-all",
+        "group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150",
         active
-          ? "bg-gradient-to-r from-indigo-600 to-violet-600 font-semibold text-white shadow-sm shadow-indigo-600/25"
-          : "text-slate-600 hover:bg-indigo-50/60 hover:text-indigo-600",
+          ? "bg-gradient-to-r from-indigo-600 to-violet-600 font-semibold text-white shadow-md shadow-indigo-500/20"
+          : "text-slate-600 hover:bg-slate-100/90 hover:text-slate-900",
       )}
     >
-      <span>{children}</span>
+      <div className="flex items-center gap-2.5 min-w-0">
+        {icon && (
+          <span
+            className={cn(
+              "shrink-0 transition-colors duration-150 [&>svg]:h-4 [&>svg]:w-4",
+              active ? "text-white" : "text-slate-400 group-hover:text-indigo-600"
+            )}
+            aria-hidden="true"
+          >
+            {icon}
+          </span>
+        )}
+        <span>{children}</span>
+      </div>
       {active && (
-        <span className="h-1.5 w-1.5 rounded-full bg-white/90 shadow-xs" aria-hidden="true" />
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-white shadow-xs ml-2" aria-hidden="true" />
       )}
     </Link>
   );
 }
 
-export function SidebarLink({ href, children }: { href: string; children: ReactNode }) {
+export function SidebarLink({ href, icon, children }: { href: string; icon?: ReactNode; children: ReactNode }) {
   return (
     <Suspense
       fallback={
         <Link
           href={href}
-          className="group flex items-center justify-between rounded-xl px-3 py-2 text-sm font-medium text-slate-600"
+          className="group flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600"
         >
-          <span>{children}</span>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {icon && (
+              <span className="shrink-0 text-slate-400 [&>svg]:h-4 [&>svg]:w-4" aria-hidden="true">
+                {icon}
+              </span>
+            )}
+            <span>{children}</span>
+          </div>
         </Link>
       }
     >
-      <SidebarLinkInner href={href}>{children}</SidebarLinkInner>
+      <SidebarLinkInner href={href} icon={icon}>{children}</SidebarLinkInner>
     </Suspense>
   );
 }

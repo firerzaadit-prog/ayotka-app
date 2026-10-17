@@ -16,15 +16,17 @@ export function EmptyState({
   icon?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-slate-300 px-6 py-12 text-center">
+    <div className="flex flex-col items-center justify-center gap-3.5 rounded-2xl border border-dashed border-slate-200/90 bg-gradient-to-b from-slate-50/40 via-white to-slate-50/30 px-6 py-14 text-center">
       {icon && (
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 ring-8 ring-indigo-50/50 shadow-xs transition-transform duration-300 hover:scale-105">
           {icon}
         </div>
       )}
-      <p className="text-sm font-medium text-slate-900">{title}</p>
-      <p className="max-w-sm text-sm text-slate-500">{description}</p>
-      {action}
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-base font-bold text-slate-900">{title}</p>
+        <p className="max-w-md text-xs sm:text-sm text-slate-500 leading-relaxed">{description}</p>
+      </div>
+      {action && <div className="mt-2">{action}</div>}
     </div>
   );
 }

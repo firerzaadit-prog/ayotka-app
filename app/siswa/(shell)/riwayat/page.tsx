@@ -109,20 +109,54 @@ export default function RiwayatPage() {
                 <tbody>
                   {pageRows.map((a) => (
                     <Tr key={a.id}>
-                      <Td className="font-medium text-slate-900">
-                        {a.paketNama}
-                        <span className="block text-[11px] font-normal text-slate-500">Percobaan ke-{a.percobaanKe}</span>
+                      <Td className="font-semibold text-slate-900">
+                        <span>{a.paketNama}</span>
+                        <span className="block text-[11px] font-medium text-slate-400">Percobaan ke-{a.percobaanKe}</span>
                       </Td>
-                      <Td>{a.terjadwal ? "Terjadwal" : "Mandiri"}</Td>
-                      <Td className="text-xs">{formatWIB(a.mulaiAt)}</Td>
+                      <Td>
+                        {a.terjadwal ? (
+                          <span className="inline-flex items-center rounded-md border border-purple-200/80 bg-purple-50 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+                            Terjadwal
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-md border border-indigo-200/80 bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+                            Mandiri
+                          </span>
+                        )}
+                      </Td>
+                      <Td className="text-xs text-slate-500 font-medium">{formatWIB(a.mulaiAt)}</Td>
                       <Td>
                         <Badge variant={STATUS_VARIANT[a.status]}>{STATUS_LABEL[a.status]}</Badge>
                       </Td>
-                      <Td>{a.skorAkhir?.toFixed(0) ?? "-"}</Td>
+                      <Td>
+                        {a.skorAkhir !== null ? (
+                          <span className="font-mono text-base font-bold text-slate-900">
+                            {a.skorAkhir.toFixed(0)}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-sm text-slate-400">–</span>
+                        )}
+                      </Td>
                       <Td className="text-right">
-                        <Link href={hrefFor(a)} className="text-sm font-medium text-slate-600 hover:text-slate-900">
-                          {a.status === "berjalan" || a.status === "paused" ? "Lanjutkan" : "Lihat hasil"}
-                        </Link>
+                        {a.status === "berjalan" || a.status === "paused" ? (
+                          <Link
+                            href={hrefFor(a)}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-indigo-700 transition-colors"
+                          >
+                            <span>Lanjutkan</span>
+                            <span aria-hidden="true">→</span>
+                          </Link>
+                        ) : (
+                          <Link
+                            href={hrefFor(a)}
+                            className="inline-flex items-center gap-1 rounded-xl border border-slate-200/90 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-xs hover:border-indigo-300 hover:bg-indigo-50/50 hover:text-indigo-700 transition-all"
+                          >
+                            <span>Lihat hasil</span>
+                            <svg className="h-3.5 w-3.5 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                              <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                            </svg>
+                          </Link>
+                        )}
                       </Td>
                     </Tr>
                   ))}

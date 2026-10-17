@@ -122,81 +122,135 @@ export default function WalletPage() {
 
       {error && <Alert variant="danger">{error}</Alert>}
 
-      <Card className="text-center">
-        <p className="text-sm text-slate-500">Saldo kamu</p>
-        <p className="text-4xl font-bold text-slate-900">{formatRupiah(data.saldo)}</p>
-        <p className="mt-2 text-xs text-slate-400" data-harga-la>
-          {teksHargaLA(data)}
-        </p>
-        <p className="mt-2 text-xs text-slate-500" data-keterangan-saldo-tunai>
-          Saldo hanya untuk membeli Learning Analytics di AyoTKA dan <b>tidak dapat ditarik tunai</b>, ditransfer, atau
-          diuangkan kembali.
-        </p>
-      </Card>
+      {/* Kartu Hero Saldo */}
+      <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 p-6 sm:p-8 text-white shadow-md text-center">
+        <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl pointer-events-none" />
+        <div className="relative flex flex-col items-center">
+          <span className="font-mono text-xs font-semibold uppercase tracking-widest text-indigo-300">
+            Saldo Dompet Belajar
+          </span>
+          <p className="mt-2 text-4xl sm:text-5xl font-black tracking-tight text-white">
+            {formatRupiah(data.saldo)}
+          </p>
+          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3.5 py-1 text-xs text-indigo-200 ring-1 ring-white/15 backdrop-blur-xs" data-harga-la>
+            {teksHargaLA(data)}
+          </div>
+          <p className="mt-4 max-w-lg text-xs text-slate-300 leading-relaxed" data-keterangan-saldo-tunai>
+            Saldo hanya untuk membeli Learning Analytics di AyoTKA dan <b>tidak dapat ditarik tunai</b>, ditransfer, atau diuangkan kembali.
+          </p>
+        </div>
+      </div>
 
-      <Card className="flex flex-col gap-3">
-        <p className="text-sm font-medium text-slate-700">Top-up saldo</p>
-        <p className="-mt-1 text-xs text-slate-500">Saldo yang sudah diisi tidak dapat ditarik tunai.</p>
+      <Card className="flex flex-col gap-4">
+        <div>
+          <p className="text-base font-bold text-slate-900">Top-up saldo</p>
+          <p className="mt-0.5 text-xs text-slate-500">Saldo yang sudah diisi tidak dapat ditarik tunai.</p>
+        </div>
+
         {data.paymentMode === "affiliate" && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-900">
-            <p className="font-semibold text-emerald-950">⚡ Top-up Otomatis via affiliate.id</p>
-            <ol className="mt-1 list-decimal space-y-1 pl-4 leading-relaxed text-emerald-800">
-              <li>Pilih nominal di bawah dan selesaikan pembayaran di affiliate.id.</li>
-              <li>
-                <PetunjukEmailAffiliate email={data.email} untuk="saldo" />
+          <div className="overflow-hidden rounded-2xl border border-emerald-200/90 bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 p-4 sm:p-5 text-xs text-emerald-950 shadow-xs">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-600 text-white text-xs font-bold shadow-xs">
+                ⚡
+              </span>
+              <p className="font-bold text-emerald-950">Top-up Otomatis via affiliate.id</p>
+            </div>
+            <ol className="mt-3 space-y-2 pl-1 leading-relaxed text-slate-700">
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-mono text-[11px] font-bold text-emerald-800">
+                  1
+                </span>
+                <span className="pt-0.5">Pilih nominal di bawah dan selesaikan pembayaran di affiliate.id.</span>
               </li>
-              <li>
-                Setelah pembayaran lunas dan diverifikasi affiliate.id (biasanya 5-10 menit), saldo terisi otomatis tanpa perlu konfirmasi manual. Kalau
-                lebih lama dari itu, hubungi admin lewat tautan WhatsApp di bawah.
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-mono text-[11px] font-bold text-emerald-800">
+                  2
+                </span>
+                <span className="pt-0.5">
+                  <PetunjukEmailAffiliate email={data.email} untuk="saldo" />
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 font-mono text-[11px] font-bold text-emerald-800">
+                  3
+                </span>
+                <span className="pt-0.5">
+                  Setelah pembayaran lunas dan diverifikasi affiliate.id (biasanya 5-10 menit), saldo terisi otomatis tanpa perlu konfirmasi manual. Kalau
+                  lebih lama dari itu, hubungi admin lewat tautan WhatsApp di bawah.
+                </span>
               </li>
             </ol>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
           {data.paymentMode === "affiliate"
             ? data.denominasi.map((nominal) => {
                 const tautan = data.affiliateTopup?.[String(nominal)];
                 if (!tautan) return null;
                 return (
-                  <div key={nominal} className="flex flex-col gap-1.5">
+                  <div
+                    key={nominal}
+                    className="group relative flex flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md"
+                  >
                     <a
                       href={tautan.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`${buttonClassName("secondary")} w-full text-center`}
+                      className="flex flex-col items-center justify-center py-2 text-center"
                     >
-                      {formatRupiah(nominal)}
+                      <span className="font-mono text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Top-up</span>
+                      <span className="mt-1 text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                        {formatRupiah(nominal)}
+                      </span>
+                      <span className="mt-3 inline-flex items-center gap-1 rounded-xl bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                        <span>Pilih</span>
+                        <span aria-hidden="true">→</span>
+                      </span>
                     </a>
-                    <a
-                      href={tautan.waUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-center text-[11px] font-medium text-slate-500 hover:text-emerald-700"
-                    >
-                      Bantuan / Kendala WA
-                    </a>
+                    <div className="mt-2 border-t border-slate-100 pt-2 text-center">
+                      <a
+                        href={tautan.waUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-emerald-700 transition-colors"
+                      >
+                        Bantuan / Kendala WA
+                      </a>
+                    </div>
                   </div>
                 );
               })
             : data.denominasi.map((nominal) => (
-                <Button
+                <button
                   key={nominal}
-                  variant="secondary"
+                  type="button"
                   onClick={() => handleTopup(nominal)}
                   disabled={submitting !== null}
+                  className="group flex flex-col items-center justify-center rounded-2xl border border-slate-200/90 bg-white p-4 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md disabled:opacity-50"
                 >
-                  {submitting === nominal ? "Memproses..." : formatRupiah(nominal)}
-                </Button>
+                  <span className="font-mono text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Top-up</span>
+                  <span className="mt-1 text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                    {submitting === nominal ? "Memproses..." : formatRupiah(nominal)}
+                  </span>
+                  <span className="mt-3 inline-flex items-center gap-1 rounded-xl bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700 transition-colors group-hover:bg-indigo-600 group-hover:text-white">
+                    <span>Pilih</span>
+                    <span aria-hidden="true">→</span>
+                  </span>
+                </button>
               ))}
         </div>
+
         {data.paymentMode === "affiliate" && data.waKonfirmasiUmum && (
           <a
             href={data.waKonfirmasiUmum}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-fit text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+            className="inline-flex items-center gap-1.5 w-fit text-xs font-bold text-emerald-700 hover:text-emerald-800 transition-colors"
           >
-            Kendala pembayaran? Hubungi admin via WhatsApp →
+            <span>Kendala pembayaran? Hubungi admin via WhatsApp</span>
+            <span aria-hidden="true">→</span>
           </a>
         )}
       </Card>

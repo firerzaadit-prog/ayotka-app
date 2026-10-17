@@ -13,10 +13,10 @@ export type DataLencana = {
 };
 
 const GAYA: Record<JenisKeanggotaan, string> = {
-  gratis: "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200/70",
-  bulanan: "border-sky-200 bg-sky-50 text-sky-800 hover:bg-sky-100",
-  semester: "border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100",
-  sekolah: "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
+  gratis: "border-slate-200/90 bg-slate-50 text-slate-700 hover:bg-slate-100 shadow-2xs",
+  bulanan: "border-sky-200/90 bg-gradient-to-r from-sky-50 via-blue-50/50 to-sky-50 text-sky-800 hover:border-sky-300 hover:bg-sky-100/80 shadow-2xs",
+  semester: "border-amber-300/90 bg-gradient-to-r from-amber-50 via-orange-50/50 to-amber-50 text-amber-900 hover:border-amber-400 hover:bg-amber-100/80 shadow-2xs",
+  sekolah: "border-emerald-200/90 bg-gradient-to-r from-emerald-50 via-teal-50/50 to-emerald-50 text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100/80 shadow-2xs",
 };
 
 const IKON = {

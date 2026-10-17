@@ -163,7 +163,7 @@ export default async function SiswaDashboardPage() {
   const student = user
     ? await prisma.student.findFirst({
         where: { userId: user.id },
-        select: { id: true, schoolId: true, jalur: true, deletedAt: true, lulusAt: true },
+        select: { id: true, nama: true, schoolId: true, jalur: true, deletedAt: true, lulusAt: true },
       })
     : null;
   const ditanggungSekolah = student ? await kursiSekolahTersedia(student).catch(() => false) : false;
@@ -171,26 +171,72 @@ export default async function SiswaDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Dashboard Siswa" description="Selamat datang kembali di AyoTKA." />
+      {/* Hero Welcome Card */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-900 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl shadow-indigo-950/15">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-16 -left-16 h-64 w-64 rounded-full bg-violet-500/15 blur-3xl" />
+        <div className="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-2xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-indigo-200 backdrop-blur-xs border border-white/10">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Portal Belajar &amp; Asesmen AyoTKA
+            </span>
+            <h1 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl text-white">
+              Halo, {student?.nama ? student.nama.split(" ")[0] : "Siswa"}! 👋
+            </h1>
+            <p className="mt-1.5 text-xs sm:text-sm text-indigo-200/90 leading-relaxed">
+              Siapkan kemampuan terbaikmu menghadapi asesmen dengan latihan berkala dan evaluasi mendalam berbasis indikator resmi.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            <Link
+              href="/siswa/ujian?kategori=mandiri"
+              className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-xs sm:text-sm font-bold text-indigo-950 shadow-md transition-all hover:bg-indigo-50 hover:shadow-lg active:scale-95"
+            >
+              <span>Mulai Latihan</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-slate-900">Akses Cepat</h2>
+          <p className="text-xs text-slate-500">Pilih menu untuk melanjutkan aktivitas belajarmu.</p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {QUICK_LINKS.filter((item) => student?.jalur === "A" || item.id !== "link-tryout-sekolah").map((item) => (
-          <Link key={item.href} href={item.href} id={item.id} className="group">
-            <Card className="relative h-full transition-all group-hover:border-indigo-200 group-hover:shadow-md">
-              <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-lg ${item.iconColor}`}>
-                <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
-                  {item.icon}
+          <Link key={item.href} href={item.href} id={item.id} className="group flex">
+            <Card className="relative flex w-full flex-col justify-between rounded-2xl border border-slate-200/80 bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.04)] transition-all duration-200 group-hover:-translate-y-1 group-hover:border-indigo-300 group-hover:shadow-[0_8px_20px_rgba(79,70,229,0.08)]">
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${item.iconColor}`}>
+                    <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                      {item.icon}
+                    </svg>
+                  </div>
+                  {item.badge && (
+                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[0.68rem] font-bold ${item.badgeColor}`}>
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                  {item.title}
+                </h3>
+                <p className="mt-1 text-xs text-slate-500 leading-relaxed">{item.description}</p>
+              </div>
+              <div className="mt-4 flex items-center text-xs font-semibold text-indigo-600 opacity-80 group-hover:opacity-100 transition-opacity">
+                <span className="mr-1">Buka</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 transition-transform duration-200 group-hover:translate-x-1">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
               </div>
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-semibold text-slate-900">{item.title}</h3>
-                {item.badge && (
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${item.badgeColor}`}>
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-              <p className="mt-1 text-sm text-slate-500">{item.description}</p>
             </Card>
           </Link>
         ))}

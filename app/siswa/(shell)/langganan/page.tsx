@@ -168,22 +168,57 @@ export default function LanggananSiswaPage() {
         </Alert>
       )}
 
-      <Card>
-        <p className="text-sm text-slate-500">Status akses</p>
-        {data.entitlement ? (
-          <>
-            <p className="mt-1 text-lg font-semibold text-slate-900">
-              {data.entitlement.canStartNewAttempt ? "Aktif" : "Sudah berakhir"} — berlaku sampai{" "}
-              {formatWIBDate(data.entitlement.endsAt)}
-            </p>
-            <Badge variant="neutral">{SUMBER_LABEL[data.entitlement.source]}</Badge>
-          </>
-        ) : (
-          <p className="mt-1 text-sm text-slate-600">
-            Belum ada langganan aktif. Kamu masih punya jatah 1× try out gratis per mata pelajaran.
-          </p>
-        )}
-      </Card>
+      {/* Kartu Status Akses Keanggotaan */}
+      <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-950 p-6 text-white shadow-md">
+        <div className="absolute -top-12 -right-12 h-44 w-44 rounded-full bg-indigo-500/10 blur-2xl pointer-events-none" />
+        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/10 text-indigo-300 ring-1 ring-white/20 backdrop-blur-xs">
+              <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+              </svg>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-xs font-semibold uppercase tracking-wider text-indigo-300">
+                  Status Akses Belajar
+                </span>
+                {data.entitlement?.canStartNewAttempt && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300 ring-1 ring-emerald-500/30">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    Aktif
+                  </span>
+                )}
+              </div>
+              {data.entitlement ? (
+                <div className="mt-1 flex flex-col gap-1">
+                  <p className="text-xl font-bold tracking-tight text-white">
+                    {data.entitlement.canStartNewAttempt ? "Akses Aktif" : "Masa Berlaku Berakhir"}
+                  </p>
+                  <p className="text-xs text-slate-300">
+                    Berlaku sampai <span className="font-semibold text-white">{formatWIBDate(data.entitlement.endsAt)}</span>
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-1 flex flex-col gap-1">
+                  <p className="text-lg font-bold text-white">Belum Ada Paket Aktif</p>
+                  <p className="text-xs text-slate-300">
+                    Kamu masih memiliki jatah 1× try out gratis per mata pelajaran.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {data.entitlement && (
+            <div className="shrink-0">
+              <span className="inline-flex items-center rounded-xl bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white ring-1 ring-white/15 backdrop-blur-xs">
+                {SUMBER_LABEL[data.entitlement.source]}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Form Tukar Kode Voucher Mitra di Posisi Utama. router.refresh() memuat ulang bagian server supaya lencana
           keanggotaan di pojok kanan atas ikut berubah tanpa muat ulang halaman. */}
@@ -208,19 +243,39 @@ export default function LanggananSiswaPage() {
       )}
 
       {data.paymentMode === "affiliate" && (
-        <Card className="border-indigo-200 bg-indigo-50/50">
-          <p className="text-sm font-semibold text-indigo-950">⚡ Berlangganan Otomatis via affiliate.id</p>
-          <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs leading-relaxed text-slate-700">
-            <li>Pilih paket di bawah dan selesaikan pembayaran di affiliate.id.</li>
-            <li>
-              <PetunjukEmailAffiliate email={data.email} untuk="langganan" />
+        <div className="overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-blue-50/40 p-5 shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white text-xs font-bold shadow-xs">
+              ⚡
+            </span>
+            <p className="text-sm font-bold text-indigo-950">Berlangganan Otomatis via affiliate.id</p>
+          </div>
+          <ol className="mt-3 space-y-2.5 text-xs text-slate-700 leading-relaxed">
+            <li className="flex items-start gap-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-mono text-[11px] font-bold text-indigo-700">
+                1
+              </span>
+              <span className="pt-0.5">Pilih paket di bawah dan selesaikan pembayaran di affiliate.id.</span>
             </li>
-            <li>
-              Setelah pembayaran lunas dan diverifikasi affiliate.id (biasanya 5-10 menit), langganan kamu aktif otomatis tanpa perlu konfirmasi
-              manual. Kalau lebih lama dari itu, hubungi admin lewat WhatsApp.
+            <li className="flex items-start gap-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-mono text-[11px] font-bold text-indigo-700">
+                2
+              </span>
+              <span className="pt-0.5">
+                <PetunjukEmailAffiliate email={data.email} untuk="langganan" />
+              </span>
+            </li>
+            <li className="flex items-start gap-2.5">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 font-mono text-[11px] font-bold text-indigo-700">
+                3
+              </span>
+              <span className="pt-0.5">
+                Setelah pembayaran lunas dan diverifikasi affiliate.id (biasanya 5-10 menit), langganan kamu aktif otomatis tanpa perlu konfirmasi
+                manual. Kalau lebih lama dari itu, hubungi admin lewat WhatsApp.
+              </span>
             </li>
           </ol>
-        </Card>
+        </div>
       )}
 
       <section className="flex flex-col gap-4">

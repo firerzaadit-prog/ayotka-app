@@ -53,10 +53,10 @@ export function VoucherRedeemCard({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 via-white to-violet-50/50 p-5 sm:p-6 shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/70 via-white to-violet-50/40 p-5 sm:p-6 shadow-xs">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3.5">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-600/20">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-sm shadow-indigo-600/25">
             <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="2">
               <path
                 strokeLinecap="round"
@@ -68,11 +68,11 @@ export function VoucherRedeemCard({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-slate-900">Tukar Kode Voucher Mitra</h3>
-              <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase text-indigo-700">
+              <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-indigo-700">
                 Akses Instan
               </span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-600 leading-relaxed max-w-xl">
+            <p className="mt-1 text-xs text-slate-600 leading-relaxed max-w-xl">
               Punya kode akses atau voucher dari Mitra/Reseller AyoTKA? Masukkan kode voucher Anda di bawah ini untuk langsung mengaktifkan langganan belajar.
             </p>
           </div>
@@ -93,23 +93,23 @@ export function VoucherRedeemCard({
 
       <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <Label htmlFor="voucherInput" className="text-xs font-semibold text-slate-700">
+          <Label htmlFor="voucherInput" className="font-mono text-xs font-bold uppercase tracking-wider text-slate-600">
             Masukkan Kode Voucher (10 Karakter)
           </Label>
           <Input
             id="voucherInput"
             required
             autoCapitalize="characters"
-            placeholder="Contoh: AB12CD34EF"
+            placeholder="CONTOH: AB12CD34EF"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            className="font-mono uppercase tracking-wider text-sm font-semibold"
+            className="mt-1.5 h-11 font-mono uppercase tracking-widest text-sm font-semibold placeholder:text-slate-400 placeholder:tracking-normal focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
         <Button
           type="submit"
           disabled={loading || !code.trim()}
-          className="shrink-0 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+          className="h-11 shrink-0 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold px-6 shadow-sm shadow-indigo-600/25 transition-all"
         >
           {loading ? "Memproses..." : "Tukarkan Voucher"}
         </Button>

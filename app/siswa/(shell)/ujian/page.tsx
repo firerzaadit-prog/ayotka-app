@@ -295,23 +295,23 @@ function UjianContent() {
       />
 
       {/* Navigasi Tab Kategori Utama */}
-      <div className={`grid grid-cols-1 gap-3 ${isJalurA ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+      <div className={`grid grid-cols-1 gap-3.5 ${isJalurA ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {/* Tombol Tab Try Out Sekolah (Hanya Jalur A) */}
         {isJalurA && (
           <button
             type="button"
             onClick={() => handleKategoriChange("sekolah")}
-            className={`group flex items-start gap-4 rounded-2xl border p-4 text-left transition-all ${
+            className={`group relative flex items-start gap-4 rounded-2xl border p-4 sm:p-5 text-left transition-all duration-200 ${
               isSekolah
-                ? "border-emerald-400 bg-gradient-to-br from-emerald-50 via-white to-green-50/50 shadow-md ring-2 ring-emerald-500/20"
-                : "border-slate-200 bg-white hover:border-emerald-200 hover:bg-emerald-50/20"
+                ? "border-emerald-300 bg-gradient-to-br from-emerald-50/80 via-white to-teal-50/40 shadow-sm ring-2 ring-emerald-500/20"
+                : "border-slate-200/90 bg-white hover:border-emerald-200 hover:bg-emerald-50/20 hover:shadow-xs"
             }`}
           >
             <div
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${
+              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${
                 isSekolah
                   ? "bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-sm shadow-emerald-500/25"
-                  : "bg-emerald-100 text-emerald-700"
+                  : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10"
               }`}
             >
               <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
@@ -323,11 +323,11 @@ function UjianContent() {
                 <span className={`text-base font-bold ${isSekolah ? "text-emerald-950" : "text-slate-800"}`}>
                   Try Out Sekolah
                 </span>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${isSekolah ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}>
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${isSekolah ? "bg-emerald-600 text-white shadow-xs" : "bg-slate-100 text-slate-600"}`}>
                   {jumlahAktif + jumlahAkanDatang} Ujian
                 </span>
               </div>
-              <p className="mt-0.5 text-xs text-slate-500">
+              <p className="mt-1 text-xs text-slate-500 leading-relaxed">
                 Wajib dikerjakan sesuai jadwal sekolah
               </p>
             </div>
@@ -338,17 +338,17 @@ function UjianContent() {
         <button
           type="button"
           onClick={() => handleKategoriChange("nasional")}
-          className={`group flex items-start gap-4 rounded-2xl border p-4 text-left transition-all ${
+          className={`group relative flex items-start gap-4 rounded-2xl border p-4 sm:p-5 text-left transition-all duration-200 ${
             isNasional
-              ? "border-violet-400 bg-gradient-to-br from-violet-50 via-white to-purple-50/50 shadow-md ring-2 ring-violet-500/20"
-              : "border-slate-200 bg-white hover:border-violet-200 hover:bg-violet-50/20"
+              ? "border-violet-300 bg-gradient-to-br from-violet-50/90 via-white to-purple-50/50 shadow-sm ring-2 ring-violet-500/20"
+              : "border-slate-200/90 bg-white hover:border-violet-200 hover:bg-violet-50/20 hover:shadow-xs"
           }`}
         >
           <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${
               isNasional
                 ? "bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-sm shadow-violet-500/25"
-                : "bg-violet-100 text-violet-700"
+                : "bg-violet-50 text-violet-700 ring-1 ring-violet-600/10"
             }`}
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
@@ -367,14 +367,14 @@ function UjianContent() {
                 Try Out Nasional
               </span>
               <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                  isNasional ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600"
+                className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                  isNasional ? "bg-violet-600 text-white shadow-xs" : "bg-slate-100 text-slate-600"
                 }`}
               >
                 {totalNasionalCount} Event
               </span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 leading-relaxed">
               Serentak terjadwal se-Indonesia · Analisis Learning Analytics otomatis
             </p>
           </div>
@@ -384,17 +384,17 @@ function UjianContent() {
         <button
           type="button"
           onClick={() => handleKategoriChange("mandiri")}
-          className={`group flex items-start gap-4 rounded-2xl border p-4 text-left transition-all ${
+          className={`group relative flex items-start gap-4 rounded-2xl border p-4 sm:p-5 text-left transition-all duration-200 ${
             (!isNasional && !isSekolah)
-              ? "border-indigo-400 bg-gradient-to-br from-indigo-50 via-white to-blue-50/50 shadow-md ring-2 ring-indigo-500/20"
-              : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/20"
+              ? "border-indigo-300 bg-gradient-to-br from-indigo-50/90 via-white to-blue-50/50 shadow-sm ring-2 ring-indigo-500/20"
+              : "border-slate-200/90 bg-white hover:border-indigo-200 hover:bg-indigo-50/20 hover:shadow-xs"
           }`}
         >
           <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105 ${
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${
               (!isNasional && !isSekolah)
                 ? "bg-gradient-to-br from-indigo-600 to-cyan-600 text-white shadow-sm shadow-indigo-500/25"
-                : "bg-indigo-100 text-indigo-700"
+                : "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-600/10"
             }`}
           >
             <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" aria-hidden="true">
@@ -413,14 +413,14 @@ function UjianContent() {
                 Try Out Mandiri
               </span>
               <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                  (!isNasional && !isSekolah) ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-600"
+                className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                  (!isNasional && !isSekolah) ? "bg-indigo-600 text-white shadow-xs" : "bg-slate-100 text-slate-600"
                 }`}
               >
                 {totalMandiriCount} Paket
               </span>
             </div>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-slate-500 leading-relaxed">
               {adaSeriMandiri ? "Paket baru terbuka tiap hari · Bebas pilih mapel" : "Latihan sepuasnya 24 jam · Bebas pilih mapel"}
             </p>
           </div>
@@ -521,39 +521,45 @@ function UjianContent() {
       )}
 
       {/* Konten Paket Reguler (Nasional / Mandiri) */}
-          {/* Info Banner Khusus Try Out Nasional */}
+      {/* Info Banner Khusus Try Out Nasional */}
       {isNasional && (
-        <div className="flex flex-col gap-3 rounded-2xl border border-violet-200 bg-gradient-to-r from-violet-50/80 via-white to-indigo-50/80 p-4 sm:p-5">
+        <div className="relative overflow-hidden rounded-2xl border border-violet-200/80 bg-gradient-to-br from-violet-50/90 via-white to-indigo-50/60 p-5 shadow-xs">
           <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-600 text-white shadow-xs">
+            <div className="flex items-start gap-3.5">
+              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-sm shadow-violet-500/25">
                 <IconCalendar />
               </div>
               <div>
                 <h3 className="text-sm font-bold text-violet-950">Jadwal &amp; Ketentuan Try Out Nasional</h3>
-                <p className="mt-0.5 text-xs text-slate-600">
+                <p className="mt-1 text-xs text-slate-600 leading-relaxed max-w-2xl">
                   Try Out Nasional diselenggarakan resmi oleh AyoTKA. Soal diacak secara otomatis dari paket bank soal
                   resmi dan langsung mendapatkan <span className="font-semibold text-violet-800">Analisis Learning Analytics</span> mendalam.
                 </p>
               </div>
             </div>
             {activePlan && (
-              <span className="shrink-0 rounded-lg border border-violet-200 bg-white px-3 py-1 text-xs font-semibold text-violet-700 shadow-xs">
+              <span className="shrink-0 rounded-full border border-violet-200/90 bg-white/90 px-3 py-1 text-xs font-bold text-violet-700 shadow-xs backdrop-blur-xs">
                 {activePlan.nama}
               </span>
             )}
           </div>
 
           {noNasionalQuota && (
-            <div className="mt-1 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-amber-900">
-                ⚠️ Paket langganan Bulanan kamu belum mencakup fasilitas Try Out Nasional. Upgrade ke paket Semester untuk mendapatkan jatah hingga 3x Try Out Nasional per mapel!
-              </p>
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-200/90 bg-gradient-to-r from-amber-50 via-amber-50/70 to-orange-50/50 p-3.5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 text-sm font-bold">
+                  ⚠️
+                </span>
+                <p className="text-xs font-medium text-amber-900 leading-relaxed">
+                  Paket langganan Bulanan kamu belum mencakup fasilitas Try Out Nasional. Upgrade ke paket Semester untuk mendapatkan jatah hingga 3x Try Out Nasional per mapel!
+                </p>
+              </div>
               <Link
                 href="/siswa/langganan"
-                className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-amber-700"
+                className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 px-4 py-2 text-xs font-bold text-white shadow-sm shadow-amber-600/20 transition-all hover:from-amber-700 hover:to-amber-800"
               >
-                Upgrade ke Semester
+                <span>Upgrade ke Semester</span>
+                <span aria-hidden="true">→</span>
               </Link>
             </div>
           )}
@@ -562,40 +568,42 @@ function UjianContent() {
 
       {/* Penjelasan aturan buka paket berseri Try Out Mandiri */}
       {!isNasional && adaSeriMandiri && (
-        <div className="flex items-start gap-3 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-white to-sky-50/80 p-4 sm:p-5">
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-xs">
-            <IconCalendar />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-indigo-950">Cara Paket Try Out Mandiri Dibuka</h3>
-            <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-slate-600">
-              <li>
-                Paket dibuka bertahap untuk tiap mata pelajaran. Selesaikan satu paket, maka paket berikutnya terbuka
-                pada pukul <span className="font-semibold text-indigo-800">06.00 WIB</span> berikutnya. Contoh: selesai
-                hari Selasa, paket baru terbuka Rabu pukul 06.00 WIB.
-              </li>
-              <li>
-                Jadi paling banyak satu paket baru per hari untuk tiap mapel. Kalau belum mengerjakan, paket berikutnya
-                belum terbuka: selesaikan dulu paket yang sedang terbuka dan jawab minimal satu soal (paket yang
-                dikumpulkan kosong tidak membuka paket berikutnya).
-              </li>
-              <li>
-                Semua paket yang sudah terbit tetap tampil. Paket yang masih terkunci belum bisa dibuka, dan kartunya
-                menjelaskan kapan atau syarat apa yang perlu kamu penuhi.
-              </li>
-              <li>Paket yang sudah pernah kamu kerjakan tetap bisa dikerjakan ulang kapan saja.</li>
-            </ul>
+        <div className="relative overflow-hidden rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/90 via-white to-sky-50/60 p-5 shadow-xs">
+          <div className="flex items-start gap-3.5">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-sky-600 text-white shadow-sm shadow-indigo-500/25">
+              <IconCalendar />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-indigo-950">Cara Paket Try Out Mandiri Dibuka</h3>
+              <ul className="mt-2 list-disc space-y-1.5 pl-4 text-xs text-slate-600 leading-relaxed">
+                <li>
+                  Paket dibuka bertahap untuk tiap mata pelajaran. Selesaikan satu paket, maka paket berikutnya terbuka
+                  pada pukul <span className="font-semibold text-indigo-800">06.00 WIB</span> berikutnya. Contoh: selesai
+                  hari Selasa, paket baru terbuka Rabu pukul 06.00 WIB.
+                </li>
+                <li>
+                  Jadi paling banyak satu paket baru per hari untuk tiap mapel. Kalau belum mengerjakan, paket berikutnya
+                  belum terbuka: selesaikan dulu paket yang sedang terbuka dan jawab minimal satu soal (paket yang
+                  dikumpulkan kosong tidak membuka paket berikutnya).
+                </li>
+                <li>
+                  Semua paket yang sudah terbit tetap tampil. Paket yang masih terkunci belum bisa dibuka, dan kartunya
+                  menjelaskan kapan atau syarat apa yang perlu kamu penuhi.
+                </li>
+                <li>Paket yang sudah pernah kamu kerjakan tetap bisa dikerjakan ulang kapan saja.</li>
+              </ul>
+            </div>
           </div>
         </div>
       )}
 
       {/* Filter Mata Pelajaran (SD: B.Indo, IPA; SMP: B.Indo, IPA, MTK, B.Inggris) */}
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <p className="font-mono text-xs font-bold uppercase tracking-wider text-slate-500">
             Pilih Mata Pelajaran {jenjang ? `(${jenjang})` : ""}
           </p>
-          <span className="text-xs text-slate-400">
+          <span className="font-mono text-xs text-slate-400">
             {filteredPackages.length} paket ditemukan
           </span>
         </div>
@@ -603,10 +611,12 @@ function UjianContent() {
           <button
             type="button"
             onClick={() => setSelectedSubject("semua")}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+            className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all duration-150 ${
               selectedSubject === "semua"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                ? isNasional
+                  ? "bg-violet-600 text-white shadow-sm shadow-violet-600/25 ring-2 ring-violet-500/20"
+                  : "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 ring-2 ring-indigo-500/20"
+                : "border border-slate-200/90 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50/80 hover:text-slate-900"
             }`}
           >
             Semua Mapel
@@ -616,12 +626,12 @@ function UjianContent() {
               key={mapel}
               type="button"
               onClick={() => setSelectedSubject(mapel)}
-              className={`rounded-xl px-3.5 py-1.5 text-xs font-semibold transition-all ${
+              className={`rounded-xl px-4 py-2 text-xs font-semibold transition-all duration-150 ${
                 selectedSubject === mapel
                   ? isNasional
-                    ? "bg-violet-700 text-white shadow-xs"
-                    : "bg-indigo-600 text-white shadow-xs"
-                  : "border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    ? "bg-violet-600 text-white shadow-sm shadow-violet-600/25 ring-2 ring-violet-500/20"
+                    : "bg-indigo-600 text-white shadow-sm shadow-indigo-600/25 ring-2 ring-indigo-500/20"
+                  : "border border-slate-200/90 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50/80 hover:text-slate-900"
               }`}
             >
               {mapel}
