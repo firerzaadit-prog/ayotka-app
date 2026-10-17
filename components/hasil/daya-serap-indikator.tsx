@@ -445,14 +445,9 @@ export function DayaSerapIndikator({
     <div className="flex flex-col gap-5">
       {/* 1. Keterangan mapel dan cakupan soal */}
       <div>
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-semibold text-slate-800">
-            {laporan.mapel} · {laporan.label.join(" → ")}
-          </p>
-          <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
-            Pusmendik
-          </span>
-        </div>
+        <p className="text-sm font-semibold text-slate-800">
+          {laporan.mapel} · {laporan.label.join(" → ")}
+        </p>
         <p className="mt-1 text-xs leading-relaxed text-slate-500">
           {cakupanSebagian
             ? `${laporan.soalTercakup} dari ${laporan.soalTotal} soal pada percobaan ini memiliki indikator resmi Kemendikdasmen dan dihitung di sini.`
