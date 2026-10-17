@@ -45,7 +45,7 @@ Ketentuan Tambahan:
 1. Koperasi memberikan bonus bunga.`,
       },
       pembahasan: "Langkah 1: Hitung total setoran.",
-      tingkatKesulitan: "sedang",
+      tingkatKesulitan: "sedang" as const,
       kompetensiNama: "Aljabar",
       paketNama: "Paket TKA Matematika",
       hierarki: {

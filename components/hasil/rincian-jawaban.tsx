@@ -179,7 +179,7 @@ export function RincianJawaban({
                     )}
                   </div>
                   <p className="text-xs text-slate-400">
-                    {s.paketNama ? `${s.paketNama} · ` : ""}{s.kompetensiNama ?? s.hierarki?.items[0]?.nilai ?? "Kompetensi"}
+                    {s.paketNama ? `${s.paketNama} · ` : ""}{s.kompetensiNama ?? s.hierarki?.items?.[0]?.nilai ?? "Kompetensi"}
                   </p>
                 </div>
                 <div className="shrink-0">
@@ -198,7 +198,7 @@ export function RincianJawaban({
               {/* Body Konten Soal */}
               <div className="flex flex-col gap-5 p-5 sm:p-6">
                 {/* 1. Hierarki Indikator Box */}
-                {s.hierarki && s.hierarki.items.length > 0 && (
+                {s.hierarki && Array.isArray(s.hierarki.items) && s.hierarki.items.length > 0 && (
                   <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/60 via-white to-indigo-50/30 p-4 sm:p-5 shadow-2xs">
                     <div className="flex items-center justify-between gap-2 border-b border-sky-100 pb-3">
                       <div className="flex items-center gap-2 text-sm font-bold text-sky-950">
