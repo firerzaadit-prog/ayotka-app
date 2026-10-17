@@ -87,4 +87,69 @@ Ketentuan Tambahan:
     // 4. Baris bertanda pipe mentah "| Nama Siswa |" TIDAK boleh tercetak mentah dengan pipe
     expect(printedTexts.some((t) => t.includes("| Nama Siswa |"))).toBe(false);
   });
+
+  it("merender kotak hierarki indikator dengan teks panjang bertingkat tanpa bentrok", async () => {
+    const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true });
+    const printedTexts: string[] = [];
+    const origText = doc.text.bind(doc);
+
+    vi.spyOn(doc, "text").mockImplementation(((...args: unknown[]) => {
+      if (typeof args[0] === "string") {
+        printedTexts.push(args[0]);
+      }
+      return (origText as (...a: unknown[]) => unknown)(...args);
+    }) as never);
+
+    const fonts = setupFonts(doc);
+
+    const soalPanjang = {
+      questionId: "q-2",
+      format: "pg" as const,
+      teks: "Soal dengan kompetensi dan indikator sangat panjang.",
+      media: null,
+      stimulus: null,
+      pembahasan: "Pembahasan singkat.",
+      tingkatKesulitan: "sedang" as const,
+      kompetensiNama: "Bilangan",
+      paketNama: "Paket TKA",
+      hierarki: {
+        namaMapel: "Matematika",
+        jumlahTingkat: 4 as const,
+        items: [
+          { label: "Elemen", nilai: "Bilangan" },
+          { label: "Subelemen", nilai: "Bilangan Real" },
+          {
+            label: "Kompetensi",
+            nilai:
+              "Kemampuan memahami, mengaplikasikan, dan bernalar yang lebih tinggi untuk menyelesaikan permasalahan terkait perbandingan dan sifat-sifat bilangan",
+          },
+          {
+            label: "Indikator",
+            nilai:
+              "Menentukan suku ke-n (lebih dari 3 suku berikutnya dari yang diketahui) dari pola bilangan berdasarkan konfigurasi objek tersebut (14)",
+          },
+        ],
+      },
+      skor: 1,
+      skorMaks: 1,
+      categories: [],
+      options: [
+        { id: "opt-1", label: "A", teks: "Jawaban A", isCorrect: true },
+      ],
+      statements: [],
+      jawabanJson: { option_id: "opt-1" },
+      raguRagu: false,
+    };
+
+    await gambarSoal(doc, fonts, soalPanjang, 2, true);
+
+    expect(printedTexts).toContain("Hierarki Indikator");
+    expect(printedTexts).toContain("Matematika (4 Tingkat)");
+    expect(printedTexts).toContain("Elemen:");
+    expect(printedTexts).toContain("Bilangan");
+    expect(printedTexts).toContain("Subelemen:");
+    expect(printedTexts).toContain("Bilangan Real");
+    expect(printedTexts).toContain("Kompetensi:");
+    expect(printedTexts).toContain("Indikator:");
+  });
 });

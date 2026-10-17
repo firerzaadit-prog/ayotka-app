@@ -750,20 +750,58 @@ export async function gambarSoal(doc: PDFKit.PDFDocument, fonts: PdfFonts, s: Pe
   doc.y = yKepala + tinggiKepala + 8;
 
   // --- hierarki indikator ---
-  if (s.hierarki && s.hierarki.items.length > 0) {
-    const hBox = 16 + s.hierarki.items.length * 12 + 6;
+  if (s.hierarki && s.hierarki.items && s.hierarki.items.length > 0) {
+    const lebarLabel = 85;
+    const xNilai = X0 + 10 + lebarLabel + 4;
+    const lebarNilai = CW - 20 - lebarLabel - 4;
+
+    const barisHierarki = s.hierarki.items.map((itm) => {
+      const teksNilai = toText(itm.nilai);
+      doc.font(fonts.regular).fontSize(fonts.sz(7.5));
+      const hNilai = doc.heightOfString(teksNilai, { width: lebarNilai, lineGap: 1.5 });
+      const hBaris = Math.max(10, hNilai);
+      return { label: itm.label, nilai: teksNilai, hBaris };
+    });
+
+    const tinggiHeader = 22;
+    const paddingBawah = 8;
+    const gapBaris = 4;
+    const totalTinggiBaris =
+      barisHierarki.reduce((sum, b) => sum + b.hBaris, 0) +
+      Math.max(0, barisHierarki.length - 1) * gapBaris;
+    const hBox = tinggiHeader + totalTinggiBaris + paddingBawah;
+
     pastikanMuat(hBox + 10);
     const yHierarki = doc.y;
     doc.roundedRect(X0, yHierarki, CW, hBox, 5).fillAndStroke("#f0f9ff", "#bae6fd");
-    tulis("Hierarki Indikator", X0 + 10, yHierarki + 5, 150, 8.5, "#0369a1", true);
+
+    // Header kartu: judul di kiri, pill badge di kanan
+    tulis("Hierarki Indikator", X0 + 10, yHierarki + 5.5, 150, 8.5, "#0369a1", true);
+
     const mapelBadge = `${s.hierarki.namaMapel} (${s.hierarki.jumlahTingkat} Tingkat)`;
-    tulis(mapelBadge, X0 + CW - 10 - 200, yHierarki + 5.5, 200, 7.5, "#0284c7", true, "right");
-    let curY = yHierarki + 19;
-    for (const itm of s.hierarki.items) {
-      tulis(`${itm.label}:`, X0 + 10, curY, 95, 7.5, COLOR.muted, true);
-      tulis(toText(itm.nilai), X0 + 105, curY, CW - 115, 7.5, COLOR.ink);
-      curY += 12;
+    doc.font(fonts.bold).fontSize(fonts.sz(7));
+    const lebarBadge = doc.widthOfString(mapelBadge) + 12;
+    const tinggiBadge = 14;
+    const xBadge = X0 + CW - 10 - lebarBadge;
+    const yBadge = yHierarki + 4.5;
+    doc.roundedRect(xBadge, yBadge, lebarBadge, tinggiBadge, 7).fillAndStroke("#e0f2fe", "#bae6fd");
+    doc.fillColor("#0284c7").text(mapelBadge, xBadge, yBadge + 3, { width: lebarBadge, align: "center", lineBreak: false });
+
+    // Garis pemisah halus di bawah header
+    doc.lineWidth(0.5).moveTo(X0 + 8, yHierarki + tinggiHeader - 2).lineTo(X0 + CW - 8, yHierarki + tinggiHeader - 2).strokeColor("#e0f2fe").stroke();
+
+    // Baris-baris hierarki (label di kiri tebal abu-abu, nilai di kanan dengan tinggi dinamis)
+    let curY = yHierarki + tinggiHeader + 3;
+    for (const b of barisHierarki) {
+      doc.font(fonts.bold).fontSize(fonts.sz(7.5)).fillColor(COLOR.muted);
+      doc.text(`${b.label}:`, X0 + 10, curY, { width: lebarLabel, lineBreak: false });
+
+      doc.font(fonts.regular).fontSize(fonts.sz(7.5)).fillColor(COLOR.ink);
+      doc.text(b.nilai, xNilai, curY, { width: lebarNilai, lineGap: 1.5 });
+
+      curY += b.hBaris + gapBaris;
     }
+
     doc.x = X0;
     doc.y = yHierarki + hBox + 8;
   }
