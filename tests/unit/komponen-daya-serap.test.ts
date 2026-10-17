@@ -3,6 +3,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { BarisUraian, DayaSerapIndikator, ringkasanSoal } from "@/components/hasil/daya-serap-indikator";
 import { hitungLaporanSiswa, type InfoIndikator, type JawabanBerindikator } from "@/lib/indikator/daya-serap";
+import masterResmi from "@/lib/indikator/kemendikdasmen-official.json";
+import type { RawIndicatorItem } from "@/lib/indikator/hierarki-resmi";
+
+/** Data master Kemendikdasmen apa adanya (30 indikator per jenjang dan mapel). */
+const daftarIndikatorResmi = (jenjang: "SD" | "SMP", mapel: "matematika" | "bahasa-indonesia"): RawIndicatorItem[] =>
+  (masterResmi as RawIndicatorItem[]).filter(
+    (d) => d.jenjang.toUpperCase() === jenjang && d.nama_mapel.toLowerCase().includes(mapel === "matematika" ? "matematika" : "bahasa indonesia"),
+  );
 
 const mat = (n: number, o: Partial<InfoIndikator> = {}): InfoIndikator => ({
   id: `m${n}`,
@@ -195,10 +203,21 @@ describe("satu tabel capaian (hierarki + skor + rujukan nasional + selisih)", ()
     expect(isi).not.toMatch(/Elemen|Subelemen/);
   });
 
-  it("filter 'Hanya yang Diuji' dan 'Semua Indikator Resmi' ada dan menyebut jumlahnya", () => {
+  it("hanya SATU tampilan: tidak ada tombol pilihan (Hanya yang Diuji / Semua Indikator Resmi) dan tidak ada baris 'Belum diuji'", () => {
     const isi = h();
-    expect(isi).toMatch(/aria-pressed="true"[^>]*>Hanya yang Diuji \(2\)</);
-    expect(isi).toMatch(/aria-pressed="false"[^>]*>Semua Indikator Resmi \(\d+\)</);
+    expect(isi).not.toContain("<button");
+    expect(isi).not.toContain("aria-pressed");
+    expect(isi).not.toContain("Hanya yang Diuji");
+    expect(isi).not.toContain("Semua Indikator Resmi");
+    expect(isi).not.toContain("Belum diuji");
+    expect(isi).not.toContain("data-keterangan-filter");
+  });
+
+  it("kata gabungan dengan garis miring boleh putus baris setelah garis miring (HP sempit), teks yang terbaca tidak berubah", () => {
+    const isi = html(ulang(mat(1, { indikator: "Menganalisis/mengevaluasi pernyataan (1)" }), 3, 2));
+    expect(isi).toContain("Menganalisis/<wbr/>mengevaluasi pernyataan");
+    const terlihat = isi.replace(/<wbr\/>/g, "").replace(/<span class="sr-only">[^<]*<\/span>/g, "").replace(/<[^>]+>/g, " ");
+    expect(terlihat).toContain("Menganalisis/mengevaluasi pernyataan");
   });
 
   it("legenda warna ada di bawah tabel", () => {
@@ -213,6 +232,39 @@ describe("satu tabel capaian (hierarki + skor + rujukan nasional + selisih)", ()
     expect(isi.split("Rujukan nasional berdasarkan data hasil TKA tahun ajaran 2025/2026.").length - 1).toBe(1);
     expect(isi.match(/data-catatan-rujukan-nasional/g)).toHaveLength(1);
     expect(isi.indexOf("data-catatan-rujukan-nasional")).toBeGreaterThan(isi.indexOf("</table>"));
+  });
+});
+
+// Permintaan pemilik 17 Okt 2026: cukup satu tampilan (tanpa pilihan "Semua Indikator Resmi"). Isinya hanya indikator yang
+// muncul di soal percobaan ini, masing-masing dengan skor dan rujukan nasionalnya.
+describe("satu tampilan: indikator yang diuji", () => {
+  const resmi = daftarIndikatorResmi("SMP", "matematika");
+  const infoResmi = (item: (typeof resmi)[number]): InfoIndikator => ({
+    id: `r${item.urutan}`,
+    jenjang: "SMP",
+    namaMapel: "Matematika",
+    elemen: item.elemen,
+    subelemen: item.subelemen,
+    kompetensi: item.kompetensi,
+    indikator: item.indikator,
+    urutan: item.urutan,
+    nilaiNasional: item.nilai_nasional,
+  });
+  const laporanResmi = hitungLaporanSiswa([...ulang(infoResmi(resmi[0]!), 4, 3), ...ulang(infoResmi(resmi[12]!), 2, 2)])!;
+  const isi = renderToStaticMarkup(createElement(DayaSerapIndikator, { laporan: laporanResmi }));
+  const persenId = (n: number) => `${n.toFixed(1).replace(".", ",")}%`;
+
+  it("hanya indikator yang diuji, masing-masing dengan skor, jumlah benar, dan rujukan nasional dari data resmi", () => {
+    const leaf = barisTingkat(isi, 4);
+    expect(leaf).toHaveLength(2);
+    expect(leaf.some((b) => b.includes("75,0%") && b.includes("3/4 benar") && b.includes(`nasional ${persenId(resmi[0]!.nilai_nasional)}`))).toBe(true);
+    expect(leaf.some((b) => b.includes("100,0%") && b.includes("2/2 benar") && b.includes(`nasional ${persenId(resmi[12]!.nilai_nasional)}`))).toBe(true);
+  });
+
+  it("tiap baris punya skor (tidak ada baris tanpa nilai)", () => {
+    const semuaBaris = [1, 2, 3, 4].flatMap((t) => barisTingkat(isi, t));
+    expect(semuaBaris.length).toBeGreaterThan(2);
+    for (const b of semuaBaris) expect(b).toMatch(/\d+,\d%/);
   });
 });
 

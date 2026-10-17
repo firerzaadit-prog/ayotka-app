@@ -19,6 +19,21 @@ export function formatSelisih(n: number | null | undefined): string {
   return `${n > 0 ? "+" : "-"}${teks} poin`;
 }
 
+/**
+ * Memisahkan kalimat indikator dari nomor urut di ujung kalimat seperti `(13)`, `(15)`.
+ * Mengembalikan teks bersih dan nomor urut resmi (yang tidak ditampilkan ke siswa karena terbaca seperti nomor soal).
+ */
+export function bersihkanTeksIndikator(teks: string): { judul: string; nomorUrut: number | null } {
+  const match = teks.match(/\s*\((\d+)\)\s*$/);
+  if (match) {
+    return {
+      judul: teks.replace(/\s*\(\d+\)\s*$/, "").trim(),
+      nomorUrut: parseInt(match[1]!, 10),
+    };
+  }
+  return { judul: teks, nomorUrut: null };
+}
+
 export const VARIAN_VONIS: Record<Vonis, "success" | "info" | "warning" | "neutral"> = {
   di_atas: "success",
   setara: "info",

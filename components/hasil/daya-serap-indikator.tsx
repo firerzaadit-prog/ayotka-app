@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { competencyTier, COMPETENCY_TIER_CLASS } from "@/lib/exam/competency-color";
 import {
@@ -9,31 +9,12 @@ import {
   type KelompokIndikator,
   type LaporanIndikatorSiswa,
 } from "@/lib/indikator/daya-serap";
-import { VARIAN_VONIS, formatPersen, formatSelisih } from "@/lib/indikator/tampilan";
-import {
-  getOfficialHierarchyData,
-  type JenjangResmi,
-  type MapelKey,
-} from "@/lib/indikator/hierarki-resmi";
+import { VARIAN_VONIS, bersihkanTeksIndikator, formatPersen, formatSelisih } from "@/lib/indikator/tampilan";
+import { bangunBarisDiuji } from "@/lib/indikator/tabel-capaian";
 import { CatatanRujukanNasional } from "@/components/hasil/catatan-rujukan-nasional";
 
 /** Keterangan tambahan per baris (mis. "12 siswa") di laporan sekolah; null = tidak ada. */
 export type Tambahan<B extends BarisIndikator> = (b: B) => string | null;
-
-/**
- * Memisahkan kalimat indikator dari nomor urut di ujung kalimat seperti `(13)`, `(15)`.
- * Mengembalikan teks bersih dan nomor urut resmi untuk ditampilkan sebagai badge terpisah.
- */
-export function bersihkanTeksIndikator(teks: string): { judul: string; nomorUrut: number | null } {
-  const match = teks.match(/\s*\((\d+)\)\s*$/);
-  if (match) {
-    return {
-      judul: teks.replace(/\s*\(\d+\)\s*$/, "").trim(),
-      nomorUrut: parseInt(match[1]!, 10),
-    };
-  }
-  return { judul: teks, nomorUrut: null };
-}
 
 /**
  * Format badge skor resmi Kemendikdasmen (persis seperti di analitik Admin Sekolah):
@@ -218,20 +199,21 @@ export function DaftarFokus<B extends BarisIndikator>({
   );
 }
 
-interface BarisHierarkiSiswa {
-  id: string;
-  level: 1 | 2 | 3 | 4;
-  teks: string;
-  judulTampil: string;
-  nomorUrut?: number | null;
-  dayaSerap?: number | null;
-  nasional?: number | null;
-  jmlSoal?: number;
-  /** Skor yang diperoleh dan skor maksimum pada simpul ini (untuk "x/y benar"); tidak ada pada indikator yang belum diuji. */
-  skor?: number;
-  skorMaks?: number;
-  diuji: boolean;
-  rawIndikatorTeks?: string;
+/**
+ * Teks dengan kesempatan putus baris setelah garis miring ("a/b" menjadi "a/" lalu "b"): kata gabungan panjang seperti
+ * "Menganalisis/mengevaluasi" tidak terpotong di tengah huruf pada layar HP yang sempit. Teks aslinya tidak berubah.
+ */
+function PutusSetelahGarisMiring({ teks }: { teks: string }) {
+  return (
+    <>
+      {teks.split(/(?<=\/)/).map((bagian, i) => (
+        <Fragment key={i}>
+          {i > 0 && <wbr />}
+          {bagian}
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 /**
@@ -254,217 +236,16 @@ export function ringkasanSoal(row: { jmlSoal?: number; skor?: number; skorMaks?:
  * Matematika: Elemen → Subelemen → Kompetensi → Indikator (4 tingkat).
  * Bahasa Indonesia: Kompetensi → Subkompetensi → Indikator (3 tingkat).
  */
-export function TabelHierarkiResmiSiswa({
-  laporan,
-}: {
-  laporan: LaporanIndikatorSiswa;
-}) {
-  const isMatematika = /matematika/i.test(laporan.mapel);
-  const [filterHierarki, setFilterHierarki] = useState<"diuji" | "semua">("diuji");
+export function TabelHierarkiResmiSiswa({ laporan }: { laporan: LaporanIndikatorSiswa }) {
+  const isMatematika = laporan.jumlahTingkat === 4;
 
-  // Pemetaan skor dari pengerjaan siswa
-  const scoresMap = useMemo(() => {
-    const map = new Map<string, { dayaSerap: number; jmlSoal: number }>();
-    for (const k of laporan.kelompok) {
-      for (const b of k.baris) {
-        map.set(b.indikator, { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
-        const { judul } = bersihkanTeksIndikator(b.indikator);
-        if (judul !== b.indikator) {
-          map.set(judul, { dayaSerap: b.dayaSerap, jmlSoal: b.jmlSoal });
-        }
-      }
-    }
-    return map;
-  }, [laporan.kelompok]);
-
-  // Hierarki baris yang diuji (berasal langsung dari laporan pengerjaan siswa)
-  const rowsDiuji = useMemo<BarisHierarkiSiswa[]>(() => {
-    const rows: BarisHierarkiSiswa[] = [];
-    let l1Idx = 1;
-
-    for (const k of laporan.kelompok) {
-      // Level 1: Elemen / Kompetensi
-      rows.push({
-        id: `l1-${l1Idx}`,
-        level: 1,
-        teks: `${l1Idx}. ${k.nama}`,
-        judulTampil: k.nama,
-        dayaSerap: k.dayaSerap,
-        nasional: k.nasional,
-        jmlSoal: k.jmlSoal,
-        skor: k.skor,
-        skorMaks: k.skorMaks,
-        diuji: true,
-      });
-
-      // Group by level2 (Subelemen / Subkompetensi)
-      const l2Map = new Map<string, typeof k.baris>();
-      for (const b of k.baris) {
-        const l2 = b.level2 || "-";
-        if (!l2Map.has(l2)) l2Map.set(l2, []);
-        l2Map.get(l2)!.push(b);
-      }
-
-      let l2Idx = 1;
-      for (const [l2Name, l2Items] of l2Map.entries()) {
-        const l2Skor = l2Items.reduce((a, b) => a + b.skor, 0);
-        const l2Maks = l2Items.reduce((a, b) => a + b.skorMaks, 0);
-        const l2DayaSerap = l2Maks > 0 ? (l2Skor / l2Maks) * 100 : 0;
-        const l2NasList = l2Items.map((b) => b.nasional).filter((n): n is number => n !== null);
-        const l2Nas = l2NasList.length > 0 ? l2NasList.reduce((a, b) => a + b, 0) / l2NasList.length : null;
-
-        rows.push({
-          id: `l2-${l1Idx}-${l2Idx}`,
-          level: 2,
-          teks: `› ${l2Name}`,
-          judulTampil: l2Name,
-          dayaSerap: l2DayaSerap,
-          nasional: l2Nas,
-          jmlSoal: l2Items.reduce((a, b) => a + b.jmlSoal, 0),
-          skor: l2Skor,
-          skorMaks: l2Maks,
-          diuji: true,
-        });
-
-        if (isMatematika) {
-          // Level 3 untuk Matematika: Kompetensi
-          const l3Map = new Map<string, typeof k.baris>();
-          for (const b of l2Items) {
-            const l3 = b.level3 || "-";
-            if (!l3Map.has(l3)) l3Map.set(l3, []);
-            l3Map.get(l3)!.push(b);
-          }
-
-          let l3Idx = 1;
-          for (const [l3Name, l3Items] of l3Map.entries()) {
-            const l3Skor = l3Items.reduce((a, b) => a + b.skor, 0);
-            const l3Maks = l3Items.reduce((a, b) => a + b.skorMaks, 0);
-            const l3DayaSerap = l3Maks > 0 ? (l3Skor / l3Maks) * 100 : 0;
-            const l3NasList = l3Items.map((b) => b.nasional).filter((n): n is number => n !== null);
-            const l3Nas = l3NasList.length > 0 ? l3NasList.reduce((a, b) => a + b, 0) / l3NasList.length : null;
-
-            rows.push({
-              id: `l3-${l1Idx}-${l2Idx}-${l3Idx}`,
-              level: 3,
-              teks: `› ${l3Name}`,
-              judulTampil: l3Name,
-              dayaSerap: l3DayaSerap,
-              nasional: l3Nas,
-              jmlSoal: l3Items.reduce((a, b) => a + b.jmlSoal, 0),
-              skor: l3Skor,
-              skorMaks: l3Maks,
-              diuji: true,
-            });
-
-            // Level 4 untuk Matematika: Indikator
-            for (const b of l3Items) {
-              const { judul, nomorUrut } = bersihkanTeksIndikator(b.indikator);
-              rows.push({
-                id: `l4-${b.indikatorId || b.urutan}`,
-                level: 4,
-                teks: `• ${b.indikator}`,
-                judulTampil: judul,
-                nomorUrut: b.urutan || nomorUrut,
-                dayaSerap: b.dayaSerap,
-                nasional: b.nasional,
-                jmlSoal: b.jmlSoal,
-                skor: b.skor,
-                skorMaks: b.skorMaks,
-                diuji: true,
-                rawIndikatorTeks: b.indikator,
-              });
-            }
-            l3Idx++;
-          }
-        } else {
-          // Level 3 untuk Bahasa Indonesia: Indikator
-          for (const b of l2Items) {
-            const { judul, nomorUrut } = bersihkanTeksIndikator(b.indikator);
-            rows.push({
-              id: `l3-${b.indikatorId || b.urutan}`,
-              level: 3,
-              teks: `• ${b.indikator}`,
-              judulTampil: judul,
-              nomorUrut: b.urutan || nomorUrut,
-              dayaSerap: b.dayaSerap,
-              nasional: b.nasional,
-              jmlSoal: b.jmlSoal,
-              skor: b.skor,
-              skorMaks: b.skorMaks,
-              diuji: true,
-              rawIndikatorTeks: b.indikator,
-            });
-          }
-        }
-        l2Idx++;
-      }
-      l1Idx++;
-    }
-
-    return rows;
-  }, [laporan.kelompok, isMatematika]);
-
-  // Hierarki resmi lengkap (bila siswa ingin melihat seluruh kurikulum master Pusmendik)
-  const rowsSemua = useMemo<BarisHierarkiSiswa[]>(() => {
-    try {
-      const jenjang: JenjangResmi = laporan.jenjang?.toUpperCase() === "SD" ? "SD" : "SMP";
-      const mapelKey: MapelKey = isMatematika ? "matematika" : "bahasa-indonesia";
-      const official = getOfficialHierarchyData(jenjang, mapelKey, scoresMap);
-
-      return official.hierarkiRows.map((r) => {
-        const { judul, nomorUrut } = bersihkanTeksIndikator(r.teks.replace(/^[›•]\s*/, ""));
-        const noUrut = r.urutan || nomorUrut;
-        const diuji = r.sekolahNilai != null;
-
-        return {
-          id: r.id,
-          level: r.level,
-          teks: r.teks,
-          judulTampil: judul,
-          nomorUrut: noUrut,
-          dayaSerap: r.sekolahNilai,
-          nasional: r.nilaiNasional,
-          diuji,
-          rawIndikatorTeks: r.teks,
-        };
-      });
-    } catch {
-      return rowsDiuji;
-    }
-  }, [laporan.jenjang, isMatematika, scoresMap, rowsDiuji]);
-
-  const activeRows = filterHierarki === "semua" ? rowsSemua : rowsDiuji;
-  const jumlahDiuji = useMemo(() => {
-    return laporan.kelompok.reduce((acc, k) => acc + k.baris.length, 0);
-  }, [laporan.kelompok]);
-
+  // Satu tampilan saja (permintaan pemilik, 17 Okt 2026): indikator yang muncul di soal percobaan ini. Pilihan "Semua
+  // Indikator Resmi" dihapus karena membingungkan siswa dan separuh barisnya tanpa skor.
+  const rows = useMemo(() => bangunBarisDiuji(laporan), [laporan]);
   const kelompokPerNama = new Map(laporan.kelompok.map((k) => [k.nama, k] as const));
-  const jumlahIndikatorResmi =
-    rowsSemua.length > 0 ? rowsSemua.filter((r) => r.level === (isMatematika ? 4 : 3)).length : jumlahDiuji;
-  const pilihanFilter = [
-    { nilai: "diuji", label: `Hanya yang Diuji (${jumlahDiuji})` },
-    { nilai: "semua", label: `Semua Indikator Resmi (${jumlahIndikatorResmi})` },
-  ] as const;
 
   return (
     <div className="flex flex-col gap-3">
-      <div role="group" aria-label="Indikator yang ditampilkan" className="flex flex-wrap items-center gap-1.5">
-        {pilihanFilter.map((p) => (
-          <button
-            key={p.nilai}
-            type="button"
-            aria-pressed={filterHierarki === p.nilai}
-            onClick={() => setFilterHierarki(p.nilai)}
-            className={`cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 ${
-              filterHierarki === p.nilai
-                ? "bg-indigo-600 text-white shadow-xs"
-                : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
 
       {/* HP: tabel melebar sampai tepi kartu (-mx-4 = padding kartu p-4) supaya kolom teks tidak terlalu sempit; mulai layar
           sm kembali berbingkai membulat di dalam kartu. */}
@@ -494,7 +275,7 @@ export function TabelHierarkiResmiSiswa({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {activeRows.map((row) => {
+              {rows.map((row) => {
                 const isL1 = row.level === 1;
                 const isL2 = row.level === 2;
                 const isLeaf = isMatematika ? row.level === 4 : row.level === 3;
@@ -504,7 +285,7 @@ export function TabelHierarkiResmiSiswa({
 
                 // Kelompok (Elemen) membawa vonis dibanding rerata nasional; kelompok dengan soal terlalu sedikit tidak
                 // dibandingkan (aturan yang sama dengan tabel ringkasan lama).
-                const kelompok = isL1 ? kelompokPerNama.get(row.judulTampil.replace(/^\s*\d+\.\s*/, "")) : undefined;
+                const kelompok = isL1 && row.kelompokNama ? kelompokPerNama.get(row.kelompokNama) : undefined;
                 const dibandingkan = kelompok?.vonis !== "data_kurang";
                 const nasional = dibandingkan ? (row.nasional ?? null) : null;
                 // Baris Elemen memakai selisih resmi kelompok (dihitung hanya pada indikator yang punya pembanding),
@@ -563,7 +344,7 @@ export function TabelHierarkiResmiSiswa({
                           <div className="flex items-start gap-2">
                             <span className="shrink-0 select-none text-slate-400">•</span>
                             <span className="leading-snug" title={row.rawIndikatorTeks || row.teks}>
-                              {row.judulTampil}
+                              <PutusSetelahGarisMiring teks={row.judulTampil} />
                             </span>
                             {/* String teks asli lengkap untuk kompatibilitas uji & pembaca layar */}
                             <span className="sr-only">{row.rawIndikatorTeks || row.teks}</span>
@@ -576,7 +357,9 @@ export function TabelHierarkiResmiSiswa({
                           )}
                         </div>
                       ) : (
-                        <span>› {row.judulTampil}</span>
+                        <span>
+                          › <PutusSetelahGarisMiring teks={row.judulTampil} />
+                        </span>
                       )}
                     </td>
 
@@ -652,7 +435,7 @@ export function DayaSerapIndikator({
   laporan: LaporanIndikatorSiswa;
   /**
    * false menyembunyikan kartu "Prioritas belajar" dan "Kekuatanmu": keduanya fitur berbayar, terbuka hanya bila siswa
-   * punya jatah atau saldo Learning Analytics (lib/billing/fokus-belajar.ts). Bagian lain laporan tetap tampil.
+   * sudah mengaktifkan Learning Analytics untuk percobaan ini (lib/billing/fokus-belajar.ts). Bagian lain tetap tampil.
    */
   tampilkanFokus?: boolean;
 }) {
