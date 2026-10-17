@@ -1,15 +1,15 @@
-import "server-only";
+﻿import "server-only";
 import type { Attempt } from "@prisma/client";
-import { prisma } from "@/lib/db/prisma";
-import { getTipeAkses } from "@/lib/billing/akses-ujian";
 import { hitungOpsiLaSusulan } from "@/lib/billing/la-susulan";
 import { bisaLihatFokusBelajar, type OpsiLaSusulan } from "@/lib/billing/learning-analytics";
 
 /**
  * Apakah "Prioritas belajar" dan "Kekuatanmu" boleh tampil untuk percobaan ini (halaman hasil dan rapor PDF siswa).
- * Aturannya di bisaLihatFokusBelajar (jatah paket atau saldo Learning Analytics, atau analisisnya sudah ada); di sini
- * ditambah satu pengecualian yang butuh data siswa: akses yang ditanggung sekolah (borongan) tetap terbuka, karena
- * sekolah yang membayar Learning Analytics-nya, bukan saldo siswa.
+ * Aturannya satu-satunya di bisaLihatFokusBelajar: terbuka bila Learning Analytics AKTIF untuk percobaan ini (analisisnya
+ * sudah ada/sedang diproses, Try Out Nasional, jatah paket masih ada, atau saldo cukup), selain itu tertutup - sama persis
+ * dengan kartu Learning Analytics di halaman hasil. Siswa sekolah TIDAK diberi pengecualian: pemroses analisis
+ * (lib/ai/queue-worker.ts) tidak membedakan mereka - jatah paket dulu, saldo sesudahnya, dan dilewati bila saldo kurang -
+ * sehingga kartu LA menagih saldo mereka juga, dan kartu fokus harus ikut tertutup selama LA belum aktif.
  *
  * `opsi` boleh diteruskan bila pemanggil sudah menghitungnya (rute hasil), supaya tidak dihitung dua kali; tanpa itu
  * dihitung di sini. Hanya MEMBACA. Gagal menghitung dianggap terbuka (lihat bisaLihatFokusBelajar): gangguan sesaat
@@ -23,14 +23,5 @@ export async function hitungFokusBelajarDibuka(attempt: Attempt, opsi?: OpsiLaSu
       return null;
     });
   }
-  if (bisaLihatFokusBelajar(opsiAkhir)) return true;
-
-  try {
-    const siswa = await prisma.student.findUnique({ where: { id: attempt.studentId } });
-    if (!siswa) return true;
-    return (await getTipeAkses(siswa)) === "sekolah";
-  } catch (err) {
-    console.error(`[fokus-belajar] gagal memeriksa akses sekolah untuk attempt ${attempt.id}:`, err);
-    return true;
-  }
+  return bisaLihatFokusBelajar(opsiAkhir);
 }

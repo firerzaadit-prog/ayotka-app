@@ -1,15 +1,13 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
 const m = vi.hoisted(() => ({
-  studentFindUnique: vi.fn(),
-  getTipeAkses: vi.fn(),
   hitungOpsi: vi.fn(),
 }));
 
-vi.mock("@/lib/db/prisma", () => ({ prisma: { student: { findUnique: m.studentFindUnique } } }));
-vi.mock("@/lib/billing/akses-ujian", () => ({ getTipeAkses: m.getTipeAkses }));
 vi.mock("@/lib/billing/la-susulan", () => ({ hitungOpsiLaSusulan: m.hitungOpsi }));
 
 import { bisaLihatFokusBelajar, type OpsiLaSusulan } from "@/lib/billing/learning-analytics";
@@ -60,33 +58,26 @@ describe("hitungFokusBelajarDibuka (server)", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
-    m.studentFindUnique.mockResolvedValue({ id: "s-1", schoolId: "sek-1", jalur: "A", deletedAt: null, lulusAt: null });
-    m.getTipeAkses.mockResolvedValue("gratis");
   });
 
-  it("jalan cepat: opsi yang diteruskan sudah cukup untuk membuka, tanpa kueri tambahan", async () => {
+  it("opsi yang diteruskan dipakai apa adanya, tanpa dihitung ulang", async () => {
     await expect(hitungFokusBelajarDibuka(ATTEMPT, saldo())).resolves.toBe(true);
     await expect(hitungFokusBelajarDibuka(ATTEMPT, kuota())).resolves.toBe(true);
     await expect(hitungFokusBelajarDibuka(ATTEMPT, null)).resolves.toBe(true);
-    expect(m.hitungOpsi).not.toHaveBeenCalled();
-    expect(m.studentFindUnique).not.toHaveBeenCalled();
-    expect(m.getTipeAkses).not.toHaveBeenCalled();
-  });
-
-  it("tanpa jatah dan saldo, siswa gratis: tertutup", async () => {
     await expect(hitungFokusBelajarDibuka(ATTEMPT, saldoKurang())).resolves.toBe(false);
-    expect(m.getTipeAkses).toHaveBeenCalledTimes(1);
+    expect(m.hitungOpsi).not.toHaveBeenCalled();
   });
 
-  it("tanpa jatah dan saldo, siswa berlangganan yang jatahnya habis: tertutup", async () => {
-    m.getTipeAkses.mockResolvedValue("langganan");
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, saldoKurang({ saldo: 0, kurang: 5500 }))).resolves.toBe(false);
+  it("tanpa jatah dan saldo: tertutup, termasuk untuk siswa sekolah (opsi LA sama persis dengan yang dilihat kartu LA)", async () => {
+    // Bentuk opsi untuk siswa sekolah bersaldo 0: kartu LA menagih Rp 5.000 dan menawarkan "Isi saldo" (bisaBeliPaket
+    // false karena kursi sekolah menanggung akses). Kartu fokus tidak boleh terbuka selama kartu LA itu masih menagih.
+    await expect(hitungFokusBelajarDibuka(ATTEMPT, saldoKurang({ saldo: 0, harga: 5000, kurang: 5000, bisaBeliPaket: false }))).resolves.toBe(false);
+    await expect(hitungFokusBelajarDibuka(ATTEMPT, kuota({ batasTercapai: true }))).resolves.toBe(false);
   });
 
-  it("akses yang ditanggung sekolah tetap dibuka walau siswa tidak punya saldo atau jatah", async () => {
-    m.getTipeAkses.mockResolvedValue("sekolah");
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, saldoKurang({ bisaBeliPaket: false }))).resolves.toBe(true);
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, kuota({ batasTercapai: true }))).resolves.toBe(true);
+  it("siswa sekolah yang analisisnya sudah ada atau sedang diproses: dibuka", async () => {
+    await expect(hitungFokusBelajarDibuka(ATTEMPT, { tersedia: false, alasan: "sudah_ada" })).resolves.toBe(true);
+    await expect(hitungFokusBelajarDibuka(ATTEMPT, { tersedia: false, alasan: "sedang_diproses" })).resolves.toBe(true);
   });
 
   it("opsi tidak diteruskan: dihitung dari percobaan itu lalu dipakai", async () => {
@@ -98,21 +89,15 @@ describe("hitungFokusBelajarDibuka (server)", () => {
     await expect(hitungFokusBelajarDibuka(ATTEMPT)).resolves.toBe(false);
   });
 
+  it("penjaga: aturan tidak menanyakan tipe akses siswa (tidak ada pengecualian sekolah/langganan yang membuka kartu)", () => {
+    const sumber = readFileSync(join(process.cwd(), "lib/billing/fokus-belajar.ts"), "utf8");
+    expect(sumber).not.toMatch(/akses-ujian|getTipeAkses|@\/lib\/db\/prisma/);
+  });
+
   it("opsi gagal dihitung: dibuka dan galat dicatat di log (tidak melempar)", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     m.hitungOpsi.mockRejectedValue(new Error("DB putus"));
     await expect(hitungFokusBelajarDibuka(ATTEMPT)).resolves.toBe(true);
     expect(vi.mocked(console.error).mock.calls.some((c) => String(c[0]).includes("fokus-belajar"))).toBe(true);
-  });
-
-  it("siswa tidak ditemukan atau pemeriksaan akses gagal: dibuka (tidak menghukum siswa karena gangguan)", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    m.studentFindUnique.mockResolvedValue(null);
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, saldoKurang())).resolves.toBe(true);
-
-    m.studentFindUnique.mockResolvedValue({ id: "s-1" });
-    m.getTipeAkses.mockRejectedValue(new Error("DB putus"));
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, saldoKurang())).resolves.toBe(true);
-    expect(vi.mocked(console.error).mock.calls.some((c) => String(c[0]).includes("akses sekolah"))).toBe(true);
   });
 });

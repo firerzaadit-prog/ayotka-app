@@ -79,7 +79,7 @@ export type OpsiLaSusulan =
  * masih ada, atau saldo cukup untuk satu analisis. Tanpa jatah dan tanpa saldo, kedua kartu tidak ditampilkan.
  * Opsi yang tidak diketahui (null/undefined: server gagal menghitungnya) dianggap terbuka, supaya gangguan sesaat tidak
  * menyembunyikan fitur dari siswa yang berhak; yang tertutup salah hanya mengurangi satu bagian halaman, bukan nilai.
- * Akses yang ditanggung sekolah ditambahkan di server (lib/billing/fokus-belajar.ts), karena butuh data siswa.
+ * Siswa sekolah mengikuti aturan yang sama (tanpa pengecualian), karena pemroses analisis memakai jatah/saldo mereka juga.
  */
 export function bisaLihatFokusBelajar(opsi: OpsiLaSusulan | null | undefined): boolean {
   if (!opsi) return true;
