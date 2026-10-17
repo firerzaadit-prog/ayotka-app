@@ -74,18 +74,20 @@ export type OpsiLaSusulan =
 
 /**
  * "Prioritas belajar" dan "Kekuatanmu" (daftar indikator terlemah dan terkuat di halaman hasil dan rapor PDF siswa)
- * termasuk fitur berbayar (permintaan user, 16 Okt 2026): terbuka hanya bila siswa bisa memakai Learning Analytics untuk
- * percobaan ini, yaitu analisisnya sudah ada/sedang diproses (sudah dibayar), Try Out Nasional (dibundel), jatah paket
- * masih ada, atau saldo cukup untuk satu analisis. Tanpa jatah dan tanpa saldo, kedua kartu tidak ditampilkan.
- * Opsi yang tidak diketahui (null/undefined: server gagal menghitungnya) dianggap terbuka, supaya gangguan sesaat tidak
- * menyembunyikan fitur dari siswa yang berhak; yang tertutup salah hanya mengurangi satu bagian halaman, bukan nilai.
- * Siswa sekolah mengikuti aturan yang sama (tanpa pengecualian), karena pemroses analisis memakai jatah/saldo mereka juga.
+ * adalah bagian dari fitur berbayar Learning Analytics (permintaan user, 16 dan 17 Okt 2026): tampil HANYA bila siswa
+ * sudah MENGAKTIFKAN Learning Analytics untuk percobaan ini, artinya analisisnya sudah ada atau sedang diproses (jatah
+ * atau saldo sudah terpakai untuk itu), atau Try Out Nasional (Learning Analytics dibundel). Punya jatah atau saldo saja
+ * TIDAK cukup: sebelum siswa menekan "Lakukan Learning Analytics" (opsi masih `tersedia`), kedua kartu tersembunyi,
+ * apa pun jatah dan saldonya. Siswa sekolah mengikuti aturan yang sama, karena pemroses analisis memakai jatah/saldo
+ * mereka juga.
+ *
+ * Opsi yang tidak diketahui (null/undefined: server gagal menghitungnya) dianggap TERTUTUP: tidak bisa dipastikan
+ * Learning Analytics-nya aktif, dan yang tertutup salah hanya mengurangi satu bagian halaman, bukan nilai.
  */
 export function bisaLihatFokusBelajar(opsi: OpsiLaSusulan | null | undefined): boolean {
-  if (!opsi) return true;
-  if (!opsi.tersedia) return opsi.alasan !== "belum_selesai";
-  if (opsi.pendanaan === "kuota") return !opsi.batasTercapai;
-  return opsi.cukup;
+  if (!opsi) return false;
+  if (opsi.tersedia) return false;
+  return opsi.alasan !== "belum_selesai";
 }
 
 export function putuskanLearningAnalytics(input: {

@@ -32,61 +32,74 @@ const saldo = (o: Partial<Extract<OpsiLaSusulan, { pendanaan: "saldo" }>> = {}):
 });
 const saldoKurang = (o: Partial<Extract<OpsiLaSusulan, { pendanaan: "saldo" }>> = {}) => saldo({ saldo: 1000, cukup: false, kurang: 4500, ...o });
 
-describe("bisaLihatFokusBelajar (aturan: ada jatah atau saldo Learning Analytics)", () => {
+// Aturan pemilik (16 dan 17 Okt 2026): kedua kartu fitur berbayar ini tampil HANYA bila Learning Analytics sudah
+// DIAKTIFKAN untuk percobaan ini. Punya jatah atau saldo saja tidak cukup.
+describe("bisaLihatFokusBelajar (aturan: Learning Analytics sudah diaktifkan)", () => {
   it.each<[string, OpsiLaSusulan | null | undefined, boolean]>([
-    ["opsi tidak diketahui (server gagal menghitung): dibuka agar gangguan sesaat tidak menyembunyikan fitur", null, true],
-    ["opsi tidak ada pada respons lama: dibuka", undefined, true],
-    ["analisis sudah ada (sudah dibayar): dibuka", { tersedia: false, alasan: "sudah_ada" }, true],
-    ["analisis sedang diproses (sudah dipesan): dibuka", { tersedia: false, alasan: "sedang_diproses" }, true],
-    ["Try Out Nasional (LA dibundel): dibuka", { tersedia: false, alasan: "nasional" }, true],
-    ["percobaan belum selesai: tidak ada yang dibuka", { tersedia: false, alasan: "belum_selesai" }, false],
-    ["jatah paket masih ada: dibuka", kuota(), true],
-    ["jatah ada tetapi batas analisis per mapel sudah tercapai: tertutup", kuota({ batasTercapai: true }), false],
-    ["saldo cukup untuk satu analisis: dibuka", saldo(), true],
-    ["saldo pas sebesar harga: dibuka", saldo({ saldo: 5500, kurang: 0 }), true],
-    ["saldo kurang: tertutup", saldoKurang(), false],
+    ["analisis sudah ada: dibuka", { tersedia: false, alasan: "sudah_ada" }, true],
+    ["analisis sedang diproses (baru diaktifkan): dibuka", { tersedia: false, alasan: "sedang_diproses" }, true],
+    ["Try Out Nasional (Learning Analytics dibundel): dibuka", { tersedia: false, alasan: "nasional" }, true],
+    ["percobaan belum selesai: tertutup", { tersedia: false, alasan: "belum_selesai" }, false],
+    ["opsi tidak diketahui (server gagal menghitung): tertutup, tidak bisa dipastikan aktif", null, false],
+    ["opsi tidak ada pada respons lama: tertutup", undefined, false],
+    // Kasus yang dilaporkan pemilik 17 Okt: punya jatah tetapi belum menekan "Lakukan Learning Analytics"
+    ["jatah paket masih ada tetapi BELUM diaktifkan: tertutup", kuota(), false],
+    ["jatah ada, batas per mapel tercapai, belum diaktifkan: tertutup", kuota({ batasTercapai: true }), false],
+    ["saldo cukup tetapi BELUM diaktifkan: tertutup", saldo(), false],
+    ["saldo pas sebesar harga tetapi belum diaktifkan: tertutup", saldo({ saldo: 5500, kurang: 0 }), false],
+    ["saldo kurang dan belum diaktifkan: tertutup", saldoKurang(), false],
     ["tanpa jatah dan tanpa saldo (0): tertutup", saldoKurang({ saldo: 0, kurang: 5500 }), false],
-    ["saldo kurang dan tidak bisa beli paket (ditanggung sekolah): tertutup oleh aturan murni", saldoKurang({ bisaBeliPaket: false }), false],
-    ["saldo kurang dan bisa beli paket: tertutup (jalan keluarnya membeli paket/isi saldo)", saldoKurang({ bisaBeliPaket: true }), false],
+    ["siswa sekolah bersaldo 0 (tidak bisa beli paket): tertutup", saldoKurang({ saldo: 0, kurang: 5000, bisaBeliPaket: false }), false],
   ])("%s", (_nama, opsi, harapan) => {
     expect(bisaLihatFokusBelajar(opsi)).toBe(harapan);
   });
 });
 
 describe("hitungFokusBelajarDibuka (server)", () => {
-  const ATTEMPT = { id: "att-1", studentId: "s-1", mulaiAt: new Date("2026-10-16T01:00:00Z") } as never;
+  const ATTEMPT = {
+    id: "att-1",
+    studentId: "s-1",
+    status: "selesai",
+    analisisAiDiminta: false,
+    mulaiAt: new Date("2026-10-16T01:00:00Z"),
+  };
+  const attempt = (o: Record<string, unknown> = {}) => ({ ...ATTEMPT, ...o }) as never;
 
   beforeEach(() => {
     vi.resetAllMocks();
   });
 
   it("opsi yang diteruskan dipakai apa adanya, tanpa dihitung ulang", async () => {
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, saldo())).resolves.toBe(true);
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, kuota())).resolves.toBe(true);
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, null)).resolves.toBe(true);
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, saldoKurang())).resolves.toBe(false);
+    await expect(hitungFokusBelajarDibuka(attempt(), { tersedia: false, alasan: "sudah_ada" })).resolves.toBe(true);
+    await expect(hitungFokusBelajarDibuka(attempt(), { tersedia: false, alasan: "sedang_diproses" })).resolves.toBe(true);
+    await expect(hitungFokusBelajarDibuka(attempt(), saldo())).resolves.toBe(false);
+    await expect(hitungFokusBelajarDibuka(attempt(), kuota())).resolves.toBe(false);
+    await expect(hitungFokusBelajarDibuka(attempt(), null)).resolves.toBe(false);
     expect(m.hitungOpsi).not.toHaveBeenCalled();
   });
 
-  it("tanpa jatah dan saldo: tertutup, termasuk untuk siswa sekolah (opsi LA sama persis dengan yang dilihat kartu LA)", async () => {
-    // Bentuk opsi untuk siswa sekolah bersaldo 0: kartu LA menagih Rp 5.000 dan menawarkan "Isi saldo" (bisaBeliPaket
-    // false karena kursi sekolah menanggung akses). Kartu fokus tidak boleh terbuka selama kartu LA itu masih menagih.
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, saldoKurang({ saldo: 0, harga: 5000, kurang: 5000, bisaBeliPaket: false }))).resolves.toBe(false);
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, kuota({ batasTercapai: true }))).resolves.toBe(false);
+  it("punya jatah atau saldo tetapi belum mengaktifkan Learning Analytics: tertutup, juga untuk siswa sekolah", async () => {
+    await expect(hitungFokusBelajarDibuka(attempt(), kuota({ kuotaSisa: 1 }))).resolves.toBe(false);
+    await expect(hitungFokusBelajarDibuka(attempt(), saldo({ saldo: 100000, kurang: 0 }))).resolves.toBe(false);
+    await expect(hitungFokusBelajarDibuka(attempt(), saldoKurang({ saldo: 0, kurang: 5000, bisaBeliPaket: false }))).resolves.toBe(false);
   });
 
-  it("siswa sekolah yang analisisnya sudah ada atau sedang diproses: dibuka", async () => {
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, { tersedia: false, alasan: "sudah_ada" })).resolves.toBe(true);
-    await expect(hitungFokusBelajarDibuka(ATTEMPT, { tersedia: false, alasan: "sedang_diproses" })).resolves.toBe(true);
+  it("diminta saat ujian dimulai tetapi analisisnya belum masuk antrean: sudah dianggap aktif", async () => {
+    await expect(hitungFokusBelajarDibuka(attempt({ analisisAiDiminta: true }), saldo())).resolves.toBe(true);
+    await expect(hitungFokusBelajarDibuka(attempt({ analisisAiDiminta: true, status: "kedaluwarsa" }), kuota())).resolves.toBe(true);
+  });
+
+  it("diminta tetapi percobaan belum selesai: tertutup", async () => {
+    await expect(hitungFokusBelajarDibuka(attempt({ analisisAiDiminta: true, status: "berjalan" }), { tersedia: false, alasan: "belum_selesai" })).resolves.toBe(false);
   });
 
   it("opsi tidak diteruskan: dihitung dari percobaan itu lalu dipakai", async () => {
-    m.hitungOpsi.mockResolvedValue(saldo());
-    await expect(hitungFokusBelajarDibuka(ATTEMPT)).resolves.toBe(true);
-    expect(m.hitungOpsi).toHaveBeenCalledWith(ATTEMPT);
+    m.hitungOpsi.mockResolvedValue({ tersedia: false, alasan: "sudah_ada" });
+    await expect(hitungFokusBelajarDibuka(attempt())).resolves.toBe(true);
+    expect(m.hitungOpsi).toHaveBeenCalledWith(attempt());
 
     m.hitungOpsi.mockResolvedValue(saldoKurang());
-    await expect(hitungFokusBelajarDibuka(ATTEMPT)).resolves.toBe(false);
+    await expect(hitungFokusBelajarDibuka(attempt())).resolves.toBe(false);
   });
 
   it("penjaga: aturan tidak menanyakan tipe akses siswa (tidak ada pengecualian sekolah/langganan yang membuka kartu)", () => {
@@ -94,10 +107,16 @@ describe("hitungFokusBelajarDibuka (server)", () => {
     expect(sumber).not.toMatch(/akses-ujian|getTipeAkses|@\/lib\/db\/prisma/);
   });
 
-  it("opsi gagal dihitung: dibuka dan galat dicatat di log (tidak melempar)", async () => {
+  it("opsi gagal dihitung: tertutup dan galat dicatat di log (tidak melempar)", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     m.hitungOpsi.mockRejectedValue(new Error("DB putus"));
-    await expect(hitungFokusBelajarDibuka(ATTEMPT)).resolves.toBe(true);
+    await expect(hitungFokusBelajarDibuka(attempt())).resolves.toBe(false);
     expect(vi.mocked(console.error).mock.calls.some((c) => String(c[0]).includes("fokus-belajar"))).toBe(true);
+  });
+
+  it("opsi gagal dihitung tetapi Learning Analytics diminta saat ujian: tetap terbuka", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    m.hitungOpsi.mockRejectedValue(new Error("DB putus"));
+    await expect(hitungFokusBelajarDibuka(attempt({ analisisAiDiminta: true }))).resolves.toBe(true);
   });
 });

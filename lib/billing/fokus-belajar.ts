@@ -5,15 +5,13 @@ import { bisaLihatFokusBelajar, type OpsiLaSusulan } from "@/lib/billing/learnin
 
 /**
  * Apakah "Prioritas belajar" dan "Kekuatanmu" boleh tampil untuk percobaan ini (halaman hasil dan rapor PDF siswa).
- * Aturannya satu-satunya di bisaLihatFokusBelajar: terbuka bila Learning Analytics AKTIF untuk percobaan ini (analisisnya
- * sudah ada/sedang diproses, Try Out Nasional, jatah paket masih ada, atau saldo cukup), selain itu tertutup - sama persis
- * dengan kartu Learning Analytics di halaman hasil. Siswa sekolah TIDAK diberi pengecualian: pemroses analisis
- * (lib/ai/queue-worker.ts) tidak membedakan mereka - jatah paket dulu, saldo sesudahnya, dan dilewati bila saldo kurang -
- * sehingga kartu LA menagih saldo mereka juga, dan kartu fokus harus ikut tertutup selama LA belum aktif.
+ * Terbuka hanya bila Learning Analytics sudah DIAKTIFKAN siswa untuk percobaan ini (aturan di bisaLihatFokusBelajar:
+ * analisis sudah ada/sedang diproses, atau Try Out Nasional yang dibundel), atau siswa memintanya saat memulai ujian
+ * (`analisisAiDiminta`) dan analisisnya baru akan masuk antrean. Punya jatah atau saldo belum cukup. Siswa sekolah tidak
+ * mendapat pengecualian: pemroses analisis (lib/ai/queue-worker.ts) tidak membedakan mereka.
  *
  * `opsi` boleh diteruskan bila pemanggil sudah menghitungnya (rute hasil), supaya tidak dihitung dua kali; tanpa itu
- * dihitung di sini. Hanya MEMBACA. Gagal menghitung dianggap terbuka (lihat bisaLihatFokusBelajar): gangguan sesaat
- * tidak boleh menyembunyikan fitur dari siswa yang berhak.
+ * dihitung di sini. Hanya MEMBACA. Gagal menghitung dianggap tertutup (lihat bisaLihatFokusBelajar).
  */
 export async function hitungFokusBelajarDibuka(attempt: Attempt, opsi?: OpsiLaSusulan | null): Promise<boolean> {
   let opsiAkhir = opsi;
@@ -23,5 +21,8 @@ export async function hitungFokusBelajarDibuka(attempt: Attempt, opsi?: OpsiLaSu
       return null;
     });
   }
-  return bisaLihatFokusBelajar(opsiAkhir);
+  if (bisaLihatFokusBelajar(opsiAkhir)) return true;
+  // Diminta saat ujian dimulai (jatah/saldo sudah dipastikan saat itu) tetapi analisisnya belum masuk antrean: sudah aktif.
+  const selesai = attempt.status === "selesai" || attempt.status === "kedaluwarsa";
+  return selesai && attempt.analisisAiDiminta === true;
 }
