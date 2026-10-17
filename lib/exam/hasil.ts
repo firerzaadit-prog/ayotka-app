@@ -11,6 +11,7 @@ import { hitungLaporanSiswa } from "@/lib/indikator/daya-serap";
 import { namaElemenTampil } from "@/lib/content/label-elemen";
 import { bangunHierarkiKompetensi } from "@/lib/exam/hierarki-kompetensi";
 import { urutanHierarkiResmi } from "@/lib/indikator/hierarki-resmi";
+import { hierarkiIndikator, jumlahTingkatHierarki } from "@/lib/indikator/master";
 
 /**
  * Tiket 5.9: ID separuh disamarkan untuk watermark rapor PDF (halaman web tidak lagi memakai watermark sejak 12 Okt
@@ -39,6 +40,15 @@ export async function buildHasil(attempt: Attempt) {
             categories: { orderBy: { urutan: "asc" } },
             indikatorResmi: true,
             stimulus: true,
+            kompetensi: {
+              include: {
+                elemen: {
+                  include: {
+                    subject: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -82,6 +92,30 @@ export async function buildHasil(attempt: Attempt) {
       : q.options;
     const orderedStatements = shuffleWithSeed(q.statements, `${attempt.id}:baris:${q.id}`);
 
+    const mapelNama = q.indikatorResmi?.namaMapel ?? q.kompetensi?.elemen?.subject?.nama ?? pkg.nama;
+    const jmlTingkat = jumlahTingkatHierarki(mapelNama);
+    let hierarkiItems: { label: string; nilai: string }[] = [];
+
+    if (q.indikatorResmi) {
+      const h = hierarkiIndikator(q.indikatorResmi);
+      hierarkiItems = h.label.map((lbl: string, idx: number) => ({ label: lbl, nilai: h.nilai[idx] ?? "-" }));
+    } else if (q.kompetensi) {
+      if (jmlTingkat === 4) {
+        hierarkiItems = [
+          { label: "Elemen", nilai: q.kompetensi.elemen?.nama ?? "-" },
+          { label: "Subelemen", nilai: q.kompetensi.subElemen ?? "-" },
+          { label: "Kompetensi", nilai: q.kompetensi.deskripsi ?? "-" },
+          { label: "Indikator", nilai: q.indikatorTeks ?? "-" },
+        ];
+      } else {
+        hierarkiItems = [
+          { label: "Kompetensi", nilai: q.kompetensi.elemen?.nama ?? "-" },
+          { label: "Subkompetensi", nilai: q.kompetensi.subElemen ?? "-" },
+          { label: "Indikator", nilai: q.indikatorTeks ?? q.kompetensi.deskripsi ?? "-" },
+        ];
+      }
+    }
+
     return {
       questionId: a.questionId,
       format: q.format,
@@ -99,6 +133,14 @@ export async function buildHasil(attempt: Attempt) {
       skor: a.skor,
       skorMaks: a.skorMaks,
       pembahasan: q.pembahasan,
+      tingkatKesulitan: q.tingkatKesulitan,
+      kompetensiNama: q.kompetensi?.elemen?.nama ?? q.kompetensi?.deskripsi ?? q.indikatorResmi?.kompetensi ?? "-",
+      paketNama: pkg.nama,
+      hierarki: hierarkiItems.length > 0 ? {
+        namaMapel: mapelNama,
+        jumlahTingkat: jmlTingkat,
+        items: hierarkiItems,
+      } : null,
       categories: q.categories.map((c) => ({ id: c.id, label: c.label })),
       options: orderedOptions.map((o, idx) => ({
         id: o.id,

@@ -9,10 +9,24 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Pagination, DEFAULT_PAGE_SIZE } from "@/components/ui/pagination";
 
-const FORMAT_LABEL: Record<string, string> = {
-  pg: "PG",
-  pg_kompleks: "PG Kompleks",
-  pg_kategori: "PG Kategori",
+const KESULITAN_LABEL: Record<string, string> = {
+  mudah: "Rendah",
+  rendah: "Rendah",
+  sedang: "Sedang",
+  sulit: "Tinggi",
+  tinggi: "Tinggi",
+};
+
+const FORMAT_KETERANGAN: Record<string, string> = {
+  pg: "Pilihan Ganda (Pilih 1 kunci jawaban benar)",
+  pg_kompleks: "Pilihan Ganda Kompleks (Bisa lebih dari 1 kunci jawaban benar)",
+  pg_kategori: "Pilihan Ganda Kategori (Tentukan kategori tiap pernyataan)",
+};
+
+export type HierarkiIndikatorSoal = {
+  namaMapel: string;
+  jumlahTingkat: 3 | 4;
+  items: { label: string; nilai: string }[];
 };
 
 export type PerSoal = {
@@ -32,6 +46,10 @@ export type PerSoal = {
   options?: { id: string; label: string; teks: string; isCorrect: boolean }[];
   statements?: { id: string; teks: string; correctLabel: string }[];
   categories?: { id: string; label: string }[];
+  tingkatKesulitan?: string | null;
+  kompetensiNama?: string | null;
+  paketNama?: string | null;
+  hierarki?: HierarkiIndikatorSoal | null;
 };
 
 /** Tanya Tutor AI di halaman pembahasan siswa. Tidak diberikan = tidak ada tombol (halaman admin, dsb). */
@@ -124,112 +142,249 @@ export function RincianJawaban({
 
   return (
     <div>
-      <div className="flex flex-col gap-3">
-        {pageSoal.map((s, i) => (
-          <Card key={s.questionId}>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-medium text-slate-500">
-                Soal {(page - 1) * pageSize + i + 1} · {FORMAT_LABEL[s.format] ?? s.format}
-              </span>
-              <Badge variant={(s.skor ?? 0) >= s.skorMaks ? "success" : "danger"}>
-                {(s.skor ?? 0) >= s.skorMaks ? "Benar" : "Salah"}
-              </Badge>
-            </div>
-            {s.stimulus && (
-              <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-1.5">
-                {s.stimulus.judul && (
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700">
-                    <FileText className="h-4 w-4 text-indigo-600" />
-                    <span>Stimulus: {s.stimulus.judul}</span>
+      <div className="flex flex-col gap-6">
+        {pageSoal.map((s, i) => {
+          const nomorSoal = (page - 1) * pageSize + i + 1;
+          const benar = (s.skor ?? 0) >= s.skorMaks;
+          return (
+            <div
+              key={s.questionId}
+              className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xs transition-shadow hover:shadow-md"
+            >
+              {/* Header Banner ala soal.ayotka.id */}
+              <div className="flex flex-col gap-2.5 border-b border-slate-800 bg-slate-900 p-4 text-white sm:flex-row sm:items-center sm:justify-between sm:p-5">
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="flex h-7 min-w-7 items-center justify-center rounded-lg bg-indigo-600 px-2 font-mono text-xs font-bold text-white shadow-xs">
+                      #{nomorSoal}
+                    </span>
+                    <span className="text-sm font-bold tracking-wide text-white">
+                      Soal #{nomorSoal}
+                    </span>
+                    <span className="rounded-md bg-white/10 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-300 ring-1 ring-white/15">
+                      {s.format === "pg" ? "PG" : s.format === "pg_kompleks" ? "PG Kompleks" : "PG Kategori"}
+                    </span>
+                    {s.tingkatKesulitan && (
+                      <span
+                        className={`rounded-md px-2 py-0.5 text-[11px] font-bold ring-1 ${
+                          s.tingkatKesulitan === "mudah" || s.tingkatKesulitan === "rendah"
+                            ? "bg-emerald-500/20 text-emerald-300 ring-emerald-500/30"
+                            : s.tingkatKesulitan === "sedang"
+                            ? "bg-amber-500/20 text-amber-300 ring-amber-500/30"
+                            : "bg-rose-500/20 text-rose-300 ring-rose-500/30"
+                        }`}
+                      >
+                        {KESULITAN_LABEL[s.tingkatKesulitan] ?? s.tingkatKesulitan}
+                      </span>
+                    )}
                   </div>
-                )}
-                <div className="rounded-lg border border-slate-200/80 bg-white p-3 text-xs text-slate-700 font-sans leading-relaxed whitespace-pre-wrap overflow-x-auto">
-                  <RichText text={s.stimulus.konten} />
+                  <p className="text-xs text-slate-400">
+                    {s.paketNama ? `${s.paketNama} · ` : ""}{s.kompetensiNama ?? s.hierarki?.items[0]?.nilai ?? "Kompetensi"}
+                  </p>
+                </div>
+                <div className="shrink-0">
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 ${
+                      benar
+                        ? "border border-emerald-400/20 bg-emerald-500/20 text-emerald-300 ring-emerald-500/30"
+                        : "border border-rose-400/20 bg-rose-500/20 text-rose-300 ring-rose-500/30"
+                    }`}
+                  >
+                    {benar ? "✓ Benar" : "✗ Salah"}
+                  </span>
                 </div>
               </div>
-            )}
-            <div className="mb-2 text-sm">
-              <RichText text={s.teks} />
-            </div>
-            {s.media && (
-              <MediaIlustrasi media={s.media} className="mb-3" />
-            )}
-            {s.options && s.options.length > 0 && (() => {
-              const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
-              const selectedId = jawaban?.option_id;
-              const selectedIds = new Set(jawaban?.option_ids ?? []);
-              return (
-                <ul className="mb-2 flex flex-col gap-1 text-sm">
-                  {s.options.map((o) => {
-                    const isSelected = s.format === "pg" ? o.id === selectedId : selectedIds.has(o.id);
-                    const isCorrect = o.isCorrect;
-                    return (
-                      <li
-                        key={o.id}
-                        className={[
-                          "flex items-start gap-2 rounded-lg px-2 py-1",
-                          isCorrect && isSelected ? "bg-emerald-50 font-medium text-emerald-700" :
-                          isCorrect ? "bg-emerald-50 font-medium text-emerald-700" :
-                          isSelected ? "bg-rose-50 font-medium text-rose-600" :
-                          "text-slate-500"
-                        ].filter(Boolean).join(" ")}
-                      >
-                        <span className="shrink-0">{o.label}.</span>
-                        <span className="flex-1"><RichText text={o.teks} /></span>
-                        <span className="shrink-0 text-xs">
-                          {isCorrect && isSelected && "✓ Jawaban (benar)"}
-                          {isCorrect && !isSelected && "✓ Kunci"}
-                          {!isCorrect && isSelected && "✗ Jawaban"}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              );
-            })()}
-            {s.statements && s.statements.length > 0 && (() => {
-              const jawaban = s.jawabanJson as Record<string, string> | null;
-              return (
-                <ul className="mb-2 flex flex-col gap-1 text-sm">
-                  {s.statements.map((st) => {
-                    const siswaJawab = s.categories?.find((c) => c.id === (jawaban?.[st.id]))?.label ?? null;
-                    const benar = siswaJawab === st.correctLabel;
-                    return (
-                      <li key={st.id} className="rounded-lg px-2 py-1">
-                        <span className="text-slate-600"><RichText text={st.teks} /></span>
-                        <div className="mt-1 flex gap-4 text-xs">
-                          <span className={siswaJawab ? (benar ? "font-medium text-emerald-700" : "font-medium text-rose-600") : "text-slate-400"}>
-                            Jawaban: {siswaJawab ?? "—"}{!benar && siswaJawab ? " ✗" : benar ? " ✓" : ""}
-                          </span>
-                          {!benar && <span className="font-medium text-emerald-700">Kunci: {st.correctLabel} ✓</span>}
+
+              {/* Body Konten Soal */}
+              <div className="flex flex-col gap-5 p-5 sm:p-6">
+                {/* 1. Hierarki Indikator Box */}
+                {s.hierarki && s.hierarki.items.length > 0 && (
+                  <div className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50/60 via-white to-indigo-50/30 p-4 sm:p-5 shadow-2xs">
+                    <div className="flex items-center justify-between gap-2 border-b border-sky-100 pb-3">
+                      <div className="flex items-center gap-2 text-sm font-bold text-sky-950">
+                        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-sky-600" stroke="currentColor" strokeWidth="2">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" />
+                        </svg>
+                        <span>Hierarki Indikator</span>
+                      </div>
+                      <span className="rounded-full border border-sky-200 bg-sky-100/70 px-3 py-0.5 font-mono text-[11px] font-bold text-sky-800">
+                        {s.hierarki.namaMapel} ({s.hierarki.jumlahTingkat} Tingkat)
+                      </span>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2">
+                      {s.hierarki.items.map((item, idx) => (
+                        <div key={idx} className="grid grid-cols-[110px_1fr] sm:grid-cols-[140px_1fr] gap-2 text-xs">
+                          <span className="font-medium text-slate-500">{item.label}:</span>
+                          <span className="font-bold text-slate-900 leading-relaxed">{item.nilai}</span>
                         </div>
-                      </li>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. TEKS SOAL */}
+                <div>
+                  <p className="mb-2 font-mono text-xs font-bold uppercase tracking-wider text-slate-400">TEKS SOAL</p>
+                  <div className="rounded-2xl border border-slate-200/90 bg-slate-50/40 p-4 sm:p-5 text-sm leading-relaxed text-slate-800">
+                    {s.stimulus && (
+                      <div className="mb-4 space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/30 p-3.5">
+                        {s.stimulus.judul && (
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900">
+                            <FileText className="h-4 w-4 text-indigo-600" />
+                            <span>Stimulus: {s.stimulus.judul}</span>
+                          </div>
+                        )}
+                        <div className="overflow-x-auto whitespace-pre-wrap rounded-lg border border-indigo-100/70 bg-white p-3 font-sans text-xs leading-relaxed text-slate-700 shadow-2xs">
+                          <RichText text={s.stimulus.konten} />
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <RichText text={s.teks} />
+                    </div>
+                    {s.media && (
+                      <MediaIlustrasi media={s.media} className="mt-3" />
+                    )}
+                  </div>
+                </div>
+
+                {/* 3. PILIHAN JAWABAN */}
+                <div>
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <p className="font-mono text-xs font-bold uppercase tracking-wider text-slate-400">PILIHAN JAWABAN</p>
+                    <span className="rounded-full border border-emerald-200/80 bg-emerald-50 px-3 py-0.5 text-xs font-semibold text-emerald-800">
+                      {FORMAT_KETERANGAN[s.format] ?? "Pilihan Ganda"}
+                    </span>
+                  </div>
+
+                  {s.options && s.options.length > 0 && (() => {
+                    const jawaban = s.jawabanJson as { option_id?: string; option_ids?: string[] } | null;
+                    const selectedId = jawaban?.option_id;
+                    const selectedIds = new Set(jawaban?.option_ids ?? []);
+                    return (
+                      <ul className="flex flex-col gap-2.5 text-sm">
+                        {s.options.map((o) => {
+                          const isSelected = s.format === "pg" ? o.id === selectedId : selectedIds.has(o.id);
+                          const isCorrect = o.isCorrect;
+                          return (
+                            <li
+                              key={o.id}
+                              className={[
+                                "flex items-start gap-3 rounded-xl border p-3.5 transition-all",
+                                isCorrect
+                                  ? "border-emerald-400 bg-emerald-50/40 text-emerald-950 ring-1 ring-emerald-500/20"
+                                  : isSelected
+                                  ? "border-rose-300 bg-rose-50/40 text-rose-950 ring-1 ring-rose-500/20"
+                                  : "border-slate-200/90 bg-white text-slate-700 hover:border-slate-300"
+                              ].join(" ")}
+                            >
+                              <span
+                                className={[
+                                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs shadow-xs",
+                                  isCorrect
+                                    ? "bg-emerald-600 text-white"
+                                    : isSelected
+                                    ? "bg-rose-600 text-white"
+                                    : "bg-slate-100 text-slate-600"
+                                ].join(" ")}
+                              >
+                                {o.label}
+                              </span>
+                              <span className="flex-1 pt-0.5 leading-relaxed font-medium">
+                                <RichText text={o.teks} />
+                              </span>
+                              <span className="shrink-0 text-xs">
+                                {isCorrect && isSelected && (
+                                  <span className="inline-flex items-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800 shadow-2xs">
+                                    ✓ Kunci · Jawabanmu (Benar)
+                                  </span>
+                                )}
+                                {isCorrect && !isSelected && (
+                                  <span className="inline-flex items-center rounded-md border border-emerald-300 bg-emerald-100 px-2 py-0.5 font-bold text-emerald-800 shadow-2xs">
+                                    ✓ Kunci
+                                  </span>
+                                )}
+                                {!isCorrect && isSelected && (
+                                  <span className="inline-flex items-center rounded-md border border-rose-300 bg-rose-100 px-2 py-0.5 font-bold text-rose-800 shadow-2xs">
+                                    ✗ Jawabanmu (Salah)
+                                  </span>
+                                )}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     );
-                  })}
-                </ul>
-              );
-            })()}
-            {s.pembahasan && (
-              <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-                <span className="font-medium">Pembahasan: </span>
-                <RichText text={s.pembahasan} />
+                  })()}
+
+                  {s.statements && s.statements.length > 0 && (() => {
+                    const jawaban = s.jawabanJson as Record<string, string> | null;
+                    return (
+                      <ul className="flex flex-col gap-2.5 text-sm">
+                        {s.statements.map((st) => {
+                          const siswaJawab = s.categories?.find((c) => c.id === (jawaban?.[st.id]))?.label ?? null;
+                          const benarBaris = siswaJawab === st.correctLabel;
+                          return (
+                            <li
+                              key={st.id}
+                              className={`flex flex-col gap-2 rounded-xl border p-3.5 ${
+                                benarBaris
+                                  ? "border-emerald-300 bg-emerald-50/30"
+                                  : "border-rose-300 bg-rose-50/30"
+                              }`}
+                            >
+                              <span className="font-medium text-slate-800 leading-relaxed">
+                                <RichText text={st.teks} />
+                              </span>
+                              <div className="flex flex-wrap items-center gap-3 text-xs">
+                                <span className={siswaJawab ? (benarBaris ? "font-bold text-emerald-700" : "font-bold text-rose-600") : "text-slate-400"}>
+                                  Jawabanmu: {siswaJawab ?? "—"}{!benarBaris && siswaJawab ? " ✗" : benarBaris ? " ✓" : ""}
+                                </span>
+                                {!benarBaris && (
+                                  <span className="font-bold text-emerald-700">Kunci: {st.correctLabel} ✓</span>
+                                )}
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    );
+                  })()}
+                </div>
+
+                {/* 4. PEMBAHASAN */}
+                {s.pembahasan && (
+                  <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-violet-50/40 p-4 sm:p-5 shadow-2xs">
+                    <div className="mb-2 flex items-center gap-2 text-indigo-950">
+                      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4 text-indigo-600" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                      </svg>
+                      <span className="font-bold text-xs uppercase tracking-wider text-indigo-900">Pembahasan</span>
+                    </div>
+                    <div className="text-xs sm:text-sm font-normal leading-relaxed text-slate-700">
+                      <RichText text={s.pembahasan} />
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Tutor AI Button */}
+                {tutor?.aktif && (
+                  <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      id={`tutor-tombol-${s.questionId}`}
+                      onClick={() => bukaTutor(s.questionId)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-xs transition hover:from-blue-700 hover:to-indigo-700"
+                    >
+                      <Bot className="h-4 w-4" aria-hidden="true" />
+                      {punyaRiwayat(s.questionId) ? "Lanjutkan chat Tutor AI" : "Tanya Tutor AI"}
+                    </button>
+                  </div>
+                )}
               </div>
-            )}
-            {tutor?.aktif && (
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  id={`tutor-tombol-${s.questionId}`}
-                  onClick={() => bukaTutor(s.questionId)}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:from-blue-700 hover:to-indigo-700"
-                >
-                  <Bot className="h-4 w-4" aria-hidden="true" />
-                  {punyaRiwayat(s.questionId) ? "Lanjutkan chat Tutor AI" : "Tanya Tutor AI"}
-                </button>
-              </div>
-            )}
-          </Card>
-        ))}
+            </div>
+          );
+        })}
       </div>
       {tutor?.aktif &&
         pernahDibuka.map((id) => {

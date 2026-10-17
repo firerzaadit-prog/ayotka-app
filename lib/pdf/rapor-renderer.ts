@@ -550,13 +550,35 @@ export async function gambarSoal(doc: PDFKit.PDFDocument, fonts: PdfFonts, s: Pe
   doc.font(fonts.bold).fontSize(fonts.sz(10));
   const lebarJudul = doc.widthOfString(judul);
   tulis(judul, X0 + 10, yKepala + 6, lebarJudul + 8, 10, COLOR.ink, true);
-  tulis(`·  ${FORMAT_LABEL[s.format] ?? s.format}`, X0 + 10 + lebarJudul + 8, yKepala + 7, 200, 8.5, COLOR.faint);
+  const kesLabel = s.tingkatKesulitan
+    ? `  ·  ${s.tingkatKesulitan === "mudah" ? "Rendah" : s.tingkatKesulitan === "sedang" ? "Sedang" : "Tinggi"}`
+    : "";
+  tulis(`·  ${FORMAT_LABEL[s.format] ?? s.format}${kesLabel}`, X0 + 10 + lebarJudul + 8, yKepala + 7, 240, 8.5, COLOR.faint);
   const teksLencana = benar ? "Benar" : "Salah";
   doc.font(fonts.bold).fontSize(fonts.sz(9));
   const lebarLencana = doc.widthOfString(teksLencana) + 16;
   drawBadge(doc, teksLencana, X0 + CW - 8 - lebarLencana, yKepala + 2.5, benar ? "success" : "danger", fonts);
   doc.x = X0;
   doc.y = yKepala + tinggiKepala + 8;
+
+  // --- hierarki indikator ---
+  if (s.hierarki && s.hierarki.items.length > 0) {
+    const hBox = 16 + s.hierarki.items.length * 12 + 6;
+    pastikanMuat(hBox + 10);
+    const yHierarki = doc.y;
+    doc.roundedRect(X0, yHierarki, CW, hBox, 5).fillAndStroke("#f0f9ff", "#bae6fd");
+    tulis("Hierarki Indikator", X0 + 10, yHierarki + 5, 150, 8.5, "#0369a1", true);
+    const mapelBadge = `${s.hierarki.namaMapel} (${s.hierarki.jumlahTingkat} Tingkat)`;
+    tulis(mapelBadge, X0 + CW - 10 - 200, yHierarki + 5.5, 200, 7.5, "#0284c7", true, "right");
+    let curY = yHierarki + 19;
+    for (const itm of s.hierarki.items) {
+      tulis(`${itm.label}:`, X0 + 10, curY, 95, 7.5, COLOR.muted, true);
+      tulis(toText(itm.nilai), X0 + 105, curY, CW - 115, 7.5, COLOR.ink);
+      curY += 12;
+    }
+    doc.x = X0;
+    doc.y = yHierarki + hBox + 8;
+  }
 
   // --- stimulus ---
   if (s.stimulus && s.stimulus.konten?.trim()) {
@@ -578,6 +600,8 @@ export async function gambarSoal(doc: PDFKit.PDFDocument, fonts: PdfFonts, s: Pe
   }
 
   // --- teks soal ---
+  tulis("Teks Soal", X0, doc.y, CW, 8, COLOR.muted, true);
+  doc.y += 11;
   doc.x = X0;
   doc.font(fonts.regular).fontSize(fonts.sz(10));
   await renderTextWithImages(doc, s.teks, { width: CW, color: COLOR.ink }, fonts);
