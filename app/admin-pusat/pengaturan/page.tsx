@@ -169,7 +169,7 @@ export default function PengaturanSistemPage() {
     }
   }
 
-  async function runTest(target: "ai" | "midtrans" | "resend" | "mailketing") {
+  async function runTest(target: "ai" | "midtrans" | "resend" | "mailketing" | "smtp") {
     setTesting(target);
     setTestResult(null);
     try {
@@ -184,6 +184,11 @@ export default function PengaturanSistemPage() {
         payload.apiKey = resendApiKey;
       } else if (target === "mailketing") {
         payload.apiKey = mailketingApiToken;
+      } else if (target === "smtp") {
+        payload.smtpHost = smtpHost;
+        payload.smtpPort = Number(smtpPort) || 587;
+        payload.smtpUser = smtpUser;
+        payload.smtpPass = smtpPass;
       }
 
       const res = await fetch("/api/admin-pusat/pengaturan/test", {
@@ -588,8 +593,14 @@ export default function PengaturanSistemPage() {
           {/* Sub-section 3: SMTP Polos */}
           <div className="pt-4 border-t border-slate-100">
             <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700 mb-3">
-              3. SMTP Server (Pengingat Tagihan & Notifikasi Langganan)
+              3. SMTP Server / Gmail (cadangan email akun baru & notifikasi)
             </h3>
+            <p className="mb-3 text-xs text-slate-500">
+              Email detail login akun admin sekolah dan dinas pendidikan dikirim lewat Resend, lalu Mailketing; SMTP ini dipakai
+              terakhir bila keduanya gagal (mis. kuota habis). Untuk Gmail: host <span className="font-mono">smtp.gmail.com</span>,
+              port 465, username = alamat Gmail lengkap, password = <strong>App Password</strong> 16 karakter (Akun Google &gt;
+              Keamanan &gt; Verifikasi 2 Langkah &gt; Sandi aplikasi), bukan password Gmail biasa. Batas Gmail sekitar 500 email per hari.
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="smtpHost">SMTP Host</Label>
@@ -647,6 +658,14 @@ export default function PengaturanSistemPage() {
               disabled={testing === "resend"}
             >
               {testing === "resend" ? "Menguji Resend..." : "🧪 Uji Koneksi Resend API"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => runTest("smtp")}
+              disabled={testing === "smtp"}
+            >
+              {testing === "smtp" ? "Mengirim email uji..." : "🧪 Kirim Email Uji (Gmail/SMTP)"}
             </Button>
             <Button onClick={() => handleSave()} disabled={saving}>
               {saving ? "Menyimpan..." : "Simpan Pengaturan Email"}

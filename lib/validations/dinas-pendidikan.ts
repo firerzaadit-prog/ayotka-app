@@ -28,6 +28,8 @@ export const dinasAdminCreateSchema = z
     instansi: z.string().trim().min(2, "Nama instansi minimal 2 karakter"),
     provinsi: provinsiOpsional.optional(),
     kabupatenKota: kabupatenKotaOpsional.optional(),
+    /// Kirim detail login ke email akun lewat SMTP (Gmail). Bawaan: ya.
+    kirimEmail: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
     if (!data.provinsi && !data.kabupatenKota) {

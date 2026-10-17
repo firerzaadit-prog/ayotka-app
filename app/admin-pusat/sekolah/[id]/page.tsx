@@ -16,6 +16,8 @@ import { PageSkeleton } from "@/components/ui/skeleton";
 import { IconUsers } from "@/components/ui/empty-state-icons";
 import { useDialog } from "@/components/ui/dialog";
 import { useResetPassword } from "@/components/admin/use-reset-password";
+import { PilihanKirimEmail, StatusEmailAkun } from "@/components/admin/status-email-akun";
+import type { HasilEmailAkun } from "@/lib/email/akun-baru";
 import { PilihStatusSekolah, PilihWilayah } from "@/components/wilayah/pilih-wilayah";
 import { labelStatusSekolah } from "@/lib/wilayah";
 
@@ -88,9 +90,10 @@ export default function SekolahDetailPage({
   const [nama, setNama] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [tempPassword, setTempPassword] = useState<{ email: string; password: string } | null>(
+  const [tempPassword, setTempPassword] = useState<{ email: string; password: string; emailLogin: HasilEmailAkun | null } | null>(
     null,
   );
+  const [kirimEmail, setKirimEmail] = useState(true);
 
   const [showEditForm, setShowEditForm] = useState(false);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
@@ -124,7 +127,7 @@ export default function SekolahDetailPage({
     const res = await fetch("/api/admin-pusat/school-admins", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ schoolId: id, email, nama }),
+      body: JSON.stringify({ schoolId: id, email, nama, kirimEmail }),
     });
     const data = await res.json();
 
@@ -134,7 +137,8 @@ export default function SekolahDetailPage({
       return;
     }
 
-    setTempPassword({ email, password: data.tempPassword });
+    setTempPassword({ email, password: data.tempPassword, emailLogin: data.emailLogin ?? null });
+    setKirimEmail(true); // mematikan pilihan berlaku untuk satu akun saja, tidak terbawa ke akun berikutnya
     setEmail("");
     setNama("");
     setShowForm(false);
@@ -399,9 +403,12 @@ export default function SekolahDetailPage({
           </p>
           <p className="mt-1 font-mono text-base">{tempPassword.password}</p>
           <p className="mt-1">
-            Sampaikan lewat jalur aman (bukan email) ke admin sekolah. Mereka wajib
-            menggantinya saat login pertama.
+            Admin sekolah wajib menggantinya saat login pertama.
           </p>
+          <StatusEmailAkun hasil={tempPassword.emailLogin} />
+          {!tempPassword.emailLogin && (
+            <p className="mt-1">Email tidak dikirim (pilihan dimatikan): sampaikan password ini lewat jalur aman.</p>
+          )}
         </Alert>
       )}
 
@@ -432,6 +439,7 @@ export default function SekolahDetailPage({
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
+          <PilihanKirimEmail id="kirimEmailAdminSekolah" checked={kirimEmail} onChange={setKirimEmail} />
           <Button type="submit" disabled={submitting} className="w-fit">
             {submitting ? "Membuat..." : "Buat akun"}
           </Button>

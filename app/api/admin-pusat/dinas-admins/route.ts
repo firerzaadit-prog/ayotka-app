@@ -6,6 +6,8 @@ import { logAudit, getClientIp } from "@/lib/audit/log";
 import { generateTempPassword } from "@/lib/utils/generate-code";
 import { dinasAdminCreateSchema } from "@/lib/validations/dinas-pendidikan";
 import { periksaPasanganWilayah } from "@/lib/wilayah";
+import { kirimEmailAkunBaru, konteksDinas } from "@/lib/email/akun-baru";
+import { asalPublik } from "@/lib/utils/asal-publik";
 
 export async function GET() {
   try {
@@ -48,8 +50,11 @@ export async function GET() {
  * Pola sama persis dengan pembuatan akun admin sekolah
  * (app/api/admin-pusat/school-admins), cuma baris profilnya masuk tabel
  * DinasAdmin (bukan SchoolUser) karena akses dinas memang lintas sekolah.
- * Password sementara HANYA dikembalikan sekali di response ini, tidak pernah
- * disimpan.
+ * Password sementara dikembalikan sekali di response ini (cadangan), tidak pernah
+ * disimpan. Detail login JUGA dikirim ke email akun (Resend, lalu Mailketing,
+ * lalu Gmail/SMTP bila diatur; lihat lib/email/akun-baru.ts) kecuali
+ * kirimEmail=false; gagal kirim tidak menggagalkan pembuatan akun, hasilnya
+ * ada di emailLogin.
  */
 export async function POST(request: Request) {
   let actor;
@@ -130,5 +135,17 @@ export async function POST(request: Request) {
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ user: { id: data.user.id, email }, tempPassword }, { status: 201 });
+  const emailLogin =
+    parsed.data.kirimEmail === false
+      ? null
+      : await kirimEmailAkunBaru({
+          peran: "dinas_pendidikan",
+          nama,
+          email,
+          passwordSementara: tempPassword,
+          konteks: konteksDinas(instansi, kabupatenKota ?? provinsi ?? ""),
+          asal: asalPublik(request),
+        });
+
+  return NextResponse.json({ user: { id: data.user.id, email }, tempPassword, emailLogin }, { status: 201 });
 }

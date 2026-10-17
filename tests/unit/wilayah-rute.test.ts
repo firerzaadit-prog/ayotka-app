@@ -42,6 +42,11 @@ vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({ auth: { admin: { createUser: m.createUser, deleteUser: m.deleteUser } } }),
 }));
 vi.mock("@/lib/utils/generate-code", () => ({ generateReadableCode: () => "KODE12", generateTempPassword: () => "Sementara#1" }));
+// Pembuatan akun mengirim email detail login; tes ini bukan tentang email, jadi pengirim ditiru (tanpa jaringan).
+vi.mock("@/lib/email/akun-baru", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/email/akun-baru")>()),
+  kirimEmailAkunBaru: vi.fn(async () => ({ tujuan: "x@example.com", terkirim: true, lewat: "resend" })),
+}));
 vi.mock("@/lib/billing/periode-sekolah", () => ({
   buatPeriode: vi.fn(),
   pilihPeriodeRujukan: vi.fn(),

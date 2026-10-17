@@ -16,6 +16,8 @@ import { useDialog } from "@/components/ui/dialog";
 import { PilihStatusSekolah, PilihWilayah } from "@/components/wilayah/pilih-wilayah";
 import { labelStatusSekolah } from "@/lib/wilayah";
 import { formatWIBDate } from "@/lib/utils/datetime";
+import { PilihanKirimEmail, StatusEmailAkun } from "@/components/admin/status-email-akun";
+import type { HasilEmailAkun } from "@/lib/email/akun-baru";
 
 type SchoolStatus = "pending_verifikasi" | "aktif" | "suspend";
 
@@ -123,7 +125,9 @@ export default function SekolahPage() {
     seatQuota?: number | null;
     adminEmail?: string | null;
     tempPassword?: string | null;
+    emailLogin?: HasilEmailAkun | null;
   } | null>(null);
+  const [kirimEmail, setKirimEmail] = useState(true);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [page, setPage] = useState(1);
@@ -159,6 +163,7 @@ export default function SekolahPage() {
       validUntil: form.validUntil || undefined,
       adminEmail: form.adminEmail || undefined,
       adminNama: form.adminNama || undefined,
+      kirimEmail,
     };
 
     const res = await fetch("/api/admin-pusat/schools", {
@@ -178,9 +183,12 @@ export default function SekolahPage() {
       kodeSekolah: data.school.kodeSekolah,
       nama: data.school.nama,
       seatQuota: data.school.seatQuota,
-      adminEmail: data.admin?.email ?? null,
-      tempPassword: data.tempPassword ?? null,
+      // Rute mengirim tempPassword: { email, password } (null bila tanpa akun admin).
+      adminEmail: data.tempPassword?.email ?? null,
+      tempPassword: data.tempPassword?.password ?? null,
+      emailLogin: data.emailLogin ?? null,
     });
+    setKirimEmail(true); // mematikan pilihan berlaku untuk satu sekolah saja, tidak terbawa ke berikutnya
     setForm(emptyForm);
     setShowForm(false);
     setRefreshKey((k) => k + 1);
@@ -235,8 +243,12 @@ export default function SekolahPage() {
                 <div>Password Sementara: <strong className="bg-white px-2 py-0.5 rounded border border-emerald-300 text-emerald-900">{createdInfo.tempPassword}</strong></div>
               </div>
               <p className="text-slate-600 italic text-[11px] pt-1">
-                *Sampaikan email dan password sementara ini kepada pihak Admin Sekolah. Admin sekolah akan diminta membuat password baru saat login pertama kali.
+                *Admin sekolah akan diminta membuat password baru saat login pertama kali. Password ini tidak ditampilkan lagi, jadi catat sebagai cadangan.
               </p>
+              <StatusEmailAkun hasil={createdInfo.emailLogin} />
+              {!createdInfo.emailLogin && (
+                <p className="text-slate-700 text-[11px]">Email tidak dikirim (pilihan dimatikan): sampaikan email dan password ini kepada pihak Admin Sekolah.</p>
+              )}
             </div>
           ) : (
             <p className="text-xs text-slate-600">
@@ -387,6 +399,9 @@ export default function SekolahPage() {
             <p className="mt-2 text-xs text-slate-500">
               Jika diisi, sistem akan otomatis men-generate akun Admin Sekolah dengan password sementara untuk diberikan kepada sekolah.
             </p>
+            <div className="mt-3">
+              <PilihanKirimEmail id="kirimEmailSekolahBaru" checked={kirimEmail} onChange={setKirimEmail} />
+            </div>
           </div>
 
           <Button type="submit" disabled={submitting} className="w-fit">

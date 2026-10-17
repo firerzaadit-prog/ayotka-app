@@ -10,6 +10,8 @@ import { schoolCreateSchema } from "@/lib/validations/school";
 import { periksaPasanganWilayah, statusSekolahUntukSimpan } from "@/lib/wilayah";
 import { buatPeriode, pilihPeriodeRujukan, segeraBerakhir, sisaHariWIB, statusPeriode } from "@/lib/billing/periode-sekolah";
 import { akhirHariWIB, startOfDayWIB, tanggalWIB } from "@/lib/utils/datetime";
+import { kirimEmailAkunBaru } from "@/lib/email/akun-baru";
+import { asalPublik } from "@/lib/utils/asal-publik";
 
 export async function GET() {
   try {
@@ -86,7 +88,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const { npsn, alamat, seatQuota, validUntil, adminEmail, adminNama, provinsi, kabupatenKota, statusSekolah, ...rest } = parsed.data;
+  const { npsn, alamat, seatQuota, validUntil, adminEmail, adminNama, kirimEmail, provinsi, kabupatenKota, statusSekolah, ...rest } = parsed.data;
 
   // Provinsi dilengkapi dari kota/kabupaten (formulir lama hanya mengirim kota/kabupaten) dan pasangannya diperiksa.
   const wilayah = periksaPasanganWilayah({ provinsi, kabupatenKota });
@@ -187,7 +189,22 @@ export async function POST(request: Request) {
       ip: getClientIp(request),
     });
 
-    return NextResponse.json({ school, tempPassword: tempPasswordInfo }, { status: 201 });
+    // Detail login juga dikirim ke email admin (Resend, lalu Mailketing, lalu Gmail/SMTP bila diatur) kecuali
+    // kirimEmail=false. Gagal kirim tidak menggagalkan pembuatan sekolah: password tetap ditampilkan di layar dan
+    // hasilnya ada di emailLogin.
+    const emailLogin =
+      adminAuth && kirimEmail !== false
+        ? await kirimEmailAkunBaru({
+            peran: "admin_sekolah",
+            nama: adminNama || "",
+            email: adminAuth.email,
+            passwordSementara: adminAuth.password,
+            konteks: school.nama,
+            asal: asalPublik(request),
+          })
+        : null;
+
+    return NextResponse.json({ school, tempPassword: tempPasswordInfo, emailLogin }, { status: 201 });
   } catch (error) {
     // Sekolah gagal disimpan: akun login admin yang sudah terlanjur dibuat
     // dihapus lagi supaya emailnya bisa dipakai saat mencoba ulang.

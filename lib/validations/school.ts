@@ -53,6 +53,8 @@ const schoolBaseSchema = z.object({
     .or(z.literal("")),
   adminEmail: z.string().trim().toLowerCase().email("Format email admin tidak valid").optional().or(z.literal("")),
   adminNama: z.string().trim().min(2, "Nama admin minimal 2 karakter").optional().or(z.literal("")),
+  /// Hanya saat membuat sekolah beserta akun admin: kirim detail login ke adminEmail lewat SMTP (Gmail). Bawaan: ya.
+  kirimEmail: z.boolean().optional(),
 });
 
 export const schoolCreateSchema = schoolBaseSchema.superRefine((data, ctx) => {
@@ -71,7 +73,7 @@ export const schoolCreateSchema = schoolBaseSchema.superRefine((data, ctx) => {
 /// Mengubah data sekolah TIDAK menyentuh kuota/masa berlaku/akun admin (itu lewat periode langganan dan
 /// halaman admin sekolah); kolom itu dibuang supaya tidak bisa menimpa tabel sekolah langsung.
 export const schoolUpdateSchema = schoolBaseSchema
-  .omit({ seatQuota: true, validUntil: true, adminEmail: true, adminNama: true })
+  .omit({ seatQuota: true, validUntil: true, adminEmail: true, adminNama: true, kirimEmail: true })
   .partial()
   .extend({
     status: z.enum(["pending_verifikasi", "aktif", "suspend"]).optional(),

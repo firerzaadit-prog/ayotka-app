@@ -14,6 +14,8 @@ import { IconLink } from "@/components/ui/empty-state-icons";
 import { PilihWilayah } from "@/components/wilayah/pilih-wilayah";
 import { provinsiDariKabupatenKota } from "@/lib/wilayah";
 import { useResetPassword } from "@/components/admin/use-reset-password";
+import { PilihanKirimEmail, StatusEmailAkun } from "@/components/admin/status-email-akun";
+import type { HasilEmailAkun } from "@/lib/email/akun-baru";
 
 type DinasAdmin = {
   id: string;
@@ -44,7 +46,8 @@ export default function DinasPendidikanPage() {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [created, setCreated] = useState<{ email: string; tempPassword: string } | null>(null);
+  const [created, setCreated] = useState<{ email: string; tempPassword: string; emailLogin: HasilEmailAkun | null } | null>(null);
+  const [kirimEmail, setKirimEmail] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -74,7 +77,7 @@ export default function DinasPendidikanPage() {
     const res = await fetch("/api/admin-pusat/dinas-admins", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({ ...form, kirimEmail }),
     });
     const data = await res.json();
 
@@ -84,7 +87,8 @@ export default function DinasPendidikanPage() {
       return;
     }
 
-    setCreated({ email: form.email, tempPassword: data.tempPassword });
+    setCreated({ email: form.email, tempPassword: data.tempPassword, emailLogin: data.emailLogin ?? null });
+    setKirimEmail(true); // mematikan pilihan berlaku untuk satu akun saja, tidak terbawa ke akun berikutnya
     setForm(emptyForm);
     setShowForm(false);
     setRefreshKey((k) => k + 1);
@@ -148,9 +152,9 @@ export default function DinasPendidikanPage() {
       {created && (
         <Alert variant="success">
           Akun berhasil dibuat untuk <strong>{created.email}</strong>. Password sementara:{" "}
-          <strong className="font-mono">{created.tempPassword}</strong> — sampaikan lewat jalur
-          aman (bukan email), akun wajib ganti password saat login pertama. Password ini tidak
-          akan ditampilkan lagi.
+          <strong className="font-mono">{created.tempPassword}</strong> — akun wajib ganti password
+          saat login pertama. Password ini tidak akan ditampilkan lagi, jadi catat sebagai cadangan.
+          <StatusEmailAkun hasil={created.emailLogin} />
         </Alert>
       )}
 
@@ -212,6 +216,8 @@ export default function DinasPendidikanPage() {
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
+
+          <PilihanKirimEmail id="kirimEmailDinas" checked={kirimEmail} onChange={setKirimEmail} />
 
           <Button type="submit" disabled={submitting} className="w-fit">
             {submitting ? "Menyimpan..." : "Buat akun"}

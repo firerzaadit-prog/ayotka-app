@@ -6,19 +6,22 @@ import {
   getResolvedMidtransConfig,
   getResolvedResendConfig,
   getResolvedMailketingConfig,
+  getResolvedSmtpConfig,
 } from "@/lib/settings/app-settings";
 import { isMaskedPlaceholder } from "@/lib/security/crypto";
 import { tafsirkanHasilUjiResend } from "@/lib/email/uji-resend";
+import { kirimLewatSmtp } from "@/lib/email/mailer";
 
 export async function POST(request: NextRequest) {
+  let actor;
   try {
-    await requireRole("admin_pusat");
+    actor = await requireRole("admin_pusat");
   } catch {
     return NextResponse.json({ error: "Tidak diizinkan." }, { status: 403 });
   }
 
   const body = await request.json().catch(() => ({}));
-  const target = body.target as "ai" | "midtrans" | "resend" | "mailketing";
+  const target = body.target as "ai" | "midtrans" | "resend" | "mailketing" | "smtp";
 
   if (target === "ai") {
     let apiKey = body.apiKey as string | undefined;
@@ -145,6 +148,42 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       );
     }
+  }
+
+  if (target === "smtp") {
+    // Kirim email uji sungguhan (satu email) memakai isian di layar yang belum disimpan; kolom kosong/tersamarkan
+    // memakai pengaturan tersimpan. Penerima: alamat admin pusat yang sedang login (atau `to` bila diisi dan sah).
+    const resolved = await getResolvedSmtpConfig();
+    const host = typeof body.smtpHost === "string" && body.smtpHost.trim() ? body.smtpHost.trim() : resolved.host;
+    const port = Number(body.smtpPort) > 0 ? Number(body.smtpPort) : resolved.port;
+    const user = typeof body.smtpUser === "string" && body.smtpUser.trim() ? body.smtpUser.trim() : resolved.user;
+    const pass =
+      typeof body.smtpPass === "string" && body.smtpPass.trim() && !isMaskedPlaceholder(body.smtpPass) ? body.smtpPass.trim() : resolved.pass;
+
+    if (!host || !user || !pass) {
+      return NextResponse.json(
+        { ok: false, error: "Isian SMTP belum lengkap (host, username, dan password wajib diisi). Untuk Gmail: smtp.gmail.com, alamat Gmail, dan App Password." },
+        { status: 400 },
+      );
+    }
+
+    const to = typeof body.to === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.to.trim()) ? body.to.trim() : actor.email;
+    const hasil = await kirimLewatSmtp(
+      {
+        to,
+        subject: "Uji email AyoTKA",
+        text: "Ini email uji dari Pengaturan AyoTKA. Bila Anda menerimanya, pengiriman lewat SMTP sudah bekerja.",
+        html: "<p>Ini email uji dari Pengaturan AyoTKA.</p><p>Bila Anda menerimanya, pengiriman lewat SMTP sudah bekerja.</p>",
+      },
+      { host, port, user, pass },
+    );
+    if (hasil.ok) {
+      return NextResponse.json({
+        ok: true,
+        message: `Email uji terkirim ke ${to} lewat ${host}:${port}. Periksa kotak masuk (dan folder spam).`,
+      });
+    }
+    return NextResponse.json({ ok: false, error: hasil.error }, { status: 400 });
   }
 
   if (target === "midtrans") {

@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logAudit, getClientIp } from "@/lib/audit/log";
 import { generateTempPassword } from "@/lib/utils/generate-code";
 import { schoolAdminCreateSchema } from "@/lib/validations/school-admin";
+import { kirimEmailAkunBaru } from "@/lib/email/akun-baru";
+import { asalPublik } from "@/lib/utils/asal-publik";
 
 export async function GET(request: Request) {
   try {
@@ -28,10 +30,13 @@ export async function GET(request: Request) {
 
 /**
  * Tiket 1.5: admin pusat membuat akun admin sekolah dengan password
- * sementara acak. Password HANYA dikembalikan sekali di response ini untuk
- * disampaikan admin pusat ke sekolah lewat jalur lain (bukan email) - tidak
- * pernah disimpan di database maupun log. Akun wajib ganti password saat
- * login pertama (ditandai must_change_password, ditegakkan middleware.ts).
+ * sementara acak. Password dikembalikan sekali di response ini (cadangan untuk
+ * disampaikan admin pusat lewat jalur lain) - tidak pernah disimpan di
+ * database maupun log. Detail login JUGA dikirim ke email akun (Resend, lalu
+ * Mailketing, lalu Gmail/SMTP bila diatur; lihat lib/email/akun-baru.ts)
+ * kecuali kirimEmail=false; gagal kirim tidak menggagalkan pembuatan akun,
+ * hasilnya ada di emailLogin. Akun wajib ganti password saat login pertama
+ * (ditandai must_change_password, ditegakkan proxy.ts).
  */
 export async function POST(request: Request) {
   let actor;
@@ -101,5 +106,17 @@ export async function POST(request: Request) {
     ip: getClientIp(request),
   });
 
-  return NextResponse.json({ user, tempPassword }, { status: 201 });
+  const emailLogin =
+    parsed.data.kirimEmail === false
+      ? null
+      : await kirimEmailAkunBaru({
+          peran: "admin_sekolah",
+          nama,
+          email,
+          passwordSementara: tempPassword,
+          konteks: school.nama,
+          asal: asalPublik(request),
+        });
+
+  return NextResponse.json({ user, tempPassword, emailLogin }, { status: 201 });
 }
