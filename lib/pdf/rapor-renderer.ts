@@ -2,13 +2,16 @@ import "server-only";
 import type { buildHasil } from "@/lib/exam/hasil";
 import { latexToPlainText } from "@/lib/pdf/latex-to-text";
 import { competencyTier, COMPETENCY_TIER_HEX } from "@/lib/exam/competency-color";
-import type { LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
+import { LABEL_VONIS, type LaporanIndikatorSiswa } from "@/lib/indikator/daya-serap";
 import { CATATAN_RUJUKAN_NASIONAL } from "@/lib/indikator/sumber-nasional";
+import { bangunBarisDiuji } from "@/lib/indikator/tabel-capaian";
+import { WARNA_VONIS, formatPersen, formatSelisih, ringkasanSoal } from "@/lib/indikator/tampilan";
 import { COLOR, setupFonts, type PdfFonts } from "@/lib/pdf/pdf-umum";
-import { X0, buatPenulis, gambarDaftarFokus, gambarKelompok } from "@/lib/pdf/indikator-gambar";
+import { X0, buatPenulis, gambarDaftarFokus } from "@/lib/pdf/indikator-gambar";
 import { ambilBerkasGambar, ambilGambarRaster, siapkanMedia } from "@/lib/pdf/gambar-pdf";
 import {
   TINGGI_KEPALA,
+  WARNA_LENCANA,
   gambarBlokAnalisis,
   gambarJudulBagian,
   gambarKartuIdentitas,
@@ -295,20 +298,22 @@ function gambarFooter(doc: PDFKit.PDFDocument, fonts: PdfFonts, nomor: number, t
 }
 
 /**
- * Bagian "Daya Serap per Indikator" (standar Kemendikdasmen) di rapor siswa. Seluruh penggambaran kelompok dan daftar
- * dipakai bersama laporan sekolah (lib/pdf/indikator-gambar.ts) yang menjaga aturan gambar PDF AyoTKA.
+ * Peta Kompetensi resmi Kemendikdasmen untuk rapor siswa (sama dengan halaman web components/hasil/daya-serap-indikator.tsx):
+ * satu tabel tunggal 3 kolom (HIERARKI, SKOR KAMU, RUJUKAN NASIONAL). Baris tingkat 1 membawa vonis dibanding rerata nasional.
+ * Menggantikan tabel Peta Kompetensi lama dan tampilan kelompok terpisah.
  */
-function gambarDayaSerapIndikator(
+function gambarPetaKompetensiResmi(
   doc: PDFKit.PDFDocument,
   laporan: LaporanIndikatorSiswa,
   fonts: PdfFonts,
   contentWidth: number,
   tampilkanFokus: boolean,
 ) {
-  const { toText, tulis, pastikanMuat, dot } = buatPenulis(doc, fonts);
+  const { toText, tinggi, tulis, pastikanMuat, dot } = buatPenulis(doc, fonts);
+  const panah = fonts.unicode ? "›" : ">";
 
-  pastikanMuat(120);
-  gambarJudulBagian(doc, fonts, "Daya Serap per Indikator");
+  pastikanMuat(130);
+  gambarJudulBagian(doc, fonts, "Peta Kompetensi", "Daya Serap per Indikator");
   tulis(toText(`${laporan.mapel} ${dot} ${laporan.label.join(" > ")}`), X0, doc.y, contentWidth, 8.5, COLOR.muted);
   doc.moveDown(0.15);
   const cakupan =
@@ -328,13 +333,199 @@ function gambarDayaSerapIndikator(
   );
   doc.moveDown(0.8);
 
-  gambarKelompok(doc, fonts, contentWidth, laporan.label, laporan.kelompok);
-  // "Prioritas belajar" dan "Kekuatan" termasuk fitur berbayar: hanya digambar bila diizinkan (sama dengan halaman web).
-  if (tampilkanFokus) {
-    gambarDaftarFokus(doc, fonts, contentWidth, "Prioritas belajar", "Indikator dengan daya serap terendah: mulai remedial dari sini.", laporan.terlemah, "Semua indikator sudah dikuasai penuh.");
-    gambarDaftarFokus(doc, fonts, contentWidth, "Kekuatan", "Indikator dengan daya serap tertinggi.", laporan.terkuat, "Belum ada indikator yang menonjol.");
+  const CW = contentWidth;
+  const lebarSkor = 100;
+  const lebarNasional = 110;
+  const lebarHierarki = CW - lebarSkor - lebarNasional;
+  const xSkor = X0 + lebarHierarki;
+  const xNasional = xSkor + lebarSkor;
+  const tinggiHeader = 22;
+
+  const gambarHeader = () => {
+    const y = doc.y;
+    doc.rect(X0, y, lebarHierarki, tinggiHeader).fill("#f1f5f9");
+    doc.rect(xSkor, y, lebarSkor, tinggiHeader).fill("#e0e7ff");
+    doc.rect(xNasional, y, lebarNasional, tinggiHeader).fill("#f1f5f9");
+    tulis("HIERARKI", X0 + 8, y + 7.5, lebarHierarki - 16, 7.5, "#475569", true, "left");
+    tulis("SKOR KAMU", xSkor, y + 7.5, lebarSkor - 10, 7.5, "#3730a3", true, "right");
+    tulis("RUJUKAN NASIONAL", xNasional, y + 7.5, lebarNasional - 10, 7.5, "#475569", true, "right");
+    doc.x = X0;
+    doc.y = y + tinggiHeader;
+  };
+
+  pastikanMuat(tinggiHeader + 80);
+  gambarHeader();
+
+  const rows = bangunBarisDiuji(laporan);
+  const kelompokPerNama = new Map(laporan.kelompok.map((k) => [k.nama, k] as const));
+  const isMatematika = laporan.jumlahTingkat === 4;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!;
+    const isL1 = row.level === 1;
+    const isL2 = row.level === 2;
+    const isKompetensi = isMatematika && row.level === 3;
+    const isLeaf = isMatematika ? row.level === 4 : row.level === 3;
+
+    let hBaris: number;
+    let teksL1Nama = "";
+    let teksL1Vonis = "";
+    let warnaL1Vonis: string = COLOR.muted;
+    let teksBaris = "";
+    let hTeks = 0;
+    let indentasi = 0;
+
+    if (isL1) {
+      const kelompok = row.kelompokNama ? kelompokPerNama.get(row.kelompokNama) : undefined;
+      teksL1Nama = toText(`${laporan.label[0]}: ${row.judulTampil}`);
+      const hNama = tinggi(teksL1Nama, 9.5, lebarHierarki - 16, true);
+      if (kelompok) {
+        if (kelompok.vonis === "data_kurang") {
+          teksL1Vonis = `${LABEL_VONIS.data_kurang} ${dot} baru ${kelompok.jmlSoal} soal (minimal 3 untuk dibandingkan)`;
+          warnaL1Vonis = WARNA_VONIS.data_kurang;
+        } else {
+          const ketNas =
+            kelompok.nasional !== null
+              ? ` ${dot} rerata nasional ${formatPersen(kelompok.nasional, 1)}${kelompok.selisih !== null ? ` (${formatSelisih(kelompok.selisih)})` : ""}`
+              : ` ${dot} Tanpa pembanding nasional`;
+          teksL1Vonis = `${LABEL_VONIS[kelompok.vonis]}${ketNas}`;
+          warnaL1Vonis = WARNA_VONIS[kelompok.vonis];
+        }
+      }
+      const hVonis = teksL1Vonis ? tinggi(teksL1Vonis, 7.5, lebarHierarki - 16, false) : 0;
+      hBaris = Math.max(30, hNama + hVonis + 12);
+    } else if (isL2) {
+      indentasi = 14;
+      teksBaris = toText(`${panah} ${row.judulTampil}`);
+      hTeks = tinggi(teksBaris, 8.5, lebarHierarki - indentasi - 8, true);
+      hBaris = Math.max(22, hTeks + 8);
+    } else if (isKompetensi) {
+      indentasi = 24;
+      teksBaris = toText(`${panah} ${row.judulTampil}`);
+      hTeks = tinggi(teksBaris, 8, lebarHierarki - indentasi - 8, false);
+      hBaris = Math.max(20, hTeks + 8);
+    } else {
+      indentasi = isMatematika ? 32 : 22;
+      teksBaris = toText(row.rawIndikatorTeks || row.judulTampil);
+      hTeks = tinggi(teksBaris, 8, lebarHierarki - indentasi - 8, false);
+      hBaris = Math.max(28, hTeks + 17);
+    }
+
+    // Pindah halaman jika tidak muat. Baris L1 harus muat bersama baris berikutnya agar judul tidak menggantung sendirian.
+    const perlu = hBaris + (isL1 ? 30 : 0);
+    if (pastikanMuat(perlu)) {
+      gambarHeader();
+    }
+
+    const y = doc.y;
+
+    // Latar belakang baris
+    if (isL1) {
+      doc.rect(X0, y, CW, hBaris).fill("#f8fafc");
+      doc.rect(xSkor, y, lebarSkor, hBaris).fill("#eef2ff");
+    } else {
+      doc.rect(xSkor, y, lebarSkor, hBaris).fill("#f8faff");
+    }
+
+    // Kolom HIERARKI
+    if (isL1) {
+      const hNama = tinggi(teksL1Nama, 9.5, lebarHierarki - 16, true);
+      tulis(teksL1Nama, X0 + 8, y + 4, lebarHierarki - 16, 9.5, COLOR.ink, true);
+      if (teksL1Vonis) {
+        tulis(teksL1Vonis, X0 + 8, y + 5 + hNama, lebarHierarki - 16, 7.5, warnaL1Vonis, true);
+      }
+    } else if (isL2) {
+      tulis(teksBaris, X0 + indentasi, y + (hBaris - hTeks) / 2, lebarHierarki - indentasi - 8, 8.5, COLOR.ink, true);
+    } else if (isKompetensi) {
+      tulis(teksBaris, X0 + indentasi, y + (hBaris - hTeks) / 2, lebarHierarki - indentasi - 8, 8, "#475569", false);
+    } else {
+      tulis("•", X0 + indentasi - 8, y + 4, 8, 8, COLOR.muted);
+      tulis(teksBaris, X0 + indentasi, y + 4, lebarHierarki - indentasi - 8, 8, COLOR.body, false);
+      if (row.dayaSerap != null) {
+        const miniW = 56;
+        const miniH = 3.5;
+        const yMini = y + hTeks + 7;
+        const warnaTier = COMPETENCY_TIER_HEX[competencyTier(row.dayaSerap)];
+        doc.roundedRect(X0 + indentasi, yMini, miniW, miniH, 1.5).fill(COLOR.cardBg);
+        doc.roundedRect(X0 + indentasi, yMini, Math.max(2, (miniW * Math.min(100, row.dayaSerap)) / 100), miniH, 1.5).fill(warnaTier);
+      }
+    }
+
+    // Kolom SKOR KAMU
+    if (row.dayaSerap != null) {
+      const tingkat = competencyTier(row.dayaSerap);
+      const warnaTingkat = COMPETENCY_TIER_HEX[tingkat];
+      const teksPersen = formatPersen(row.dayaSerap, 0);
+      doc.font(fonts.bold).fontSize(fonts.sz(7.5));
+      const lebarLencana = Math.max(34, doc.widthOfString(teksPersen) + 12);
+      const xLencana = xSkor + lebarSkor - 10 - lebarLencana;
+      const yLencana = y + 4;
+      doc.roundedRect(xLencana, yLencana, lebarLencana, 14, 3.5).fillAndStroke(WARNA_LENCANA[tingkat].bg, WARNA_LENCANA[tingkat].garis);
+      tulis(teksPersen, xLencana, yLencana + 3, lebarLencana, 7.5, warnaTingkat, true, "center");
+
+      const ketSoal = ringkasanSoal(row);
+      if (ketSoal) {
+        tulis(ketSoal, xSkor, yLencana + 15, lebarSkor - 10, 6.5, COLOR.muted, false, "right");
+      }
+    } else {
+      tulis("–", xSkor, y + (hBaris - 9) / 2, lebarSkor - 10, 9, COLOR.faint, false, "right");
+    }
+
+    // Kolom RUJUKAN NASIONAL
+    const kelompok = isL1 && row.kelompokNama ? kelompokPerNama.get(row.kelompokNama) : undefined;
+    const dibandingkan = !isL1 || kelompok?.vonis !== "data_kurang";
+    const nas = dibandingkan ? (isL1 && kelompok ? kelompok.nasional : row.nasional) : null;
+    if (nas !== null && nas !== undefined) {
+      const selisih =
+        row.dayaSerap == null
+          ? null
+          : isL1 && kelompok
+            ? kelompok.selisih
+            : row.dayaSerap - nas;
+      const teksNas = isLeaf ? `nas. ${formatPersen(nas, 1)}` : `${formatPersen(nas, 1)}`;
+      tulis(teksNas, xNasional, y + 4, lebarNasional - 10, 7.5, COLOR.ink, false, "right");
+      if (selisih !== null && selisih !== undefined) {
+        const warnaSel = selisih >= 0 ? COLOR.success : COLOR.danger;
+        tulis(formatSelisih(selisih), xNasional, y + 15, lebarNasional - 10, 6.5, warnaSel, true, "right");
+      }
+    } else {
+      tulis("–", xNasional, y + (hBaris - 9) / 2, lebarNasional - 10, 9, COLOR.faint, false, "right");
+    }
+
+    // Garis pembatas baris
+    doc.lineWidth(0.4).moveTo(X0, y + hBaris).lineTo(X0 + CW, y + hBaris).strokeColor(COLOR.border).stroke();
+    doc.x = X0;
+    doc.y = y + hBaris;
   }
+
+  doc.y += 8;
   doc.font(fonts.regular);
+
+  // Legenda warna tiga tingkat
+  gambarLegendaTingkat(doc, fonts);
+  doc.y += 2;
+
+  // Kartu Fokus
+  if (tampilkanFokus) {
+    gambarDaftarFokus(
+      doc,
+      fonts,
+      contentWidth,
+      "Prioritas belajar",
+      "Indikator dengan daya serap terendah: mulai remedial dari sini.",
+      laporan.terlemah,
+      "Semua indikator sudah dikuasai penuh.",
+    );
+    gambarDaftarFokus(
+      doc,
+      fonts,
+      contentWidth,
+      "Kekuatan",
+      "Indikator dengan daya serap tertinggi.",
+      laporan.terkuat,
+      "Belum ada indikator yang menonjol.",
+    );
+  }
 }
 
 /**
@@ -657,8 +848,14 @@ export async function renderRaporPdf(
   doc.x = X0;
   doc.y += 14;
 
-  // --- PETA KOMPETENSI ---
-  if (hasil.elemenScores.length > 0) {
+  // --- PETA KOMPETENSI (SATU TABEL TUNGGAL MENGIKUTI WEBSITE) ---
+  // Bila ada indikator resmi Kemendikdasmen, tabel hierarki resmi ditampilkan (3 kolom: HIERARKI, SKOR KAMU, RUJUKAN NASIONAL).
+  // Peta kompetensi lama hanya jadi cadangan bila tidak ada indikator resmi (sama dengan perilaku di web app/siswa/(shell)/hasil/[id]/page.tsx).
+  if (hasil.indikator) {
+    gambarPetaKompetensiResmi(doc, hasil.indikator, fonts, contentWidth, opsi.tampilkanFokus !== false);
+    doc.x = X0;
+    doc.y += 10;
+  } else if (hasil.elemenScores.length > 0) {
     const adaHierarki = Boolean(hasil.hierarkiKompetensi && hasil.hierarkiKompetensi.length > 0);
     gambarJudulBagian(doc, fonts, "Peta Kompetensi", adaHierarki ? "Capaianmu pada percobaan ini, per Elemen › Subelemen › Kompetensi." : null);
     if (adaHierarki) {
@@ -671,13 +868,6 @@ export async function renderRaporPdf(
     }
     gambarLegendaTingkat(doc, fonts);
     doc.y += 4;
-  }
-
-  // --- DAYA SERAP PER INDIKATOR (hanya bila ada soal berindikator resmi) ---
-  if (hasil.indikator) {
-    gambarDayaSerapIndikator(doc, hasil.indikator, fonts, contentWidth, opsi.tampilkanFokus !== false);
-    doc.x = X0;
-    doc.y += 10;
   }
 
   // --- ANALISIS LEARNING ANALYTICS ---

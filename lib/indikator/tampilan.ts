@@ -50,3 +50,13 @@ export const WARNA_VONIS: Record<Vonis, string> = {
   data_kurang: "#64748b",
   tanpa_pembanding: "#64748b",
 };
+
+/**
+ * Keterangan jumlah soal di bawah skor: "X/Y benar" bila semua bobot sama dan skor bulat, atau "N soal".
+ */
+export function ringkasanSoal(row: { jmlSoal?: number; skor?: number; skorMaks?: number }): string | null {
+  const { jmlSoal, skor, skorMaks } = row;
+  if (!jmlSoal || jmlSoal <= 0) return null;
+  if (skor != null && skorMaks === jmlSoal && Number.isInteger(skor)) return `${skor}/${jmlSoal} benar`;
+  return `${jmlSoal} soal`;
+}

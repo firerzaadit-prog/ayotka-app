@@ -9,9 +9,11 @@ import {
   type KelompokIndikator,
   type LaporanIndikatorSiswa,
 } from "@/lib/indikator/daya-serap";
-import { VARIAN_VONIS, bersihkanTeksIndikator, formatPersen, formatSelisih } from "@/lib/indikator/tampilan";
+import { VARIAN_VONIS, bersihkanTeksIndikator, formatPersen, formatSelisih, ringkasanSoal } from "@/lib/indikator/tampilan";
 import { bangunBarisDiuji } from "@/lib/indikator/tabel-capaian";
 import { CatatanRujukanNasional } from "@/components/hasil/catatan-rujukan-nasional";
+
+export { ringkasanSoal };
 
 /** Keterangan tambahan per baris (mis. "12 siswa") di laporan sekolah; null = tidak ada. */
 export type Tambahan<B extends BarisIndikator> = (b: B) => string | null;
@@ -214,18 +216,6 @@ function PutusSetelahGarisMiring({ teks }: { teks: string }) {
       ))}
     </>
   );
-}
-
-/**
- * Keterangan jumlah soal di bawah skor. Penilaian tidak pernah pecahan (bobot penuh bila benar, 0 bila salah), jadi bila
- * semua soal berbobot sama (skor maksimum = jumlah soal) skor sama dengan jumlah soal yang benar: "10/12 benar", seperti
- * Peta Kompetensi lama. Bila bobotnya berbeda, jumlah benar tidak bisa diturunkan dari skor, jadi cukup "N soal".
- */
-export function ringkasanSoal(row: { jmlSoal?: number; skor?: number; skorMaks?: number }): string | null {
-  const { jmlSoal, skor, skorMaks } = row;
-  if (!jmlSoal || jmlSoal <= 0) return null;
-  if (skor != null && skorMaks === jmlSoal && Number.isInteger(skor)) return `${skor}/${jmlSoal} benar`;
-  return `${jmlSoal} soal`;
 }
 
 /**

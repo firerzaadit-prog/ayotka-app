@@ -253,10 +253,15 @@ describe("PDF rapor: footer dan watermark (watermark hanya di PDF)", () => {
 });
 
 describe("PDF rapor: urutan bagian mengikuti halaman web", () => {
-  it("nilai, Peta Kompetensi, Daya Serap per Indikator, Analisis Learning Analytics, lalu Rincian Jawaban", async () => {
-    const r = await renderUji(await buatHasilContoh({ jumlahSoal: 4 }), { analisis: ANALISIS_CONTOH, identitas: IDENTITAS_CONTOH });
-    const urut = ["NILAI AKHIR", "Peta Kompetensi", "Daya Serap per Indikator", "Analisis Learning Analytics", "Rincian Jawaban"].map((t) => r.teks.indexOf(t));
-    for (const i of urut) expect(i).toBeGreaterThan(-1);
-    expect([...urut].sort((a, b) => a - b)).toEqual(urut);
+  it("nilai, Peta Kompetensi (hierarki resmi atau lama), Analisis Learning Analytics, lalu Rincian Jawaban", async () => {
+    const rDenganIndikator = await renderUji(await buatHasilContoh({ jumlahSoal: 4, indikator: true }), { analisis: ANALISIS_CONTOH, identitas: IDENTITAS_CONTOH });
+    const urutDengan = ["NILAI AKHIR", "Peta Kompetensi", "Daya Serap per Indikator", "Analisis Learning Analytics", "Rincian Jawaban"].map((t) => rDenganIndikator.teks.indexOf(t));
+    for (const i of urutDengan) expect(i).toBeGreaterThan(-1);
+    expect([...urutDengan].sort((a, b) => a - b)).toEqual(urutDengan);
+
+    const rTanpaIndikator = await renderUji(await buatHasilContoh({ jumlahSoal: 4, indikator: false }), { analisis: ANALISIS_CONTOH, identitas: IDENTITAS_CONTOH });
+    const urutTanpa = ["NILAI AKHIR", "Peta Kompetensi", "Analisis Learning Analytics", "Rincian Jawaban"].map((t) => rTanpaIndikator.teks.indexOf(t));
+    for (const i of urutTanpa) expect(i).toBeGreaterThan(-1);
+    expect([...urutTanpa].sort((a, b) => a - b)).toEqual(urutTanpa);
   });
 });

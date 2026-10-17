@@ -190,7 +190,7 @@ export async function buatHasilContoh(o: OpsiFixture = {}) {
     paketBerseriBelumTerjawab: false,
     ranking: o.ranking ? { peringkatSaya: 3, totalPeserta: 45, papan: [] as { peringkat: number; nama: string; skor: number; andaSendiri: boolean }[] } : null,
     perSoal,
-    indikator: o.indikator === false ? null : hitungLaporanSiswa(jw),
+    indikator: o.indikator ? hitungLaporanSiswa(jw) : null,
     competencyScores: [],
     hierarkiKompetensi: o.hierarki === false ? undefined : bangunHierarkiKompetensi(skor),
     elemenScores: [
